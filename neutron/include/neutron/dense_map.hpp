@@ -1,0 +1,393 @@
+#pragma once
+#include <array>
+#include <concepts>
+#include <initializer_list>
+#include <memory>
+#include <memory_resource>
+#include <type_traits>
+#include <vector>
+#include "neutron/mask.hpp"
+#include "neutron/memory.hpp"
+#include "neutron/neutron.hpp"
+#include "neutron/ranges.hpp"
+
+namespace neutron {
+
+constexpr size_t k_dense_map_default_page_size = 32;
+
+template <
+    std::unsigned_integral Kty, typename Ty,
+    _std_simple_allocator Alloc = std::allocator<std::pair<Kty, Ty>>,
+    std::size_t PageSize        = k_dense_map_default_page_size>
+class dense_map {
+public:
+    static_assert(PageSize, "page size should not be zero");
+
+    template <typename T>
+    using _allocator_t = typename std::allocator_traits<Alloc>::template rebind_alloc<T>;
+
+    template <typename T>
+    using _vector_t = std::vector<T, _allocator_t<T>>;
+
+    // clang-format off
+
+    using key_type               = Kty;
+    using mapped_type            = Ty;
+    using value_type             = std::pair<key_type, mapped_type>;
+
+    using _dense_type            = _vector_t<value_type>;
+    using _dense_alloc_t         = _allocator_t<value_type>;
+    using _dense_alloc_traits_t  = std::allocator_traits<_dense_alloc_t>;
+
+    using allocator_type         = _dense_alloc_t;
+    using alloc_traits           = _dense_alloc_traits_t;
+
+    using size_type              = typename alloc_traits::size_type;
+    using difference_type        = typename alloc_traits::difference_type;
+    using pointer                = typename alloc_traits::pointer;
+    using const_pointer          = typename alloc_traits::const_pointer;
+    using reference              = value_type&;
+    using const_reference        = const value_type&;
+
+    // the storage is effective when relocating, so we do not store the array directly.
+
+    using _array_t               = std::array<key_type, PageSize>;
+    using _storage_t             = unique_storage<_array_t, _allocator_t<_array_t>>;
+    using _sparse_type           = _vector_t<_storage_t>;
+    using _sparse_alloc_t        = _allocator_t<_storage_t>;
+    using _sparse_alloc_traits   = std::allocator_traits<_sparse_alloc_t>;
+
+    using iterator               = typename _dense_type::iterator;
+    using const_iterator         = typename _dense_type::const_iterator;
+    using reverse_iterator       = typename _dense_type::reverse_iterator;
+    using const_reverse_iterator = typename _dense_type::const_reverse_iterator;
+
+    // clang-format on
+
+    /**
+     * @brief Default constructor.
+     *
+     */
+    constexpr dense_map() noexcept(
+        std::is_nothrow_default_constructible_v<_dense_type> &&
+        std::is_nothrow_default_constructible_v<_sparse_type>)
+        : dense_(), sparse_() {}
+
+    /**
+     * @brief Construct with allocator.
+     *
+     */
+    template <typename Al>
+    constexpr dense_map(const Al& allocator) noexcept(
+        std::is_nothrow_constructible_v<_dense_type, _dense_alloc_t> &&
+        std::is_nothrow_constructible_v<_sparse_type, _sparse_alloc_t>)
+        : dense_(allocator), sparse_(allocator) {}
+
+    constexpr dense_map(std::allocator_arg_t, const Alloc& alloc) noexcept(
+        std::is_nothrow_constructible_v<dense_map, Alloc>)
+        : dense_map(alloc) {}
+
+    /**
+     * @brief Construct by iterators and allocator.
+     *
+     */
+    template <typename IFirst, typename ILast>
+    requires concepts::constructible_from_iterator<IFirst, value_type>
+    constexpr dense_map(IFirst first, ILast last, const Alloc& alloc) noexcept(
+        noexcept(dense_map(std::allocator_arg, alloc, first, last)))
+        : dense_(first, last, alloc), sparse_(alloc) {
+        for (const auto& [key, val] : dense_) {
+            auto page   = _page_of(key);
+            auto offset = _offset_of(key);
+            _check_page(page);
+            sparse_[page]->at(offset) = dense_.size();
+        }
+    }
+
+    /**
+     * @brief Construct by iterators and allocator.
+     *
+     */
+    template <typename IFirst, typename ILast>
+    requires concepts::constructible_from_iterator<IFirst, value_type>
+    constexpr explicit dense_map(std::allocator_arg_t, const Alloc& alloc, IFirst first, ILast last)
+        : dense_map(first, last, alloc) {}
+
+    /**
+     * @brief Construct by iterators.
+     *
+     */
+    template <typename IFirst, typename ILast>
+    requires concepts::constructible_from_iterator<IFirst, value_type>
+    constexpr dense_map(IFirst first, ILast last) : dense_map(first, last, _dense_alloc_t{}) {}
+
+    /**
+     * @brief Construct by initializer list and allocator.
+     *
+     */
+    template <typename Al = Alloc, typename Pair = value_type>
+    requires requires {
+        typename Pair::first_type;
+        typename Pair::second_type;
+    } && std::is_constructible_v<value_type, typename Pair::first_type, typename Pair::second_type>
+    constexpr dense_map(std::initializer_list<Pair> list, const Al& allocator = Alloc{})
+        : dense_(list.begin(), list.end(), allocator), sparse_(allocator) {
+        for (auto i = 0; i < list.size(); ++i) {
+            const auto& [key, val] = dense_[i];
+            auto page              = _page_of(key);
+            auto offset            = _offset_of(key);
+            _check_page(page);
+            sparse_[page]->at(offset) = i;
+        }
+    }
+
+    template <typename Al, typename Pair = value_type>
+    requires requires {
+        typename Pair::first_type;
+        typename Pair::second_type;
+    } && std::constructible_from<value_type, typename Pair::first_type, typename Pair::second_type>
+    constexpr dense_map(std::allocator_arg_t, const Al& alloc, std::initializer_list<Pair> list)
+        : dense_map(list, alloc) {}
+
+    constexpr dense_map(dense_map&& that) noexcept
+        : dense_(std::move(that.dense_)), sparse_(std::move(that.sparse_)) {}
+
+    constexpr dense_map& operator=(dense_map&& that) noexcept {
+        if (this != &that) {
+            dense_  = std::move(that.dense_);
+            sparse_ = std::move(that.sparse_);
+        }
+        return *this;
+    }
+
+    constexpr dense_map(const dense_map& that)
+        : dense_(that.dense_), sparse_(that.sparse_.size(), that.sparse_.get_allocator()) {
+        for (const auto& page : that.sparse_) {
+            sparse_.emplace_back(*page);
+        }
+    }
+
+    constexpr dense_map& operator=(const dense_map& that) {
+        if (this != &that) {
+            dense_map temp(that);
+            std::swap(dense_, temp.dense_);
+            std::swap(sparse_, temp.sparse_);
+        }
+        return *this;
+    }
+
+    constexpr ~dense_map() noexcept = default;
+
+    NODISCARD constexpr auto at(const key_type key) -> Ty& {
+        auto page   = _page_of(key);
+        auto offset = _offset_of(key);
+        return dense_[sparse_[page]->at(offset)].second;
+    }
+
+    NODISCARD constexpr auto at(const key_type key) const -> const Ty& {
+        auto page   = _page_of(key);
+        auto offset = _offset_of(key);
+        return dense_[sparse_[page]->at(offset)].second;
+    }
+
+    constexpr auto operator[](const key_type key) -> Ty& {
+        auto page   = _page_of(key);
+        auto offset = _offset_of(key);
+        return dense_[sparse_[page]->at(offset)].second;
+    }
+
+    template <typename... Tys>
+    requires std::is_constructible_v<value_type, Tys...>
+    constexpr std::pair<iterator, bool> emplace(Tys&&... vals) {
+        std::pair pair{ std::forward<Tys>(vals)... };
+        auto current_page_count = sparse_.size();
+        try {
+            dense_.emplace_back(std::forward<Tys>(vals)...);
+            const auto& back = dense_.back();
+            auto page        = _page_of(back.first);
+            auto offset      = _page_of(back.first);
+            try {
+                _check_page(page);
+                sparse_[page]->at(offset) = dense_.size() - 1;
+            } catch (...) {
+                _pop_page_to(current_page_count);
+                throw;
+            }
+        } catch (...) {
+            throw;
+        }
+        return { dense_.end() - 1, true };
+    }
+
+    constexpr auto erase(const key_type key) {
+        auto page   = _page_of(key);
+        auto offset = _offset_of(key);
+
+        if (_contains_impl(key, page, offset)) {
+            _erase_without_check_impl(page, offset);
+        }
+    }
+
+    constexpr auto erase_without_check(const key_type key) {
+        auto page   = _page_of(key);
+        auto offset = _offset_of(key);
+        _erase_without_check_impl(page, offset);
+    }
+
+    constexpr void reserve(const size_type size) {
+        auto page = _page_of(size);
+        _check_page(page);
+        dense_.reserve(size);
+    }
+
+    constexpr auto contains(const key_type key) const -> bool {
+        auto page   = _page_of(key);
+        auto offset = _offset_of(key);
+        return _contains_impl(key, page, offset);
+    }
+
+    NODISCARD constexpr auto find(const key_type key) noexcept -> iterator {
+        auto page   = _page_of(key);
+        auto offset = _offset_of(key);
+
+        if (_contains_impl(key, page, offset)) {
+            return dense_.begin() + sparse_[page]->at(offset);
+        }
+        return dense_.end();
+    }
+
+    NODISCARD constexpr auto find(const key_type key) const noexcept -> const_iterator {
+        auto page   = _page_of(key);
+        auto offset = _offset_of(key);
+
+        if (_contains_impl(key, page, offset)) {
+            return dense_.begin() + sparse_[page]->at(offset);
+        }
+        return dense_.end();
+    }
+
+    NODISCARD constexpr bool empty() const noexcept { return dense_.empty(); }
+
+    NODISCARD constexpr size_type size() const noexcept { return dense_.size(); }
+
+    constexpr void clear() noexcept {
+        sparse_.clear();
+        dense_.clear();
+    }
+
+    NODISCARD constexpr auto front() -> value_type& { return dense_.front(); }
+    NODISCARD constexpr auto front() const -> const value_type& { return dense_.front(); }
+
+    NODISCARD constexpr auto back() -> value_type& { return dense_.back(); }
+    NODISCARD constexpr auto back() const -> const value_type& { return dense_.back(); }
+
+    NODISCARD constexpr auto begin() noexcept -> iterator { return dense_.begin(); }
+    NODISCARD constexpr auto begin() const noexcept -> const_iterator { return dense_.begin(); }
+    NODISCARD constexpr auto cbegin() const noexcept -> const_iterator { return dense_.cbegin(); }
+
+    NODISCARD constexpr auto end() noexcept -> iterator { return dense_.end(); }
+    NODISCARD constexpr auto end() const noexcept -> const_iterator { return dense_.end(); }
+    NODISCARD constexpr auto cend() const noexcept -> const_iterator { return dense_.cend(); }
+
+    NODISCARD constexpr auto rbegin() noexcept -> reverse_iterator { return dense_.rbegin(); }
+    NODISCARD constexpr auto rbegin() const noexcept -> const_reverse_iterator {
+        return dense_.rbegin();
+    }
+    NODISCARD constexpr auto crbegin() const noexcept -> const_reverse_iterator {
+        return dense_.crbegin();
+    }
+
+    NODISCARD constexpr auto rend() noexcept -> reverse_iterator { return dense_.rend(); }
+    NODISCARD constexpr auto rend() const noexcept -> const_reverse_iterator {
+        return dense_.rend();
+    }
+    NODISCARD constexpr auto crend() const noexcept -> const_reverse_iterator {
+        return dense_.crend();
+    }
+
+    NODISCARD constexpr auto get_allocator() const noexcept { return dense_.get_allocator(); }
+
+private:
+    constexpr static size_type _page_of(const key_type key) noexcept {
+        return _uint_dev<PageSize>(key);
+    }
+    constexpr static size_type _offset_of(const key_type key) noexcept {
+        return _uint_mod<PageSize>(key);
+    }
+    constexpr void _check_page(const size_type page) noexcept {
+        const auto current_page = sparse_.size();
+        try {
+            while (page >= sparse_.size()) {
+                sparse_.emplace_back(immediately);
+            }
+        } catch (...) {
+            _pop_page_to(current_page);
+        }
+    }
+    constexpr void _pop_page_to(const size_type page) noexcept {
+        while (sparse_.size() != page) {
+            sparse_.pop_back();
+        }
+    }
+    NODISCARD constexpr auto _contains_impl(
+        const key_type key, const size_type page, const size_type offset) const noexcept -> bool {
+        if (dense_.empty() || sparse_.size() <= page) {
+            return false;
+        }
+
+        const auto dense_index = sparse_[page]->at(offset);
+        // assume dense_index < dense_.size()
+        return dense_[dense_index].first == key;
+    }
+
+    /**
+     * @brief Erase element without check.
+     * May cause error, but faster.
+     * We could check before calling this.
+     */
+    constexpr auto _erase_without_check_impl(const size_type page, const size_type offset) {
+        auto& index                                               = sparse_[page]->at(offset);
+        auto& back                                                = dense_.back();
+        sparse_[_page_of(back.first)]->at(_offset_of(back.first)) = index;
+        std::swap(dense_[index], back);
+        dense_.pop_back();
+        index = 0;
+    }
+
+    _dense_type dense_;
+    _sparse_type sparse_;
+};
+
+template <
+    typename Kty, typename Ty, typename Alloc = std::allocator<std::pair<Kty, Ty>>,
+    size_t PageSize = k_dense_map_default_page_size,
+    typename        = std::enable_if_t<std::is_unsigned_v<Kty>>>
+dense_map(std::initializer_list<std::pair<Kty, Ty>>, Alloc = Alloc())
+    -> dense_map<Kty, Ty, Alloc, PageSize>;
+template <
+    typename Kty, typename Ty, typename Alloc = std::allocator<std::pair<Kty, Ty>>,
+    size_t PageSize = k_dense_map_default_page_size,
+    typename        = std::enable_if_t<std::is_unsigned_v<Kty>>>
+dense_map(std::initializer_list<std::pair<const Kty, Ty>>, Alloc = Alloc())
+    -> dense_map<Kty, Ty, Alloc, PageSize>;
+template <
+    typename Kty, typename Ty, typename Alloc = std::allocator<std::pair<Kty, Ty>>,
+    size_t PageSize = k_dense_map_default_page_size,
+    typename        = std::enable_if_t<std::is_unsigned_v<Kty>>>
+dense_map(std::initializer_list<compressed_pair<Kty, Ty>>, Alloc = Alloc())
+    -> dense_map<Kty, Ty, Alloc, PageSize>;
+template <
+    typename Kty, typename Ty, typename Alloc = std::allocator<std::pair<Kty, Ty>>,
+    size_t PageSize = k_dense_map_default_page_size,
+    typename        = std::enable_if_t<std::is_unsigned_v<Kty>>>
+dense_map(std::initializer_list<compressed_pair<const Kty, Ty>>, Alloc = Alloc())
+    -> dense_map<Kty, Ty, Alloc, PageSize>;
+
+namespace pmr {
+
+template <std::unsigned_integral Kty, typename Ty, size_t PageSize = k_dense_map_default_page_size>
+using dense_map = dense_map<Kty, Ty, std::pmr::polymorphic_allocator<>, PageSize>;
+
+} // namespace pmr
+
+} // namespace neutron
