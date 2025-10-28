@@ -828,8 +828,7 @@ public:
     runtime_pool& operator=(runtime_pool&&)      = delete;
 
     constexpr ~runtime_pool() noexcept {
-        ::operator delete(
-            proxy_.data(), Size * proxy_.capacity(), static_cast<std::align_val_t>(Align));
+        ::operator delete(proxy_.data(), static_cast<std::align_val_t>(Align));
     }
 
     template <typename Ty>

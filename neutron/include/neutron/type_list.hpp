@@ -105,6 +105,21 @@ struct is_empty_template<Template<>> : std::true_type {};
 template <typename Ty>
 constexpr auto is_empty_template_v = is_empty_template<Ty>::value;
 
+template <typename Fallback, typename Ty>
+struct type_list_not_empty;
+template <typename Fallback, typename Ty>
+requires std::negation_v<is_empty_template<Ty>>
+struct type_list_not_empty<Fallback, Ty> {
+    using type = Ty;
+};
+template <typename Fallback, typename Ty>
+requires is_empty_template_v<Ty>
+struct type_list_not_empty <Fallback, Ty> {
+    using type = Fallback;
+};
+template <typename Fallback, typename Ty>
+using type_list_not_empty_t = typename type_list_not_empty<Fallback, Ty>::type;
+
 template <template <typename...> typename List, typename>
 struct append_type_list;
 template <

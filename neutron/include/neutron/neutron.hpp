@@ -1,6 +1,6 @@
 #pragma once
-
 #include <initializer_list>
+
 #if defined(__i386__) || defined(__x86_64__)
     #define TARGET_X86
     #include <immintrin.h>
