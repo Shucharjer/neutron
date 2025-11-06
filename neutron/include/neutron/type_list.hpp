@@ -63,12 +63,12 @@ constexpr bool type_list_has_v = type_list_has<Ty, Tuple>::value;
 
 template <typename>
 struct empty_type_list;
-template <template <typename...>typename Template, typename... Tys>
+template <template <typename...> typename Template, typename... Tys>
 struct empty_type_list<Template<Tys...>> {
     using type = Template<>;
 };
 template <typename TypeList>
-using empty_type_list_t= typename empty_type_list<TypeList>::type;
+using empty_type_list_t = typename empty_type_list<TypeList>::type;
 
 template <typename TypeList, typename = empty_type_list_t<TypeList>>
 struct unique_type_list;
@@ -114,7 +114,7 @@ struct type_list_not_empty<Fallback, Ty> {
 };
 template <typename Fallback, typename Ty>
 requires is_empty_template_v<Ty>
-struct type_list_not_empty <Fallback, Ty> {
+struct type_list_not_empty<Fallback, Ty> {
     using type = Fallback;
 };
 template <typename Fallback, typename Ty>
@@ -226,18 +226,57 @@ struct type_list_substitute<Template<Tys...>, Old, New> {
 template <typename Template, typename Old, typename New>
 using type_list_substitute_t = typename type_list_substitute<Template, Old, New>::type;
 
-template <template <typename> typename Predicate, typename TypeList> 
+template <template <typename...> typename Tmp, typename TypeList>
+struct type_list_expose;
+template <
+    template <typename...> typename Tmp, template <typename...> typename Template, typename... Tys>
+struct type_list_expose<Tmp, Template<Tys...>> {
+    template <typename Ty>
+    struct expose {
+        using type = Template<Ty>;
+    };
+    template <typename... Args>
+    struct expose<Tmp<Args...>> {
+        using type = Template<Args...>;
+    };
+
+    using type = type_list_cat_t<typename expose<Tys>::type...>;
+};
+template <template <typename...> typename Tmp, typename TypeList>
+using type_list_expose_t = typename type_list_expose<Tmp, TypeList>::type;
+
+template <template <typename> typename Predicate, typename TypeList>
 struct type_list_requires_recurse {
     template <typename Ty>
     struct requires_recurse {
         constexpr static bool value = Predicate<Ty>::value;
     };
     template <template <typename...> typename Template, typename... Tys>
-    struct requires_recurse <Template<Tys...>> {
+    struct requires_recurse<Template<Tys...>> {
         constexpr static bool value = (requires_recurse<Tys>::value && ...);
     };
     constexpr static bool value = requires_recurse<TypeList>::value;
 };
+
+template <template <auto> typename, typename>
+struct type_list_from_value;
+template <template <auto> typename Predicate, template <auto...> typename Template, auto... Vals>
+struct type_list_from_value<Predicate, Template<Vals...>> {
+    using type = neutron::type_list<typename Predicate<Vals>::type...>;
+};
+template <template <auto> typename Predicate, typename ValList>
+using type_list_from_value_t = typename type_list_from_value<Predicate, ValList>::type;
+
+template <template <auto, typename...> typename Tmp, auto Value, typename>
+struct type_list_with_value;
+template <
+    template <auto, typename...> typename Tmp, auto Value, template <typename...> typename Template,
+    typename... Tys>
+struct type_list_with_value<Tmp, Value, Template<Tys...>> {
+    using type = Tmp<Value, Tys...>;
+};
+template <template <auto, typename...> typename Tmp, auto Value, typename TypeList>
+using type_list_with_value_t = typename type_list_with_value<Tmp, Value, TypeList>::type;
 
 template <template <typename...> typename Template, typename Ty, typename Target>
 struct insert_type_list_inplace {
