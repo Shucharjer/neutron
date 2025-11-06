@@ -270,7 +270,7 @@ public:
     constexpr void mark_complete() noexcept { complete_ = true; }
 
     constexpr ~exception_guard() noexcept {
-        if (!complete_) {
+        if (!complete_) [[unlikely]] {
             rollback_();
         }
     }
@@ -321,7 +321,7 @@ concept _not = (!std::same_as<Ty1, Ty2>);
 
 template <typename Ty, typename... Args>
 consteval auto make_array(Args&&... args) {
-    return std::array<Ty, sizeof...(Args)>{Ty{std::forward<Args>(args)}...};
+    return std::array<Ty, sizeof...(Args)>{ Ty{ std::forward<Args>(args) }... };
 }
 
 } // namespace neutron

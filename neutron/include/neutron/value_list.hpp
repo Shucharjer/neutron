@@ -38,8 +38,9 @@ struct value_list_element<0, value_list<Val, Others...>> {
     constexpr static auto value = Val;
 };
 template <size_t Index, auto Val, auto... Others>
-struct value_list_element<Index, value_list<Val, Others...>>
-    : value_list_element<Index - 1, value_list<Others...>> {};
+struct value_list_element<Index, value_list<Val, Others...>> {
+    constexpr static auto value = value_list_element<Index - 1, value_list<Others...>>::value;
+};
 template <size_t Index, typename Ty>
 constexpr inline auto value_list_element_v = value_list_element<Index, Ty>::value;
 
@@ -65,15 +66,20 @@ template <typename... Vls>
 using value_list_cat_t = typename value_list_cat<Vls...>::type;
 
 template <auto Lhs, auto Rhs>
-struct is_same_value : std::bool_constant<std::is_same_v<value_list<Lhs>, value_list<Rhs>>> {};
+struct is_same_value {
+    template <auto Val>
+    struct value_wrapper {};
+    constexpr static bool value = std::is_same_v<value_wrapper<Lhs>, value_wrapper<Rhs>>;
+};
 template <auto Lhs, auto Rhs>
 constexpr auto is_same_value_v = is_same_value<Lhs, Rhs>::value;
 
 template <auto Val, typename>
 struct value_list_has : std::false_type {};
 template <auto Val, template <auto...> typename Template, auto... Vals>
-struct value_list_has<Val, Template<Vals...>>
-    : std::bool_constant<(is_same_value_v<Val, Vals> || ...)> {};
+struct value_list_has<Val, Template<Vals...>> {
+    constexpr static bool value = (is_same_value_v<Val, Vals> || ...);
+};
 template <auto Val, typename Vl>
 constexpr bool value_list_has_v = value_list_has<Val, Vl>::value;
 

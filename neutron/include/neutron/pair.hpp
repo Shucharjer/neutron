@@ -34,17 +34,6 @@ concept _private_pair = requires(const Ty& val) {
     val.second();
 };
 
-class _p_ {
-    constexpr static auto _v_ = 21;
-
-    template <typename Ty>
-    constexpr auto _foo() {
-        constexpr auto vvv = 32;
-    }
-
-public:
-};
-
 /**
  * @brief General pair concept
  *

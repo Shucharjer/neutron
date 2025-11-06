@@ -29,7 +29,8 @@ concept _range_adaptor_closure_object =
  * @tparam Second The type of the second range closure.
  */
 template <typename First, typename Second>
-struct _range_pipeline_result : public range_adaptor_closure<_range_pipeline_result<First, Second>> {
+struct _range_pipeline_result
+    : public range_adaptor_closure<_range_pipeline_result<First, Second>> {
 
     template <typename Left, typename Right>
     constexpr _range_pipeline_result(Left&& left, Right&& right) noexcept(
@@ -340,6 +341,13 @@ concept constructible_from_iterator =
 template <typename Rng, typename Ty>
 concept compatible_range =
     std::ranges::range<Rng> && std::same_as<std::ranges::range_value_t<Rng>, Ty>;
+
+template <typename Rng>
+concept map_like = std::ranges::range<Rng> && (requires {
+                       typename Rng::key_type;
+                       typename Rng::mapped_type;
+                   } || (_pair<std::ranges::range_value_t<Rng>> &&
+                         std::is_const_v<typename std::ranges::range_value_t<Rng>::first_type>));
 
 } // namespace concepts
 

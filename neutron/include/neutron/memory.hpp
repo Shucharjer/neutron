@@ -125,8 +125,12 @@ public:
     using pointer        = typename alloc_traits::pointer;
     using const_pointer  = typename alloc_traits::const_pointer;
 
-    unique_storage(const unique_storage&)            = delete;
-    unique_storage& operator=(const unique_storage&) = delete;
+    unique_storage(const unique_storage& that)
+        : alloc_t(that.get_allocator()), ptr_(that.ptr_ ? get_allocator().allocate(1) : nullptr) {
+        _construct_it(*that.ptr);
+    }
+
+    unique_storage& operator=(const unique_storage& that) = delete;
 
     constexpr unique_storage(unique_storage&& that) noexcept // since c++17
         : alloc_t(std::move(that.get_allocator())), ptr_(std::exchange(that.ptr_, nullptr)) {}
