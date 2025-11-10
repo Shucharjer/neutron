@@ -4,8 +4,7 @@
 #include <utility>
 #include "neutron/member_traits.hpp"
 #include "neutron/type_hash.hpp"
-#include "neutron/type_list.hpp"
-#include "neutron/value_list.hpp"
+#include "neutron/template_list.hpp"
 
 namespace neutron {
 

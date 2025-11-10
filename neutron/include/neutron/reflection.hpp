@@ -13,6 +13,8 @@
 #include <utility>
 #include "neutron/neutron.hpp"
 #include "neutron/type.hpp"
+#include "neutron/type_hash.hpp"
+
 
 #ifndef FORCE_INLINE
     #ifdef _MSC_VER
@@ -267,58 +269,6 @@ struct function_traits<Ret (Class::*)(Args...)> : public ::neutron::basic_functi
 private:
     Ret (Class::*pointer_)(Args...);
 };
-} // namespace neutron
-
-///////////////////////////////////////////////////////////////////////////////
-// module: name_of <typename>
-///////////////////////////////////////////////////////////////////////////////
-
-namespace neutron {
-/**
- * @brief Get the name of a type.
- *
- */
-template <typename Ty>
-[[nodiscard]] consteval std::string_view name_of() noexcept {
-#ifdef _MSC_VER
-    constexpr std::string_view funcname = __FUNCSIG__;
-#else
-    constexpr std::string_view funcname = __PRETTY_FUNCTION__;
-#endif
-
-#ifdef __clang__
-    auto split = funcname.substr(0, funcname.size() - 1);
-    return split.substr(split.find_last_of(' ') + 1);
-#elif defined(__GNUC__)
-    auto split = funcname.substr(77);
-    return split.substr(0, split.size() - 50);
-#elif defined(_MSC_VER)
-    auto split = funcname.substr(110);
-    split      = split.substr(split.find_first_of(' ') + 1);
-    return split.substr(0, split.size() - 7);
-#else
-    static_assert(false, "Unsupportted compiler");
-#endif
-}
-
-template <typename Ty>
-struct alias_name {};
-
-template <typename Ty>
-concept _has_alias_name = requires { alias_name<Ty>::value; };
-
-template <concepts::value Ty>
-requires(!_has_alias_name<Ty>)
-[[nodiscard]] consteval std::string_view alias_name_of() noexcept {
-    return name_of<Ty>();
-}
-
-template <concepts::value Ty>
-requires _has_alias_name<Ty>
-[[nodiscard]] consteval std::string_view alias_name_of() noexcept {
-    return alias_name<Ty>::value;
-}
-
 } // namespace neutron
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -1116,49 +1066,6 @@ constexpr std::array<std::string_view, member_count_v<Ty>> member_names_of() noe
 #endif
 
 namespace neutron {
-/*! @cond TURN_OFF_DOXYGEN */
-namespace internal {
-FORCE_INLINE constexpr std::size_t hash(std::string_view string) noexcept {
-    // DJB2 Hash
-    // NOTE: This hash algorithm is not friendly to parallelization support
-    // TODO: Another hash algrorithm, which is friendly to parallelization.
-
-#if ATOM_VECTORIZABLE && false
-    // bytes
-    const size_t parallel_request = 16;
-
-    #if defined(__AVX2__)
-    const size_t group_size = 8;
-    #elif defined(__SSE2__)
-    const size_t group_size = 4;
-    #endif
-#endif
-
-    const size_t magic_initial_value = 5381;
-    const size_t magic               = 5;
-
-    std::size_t value = magic_initial_value;
-#if ATOM_VECTORIZABLE && false
-    if (string.length() < group_size) {
-#endif
-        for (const char cha : string) {
-            value = ((value << magic) + value) + cha;
-        }
-#if ATOM_VECTORIZABLE && false
-    } else {
-    }
-#endif
-    return value;
-}
-
-} // namespace internal
-/*! @endcond */
-
-template <concepts::value Ty>
-consteval size_t hash_of() noexcept {
-    constexpr auto name = name_of<Ty>();
-    return internal::hash(name);
-}
 
 template <concepts::value Ty>
 constexpr inline std::size_t hash_v = hash_of<Ty>;
@@ -6080,10 +5987,6 @@ public:
      */
     [[nodiscard]] constexpr auto name() const noexcept -> std::string_view { return name_; }
 
-    [[nodiscard]] constexpr auto alias_name() const noexcept -> std::string_view {
-        return alias_name_;
-    }
-
     /**
      * @brief Get the hash value of this reflected type.
      *
@@ -6100,12 +6003,11 @@ public:
 protected:
     constexpr explicit basic_reflected(
         std::string_view name, const std::size_t hash, const description_bits description,
-        std::string_view alias_name, void (*destroy)(void*) = nullptr) noexcept
+        void (*destroy)(void*) = nullptr) noexcept
         : name_(name), hash_(hash), description_(description), destroy_(destroy) {}
 
 private:
     std::string_view name_;
-    std::string_view alias_name_;
     std::size_t hash_;
     description_bits description_;
     void (*destroy_)(void*) = nullptr;
@@ -6120,7 +6022,7 @@ template <concepts::value Ty>
 struct reflected final : public basic_reflected {
     constexpr reflected() noexcept
         : basic_reflected(
-              name_of<Ty>(), hash_of<Ty>(), description_of<Ty>(), alias_name_of<Ty>(),
+              name_of<Ty>(), hash_of<Ty>(), description_of<Ty>(), 
               &internal::wrapped_destroy<Ty>) {}
 
     reflected(const reflected&) noexcept            = default;

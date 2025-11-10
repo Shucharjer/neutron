@@ -5,6 +5,7 @@
 #include <memory>
 #include <stdexcept>
 #include <tuple>
+#include <type_traits>
 #include <utility>
 #include <vector>
 #include "neutron/const_identity.hpp"
@@ -183,8 +184,8 @@ public:
 #if HAS_CXX23
     template <typename Rng>
     constexpr void insert_range(Rng&& range) {
-        const auto size = dense_.size();
-        auto dense_guard = make_exception_guard([this,size]{dense_.resize(size);});
+        const auto size  = dense_.size();
+        auto dense_guard = make_exception_guard([this, size] { dense_.resize(size); });
         dense_.insert_range(std::forward<Rng>(range));
         _set_sparse(size); // elements may not differs from elements in range
         dense_guard.mark_complete();
@@ -416,3 +417,13 @@ using shift_map = shift_map<Kty, Ty, std::pmr::polymorphic_allocator<>, PageSize
 }
 
 } // namespace neutron
+
+/*! @cond TURN_OFF_DOXYGEN */
+namespace std {
+
+template <unsigned_integral Kty, typename Ty, typename Alloc, size_t PageSize, size_t Shift>
+struct uses_allocator<neutron::shift_map<Kty, Ty, Alloc, PageSize, Shift>, Alloc> : std::true_type {
+};
+
+} // namespace std
+/*! @endcond */

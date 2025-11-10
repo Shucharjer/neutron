@@ -5,6 +5,155 @@
 
 namespace neutron {
 
+template <auto... Vals>
+struct value_list {};
+
+template <typename>
+struct is_value_list : std::false_type {};
+template <auto... Vals>
+struct is_value_list<value_list<Vals...>> : std::true_type {};
+template <typename Ty>
+constexpr auto is_value_list_v = is_value_list<Ty>::value;
+
+template <template <auto...> typename Template, typename>
+struct is_specific_value_list : std::false_type {};
+template <template <auto...> typename Template, auto... Vals>
+struct is_specific_value_list<Template, Template<Vals...>> : std::true_type {};
+template <template <auto...> typename Template, typename Ty>
+constexpr bool is_specific_value_list_v = is_specific_value_list<Template, Ty>::value;
+
+template <typename Ty>
+struct value_list_size;
+template <auto... Vals>
+struct value_list_size<value_list<Vals...>> {
+    constexpr static std::size_t value = sizeof...(Vals);
+};
+template <typename Ty>
+constexpr size_t value_list_size_v = value_list_size<Ty>::value;
+
+template <size_t Index, typename Ty>
+struct value_list_element;
+template <auto Val, auto... Others>
+struct value_list_element<0, value_list<Val, Others...>> {
+    constexpr static auto value = Val;
+};
+template <size_t Index, auto Val, auto... Others>
+struct value_list_element<Index, value_list<Val, Others...>> {
+    constexpr static auto value = value_list_element<Index - 1, value_list<Others...>>::value;
+};
+template <size_t Index, typename Ty>
+constexpr inline auto value_list_element_v = value_list_element<Index, Ty>::value;
+
+template <typename...>
+struct value_list_cat;
+template <template <auto...> typename Template>
+struct value_list_cat<Template<>> {
+    using type = Template<>;
+};
+template <template <auto...> typename Template, auto... Vals>
+struct value_list_cat<Template<Vals...>> {
+    using type = Template<Vals...>;
+};
+template <template <auto...> typename Template, auto... Vals1, auto... Vals2>
+struct value_list_cat<Template<Vals1...>, Template<Vals2...>> {
+    using type = Template<Vals1..., Vals2...>;
+};
+template <typename Vl1, typename Vl2, typename... Vls>
+struct value_list_cat<Vl1, Vl2, Vls...> {
+    using type = typename value_list_cat<typename value_list_cat<Vl1, Vl2>::type, Vls...>::type;
+};
+template <typename... Vls>
+using value_list_cat_t = typename value_list_cat<Vls...>::type;
+
+template <auto Lhs, auto Rhs>
+struct is_same_value {
+    template <auto Val>
+    struct value_wrapper {};
+    constexpr static bool value = std::is_same_v<value_wrapper<Lhs>, value_wrapper<Rhs>>;
+};
+template <auto Lhs, auto Rhs>
+constexpr auto is_same_value_v = is_same_value<Lhs, Rhs>::value;
+
+template <auto Val, typename>
+struct value_list_has : std::false_type {};
+template <auto Val, template <auto...> typename Template, auto... Vals>
+struct value_list_has<Val, Template<Vals...>> {
+    constexpr static bool value = (is_same_value_v<Val, Vals> || ...);
+};
+template <auto Val, typename Vl>
+constexpr bool value_list_has_v = value_list_has<Val, Vl>::value;
+
+template <typename>
+struct value_list_first;
+template <template <auto...> typename Template, auto Val, auto... Others>
+struct value_list_first<Template<Val, Others...>> {
+    constexpr static auto value = Val;
+};
+template <typename ValList>
+constexpr auto value_list_first_v = value_list_first<ValList>::value;
+
+template <template <auto...> typename List, typename>
+struct append_value_list;
+template <
+    template <auto...> typename List, template <typename...> typename Template, typename... Tys>
+struct append_value_list<List, Template<Tys...>> {
+    using type = Template<Tys..., List<>>;
+};
+template <template <auto...> typename List, typename Target>
+using append_value_list_t = typename append_value_list<List, Target>::type;
+
+template <template <auto> typename Predicate, typename ValList>
+struct value_list_filt;
+template <template <auto> typename Predicate, template <auto...> typename Template, auto... Tys>
+struct value_list_filt<Predicate, Template<Tys...>> {
+    template <typename Curr, auto... Remains>
+    struct filt;
+    template <auto... Curr>
+    struct filt<Template<Curr...>> {
+        using type = Template<Curr...>;
+    };
+    template <auto... Curr, auto Val>
+    struct filt<Template<Curr...>, Val> {
+        using type =
+            std::conditional_t<Predicate<Val>::value, Template<Curr..., Val>, Template<Curr...>>;
+    };
+    template <auto... Curr, auto Val, auto... Others>
+    struct filt<Template<Curr...>, Val, Others...> {
+        using type = std::conditional_t<
+            Predicate<Val>::value, typename filt<Template<Curr..., Val>, Others...>::type,
+            typename filt<Template<Curr...>, Others...>::type>;
+    };
+    using type = typename filt<Template<>, Tys...>::type;
+};
+template <template <auto> typename Predicate, typename ValList>
+using value_list_filt_t = typename value_list_filt<Predicate, ValList>::type;
+
+// template <template<auto>typename Predicate, typename ValList, typename TyIfEmpty>
+// struct value_list_filt_nvoid{
+//     template <
+// };
+
+/**
+ * @brief Make a tuple from a value_list.
+ */
+template <typename Ty>
+requires is_value_list_v<Ty>
+constexpr auto make_tuple() noexcept {
+    return []<size_t... Is>(std::index_sequence<Is...>) {
+        return std::make_tuple(value_list_element_v<Is, Ty>...);
+    }(std::make_index_sequence<value_list_size_v<Ty>>());
+}
+/**
+ * @brief Make a tuple from a value_list.
+ */
+template <typename Ty>
+requires is_value_list_v<Ty>
+constexpr auto make_tuple(Ty) noexcept {
+    return []<size_t... Is>(std::index_sequence<Is...>) {
+        return std::make_tuple(value_list_element_v<Is, Ty>...);
+    }(std::make_index_sequence<value_list_size_v<Ty>>());
+}
+
 /**
  * @class type_list
  * @brief A class stores type lighter than tuple.
@@ -52,6 +201,46 @@ struct type_list_cat<Tl1, Tl2, Tls...> {
 template <typename... Tls>
 using type_list_cat_t = typename type_list_cat<Tls...>::type;
 
+template <typename>
+struct value_list_type_list_cat;
+template <template <auto...> typename Template, auto... TypeList>
+struct value_list_type_list_cat<Template<TypeList...>> {
+    using type = type_list_cat_t<std::remove_cvref_t<decltype(TypeList)>...>;
+};
+template <typename TypeValueList>
+using value_list_type_list_cat_t = typename value_list_type_list_cat<TypeValueList>::type;
+
+template <auto Val>
+struct to_type {
+    using type = decltype(Val);
+};
+
+template <auto Val>
+struct to_raw_type {
+    using type = std::remove_cvref_t<decltype(Val)>;
+};
+
+template <
+    template <auto> typename Predicate, typename ValList,
+    template <typename...> typename Tmp = type_list>
+struct value_list_to;
+template <
+    template <auto> typename Predicate, template <auto...> typename ValList,
+    template <typename...> typename Tmp>
+struct value_list_to<Predicate, ValList<>, Tmp> {
+    using type = Tmp<>;
+};
+template <
+    template <auto> typename Predicate, template <auto...> typename Template, auto... Vals,
+    template <typename...> typename Tmp>
+struct value_list_to<Predicate, Template<Vals...>, Tmp> {
+    using type = type_list_cat_t<Tmp<typename Predicate<Vals>::type>...>;
+};
+template <
+    template <auto> typename Predicate, typename ValList,
+    template <typename...> typename Tmp = type_list>
+using value_list_to_t = typename value_list_to<Predicate, ValList, Tmp>::type;
+
 template <typename, typename>
 struct type_list_has : std::false_type {};
 template <typename Ty, template <typename...> typename Template, typename... Types>
@@ -95,6 +284,8 @@ template <template <typename...> typename Template, typename Ty>
 struct is_specific_type_list : std::false_type {};
 template <template <typename...> typename Template, typename... Tys>
 struct is_specific_type_list<Template, Template<Tys...>> : std::true_type {};
+template <template <typename...> typename Template, typename Ty>
+constexpr auto is_specific_type_list_v = is_specific_type_list<Template, Ty>::value;
 
 template <typename Ty>
 struct is_empty_template : std::false_type {};
@@ -162,6 +353,14 @@ struct type_list_filt<Predicate, Template<Tys...>> {
 template <template <typename> typename Predicate, typename Template>
 using type_list_filt_t = typename type_list_filt<Predicate, Template>::type;
 
+template <typename, typename>
+struct type_list_contains;
+template <typename Ty, template <typename...> typename Template, typename... Tys>
+struct type_list_contains<Ty, Template<Tys...>>
+    : std::bool_constant<(std::is_same_v<Ty, Tys> || ...)> {};
+template <typename Ty, typename TypeList>
+constexpr auto type_list_contains_v = type_list_contains<Ty, TypeList>::value;
+
 template <typename>
 struct type_list_first;
 template <template <typename...> typename Template, typename Ty, typename... Others>
@@ -184,21 +383,144 @@ struct type_list_last<Template<Ty, Others...>> {
 template <typename Tl>
 using type_list_last_t = typename type_list_last<Tl>::type;
 
-template <template <typename...> typename TemplateIfEmpty, typename TypeList>
+template <template <typename> typename Predicate, typename TypeList, typename TyIfEmpty>
 struct type_list_filt_nvoid {
-    template <typename T>
-    using _is_template = is_specific_type_list<TemplateIfEmpty, T>;
-    using type         = std::remove_pointer_t<decltype([] {
-        using filted_type = type_list_filt_t<_is_template, TypeList>;
+    using type = std::remove_pointer_t<decltype([] {
+        using filted_type = type_list_filt_t<Predicate, TypeList>;
         if constexpr (is_empty_template_v<filted_type>) {
-            return static_cast<TemplateIfEmpty<>*>(nullptr);
+            return static_cast<TyIfEmpty*>(nullptr);
         } else {
-            return static_cast<type_list_first_t<filted_type>*>(nullptr);
+            return static_cast<filted_type*>(nullptr);
         }
     }())>;
 };
-template <template <typename...> typename TemplateIfEmpty, typename TypeList>
-using type_list_filt_nvoid_t = type_list_filt_nvoid<TemplateIfEmpty, TypeList>::type;
+template <template <typename> typename Predicate, typename TypeList, typename TyIfEmpty>
+using type_list_filt_nvoid_t = type_list_filt_nvoid<Predicate, TypeList, TyIfEmpty>::type;
+
+template <template <typename...> typename Tmp, typename TypeList>
+struct type_list_expose;
+template <template <typename...> typename Tmp, template <typename...> typename Template>
+struct type_list_expose<Tmp, Template<>> {
+    using type = Template<>;
+};
+template <
+    template <typename...> typename Tmp, template <typename...> typename Template, typename... Tys>
+struct type_list_expose<Tmp, Template<Tys...>> {
+    template <typename Ty>
+    struct expose {
+        using type = Template<Ty>;
+    };
+    template <typename... Args>
+    struct expose<Tmp<Args...>> {
+        using type = Template<Args...>;
+    };
+
+    using type = type_list_cat_t<typename expose<Tys>::type...>;
+};
+template <template <typename...> typename Tmp, typename TypeList>
+using type_list_expose_t = typename type_list_expose<Tmp, TypeList>::type;
+
+template <
+    template <typename...> typename Tmp, typename TypeList,
+    template <typename> typename = std::type_identity>
+struct type_list_recurse_expose;
+template <
+    template <typename...> typename Tmp, template <typename...> typename Template,
+    template <typename> typename Ex>
+struct type_list_recurse_expose<Tmp, Template<>, Ex> {
+    using type = Template<>;
+};
+template <
+    template <typename...> typename Tmp, template <typename...> typename Template, typename... Tys,
+    template <typename> typename Ex>
+struct type_list_recurse_expose<Tmp, Template<Tys...>, Ex> {
+    template <typename Ty>
+    struct expose {
+        using type = Template<Ty>;
+    };
+    template <typename... Args>
+    struct expose<Tmp<Args...>> {
+        using type = type_list_cat_t<typename expose<typename Ex<Args>::type>::type...>;
+    };
+    using type = type_list_cat_t<typename expose<Tys>::type...>;
+};
+template <template <typename...> typename Tmp, typename TypeList>
+using type_list_recurse_expose_t = typename type_list_recurse_expose<Tmp, TypeList>::type;
+
+template <template <typename...> typename Tmp, typename TypeList>
+struct type_list_export;
+template <template <typename...> typename Tmp, template <typename...> typename Template>
+struct type_list_export<Tmp, Template<>> {
+    using type = Tmp<>;
+};
+template <
+    template <typename...> typename Tmp, template <typename...> typename Template, typename... Tys>
+struct type_list_export<Tmp, Template<Tys...>> {
+    template <typename Ty>
+    struct expose {
+        using type = Tmp<>;
+    };
+    template <typename... Args>
+    struct expose<Tmp<Args...>> {
+        using type = Tmp<Args...>;
+    };
+    using type = type_list_cat_t<typename expose<Tys>::type...>;
+};
+template <template <typename...> typename Tmp, typename TypeList>
+using type_list_export_t = typename type_list_export<Tmp, TypeList>::type;
+
+template <template <auto...> typename Tmp, typename ValueTypeList>
+struct value_list_export;
+template <template <auto...> typename Tmp, template <typename...> typename Template>
+struct value_list_export<Tmp, Template<>> {
+    using type = Tmp<>;
+};
+template <
+    template <auto...> typename Tmp, template <typename...> typename Template, typename... Tys>
+struct value_list_export<Tmp, Template<Tys...>> {
+    template <typename Ty>
+    struct expose {
+        using type = Tmp<>;
+    };
+    template <auto... Args>
+    struct expose<Tmp<Args...>> {
+        using type = Tmp<Args...>;
+    };
+    using type = value_list_cat_t<typename expose<Tys>::type...>;
+};
+template <template <auto...> typename Tmp, typename ValueTypeList>
+using value_list_export_t = typename value_list_export<Tmp, ValueTypeList>::type;
+
+template <template <typename...> typename Template, typename TypeList>
+struct type_list_filt_type_list {
+    template <typename Ty>
+    using _is_template = is_specific_type_list<Template, Ty>;
+    using type =
+        type_list_export_t<Template, type_list_filt_nvoid_t<_is_template, TypeList, Template<>>>;
+};
+template <template <typename...> typename Template, typename TypeList>
+using type_list_filt_type_list_t = typename type_list_filt_type_list<Template, TypeList>::type;
+
+template <template <auto...> typename Template, typename TypeList>
+struct type_list_filt_value_list {
+    template <typename Ty>
+    using _is_template = is_specific_value_list<Template, Ty>;
+    using type         = type_list_filt_nvoid_t<_is_template, TypeList, Template<>>;
+};
+template <template <auto...> typename Template, typename TypeList>
+using type_list_filt_value_list_t = typename type_list_filt_value_list<Template, TypeList>::type;
+
+template <typename TypeList1, typename TypeList2>
+struct type_list_all_differs_from;
+template <
+    template <typename...> typename Template1, template <typename...> typename Template2,
+    typename... Tys1, typename... Tys2>
+struct type_list_all_differs_from<Template1<Tys1...>, Template2<Tys2...>> {
+    constexpr static bool value = !(type_list_contains_v<Tys1, Template2<Tys2...>> || ...);
+};
+template <typename TypeList1, typename TypeList2>
+constexpr auto type_list_all_differs_from_v =
+    type_list_all_differs_from<TypeList1, TypeList2>::value;
 
 template <typename Template, typename Old, typename New>
 struct type_list_substitute;
@@ -225,25 +547,6 @@ struct type_list_substitute<Template<Tys...>, Old, New> {
 };
 template <typename Template, typename Old, typename New>
 using type_list_substitute_t = typename type_list_substitute<Template, Old, New>::type;
-
-template <template <typename...> typename Tmp, typename TypeList>
-struct type_list_expose;
-template <
-    template <typename...> typename Tmp, template <typename...> typename Template, typename... Tys>
-struct type_list_expose<Tmp, Template<Tys...>> {
-    template <typename Ty>
-    struct expose {
-        using type = Template<Ty>;
-    };
-    template <typename... Args>
-    struct expose<Tmp<Args...>> {
-        using type = Template<Args...>;
-    };
-
-    using type = type_list_cat_t<typename expose<Tys>::type...>;
-};
-template <template <typename...> typename Tmp, typename TypeList>
-using type_list_expose_t = typename type_list_expose<Tmp, TypeList>::type;
 
 template <template <typename> typename Predicate, typename TypeList>
 struct type_list_requires_recurse {
@@ -312,6 +615,15 @@ struct type_list_remove<Ty, Template<Tys...>> {
 };
 template <typename Ty, typename List>
 using type_list_remove_t = typename type_list_remove<Ty, List>::type;
+
+template <template <typename> typename Predicate, typename TypeList>
+struct type_list_erase_if {
+    template <typename Ty>
+    using _predicate_type = std::negation<Predicate<Ty>>;
+    using type            = type_list_filt_t<_predicate_type, TypeList>;
+};
+template <template <typename> typename Predicate, typename TypeList>
+using type_list_erase_if_t = typename type_list_erase_if<Predicate, TypeList>::type;
 
 template <typename List, typename Ty>
 struct in_type_list;
@@ -394,6 +706,40 @@ struct type_list_list_cat<Template<Lists...>> {
 };
 template <typename TypeList>
 using type_list_list_cat_t = typename type_list_list_cat<TypeList>::type;
+
+template <typename Ty, typename TypeList>
+struct type_list_has_same_template : std::false_type {};
+template <template <typename...> typename Template, typename... Args1, typename... Args2>
+struct type_list_has_same_template<Template<Args1...>, Template<Args2...>> : std::true_type {};
+template <typename Ty, typename TypeList>
+constexpr auto type_list_has_same_template_v = type_list_has_same_template<Ty, TypeList>::value;
+
+template <typename TypeList>
+struct type_list_combine;
+template <template <typename...> typename Template>
+struct type_list_combine<Template<>> {
+    using type = Template<>;
+};
+template <template <typename...> typename Template, typename Ty, typename... Others>
+struct type_list_combine<Template<Ty, Others...>> {
+    template <typename T>
+    using _has_same_template = type_list_has_same_template<Ty, T>;
+    using type               = type_list_cat_t<
+                      type_list_list_cat_t<type_list_filt_t<_has_same_template, Template<Ty, Others...>>>,
+                      typename type_list_combine<
+                          type_list_erase_if_t<_has_same_template, Template<Ty, Others...>>>::type>;
+};
+template <typename TypeList>
+using type_list_conbine_t = typename type_list_combine<TypeList>::type;
+
+template <typename TypeList>
+struct type_list_value_list_cat;
+template <template <typename...> typename Template, typename... ValueLists>
+struct type_list_value_list_cat<Template<ValueLists...>> {
+    using type = Template<value_list_cat_t<ValueLists...>>;
+};
+template <typename TypeList>
+using type_list_value_list_cat_t = typename type_list_value_list_cat<TypeList>::type;
 
 template <template <typename> typename Predicate, typename>
 struct type_list_convert;

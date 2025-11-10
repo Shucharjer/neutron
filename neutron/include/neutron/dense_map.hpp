@@ -9,11 +9,11 @@
 #include <type_traits>
 #include <utility>
 #include <vector>
+#include "neutron/const_identity.hpp"
 #include "neutron/mask.hpp"
 #include "neutron/memory.hpp"
 #include "neutron/neutron.hpp"
 #include "neutron/ranges.hpp"
-#include "neutron/const_identity.hpp"
 
 namespace neutron {
 
@@ -341,7 +341,7 @@ public:
         return dense_.crend();
     }
 
-    constexpr void swap(dense_map&)noexcept;
+    constexpr void swap(dense_map&) noexcept;
 
     NODISCARD constexpr auto get_allocator() const noexcept { return dense_.get_allocator(); }
 
@@ -463,3 +463,12 @@ using dense_map = dense_map<Kty, Ty, std::pmr::polymorphic_allocator<>, PageSize
 } // namespace pmr
 
 } // namespace neutron
+
+/*! @cond TURN_OFF_DOXYGEN */
+namespace std {
+
+template <unsigned_integral Kty, typename Ty, typename Alloc, size_t PageSize>
+struct uses_allocator<neutron::dense_map<Kty, Ty, Alloc, PageSize>, Alloc> : std::true_type {};
+
+} // namespace std
+/*! @endcond */
