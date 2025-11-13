@@ -2,6 +2,8 @@
 #include <cstddef>
 #include <tuple>
 #include <type_traits>
+#include "neutron/shared_tuple.hpp"
+#include "shared_tuple.hpp"
 
 namespace neutron {
 
@@ -754,8 +756,8 @@ using type_list_convert_t = typename type_list_convert<Predicate, TypeList>::typ
 
 template <typename Ty, typename Tuple>
 struct tuple_first;
-template <typename Ty, typename... Types>
-struct tuple_first<Ty, std::tuple<Types...>> {
+template <typename Ty, template <typename...> typename Template, typename... Types>
+struct tuple_first<Ty, Template<Types...>> {
     constexpr static size_t value = []<size_t... Is>(std::index_sequence<Is...>) {
         auto index = static_cast<size_t>(-1);
         (..., (index = (std::is_same_v<Ty, Types> ? Is : index)));
@@ -768,8 +770,8 @@ constexpr size_t tuple_first_v = tuple_first<Ty, Tuple>::value;
 
 template <typename Ty, typename Tuple>
 struct tuple_last;
-template <typename Ty, typename... Types>
-struct tuple_last<Ty, std::tuple<Types...>> {
+template <typename Ty, template <typename...> typename Template, typename... Types>
+struct tuple_last<Ty, Template<Types...>> {
     constexpr static size_t value = []<size_t... Is>(std::index_sequence<Is...>) {
         auto index = static_cast<size_t>(-1);
         ((index = (std::is_same_v<Ty, Types> ? Is : index)), ...);
@@ -793,6 +795,18 @@ constexpr const Ty& get_first(const std::tuple<Tys...>& tuple) noexcept {
 }
 
 template <typename Ty, typename... Tys>
+requires(tuple_first_v<Ty, std::tuple<Tys...>> != static_cast<size_t>(-1))
+constexpr Ty& get_first(shared_tuple<Tys...>& tup) noexcept {
+    return tup.template get<tuple_first_v<Ty, shared_tuple<Tys...>>>();
+}
+
+template <typename Ty, typename... Tys>
+requires(tuple_first_v<Ty, std::tuple<Tys...>> != static_cast<size_t>(-1))
+constexpr const Ty& get_first(const shared_tuple<Tys...>& tup) noexcept {
+    return tup.template get<tuple_first_v<Ty, shared_tuple<Tys...>>>();
+}
+
+template <typename Ty, typename... Tys>
 requires(tuple_last_v<Ty, std::tuple<Tys...>> != static_cast<size_t>(-1))
 constexpr Ty& get_last(std::tuple<Tys...>& tuple) noexcept {
     return std::get<tuple_last_v<Ty, std::tuple<Tys...>>>(tuple);
@@ -802,6 +816,18 @@ template <typename Ty, typename... Tys>
 requires(tuple_last_v<Ty, std::tuple<Tys...>> != static_cast<size_t>(-1))
 constexpr const Ty& get_last(const std::tuple<Tys...>& tuple) noexcept {
     return std::get<tuple_last_v<Ty, std::tuple<Tys...>>>(tuple);
+}
+
+template <typename Ty, typename... Tys>
+requires(tuple_last_v<Ty, std::tuple<Tys...>> != static_cast<size_t>(-1))
+constexpr Ty& get_last(shared_tuple<Tys...>& tup) noexcept {
+    return tup.template get<tuple_last_v<Ty, shared_tuple<Tys...>>>();
+}
+
+template <typename Ty, typename... Tys>
+requires(tuple_last_v<Ty, std::tuple<Tys...>> != static_cast<size_t>(-1))
+constexpr const Ty& get_last(const shared_tuple<Tys...>& tup) noexcept {
+    return tup.template get<tuple_last_v<Ty, shared_tuple<Tys...>>>();
 }
 
 } // namespace neutron
