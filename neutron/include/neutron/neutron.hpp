@@ -195,13 +195,13 @@ using id_t = uint64_t;
  * Usage:
  *   func(spread_arg<42>);
  */
-template <auto>
+template <auto...>
 struct spreader {
     explicit spreader() = default;
 };
 
-template <auto Candidate>
-inline constexpr spreader<Candidate> spread_arg{}; ///< Global instance
+template <auto... Candidate>
+inline constexpr spreader<Candidate...> spread_arg{}; ///< Global instance
 
 /**
  * @brief Template helper for passing type arguments
@@ -211,13 +211,13 @@ inline constexpr spreader<Candidate> spread_arg{}; ///< Global instance
  * Usage:
  *   func(spread_type<int>);
  */
-template <typename>
+template <typename...>
 struct type_spreader {
     explicit type_spreader() = default;
 };
 
-template <typename Type>
-inline constexpr type_spreader<Type> spread_type{}; ///< Global instance
+template <typename ...Tys>
+inline constexpr type_spreader<Tys...> spread_type{}; ///< Global instance
 
 // in identity.hpp
 class type_identity;

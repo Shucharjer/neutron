@@ -1,6 +1,7 @@
 #pragma once
 #include <array>
 #include <cstddef>
+#include <cstdint>
 #include <string_view>
 #include "neutron/neutron.hpp"
 #include "neutron/template_list.hpp"
@@ -38,36 +39,17 @@ template <typename Ty>
 
 namespace internal {
 
-constexpr size_t hash(std::string_view string) noexcept {
-    // DJB2 Hash
-    // NOTE: This hash algorithm is not friendly to parallelization support
-    // TODO: Another hash algrorithm, which is friendly to parallelization.
+constexpr uint64_t hash(std::string_view string) noexcept {
+    // fnv1a
+    constexpr uint64_t magic = 0xcbf29ce484222325;
+    constexpr uint64_t prime = 0x100000001b3;
 
-#if ATOM_VECTORIZABLE && false
-    // bytes
-    const size_t parallel_request = 16;
-
-    #if defined(__AVX2__)
-    const size_t group_size = 8;
-    #elif defined(__SSE2__)
-    const size_t group_size = 4;
-    #endif
-#endif
-
-    const size_t magic_initial_value = 5381;
-    const size_t magic               = 5;
-
-    std::size_t value = magic_initial_value;
-#if ATOM_VECTORIZABLE && false
-    if (string.length() < group_size) {
-#endif
-        for (const char cha : string) {
-            value = ((value << magic) + value) + cha;
-        }
-#if ATOM_VECTORIZABLE && false
-    } else {
+    uint64_t value = magic;
+    for (char ch : string) {
+        value = value ^ ch;
+        value *= prime;
     }
-#endif
+
     return value;
 }
 
@@ -77,25 +59,25 @@ constexpr size_t hash(std::string_view string) noexcept {
 
 template <typename Ty, auto Hasher = internal::hash>
 requires std::is_same_v<Ty, std::remove_cvref_t<Ty>>
-consteval size_t hash_of() noexcept {
+consteval auto hash_of() noexcept {
     constexpr auto name = name_of<Ty>();
     return Hasher(name);
 }
 
-template <typename Ty, size_t Hash>
+template <typename Ty, auto Hash>
 struct hash_pair {};
 
 struct sorted_hash {
     template <typename, typename>
     struct less;
-    template <typename Lty, size_t Lhash, typename Rty, size_t Rhash>
+    template <typename Lty, auto Lhash, typename Rty, auto Rhash>
     struct less<hash_pair<Lty, Lhash>, hash_pair<Rty, Rhash>> {
         constexpr static bool value = Lhash < Rhash;
     };
 
     template <typename, typename>
     struct greater;
-    template <typename Lty, size_t Lhash, typename Rty, size_t Rhash>
+    template <typename Lty, auto Lhash, typename Rty, auto Rhash>
     struct greater<hash_pair<Lty, Lhash>, hash_pair<Rty, Rhash>> {
         constexpr static bool value = Lhash > Rhash;
     };
@@ -109,18 +91,30 @@ struct sorted_hash {
 
         template <typename>
         struct _to_array;
-        template <typename... Types, size_t... Hashes>
+        template <typename... Types, auto... Hashes>
         struct _to_array<Template<hash_pair<Types, Hashes>...>> {
             constexpr static std::array value = { Hashes... };
         };
     };
+
+    template <typename>
+    struct expand;
+    template <template <typename...> typename Template, typename... Tys, auto... Hashes>
+    struct expand<Template<hash_pair<Tys, Hashes>...>> {
+        using vlist = value_list<Hashes...>;
+        using tlist = Template<Tys...>;
+    };
 };
 template <typename TypeList, template <typename, typename> typename Pr = sorted_hash::less>
-using sorted_hash_t = typename sorted_hash::table<TypeList>::sorted_type;
+using sorted_list_t = typename sorted_hash::table<TypeList>::sorted_type;
+template <typename SortedHashList>
+using sorted_hash_t = typename sorted_hash::expand<SortedHashList>::vlist;
+template <typename SortedHashList>
+using sorted_type_t = typename sorted_hash::expand<SortedHashList>::tlist;
 
 template <typename TypeList, template <typename, typename> typename Pr = sorted_hash::less>
 NODISCARD consteval auto make_hash_array() noexcept {
-    return sorted_hash::table<TypeList>::template _to_array<sorted_hash_t<TypeList>>::value;
+    return sorted_hash::table<TypeList>::template _to_array<sorted_list_t<TypeList>>::value;
 }
 
 } // namespace neutron

@@ -42,6 +42,9 @@ template <typename Alloc>
 concept _std_simple_allocator =
     _sized_allocator<Alloc> && std::copy_constructible<Alloc> && std::equality_comparable<Alloc>;
 
+template <typename Alloc, typename Ty>
+using rebind_alloc_t = typename std::allocator_traits<Alloc>::template rebind_alloc<Ty>;
+
 struct _storage {
     template <typename Base>
     struct interface : Base {
