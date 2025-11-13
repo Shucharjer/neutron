@@ -17,18 +17,15 @@
 
 namespace neutron {
 
-constexpr size_t k_dense_map_default_page_size = 32;
-
 template <
-    std::unsigned_integral Kty, typename Ty,
-    _std_simple_allocator Alloc = std::allocator<std::pair<const Kty, Ty>>,
-    std::size_t PageSize        = k_dense_map_default_page_size>
+    std::unsigned_integral Kty, typename Ty, std::size_t PageSize = 32UL,
+    _std_simple_allocator Alloc = std::allocator<std::pair<const Kty, Ty>>>
 class dense_map {
 public:
     static_assert(PageSize, "page size should not be zero");
 
     template <typename T>
-    using _allocator_t = typename std::allocator_traits<Alloc>::template rebind_alloc<T>;
+    using _allocator_t = rebind_alloc_t<Alloc, T>;
 
     template <typename T>
     using _vector_t = std::vector<T, _allocator_t<T>>;
@@ -432,33 +429,29 @@ private:
 
 template <
     typename Kty, typename Ty, typename Alloc = std::allocator<std::pair<Kty, Ty>>,
-    size_t PageSize = k_dense_map_default_page_size,
-    typename        = std::enable_if_t<std::is_unsigned_v<Kty>>>
+    size_t PageSize = 32UL, typename = std::enable_if_t<std::is_unsigned_v<Kty>>>
 dense_map(std::initializer_list<std::pair<Kty, Ty>>, Alloc = Alloc())
-    -> dense_map<Kty, Ty, Alloc, PageSize>;
+    -> dense_map<Kty, Ty, PageSize, Alloc>;
 template <
     typename Kty, typename Ty, typename Alloc = std::allocator<std::pair<Kty, Ty>>,
-    size_t PageSize = k_dense_map_default_page_size,
-    typename        = std::enable_if_t<std::is_unsigned_v<Kty>>>
+    size_t PageSize = 32UL, typename = std::enable_if_t<std::is_unsigned_v<Kty>>>
 dense_map(std::initializer_list<std::pair<const Kty, Ty>>, Alloc = Alloc())
-    -> dense_map<Kty, Ty, Alloc, PageSize>;
+    -> dense_map<Kty, Ty, PageSize, Alloc>;
 template <
     typename Kty, typename Ty, typename Alloc = std::allocator<std::pair<Kty, Ty>>,
-    size_t PageSize = k_dense_map_default_page_size,
-    typename        = std::enable_if_t<std::is_unsigned_v<Kty>>>
+    size_t PageSize = 32UL, typename = std::enable_if_t<std::is_unsigned_v<Kty>>>
 dense_map(std::initializer_list<compressed_pair<Kty, Ty>>, Alloc = Alloc())
-    -> dense_map<Kty, Ty, Alloc, PageSize>;
+    -> dense_map<Kty, Ty, PageSize, Alloc>;
 template <
     typename Kty, typename Ty, typename Alloc = std::allocator<std::pair<Kty, Ty>>,
-    size_t PageSize = k_dense_map_default_page_size,
-    typename        = std::enable_if_t<std::is_unsigned_v<Kty>>>
+    size_t PageSize = 32UL, typename = std::enable_if_t<std::is_unsigned_v<Kty>>>
 dense_map(std::initializer_list<compressed_pair<const Kty, Ty>>, Alloc = Alloc())
-    -> dense_map<Kty, Ty, Alloc, PageSize>;
+    -> dense_map<Kty, Ty, PageSize, Alloc>;
 
 namespace pmr {
 
-template <std::unsigned_integral Kty, typename Ty, size_t PageSize = k_dense_map_default_page_size>
-using dense_map = dense_map<Kty, Ty, std::pmr::polymorphic_allocator<>, PageSize>;
+template <std::unsigned_integral Kty, typename Ty, size_t PageSize = 32UL>
+using dense_map = dense_map<Kty, Ty, PageSize, std::pmr::polymorphic_allocator<>>;
 
 } // namespace pmr
 
@@ -468,7 +461,7 @@ using dense_map = dense_map<Kty, Ty, std::pmr::polymorphic_allocator<>, PageSize
 namespace std {
 
 template <unsigned_integral Kty, typename Ty, typename Alloc, size_t PageSize>
-struct uses_allocator<neutron::dense_map<Kty, Ty, Alloc, PageSize>, Alloc> : std::true_type {};
+struct uses_allocator<neutron::dense_map<Kty, Ty, PageSize, Alloc>, Alloc> : std::true_type {};
 
 } // namespace std
 /*! @endcond */

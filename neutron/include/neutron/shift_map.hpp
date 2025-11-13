@@ -31,9 +31,9 @@ namespace neutron {
  * @tparam PageSize Number of entries per sparse page (must be power of two)
  */
 template <
-    std::unsigned_integral Kty, typename Ty,
-    _std_simple_allocator Alloc = std::allocator<std::pair<Kty, Ty>>, size_t PageSize = 32UL,
-    size_t Shift = sizeof(Kty) * 4UL>
+    std::unsigned_integral Kty, typename Ty, size_t PageSize = 32UL,
+    size_t Shift                = sizeof(Kty) * 4UL,
+    _std_simple_allocator Alloc = std::allocator<std::pair<Kty, Ty>>>
 class shift_map {
 public:
     static_assert(PageSize, "page size should not be zero");
@@ -43,7 +43,7 @@ public:
     constexpr static size_t total_bits = sizeof(Kty) * 8UL;
 
     template <typename T>
-    using _allocator_t = typename std::allocator_traits<Alloc>::template rebind_alloc<T>;
+    using _allocator_t = rebind_alloc_t<Alloc, T>;
 
     template <typename T>
     using _vector_t = std::vector<T, _allocator_t<T>>;
@@ -412,7 +412,7 @@ namespace pmr {
 
 template <
     std::unsigned_integral Kty, typename Ty, size_t PageSize = 32, size_t Shift = sizeof(Kty) * 4UL>
-using shift_map = shift_map<Kty, Ty, std::pmr::polymorphic_allocator<>, PageSize, Shift>;
+using shift_map = shift_map<Kty, Ty, PageSize, Shift, std::pmr::polymorphic_allocator<>>;
 
 }
 
@@ -422,7 +422,7 @@ using shift_map = shift_map<Kty, Ty, std::pmr::polymorphic_allocator<>, PageSize
 namespace std {
 
 template <unsigned_integral Kty, typename Ty, typename Alloc, size_t PageSize, size_t Shift>
-struct uses_allocator<neutron::shift_map<Kty, Ty, Alloc, PageSize, Shift>, Alloc> : std::true_type {
+struct uses_allocator<neutron::shift_map<Kty, Ty, PageSize, Shift, Alloc>, Alloc> : std::true_type {
 };
 
 } // namespace std
