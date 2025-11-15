@@ -38,8 +38,10 @@ static void BM_Delegate_MemberFunction(benchmark::State& state) {
 BENCHMARK(BM_Delegate_MemberFunction);
 static void BM_StdFunction_MemberFunction(benchmark::State& state) {
     Adder adder;
-    std::function<int(int, int)> func = [&adder](int a, int b) { return adder.add(a, b); };
-    volatile int result               = 0;
+    std::function<int(int, int)> func = [&adder](int a, int b) {
+        return adder.add(a, b);
+    };
+    volatile int result = 0;
     for (auto _ : state) {
         result += func(1, 2);
     }

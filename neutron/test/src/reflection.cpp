@@ -98,7 +98,8 @@ void test_reflected() {
     auto description_na = reflected_na.description();
 
     require(authenticity_of({ .desc = description_a, .bits = is_aggregate }));
-    require_false(authenticity_of({ .desc = description_na, .bits = is_aggregate }));
+    require_false(
+        authenticity_of({ .desc = description_na, .bits = is_aggregate }));
 }
 void test_offsets() {
     auto offsets = offsets_of<aggregate>();

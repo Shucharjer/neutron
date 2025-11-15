@@ -1,5 +1,5 @@
 #pragma once
-#include "neutron/type_list.hpp"
+#include "neutron/template_list.hpp"
 
 namespace neutron {
 
@@ -20,16 +20,18 @@ template <auto Expr, typename Ret, typename Clazz, typename... Args>
 struct _expression_traits<Expr, Ret (Clazz::*)(Args...)> {
     constexpr static std::size_t args_count = sizeof...(Args);
     using args_type                         = type_list<Args...>;
-    constexpr static bool is_constexpr =
-        requires { typename std::bool_constant<(Clazz{}.*Expr(Args()...), false)>; };
+    constexpr static bool is_constexpr      = requires {
+        typename std::bool_constant<(Clazz{}.*Expr(Args()...), false)>;
+    };
 };
 
 template <auto Expr, typename Ret, typename Clazz, typename... Args>
 struct _expression_traits<Expr, Ret (Clazz::*)(Args...) const> {
     constexpr static std::size_t args_count = sizeof...(Args);
     using args_type                         = type_list<Args...>;
-    constexpr static bool is_constexpr =
-        requires { typename std::bool_constant<(Clazz{}.*Expr(Args{}...), false)>; };
+    constexpr static bool is_constexpr      = requires {
+        typename std::bool_constant<(Clazz{}.*Expr(Args{}...), false)>;
+    };
 };
 
 template <auto Expr, typename ExprTy>
@@ -62,14 +64,14 @@ struct _expression_traits {
 
 /**
  * @brief Check if an expression is a compile-time constant.
- * Generally, you could judge whether a function is a compile-time constant by checking if it is a
- * `constexpr` function. But this function is more powerful, it could be used to checking when you
- * are trying writing a template.
- * Inspired by `is_constexpr` in microsoft porxy.
+ * Generally, you could judge whether a function is a compile-time constant by
+ * checking if it is a `constexpr` function. But this function is more powerful,
+ * it could be used to checking when you are trying writing a template. Inspired
+ * by `is_constexpr` in microsoft porxy.
  */
 template <auto Expr>
 consteval bool is_constexpr() {
     return internal::_expression_traits<Expr>::is_constexpr;
 }
 
-}
+} // namespace neutron

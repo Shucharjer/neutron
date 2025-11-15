@@ -9,7 +9,8 @@ using namespace neutron;
 template <typename>
 struct app_require : std::false_type {};
 template <typename App>
-concept basic_app_could_do = requires(std::remove_cvref_t<App>& app) { app.run(); };
+concept basic_app_could_do =
+    requires(std::remove_cvref_t<App>& app) { app.run(); };
 struct phony_app {
     void run();
 };
@@ -27,7 +28,8 @@ public:
     ~basic_application()                                   = default;
 
     template <typename... AnotherLists>
-    constexpr basic_application(basic_application<AnotherLists...>&& that) noexcept {} // NOLINT
+    constexpr basic_application(
+        basic_application<AnotherLists...>&& that) noexcept {} // NOLINT
 
     static basic_application create() { return {}; }
     void run() {}
@@ -42,14 +44,16 @@ enum class stage : uint8_t {
     shutdown
 };
 template <stage Stage, auto System, typename... Requires>
-struct add_system_fn : adaptor_closure<add_system_fn<Stage, System, Requires...>> {
+struct add_system_fn :
+    adaptor_closure<add_system_fn<Stage, System, Requires...>> {
     using input_require = app_require<void>;
     using output_type   = phony_app;
 
     template <typename App>
     constexpr auto operator()(App&& app) const {
-        return insert_type_list_inplace_t<system_list, add_system_fn, App>{ std::forward<App>(
-            app) };
+        return insert_type_list_inplace_t<system_list, add_system_fn, App>{
+            std::forward<App>(app)
+        };
     }
 };
 
@@ -69,8 +73,9 @@ int main() {
                  add_system<startup, create_entities> |
                  add_system<update, apply_health, after<echo_entities>>;
 
-    auto pipeline = add_system<startup, create_entities> | add_system<update, echo_entities>;
-    auto result   = application::create() | pipeline;
+    auto pipeline = add_system<startup, create_entities> |
+                    add_system<update, echo_entities>;
+    auto result = application::create() | pipeline;
     // compile time system sort
     // run
 

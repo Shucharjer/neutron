@@ -30,7 +30,8 @@ struct tstring {
     }
 
     template <std::size_t RLength>
-    constexpr auto operator==(const tstring<RLength>& rhs) const noexcept -> bool {
+    constexpr auto operator==(const tstring<RLength>& rhs) const noexcept
+        -> bool {
         return !(*this <=> rhs);
     }
 
@@ -69,9 +70,12 @@ struct tstring {
 template <size_t Length>
 struct tstring_view {
     std::string_view view;
-    constexpr tstring_view(const tstring<Length>& tstring) noexcept : view(tstring.value) {}
+    constexpr tstring_view(const tstring<Length>& tstring) noexcept
+        : view(tstring.value) {}
     constexpr operator std::string_view() const noexcept { return view; }
-    constexpr bool operator==(std::string_view rvw) const noexcept { return view == rvw; }
+    constexpr bool operator==(std::string_view rvw) const noexcept {
+        return view == rvw;
+    }
 };
 
 } // namespace neutron

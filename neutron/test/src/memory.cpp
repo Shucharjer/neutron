@@ -117,13 +117,15 @@ void test_unique_storage_pmr() {
 
     // ctor (std::allocator_arg_t, alloc, immediately_t)
     {
-        unique_storage<int, pmr_alloc_t> storage{ std::allocator_arg, alloc, immediately };
+        unique_storage<int, pmr_alloc_t> storage{ std::allocator_arg, alloc,
+                                                  immediately };
         require(storage);
     }
 
     // ctor (arg)
     {
-        unique_storage<int, pmr_alloc_t> storage{ std::allocator_arg, alloc, 2 };
+        unique_storage<int, pmr_alloc_t> storage{ std::allocator_arg, alloc,
+                                                  2 };
         require(*storage == 2);
     }
 
@@ -137,7 +139,8 @@ void test_unique_storage_pmr() {
         require(!static_cast<bool>(storage));
 
         auto storage2 = [&] {
-            unique_storage<int, pmr_alloc_t> storage{ std::allocator_arg, alloc, 2 };
+            unique_storage<int, pmr_alloc_t> storage{ std::allocator_arg, alloc,
+                                                      2 };
             auto mov = std::move(storage);
             return *mov;
         }();

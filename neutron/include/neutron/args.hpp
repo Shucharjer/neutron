@@ -11,15 +11,23 @@ namespace neutron {
 
 template <typename Ty, tstring Alpha, tstring Meaning>
 struct argument {
-    constexpr static auto alpha() noexcept -> std::string_view { return Alpha.view(); }
-    constexpr static auto meaning() noexcept -> std::string_view { return Meaning.view(); }
+    constexpr static auto alpha() noexcept -> std::string_view {
+        return Alpha.view();
+    }
+    constexpr static auto meaning() noexcept -> std::string_view {
+        return Meaning.view();
+    }
     Ty value;
 };
 
 template <typename Ty, tstring Alpha, tstring Meaning>
 struct multi_argument {
-    constexpr static auto alpha() noexcept -> std::string_view { return Alpha.view(); }
-    constexpr static auto meaning() noexcept -> std::string_view { return Meaning.view(); }
+    constexpr static auto alpha() noexcept -> std::string_view {
+        return Alpha.view();
+    }
+    constexpr static auto meaning() noexcept -> std::string_view {
+        return Meaning.view();
+    }
     std::vector<Ty> values;
 };
 
@@ -36,9 +44,10 @@ class parser {
     consteval static size_t _index() noexcept {
         size_t result = args_count;
         [&]<size_t... Is>(std::index_sequence<Is...>) {
-            (...,
-             (result =
-                  std::tuple_element_t<Is, tuple_type>::alpha() == Alpha.view() ? Is : result));
+            (..., (result = std::tuple_element_t<Is, tuple_type>::alpha() ==
+                                    Alpha.view()
+                                ? Is
+                                : result));
         }(std::make_index_sequence<args_count>());
         return result;
     }

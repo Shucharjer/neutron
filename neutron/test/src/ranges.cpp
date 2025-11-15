@@ -73,8 +73,9 @@ void test_to() {
     std::ranges::for_each(list, print_each);
     newline();
 
-    auto transformed =
-        vector | std::views::transform([&](const auto& val) { return std::to_string(val + 1); });
+    auto transformed = vector | std::views::transform([&](const auto& val) {
+                           return std::to_string(val + 1);
+                       });
     std::ranges::for_each(transformed, print_each);
     newline();
 }
@@ -121,7 +122,8 @@ void test_pipeline() {
     assert(another_empty_vector.empty());
 }
 void test_closure() {
-    std::vector origin = { 2, 2, 3, 34, 2, 523, 53, 5, 346, 54, 645, 7, 4567, 56, 75 };
+    std::vector origin = { 2,   2,  3,   34, 2,    523, 53, 5,
+                           346, 54, 645, 7,  4567, 56,  75 };
     auto end           = origin.cend();
     auto closure       = make_closure<get_vector_fn>(end);
 

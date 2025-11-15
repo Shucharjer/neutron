@@ -3,7 +3,7 @@
 #include <cstddef>
 #include <cstdint>
 #include <string_view>
-#include "neutron/neutron.hpp"
+#include "neutron/internal/macros.hpp"
 #include "neutron/template_list.hpp"
 
 namespace neutron {
@@ -86,7 +86,8 @@ struct sorted_hash {
     struct table;
     template <template <typename...> typename Template, typename... Tys>
     struct table<Template<Tys...>> {
-        using hash_result = neutron::type_list<hash_pair<Tys, neutron::hash_of<Tys>()>...>;
+        using hash_result =
+            neutron::type_list<hash_pair<Tys, neutron::hash_of<Tys>()>...>;
         using sorted_type = neutron::type_list_sort_t<less, hash_result>;
 
         template <typename>
@@ -99,22 +100,29 @@ struct sorted_hash {
 
     template <typename>
     struct expand;
-    template <template <typename...> typename Template, typename... Tys, auto... Hashes>
+    template <
+        template <typename...> typename Template, typename... Tys,
+        auto... Hashes>
     struct expand<Template<hash_pair<Tys, Hashes>...>> {
         using vlist = value_list<Hashes...>;
         using tlist = Template<Tys...>;
     };
 };
-template <typename TypeList, template <typename, typename> typename Pr = sorted_hash::less>
+template <
+    typename TypeList,
+    template <typename, typename> typename Pr = sorted_hash::less>
 using sorted_list_t = typename sorted_hash::table<TypeList>::sorted_type;
 template <typename SortedHashList>
 using sorted_hash_t = typename sorted_hash::expand<SortedHashList>::vlist;
 template <typename SortedHashList>
 using sorted_type_t = typename sorted_hash::expand<SortedHashList>::tlist;
 
-template <typename TypeList, template <typename, typename> typename Pr = sorted_hash::less>
+template <
+    typename TypeList,
+    template <typename, typename> typename Pr = sorted_hash::less>
 NODISCARD consteval auto make_hash_array() noexcept {
-    return sorted_hash::table<TypeList>::template _to_array<sorted_list_t<TypeList>>::value;
+    return sorted_hash::table<TypeList>::template _to_array<
+        sorted_list_t<TypeList>>::value;
 }
 
 } // namespace neutron

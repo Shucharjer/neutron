@@ -3,7 +3,8 @@
 #include <array>
 #include <atomic>
 
-#if defined(__x86_64__) || defined(__i386__) || defined(_M_IX86) || defined(_M_X64)
+#if defined(__x86_64__) || defined(__i386__) || defined(_M_IX86) ||            \
+    defined(_M_X64)
     #include <xmmintrin.h>
 #endif
 
@@ -12,7 +13,8 @@ namespace neutron {
 /*! @cond TURN_OFF_DOXYGEN */
 namespace internal {
 
-#if defined(__x86_64__) || defined(__i386__) || defined(_M_IX86) || defined(_M_X64)
+#if defined(__x86_64__) || defined(__i386__) || defined(_M_IX86) ||            \
+    defined(_M_X64)
 inline void cpu_relax() { _mm_pause(); }
 #elif defined(__aarch64__)
 inline void cpu_relax() { __asm__ volatile("yield"); }
@@ -28,7 +30,8 @@ const auto max_spin_time = 1024;
 /**
  * @class spinlock
  * @brief Triditional spin lock, suitable for high-frequency task scenarios.
- * @details Normal spin lock, spin when calling `lock()`, which means low latency.
+ * @details Normal spin lock, spin when calling `lock()`, which means low
+ * latency.
  */
 class spinlock;
 
@@ -44,7 +47,9 @@ public:
     spinlock(const spinlock&)            = delete;
     spinlock& operator=(const spinlock&) = delete;
     spinlock(spinlock&& that) noexcept : lock_(std::exchange(that.lock_, 0)) {}
-    spinlock& operator=(spinlock&& that) noexcept { std::swap(lock_, that.lock_); }
+    spinlock& operator=(spinlock&& that) noexcept {
+        std::swap(lock_, that.lock_);
+    }
 
     ~spinlock() noexcept {
         if (lock_ != 0) {
@@ -73,7 +78,9 @@ public:
      * @brief Try get the lock.
      *
      */
-    auto try_lock() noexcept -> bool { return flag_.test_and_set(std::memory_order_acquire); }
+    auto try_lock() noexcept -> bool {
+        return flag_.test_and_set(std::memory_order_acquire);
+    }
 
     void lock() noexcept {
         while (flag_.test_and_set(std::memory_order_acquire)) {
@@ -84,7 +91,7 @@ public:
     void unlock() noexcept { flag_.clear(std::memory_order_release); }
 
 private:
-    #if defined(__cpp_lib_atomic_value_initialization) &&                                          \
+    #if defined(__cpp_lib_atomic_value_initialization) &&                      \
         __cpp_lib_atomic_value_initialization >= 201911L
     std::atomic_flag flag_;
     #else
@@ -99,8 +106,8 @@ private:
 /**
  * @class hybrid_spinlock
  * @brief A new implementation of spin lock inspired by atomic_wiat in c++20
- * @details It will first try triditional spinning and wait for notification if it cannot lock for a
- * long time, which means versatility.
+ * @details It will first try triditional spinning and wait for notification if
+ * it cannot lock for a long time, which means versatility.
  */
 class hybrid_spinlock {
 public:
@@ -111,11 +118,14 @@ public:
     hybrid_spinlock& operator=(hybrid_spinlock&&)      = delete;
     ~hybrid_spinlock()                                 = default;
 
-    auto try_lock() noexcept -> bool { return flag_.test_and_set(std::memory_order_acquire); }
+    auto try_lock() noexcept -> bool {
+        return flag_.test_and_set(std::memory_order_acquire);
+    }
 
     void lock() noexcept {
-        for (auto i = 0;
-             i < internal::max_spin_time && flag_.test_and_set(std::memory_order_acquire); ++i) {
+        for (auto i = 0; i < internal::max_spin_time &&
+                         flag_.test_and_set(std::memory_order_acquire);
+             ++i) {
             internal::cpu_relax();
         }
 
@@ -130,7 +140,7 @@ public:
     }
 
 private:
-    #if defined(__cpp_lib_atomic_value_initialization) &&                                          \
+    #if defined(__cpp_lib_atomic_value_initialization) &&                      \
         __cpp_lib_atomic_value_initialization >= 201911L
     std::atomic_flag flag_;
     #else

@@ -23,7 +23,8 @@ public:
      * @brief Construct a new delegate object for a non-member function.
      *
      * @tparam Candidate The function address or lambda expression.
-     * @param spreader Spread the non-type argument by `neutron::spread_arg<Candidate>`.
+     * @param spreader Spread the non-type argument by
+     * `neutron::spread_arg<Candidate>`.
      */
     template <auto Candidate>
     constexpr explicit delegate(spreader<Candidate> spreader) noexcept {
@@ -35,11 +36,13 @@ public:
      *
      * @tparam Candidate The function address or lambda expression.
      * @tparam Type Instance type.
-     * @param spreader Spread the non-type argument by `neutron::spread_arg<Candidate>`.
+     * @param spreader Spread the non-type argument by
+     * `neutron::spread_arg<Candidate>`.
      * @param instance The object whose member function would be called.
      */
     template <auto Candidate, typename Type>
-    constexpr explicit delegate(spreader<Candidate> spreader, Type& instance) noexcept {
+    constexpr explicit delegate(
+        spreader<Candidate> spreader, Type& instance) noexcept {
         bind<Candidate>(instance);
     }
 
@@ -47,9 +50,11 @@ public:
      * @brief Construct a new delegate object for function address and payload.
      *
      * @param function Function address.
-     * @param payload The instance. It can be nullptr when the function is non-member function.
+     * @param payload The instance. It can be nullptr when the function is
+     * non-member function.
      */
-    constexpr explicit delegate(function_type* function, void const* payload) noexcept {
+    constexpr explicit delegate(
+        function_type* function, void const* payload) noexcept {
         bind(function, payload);
     }
 
@@ -86,9 +91,13 @@ public:
         context_  = &instance;
         function_ = [](void const* payload, Args... args) -> Ret {
             Type* type_instance =
-                // NOLINTNEXTLINE: function calling should have same constant qualification.
-                static_cast<Type*>(const_cast<same_constness_t<void, Type>*>(payload));
-            return Ret(std::invoke(Candidate, *type_instance, std::forward<Args>(args)...));
+                // NOLINTNEXTLINE: function calling should have same constant
+                // qualification.
+                static_cast<Type*>(
+                    const_cast<same_constness_t<void, Type>*>(payload));
+            return Ret(
+                std::invoke(
+                    Candidate, *type_instance, std::forward<Args>(args)...));
         };
     }
 
@@ -159,14 +168,18 @@ public:
      *
      * @return function_type* Pointer of function
      */
-    NODISCARD constexpr function_type* target() const noexcept { return function_; }
+    NODISCARD constexpr function_type* target() const noexcept {
+        return function_;
+    }
 
     /**
      * @brief Get the context
      *
      * @return void const* Pointer to the context
      */
-    NODISCARD constexpr const void* context() const noexcept { return context_; }
+    NODISCARD constexpr const void* context() const noexcept {
+        return context_;
+    }
 
 private:
     const void* context_{};
@@ -190,7 +203,8 @@ public:
      * @brief Construct a new delegate object for a non-member function.
      *
      * @tparam Candidate The function address or lambda expression.
-     * @param spreader Spread the non-type argument by `neutron::spread_arg<Candidate>`.
+     * @param spreader Spread the non-type argument by
+     * `neutron::spread_arg<Candidate>`.
      */
     template <auto Candidate>
     constexpr explicit delegate(spreader<Candidate> spreader) noexcept {
@@ -202,11 +216,13 @@ public:
      *
      * @tparam Candidate The function address or lambda expression.
      * @tparam Type Instance type.
-     * @param spreader Spread the non-type argument by `neutron::spread_arg<Candidate>`.
+     * @param spreader Spread the non-type argument by
+     * `neutron::spread_arg<Candidate>`.
      * @param instance The object whose member function would be called.
      */
     template <auto Candidate, typename Type>
-    constexpr explicit delegate(spreader<Candidate> spreader, Type& instance) noexcept {
+    constexpr explicit delegate(
+        spreader<Candidate> spreader, Type& instance) noexcept {
         bind<Candidate>(instance);
     }
 
@@ -214,9 +230,11 @@ public:
      * @brief Construct a new delegate object for function address and payload.
      *
      * @param function Function address.
-     * @param payload The instance. It can be nullptr when the function is non-member function.
+     * @param payload The instance. It can be nullptr when the function is
+     * non-member function.
      */
-    constexpr explicit delegate(function_type* function, void const* payload) noexcept {
+    constexpr explicit delegate(
+        function_type* function, void const* payload) noexcept {
         bind(function, payload);
     }
 
@@ -253,9 +271,13 @@ public:
         context_  = &instance;
         function_ = [](void const* payload, Args... args) noexcept -> Ret {
             Type* type_instance =
-                // NOLINTNEXTLINE: function calling should have same constant qualification.
-                static_cast<Type*>(const_cast<same_constness_t<void, Type>*>(payload));
-            return Ret(std::invoke(Candidate, *type_instance, std::forward<Args>(args)...));
+                // NOLINTNEXTLINE: function calling should have same constant
+                // qualification.
+                static_cast<Type*>(
+                    const_cast<same_constness_t<void, Type>*>(payload));
+            return Ret(
+                std::invoke(
+                    Candidate, *type_instance, std::forward<Args>(args)...));
         };
     }
 
@@ -306,14 +328,18 @@ public:
      *
      * @return function_type* Pointer of function
      */
-    NODISCARD constexpr function_type* target() const noexcept { return function_; }
+    NODISCARD constexpr function_type* target() const noexcept {
+        return function_;
+    }
 
     /**
      * @brief Get the context
      *
      * @return void const* Pointer to the context
      */
-    NODISCARD constexpr const void* context() const noexcept { return context_; }
+    NODISCARD constexpr const void* context() const noexcept {
+        return context_;
+    }
 
 private:
     const void* context_{};

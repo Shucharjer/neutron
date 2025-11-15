@@ -15,7 +15,9 @@ public:
     using handle_type = std::coroutine_handle<promise_type>;
 
     struct promise_type {
-        coroutine get_return_object() { return coroutine(handle_type::from_promise(*this)); }
+        coroutine get_return_object() {
+            return coroutine(handle_type::from_promise(*this));
+        }
         std::suspend_always initial_suspend() { return {}; }
         std::suspend_always final_suspend() noexcept { return {}; }
         template <typename T>
@@ -46,7 +48,8 @@ public:
 
     coroutine(const coroutine& that) : handle_(that.handle_) {}
 
-    coroutine(coroutine&& that) noexcept : handle_(std::exchange(that.handle_, nullptr)) {}
+    coroutine(coroutine&& that) noexcept
+        : handle_(std::exchange(that.handle_, nullptr)) {}
 
     coroutine& operator=(const coroutine& that) { handle_ = that.handle_; }
 
@@ -95,7 +98,8 @@ public:
 
         thread_safe_coroutine get_return_object() {
             return thread_safe_coroutine(
-                handle_type::from_promise(*this), std::make_shared<control_block>(this));
+                handle_type::from_promise(*this),
+                std::make_shared<control_block>(this));
         }
 
         std::suspend_always initial_suspend() { return {}; }
@@ -103,7 +107,8 @@ public:
         auto final_suspend() noexcept {
             struct final_awaiter : std::suspend_always {
                 promise_type& promise;
-                explicit final_awaiter(promise_type& primise) : promise(primise) {}
+                explicit final_awaiter(promise_type& primise)
+                    : promise(primise) {}
 
                 bool await_ready() noexcept {
                     std::unique_lock lk(promise.mtx);
@@ -155,7 +160,8 @@ public:
         explicit control_block(promise_type* promise) : promise(promise) {}
     };
 
-    explicit thread_safe_coroutine(handle_type handle, std::shared_ptr<control_block> cb)
+    explicit thread_safe_coroutine(
+        handle_type handle, std::shared_ptr<control_block> cb)
         : handle_(handle), cb_(std::move(cb)) {}
 
     ~thread_safe_coroutine() {
@@ -186,8 +192,9 @@ public:
         std::unique_lock lk(cb_->promise->mtx);
         auto& state = cb_->promise->state;
 
-        cb_->promise->cv.wait(
-            lk, [&] { return state == status::suspended || state == status::completed; });
+        cb_->promise->cv.wait(lk, [&] {
+            return state == status::suspended || state == status::completed;
+        });
 
         if (state == status::completed) {
             if (cb_->promise->eptr) {
@@ -242,7 +249,8 @@ public:
     }
 
     thread_safe_coroutine(thread_safe_coroutine&& other) noexcept
-        : handle_(std::exchange(other.handle_, nullptr)), cb_(std::exchange(other.cb_, nullptr)) {}
+        : handle_(std::exchange(other.handle_, nullptr)),
+          cb_(std::exchange(other.cb_, nullptr)) {}
 
     thread_safe_coroutine& operator=(thread_safe_coroutine&& other) noexcept {
         if (this != &other) {

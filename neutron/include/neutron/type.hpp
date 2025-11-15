@@ -10,7 +10,8 @@ template <typename Ty>
 concept ref = std::is_lvalue_reference_v<Ty>;
 
 template <typename Ty>
-concept cref = std::is_lvalue_reference_v<Ty> && std::is_const_v<std::remove_reference_t<Ty>>;
+concept cref = std::is_lvalue_reference_v<Ty> &&
+               std::is_const_v<std::remove_reference_t<Ty>>;
 
 template <typename Ty>
 concept rref = std::is_rvalue_reference_v<Ty>;

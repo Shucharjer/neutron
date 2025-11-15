@@ -22,16 +22,20 @@ class shared_tuple<> {};
 template <typename T, typename... Rest>
 requires(sizeof...(Rest) != 0)
 class shared_tuple<T, Rest...> {
+
     struct alignas(64) _aligned_t {
         T value;
 
-        constexpr _aligned_t() noexcept(std::is_nothrow_default_constructible_v<T>) = default;
+        constexpr _aligned_t() noexcept(
+            std::is_nothrow_default_constructible_v<T>) = default;
 
         template <typename Arg>
         requires std::constructible_from<T, Arg>
-        constexpr _aligned_t(Arg&& arg) noexcept(std::is_nothrow_constructible_v<T, Arg>)
+        constexpr _aligned_t(Arg&& arg) noexcept(
+            std::is_nothrow_constructible_v<T, Arg>)
             : value(std::forward<Arg>(arg)) {}
     };
+
     _aligned_t current_;
 
     shared_tuple<Rest...> others_;
@@ -39,13 +43,15 @@ class shared_tuple<T, Rest...> {
 public:
     constexpr shared_tuple() noexcept(
         std::is_nothrow_default_constructible_v<_aligned_t> &&
-        std::is_nothrow_default_constructible_v<shared_tuple<Rest...>>) = default;
+        std::is_nothrow_default_constructible_v<shared_tuple<Rest...>>) =
+        default;
 
     template <typename Arg, typename... Others>
     constexpr shared_tuple(Arg&& arg, Others&&... others) noexcept(
         std::is_nothrow_constructible_v<_aligned_t, Arg> &&
         std::is_nothrow_constructible_v<shared_tuple<Rest...>, Others...>)
-        : current_(std::forward<Arg>(arg)), others_(std::forward<Others>(others)...) {}
+        : current_(std::forward<Arg>(arg)),
+          others_(std::forward<Others>(others)...) {}
 
     template <size_t Index>
     requires(Index <= sizeof...(Rest))
@@ -76,11 +82,13 @@ class alignas(64) shared_tuple<T> {
     T value_;
 
 public:
-    constexpr shared_tuple() noexcept(std::is_nothrow_default_constructible_v<T>) = default;
+    constexpr shared_tuple() noexcept(
+        std::is_nothrow_default_constructible_v<T>) = default;
 
     template <typename Arg>
     requires std::constructible_from<T, Arg>
-    constexpr shared_tuple(Arg&& arg) noexcept(std::is_nothrow_constructible_v<T, Arg>)
+    constexpr shared_tuple(Arg&& arg) noexcept(
+        std::is_nothrow_constructible_v<T, Arg>)
         : value_(std::forward<Arg>(arg)) {}
 
     template <size_t Index>

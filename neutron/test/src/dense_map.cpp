@@ -146,8 +146,8 @@ void test_dense_map_pmr() {
     // {
     //     std::tuple t1 = { std::allocator_arg, std::allocator<int>{}, 0, 0 };
     //     std::tuple t2 = { 1 };
-    //     std::pair<std::vector<int>, int> p{ std::piecewise_construct, t1, t2 };
+    //     std::pair<std::vector<int>, int> p{ std::piecewise_construct, t1, t2
+    //     };
     // }
     std::vector<int> vec;
 }
-

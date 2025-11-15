@@ -1,5 +1,5 @@
-#include <neutron/pair.hpp>
 #include <string>
+#include <neutron/pair.hpp>
 
 using namespace neutron;
 

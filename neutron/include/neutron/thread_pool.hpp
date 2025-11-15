@@ -72,7 +72,8 @@ private:
             LPOVERLAPPED overlapped  = nullptr;
 
             BOOL result = GetQueuedCompletionStatus(
-                self->handle_, &bytes_transferred, &completion_key, &overlapped, INFINITE);
+                self->handle_, &bytes_transferred, &completion_key, &overlapped,
+                INFINITE);
 
             if (completion_key == completion_status::terminate) {
                 break;
@@ -86,7 +87,8 @@ private:
 
             // deliver
 
-            auto* packet_base = reinterpret_cast<result_packet_base*>(overlapped);
+            auto* packet_base =
+                reinterpret_cast<result_packet_base*>(overlapped);
 
             packet_base->deliver(packet_base);
 
@@ -96,13 +98,16 @@ private:
         return 0;
     }
 
-    iocp_manager() : handle_(CreateIoCompletionPort(INVALID_HANDLE_VALUE, nullptr, 0, 0)) {
+    iocp_manager()
+        : handle_(CreateIoCompletionPort(INVALID_HANDLE_VALUE, nullptr, 0, 0)) {
         if (handle_ == nullptr) [[unlikely]] {
             throw std::system_error(
-                static_cast<int>(GetLastError()), std::system_category(), "Failed to create IOCP");
+                static_cast<int>(GetLastError()), std::system_category(),
+                "Failed to create IOCP");
         }
 
-        dispatch_thread_ = CreateThread(nullptr, 0, _dispatch_thread, this, 0, nullptr);
+        dispatch_thread_ =
+            CreateThread(nullptr, 0, _dispatch_thread, this, 0, nullptr);
 
         if (dispatch_thread_ == nullptr) [[unlikely]] {
             CloseHandle(handle_);
@@ -114,7 +119,8 @@ private:
 
     void _shutdown() {
         PostQueuedCompletionStatus(
-            handle_, 0, /*TERMINATE_KEY*/ completion_status::terminate, nullptr);
+            handle_, 0, /*TERMINATE_KEY*/ completion_status::terminate,
+            nullptr);
         if (dispatch_thread_ != nullptr) [[likely]] {
             WaitForSingleObject(dispatch_thread_, INFINITE);
             CloseHandle(dispatch_thread_);
@@ -138,7 +144,9 @@ enum class _future_state : uint8_t {
 struct _future_base {
     _future_base() noexcept = default;
 
-    _future_state state() const noexcept { return state_.load(std::memory_order_acquire); }
+    _future_state state() const noexcept {
+        return state_.load(std::memory_order_acquire);
+    }
 
     void mark_ready() noexcept {
         state_.store(_future_state::ready, std::memory_order_release);
@@ -162,21 +170,24 @@ struct _future_base {
 
         std::unique_lock<std::mutex> ulock(mutex_);
         condvar_.wait(ulock, [this]() {
-            return state_.load(std::memory_order_acquire) != _future_state::pending;
+            return state_.load(std::memory_order_acquire) !=
+                   _future_state::pending;
         });
 
         return true;
     }
 
     template <typename Rep, typename Period>
-    bool wait_for_impl(const std::chrono::duration<Rep, Period>& timeout) const {
+    bool
+        wait_for_impl(const std::chrono::duration<Rep, Period>& timeout) const {
         if (state_.load(std::memory_order_acquire) != _future_state::pending) {
             return true;
         }
 
         std::unique_lock<std::mutex> ulock(mutex_);
         return condvar_.wait_for(ulock, timeout, [this]() {
-            return state_.load(std::memory_order_acquire) != _future_state::pending;
+            return state_.load(std::memory_order_acquire) !=
+                   _future_state::pending;
         });
     }
 
@@ -210,7 +221,9 @@ public:
 
     void wait() const { wait_impl(); }
 
-    NODISCARD bool valid() const noexcept { return state() != _future_state::consumed; }
+    NODISCARD bool valid() const noexcept {
+        return state() != _future_state::consumed;
+    }
 
     template <typename Rep, typename Period>
     bool wait_for(const std::chrono::duration<Rep, Period>& timeout) const {
@@ -251,7 +264,9 @@ public:
 
     void wait() const { wait_impl(); }
 
-    NODISCARD bool valid() const noexcept { return state() != _future_state::consumed; }
+    NODISCARD bool valid() const noexcept {
+        return state() != _future_state::consumed;
+    }
 
     template <typename Rep, typename Period>
     bool wait_for(const std::chrono::duration<Rep, Period>& timeout) const {
@@ -361,14 +376,16 @@ private:
     };
 
     template <typename Callable, typename Ret, typename... Args>
-    static task_context<Callable, Ret, Args...>*
-        _create_task(Callable&& callable, std::shared_ptr<future<Ret>> fut, Args&&... args) {
+    static task_context<Callable, Ret, Args...>* _create_task(
+        Callable&& callable, std::shared_ptr<future<Ret>> fut, Args&&... args) {
         auto context = static_cast<task_context<Callable, Ret, Args...>*>(
             ::operator new(sizeof(task_context<Callable, Ret, Args...>)));
 
-        ::new (&context->callable) std::remove_cvref_t<Callable>(std::forward<Callable>(callable));
+        ::new (&context->callable)
+            std::remove_cvref_t<Callable>(std::forward<Callable>(callable));
         if constexpr (sizeof...(Args)) {
-            ::new (&context->args) std::tuple<Args...>(std::forward<Args>(args)...);
+            ::new (&context->args)
+                std::tuple<Args...>(std::forward<Args>(args)...);
         }
         ::new (&context->future) std::shared_ptr<future<Ret>>(std::move(fut));
         return context;
@@ -386,11 +403,13 @@ private:
         auto* packet = static_cast<internal::result_packet<void>*>(
             ::operator new(sizeof(internal::result_packet<void>)));
 
-        ::new (packet) internal::result_packet<void>{ .future = std::move(future) };
+        ::new (packet)
+            internal::result_packet<void>{ .future = std::move(future) };
 
         PostQueuedCompletionStatus(
             internal::iocp_manager::instance().completion_port(), 0,
-            internal::completion_status::finish, reinterpret_cast<LPOVERLAPPED>(packet));
+            internal::completion_status::finish,
+            reinterpret_cast<LPOVERLAPPED>(packet));
     }
 
     template <typename Ty>
@@ -398,21 +417,25 @@ private:
         auto packet = static_cast<internal::result_packet<Ty>*>(
             ::operator new(sizeof(internal::result_packet<Ty>)));
 
-        ::new (packet) internal::result_packet<Ty>{ .future = std::move(future),
-                                                    .value  = std::forward<Ty>(value) };
+        ::new (packet)
+            internal::result_packet<Ty>{ .future = std::move(future),
+                                         .value  = std::forward<Ty>(value) };
 
         PostQueuedCompletionStatus(
             internal::iocp_manager::instance().completion_port(), 0,
-            internal::completion_status::finish, reinterpret_cast<LPOVERLAPPED>(packet));
+            internal::completion_status::finish,
+            reinterpret_cast<LPOVERLAPPED>(packet));
     }
 
     template <typename Ty>
-    static void _post_exception(std::shared_ptr<future<Ty>> future, std::exception_ptr exception) {
+    static void _post_exception(
+        std::shared_ptr<future<Ty>> future, std::exception_ptr exception) {
         auto packet = static_cast<internal::result_packet<Ty>*>(
             ::operator new(sizeof(internal::result_packet<Ty>)));
 
-        new (packet) internal::result_packet<Ty>{ .future    = std::move(future),
-                                                  .exception = std::move(exception) };
+        new (packet)
+            internal::result_packet<Ty>{ .future    = std::move(future),
+                                         .exception = std::move(exception) };
 
         PostQueuedCompletionStatus(
             internal::iocp_manager::instance().completion_port(), 0, 0,
@@ -420,7 +443,8 @@ private:
     }
 
     template <typename Callable, typename Ret, typename... Args>
-    static void CALLBACK _task_proxy(PTP_CALLBACK_INSTANCE instance, PVOID context) {
+    static void CALLBACK
+        _task_proxy(PTP_CALLBACK_INSTANCE instance, PVOID context) {
         using context_type = task_context<Callable, Ret, Args...>;
 
         auto* ctx = static_cast<context_type*>(context);
@@ -450,7 +474,8 @@ public:
             std::forward<Callable>(callable), fut, std::forward<Args>(args)...);
 
         if (!TrySubmitThreadpoolCallback(
-                &_task_proxy<Callable, return_type, Args...>, context, &env_)) [[unlikely]] {
+                &_task_proxy<Callable, return_type, Args...>, context, &env_))
+            [[unlikely]] {
             _destroy_task<Callable, return_type>(context);
             throw std::runtime_error("Failed to submit task to thread pool");
         }
@@ -523,18 +548,21 @@ class result_packet_allocator {
     }
 
 public:
-    static result_packet<Ty>* create(std::shared_ptr<future<Ty>> future, Ty value) {
+    static result_packet<Ty>*
+        create(std::shared_ptr<future<Ty>> future, Ty value) {
         auto packet = static_cast<result_packet<Ty>*>(
             packet_memory_pool<sizeof(result_packet<Ty>)>::allocate());
-        new (packet) result_packet<Ty>{ .future = std::move(future), .value = std::move(value) };
+        new (packet) result_packet<Ty>{ .future = std::move(future),
+                                        .value  = std::move(value) };
         return packet;
     }
 
-    static result_packet<Ty>*
-        create_exception(std::shared_ptr<future<Ty>> future, std::exception_ptr exception) {
+    static result_packet<Ty>* create_exception(
+        std::shared_ptr<future<Ty>> future, std::exception_ptr exception) {
         auto packet = static_cast<result_packet<Ty>*>(
             packet_memory_pool<sizeof(result_packet<Ty>)>::allocate());
-        new (packet) result_packet<Ty>{ .future = std::move(future), .exception = exception };
+        new (packet) result_packet<Ty>{ .future    = std::move(future),
+                                        .exception = exception };
         return packet;
     }
 
@@ -552,7 +580,8 @@ namespace neutron {
 
 class thread_pool {
 public:
-    thread_pool(const std::size_t num_threads = std::thread::hardware_concurrency())
+    thread_pool(
+        const std::size_t num_threads = std::thread::hardware_concurrency())
         : num_threads_(num_threads) {
         try {
             for (auto i = 0; i < num_threads / 2; ++i) {
@@ -611,8 +640,9 @@ public:
             emplace_thread();
         }
 
-        auto task = std::make_shared<std::packaged_task<return_type()>>(
-            std::bind(std::forward<callable>(callable), std::forward<args>(args)...));
+        auto task =
+            std::make_shared<std::packaged_task<return_type()>>(std::bind(
+                std::forward<callable>(callable), std::forward<args>(args)...));
 
         std::future<return_type> future = task->get_future();
 
@@ -630,7 +660,8 @@ private:
         threads_.emplace_back([this]() {
             while (true) {
                 std::unique_lock<std::mutex> lock(mutex_);
-                condvar_.wait(lock, [this]() { return stop_ || !tasks_.empty(); });
+                condvar_.wait(
+                    lock, [this]() { return stop_ || !tasks_.empty(); });
 
                 if (stop_ && tasks_.empty()) {
                     return;

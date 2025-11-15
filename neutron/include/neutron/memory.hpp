@@ -20,88 +20,53 @@
 #include <new>
 #include <type_traits>
 #include <utility>
-#include "neutron/mask.hpp"
-#include "neutron/neutron.hpp"
+#include "neutron/internal/allocator.hpp"
+#include "neutron/internal/exception_guard.hpp"
+#include "neutron/internal/immediately.hpp"
+#include "neutron/internal/mask.hpp"
 #include "neutron/template_list.hpp"
 
 namespace neutron {
-
-template <typename Alloc>
-concept _sized_allocator = requires(Alloc& alloc, size_t n) {
-    { *alloc.allocate(n) } -> std::same_as<typename Alloc::value_type&>;
-    alloc.deallocate(alloc.allocate(n), n);
-};
-
-template <typename Alloc>
-concept _allocator = requires(Alloc& alloc) {
-    { alloc.allocate() } -> std::convertible_to<void*>;
-};
-
-// @note Concept `simple_allocator` since C++26.
-template <typename Alloc>
-concept _std_simple_allocator =
-    _sized_allocator<Alloc> && std::copy_constructible<Alloc> && std::equality_comparable<Alloc>;
-
-template <typename Alloc, typename Ty>
-using rebind_alloc_t = typename std::allocator_traits<Alloc>::template rebind_alloc<Ty>;
 
 struct _storage {
     template <typename Base>
     struct interface : Base {
         NODISCARD void* raw() noexcept { return this->template invoke<0>(); }
-        NODISCARD const void* const_raw() const noexcept { return this->template invoke<1>(); }
+        NODISCARD const void* const_raw() const noexcept {
+            return this->template invoke<1>();
+        }
     };
 
     template <typename Impl>
     using impl = value_list<&Impl::pointer, &Impl::const_pointer>;
 };
 
-// NOTE: std::allocator<_>::allocate(size_t) is constexpr since c++20, so the follow functions were
-// declaraed with constexpr as possible.
-
-template <typename Alloc>
-constexpr auto _allocate(Alloc& alloc, size_t n = 1) {
-    return std::allocator_traits<Alloc>::allocate(alloc, n);
-}
-
-template <typename Alloc, typename... Args>
-constexpr void
-    _construct(Alloc& alloc, typename std::allocator_traits<Alloc>::pointer ptr, Args&&... args) {
-    std::uninitialized_construct_using_allocator(ptr, alloc, std::forward<Args>(args)...);
-}
-
-template <typename Alloc>
-constexpr void _destroy(Alloc& alloc, typename std::allocator_traits<Alloc>::pointer ptr) noexcept(
-    std::is_nothrow_destructible_v<typename std::allocator_traits<Alloc>::value_type>) {
-    return std::allocator_traits<Alloc>::destroy(alloc, ptr);
-}
-
-template <typename Alloc>
-constexpr void _deallocate(
-    Alloc& alloc, typename std::allocator_traits<Alloc>::pointer ptr, size_t n = 1) noexcept {
-    return std::allocator_traits<Alloc>::deallocate(alloc, ptr, n);
-}
+// NOTE: std::allocator<_>::allocate(size_t) is constexpr since c++20, so the
+// follow functions were declaraed with constexpr as possible.
 
 /**
  * @class unique_storage
  * @brief A storage that holds a single object of type `Ty`.
- * This class is designed to be used with allocators, and provides a way to get the pointer from the
- * static virtual table. It's essential for high-performance systems which has type-erased occasion.
+ * This class is designed to be used with allocators, and provides a way to get
+ * the pointer from the static virtual table. It's essential for
+ * high-performance systems which has type-erased occasion.
  * @tparam Ty The type of the object to be stored.
  * @tparam Alloc The allocator to be used for the storage.
  * @note This class is not thread-safe.
  */
 template <typename Ty, _std_simple_allocator Alloc = std::allocator<Ty>>
-class unique_storage : private std::allocator_traits<Alloc>::template rebind_alloc<Ty> {
+class unique_storage :
+    private std::allocator_traits<Alloc>::template rebind_alloc<Ty> {
     template <typename T, _std_simple_allocator Al>
     friend class unique_storage;
 
-    using alloc_t  = typename std::allocator_traits<Alloc>::template rebind_alloc<Ty>;
+    using alloc_t =
+        typename std::allocator_traits<Alloc>::template rebind_alloc<Ty>;
     using traits_t = typename std::allocator_traits<alloc_t>;
 
     template <typename... Args>
-    constexpr void
-        _construct_it(Args&&... args) noexcept(std::is_nothrow_constructible_v<Ty, Args...>) {
+    constexpr void _construct_it(Args&&... args) noexcept(
+        std::is_nothrow_constructible_v<Ty, Args...>) {
         auto guard = make_exception_guard([this] {
             _deallocate(get_allocator(), ptr_);
             ptr_ = nullptr;
@@ -129,14 +94,16 @@ public:
     using const_pointer  = typename alloc_traits::const_pointer;
 
     unique_storage(const unique_storage& that)
-        : alloc_t(that.get_allocator()), ptr_(that.ptr_ ? get_allocator().allocate(1) : nullptr) {
+        : alloc_t(that.get_allocator()),
+          ptr_(that.ptr_ ? get_allocator().allocate(1) : nullptr) {
         _construct_it(*that.ptr);
     }
 
     unique_storage& operator=(const unique_storage& that) = delete;
 
     constexpr unique_storage(unique_storage&& that) noexcept // since c++17
-        : alloc_t(std::move(that.get_allocator())), ptr_(std::exchange(that.ptr_, nullptr)) {}
+        : alloc_t(std::move(that.get_allocator())),
+          ptr_(std::exchange(that.ptr_, nullptr)) {}
 
     constexpr unique_storage(unique_storage&& that, const allocator_type& alloc)
         : alloc_t(alloc), ptr_(nullptr) {
@@ -151,7 +118,8 @@ public:
     }
 
     template <_std_simple_allocator Allocator>
-    constexpr unique_storage(unique_storage<Ty, Allocator>&& that) : alloc_t(), ptr_(nullptr) {
+    constexpr unique_storage(unique_storage<Ty, Allocator>&& that)
+        : alloc_t(), ptr_(nullptr) {
         if (that.ptr_) {
             ptr_ = _allocate(get_allocator());
             _construct_it(std::move(*that.ptr_));
@@ -160,7 +128,8 @@ public:
     }
 
     template <_std_simple_allocator Allocator = alloc_t>
-    constexpr unique_storage(unique_storage<Ty, Allocator>&& that, const allocator_type& alloc)
+    constexpr unique_storage(
+        unique_storage<Ty, Allocator>&& that, const allocator_type& alloc)
         : alloc_t(alloc), ptr_(nullptr) {
         if (that.ptr_) {
             ptr_ = _allocate(get_allocator());
@@ -182,7 +151,8 @@ public:
 
             auto guard = make_exception_guard([&] { ptr_ = old_ptr; });
 
-            if constexpr (traits_t::propagate_on_container_move_assignment::value) {
+            if constexpr (traits_t::propagate_on_container_move_assignment::
+                              value) {
                 get_allocator() = std::move(that.get_allocator());
                 guard.mark_complete();
                 std::swap(ptr_, that.ptr_);
@@ -235,8 +205,10 @@ public:
 
     // construct with allocator
 
-    constexpr unique_storage(std::allocator_arg_t, const allocator_type& alloc) noexcept(
-        std::is_nothrow_copy_constructible_v<alloc_t>)
+    constexpr unique_storage(
+        std::allocator_arg_t,
+        const allocator_type&
+            alloc) noexcept(std::is_nothrow_copy_constructible_v<alloc_t>)
         : alloc_t(alloc), ptr_(nullptr) {}
 
     explicit constexpr unique_storage(const allocator_type& alloc) noexcept(
@@ -246,12 +218,14 @@ public:
     // construct immediately
 
     explicit constexpr unique_storage(immediately_t)
-    requires std::default_initializable<alloc_t> && std::default_initializable<Ty>
+    requires std::default_initializable<alloc_t> &&
+                 std::default_initializable<Ty>
         : alloc_t(), ptr_(_allocate(get_allocator())) {
         _construct_it();
     }
 
-    constexpr unique_storage(std::allocator_arg_t, const allocator_type& alloc, immediately_t)
+    constexpr unique_storage(
+        std::allocator_arg_t, const allocator_type& alloc, immediately_t)
         : alloc_t(alloc), ptr_(_allocate(get_allocator())) {
         _construct_it();
     }
@@ -263,7 +237,8 @@ public:
 
     template <typename... Args>
     requires std::constructible_from<Ty, Args...>
-    constexpr unique_storage(std::allocator_arg_t, const allocator_type& alloc, Args&&... args)
+    constexpr unique_storage(
+        std::allocator_arg_t, const allocator_type& alloc, Args&&... args)
         : alloc_t(alloc), ptr_(_allocate(get_allocator())) {
         _construct_it(std::forward<Args>(args)...);
     }
@@ -271,12 +246,15 @@ public:
     template <typename... Args>
     requires std::constructible_from<Ty, Args...>
     constexpr unique_storage(Args&&... args, const allocator_type& alloc)
-        : unique_storage(std::allocator_arg, alloc, std::forward<Args>(args)...) {}
+        : unique_storage(
+              std::allocator_arg, alloc, std::forward<Args>(args)...) {}
 
     template <typename... Args>
     requires std::is_constructible_v<Ty, Args...>
     explicit constexpr unique_storage(Args&&... args)
-        : unique_storage(std::allocator_arg, allocator_type{}, std::forward<Args>(args)...) {}
+        : unique_storage(
+              std::allocator_arg, allocator_type{},
+              std::forward<Args>(args)...) {}
 
     // assign from type convertible to 'Ty'.
 
@@ -299,7 +277,9 @@ public:
         }
     }
 
-    NODISCARD constexpr void* raw() noexcept { return static_cast<void*>(ptr_); }
+    NODISCARD constexpr void* raw() noexcept {
+        return static_cast<void*>(ptr_);
+    }
 
     NODISCARD constexpr const void* const_raw() const noexcept {
         return static_cast<const void*>(ptr_);
@@ -307,7 +287,9 @@ public:
 
     NODISCARD constexpr decltype(auto) operator*() noexcept { return *ptr_; }
 
-    NODISCARD constexpr decltype(auto) operator*() const noexcept { return *ptr_; }
+    NODISCARD constexpr decltype(auto) operator*() const noexcept {
+        return *ptr_;
+    }
 
     constexpr auto operator->() noexcept {
         if constexpr (std::is_pointer_v<typename traits_t::pointer>) {
@@ -325,7 +307,9 @@ public:
         }
     }
 
-    constexpr explicit operator bool() const noexcept { return ptr_ != nullptr; }
+    constexpr explicit operator bool() const noexcept {
+        return ptr_ != nullptr;
+    }
 
     constexpr void swap(unique_storage& that) noexcept {
         if constexpr (traits_t::propagate_on_container_swap::value) {
@@ -336,7 +320,9 @@ public:
         std::swap(ptr_, that.ptr_);
     }
 
-    NODISCARD constexpr auto& get_allocator() noexcept { return *static_cast<alloc_t*>(this); }
+    NODISCARD constexpr auto& get_allocator() noexcept {
+        return *static_cast<alloc_t*>(this);
+    }
 
     NODISCARD constexpr const auto& get_allocator() const noexcept {
         return *static_cast<const alloc_t*>(this);
@@ -373,7 +359,8 @@ public:
         return *this;
     }
 
-    constexpr _counter(_counter&& that) noexcept : count_(std::exchange(that.count_, nullptr)) {}
+    constexpr _counter(_counter&& that) noexcept
+        : count_(std::exchange(that.count_, nullptr)) {}
 
     CONSTEXPR26 _counter& operator=(_counter&& that) noexcept {
         if (this != &that) [[likely]] {
@@ -393,7 +380,9 @@ public:
 
     CONSTEXPR26 void make() { count_ = new atomic_type{}; }
 
-    CONSTEXPR26 void increase() noexcept { count_->fetch_add(1, std::memory_order_relaxed); }
+    CONSTEXPR26 void increase() noexcept {
+        count_->fetch_add(1, std::memory_order_relaxed);
+    }
 
     CONSTEXPR26 void decrease() noexcept {
         auto current = count_->fetch_sub(1, std::memory_order_relaxed);
@@ -402,7 +391,9 @@ public:
         }
     }
 
-    CONSTEXPR26 auto get() noexcept { return count_->load(std::memory_order_relaxed); }
+    CONSTEXPR26 auto get() noexcept {
+        return count_->load(std::memory_order_relaxed);
+    }
 
 private:
     atomic_type* count_{};
@@ -413,7 +404,8 @@ private:
  * @brief A COW container.
  */
 template <typename Ty, _std_simple_allocator Alloc>
-class shared_storage : private std::allocator_traits<Alloc>::template rebind_alloc<Ty> {
+class shared_storage :
+    private std::allocator_traits<Alloc>::template rebind_alloc<Ty> {
 public:
     // clang-format off
 
@@ -444,25 +436,29 @@ public:
 
     constexpr shared_storage() noexcept : alloc_t(), ptr_() {}
 
-    constexpr shared_storage(std::allocator_arg_t, const allocator_type& alloc) noexcept
+    constexpr shared_storage(
+        std::allocator_arg_t, const allocator_type& alloc) noexcept
         : alloc_t(alloc), ptr_() {}
 
     constexpr shared_storage(const allocator_type& alloc) noexcept
         : shared_storage(std::allocator_arg, alloc) {}
 
-    shared_storage(std::allocator_arg_t, const allocator_type& alloc, immediately_t)
+    shared_storage(
+        std::allocator_arg_t, const allocator_type& alloc, immediately_t)
         : alloc_t(alloc), ptr_(_allocate(get_allocator())) {
         _construct_it();
         counter_.make();
     }
 
-    shared_storage(immediately_t) : shared_storage(std::allocator_arg, alloc_t{}, immediately) {}
+    shared_storage(immediately_t)
+        : shared_storage(std::allocator_arg, alloc_t{}, immediately) {}
 
     shared_storage(immediately_t, const allocator_type& alloc)
         : shared_storage(std::allocator_arg, alloc_t{}, immediately) {}
 
     template <typename... Args>
-    shared_storage(std::allocator_arg_t, const allocator_type& alloc, Args&&... args)
+    shared_storage(
+        std::allocator_arg_t, const allocator_type& alloc, Args&&... args)
         : alloc_t(alloc), ptr_(_allocate(get_allocator())) {
         _construct_it(std::forward<Args>(args)...);
         counter_.make();
@@ -470,11 +466,13 @@ public:
 
     template <typename... Args>
     shared_storage(Args&&... args, const allocator_type& alloc)
-        : shared_storage(std::allocator_arg, alloc, std::forward<Args>(args)...) {}
+        : shared_storage(
+              std::allocator_arg, alloc, std::forward<Args>(args)...) {}
 
     template <typename... Args>
     shared_storage(Args&&... args)
-        : shared_storage(std::allocator_arg, alloc_t{}, std::forward<Args>(args)...) {}
+        : shared_storage(
+              std::allocator_arg, alloc_t{}, std::forward<Args>(args)...) {}
 
     constexpr shared_storage(const shared_storage& that);
 
@@ -482,7 +480,8 @@ public:
 
     constexpr shared_storage(shared_storage&& that) noexcept;
 
-    constexpr shared_storage(shared_storage&& that, const allocator_type& alloc);
+    constexpr shared_storage(
+        shared_storage&& that, const allocator_type& alloc);
 
     constexpr shared_storage& operator=(shared_storage&& that) noexcept;
 
@@ -501,7 +500,9 @@ public:
 
     constexpr auto count() noexcept { return counter_.get(); }
 
-    constexpr alloc_t& get_allocator() noexcept { return *static_cast<alloc_t*>(this); }
+    constexpr alloc_t& get_allocator() noexcept {
+        return *static_cast<alloc_t*>(this);
+    }
 
     constexpr const alloc_t& get_allocator() const noexcept {
         return *static_cast<const alloc_t*>(this);
@@ -523,14 +524,18 @@ using packed_size_t = std::conditional_t<
     (Size < std::numeric_limits<uint8_t>::max()), uint8_t,
     std::conditional_t<
         (Size < std::numeric_limits<uint16_t>::max()), uint16_t,
-        std::conditional_t<(Size < std::numeric_limits<uint32_t>::max()), uint32_t, uint64_t>>>;
+        std::conditional_t<
+            (Size < std::numeric_limits<uint32_t>::max()), uint32_t,
+            uint64_t>>>;
 
 template <size_t Size>
 using packed_uint_t = std::conditional_t<
     (Size <= std::numeric_limits<uint8_t>::max()), uint8_t,
     std::conditional_t<
         (Size <= std::numeric_limits<uint16_t>::max()), uint16_t,
-        std::conditional_t<(Size <= std::numeric_limits<uint32_t>::max()), uint32_t, uint64_t>>>;
+        std::conditional_t<
+            (Size <= std::numeric_limits<uint32_t>::max()), uint32_t,
+            uint64_t>>>;
 
 template <size_t Size>
 using fast_packed_size_t = std::conditional_t<
@@ -538,7 +543,8 @@ using fast_packed_size_t = std::conditional_t<
     std::conditional_t<
         (Size < std::numeric_limits<uint16_t>::max()), uint_fast16_t,
         std::conditional_t<
-            (Size < std::numeric_limits<uint32_t>::max()), uint_fast32_t, uint_fast64_t>>>;
+            (Size < std::numeric_limits<uint32_t>::max()), uint_fast32_t,
+            uint_fast64_t>>>;
 
 template <size_t Size>
 using fast_packed_uint_t = std::conditional_t<
@@ -546,7 +552,8 @@ using fast_packed_uint_t = std::conditional_t<
     std::conditional_t<
         (Size <= std::numeric_limits<uint16_t>::max()), uint_fast16_t,
         std::conditional_t<
-            (Size <= std::numeric_limits<uint32_t>::max()), uint_fast32_t, uint_fast64_t>>>;
+            (Size <= std::numeric_limits<uint32_t>::max()), uint_fast32_t,
+            uint_fast64_t>>>;
 
 /**
  * @brief A union stores bytes or next free memory block.
@@ -561,7 +568,8 @@ union freeable_bytes {
 };
 
 template <size_t Size>
-constexpr void _init_freeable_bytes(freeable_bytes<Size>* blocks, size_t capacity) noexcept {
+constexpr void _init_freeable_bytes(
+    freeable_bytes<Size>* blocks, size_t capacity) noexcept {
     assert(capacity != 0);
     for (size_t i = 0; i < capacity - 1; i++) {
         auto* const block = std::launder(std::next(blocks, i));
@@ -571,13 +579,17 @@ constexpr void _init_freeable_bytes(freeable_bytes<Size>* blocks, size_t capacit
 }
 
 template <size_t Size>
-constexpr void _init_uninitialized_freeable_bytes(void* blocks, size_t capacity) noexcept {
-    static_assert(std::is_trivially_default_constructible_v<freeable_bytes<Size>>);
-    _init_freeable_bytes<Size>(static_cast<freeable_bytes<Size>*>(blocks), capacity);
+constexpr void
+    _init_uninitialized_freeable_bytes(void* blocks, size_t capacity) noexcept {
+    static_assert(
+        std::is_trivially_default_constructible_v<freeable_bytes<Size>>);
+    _init_freeable_bytes<Size>(
+        static_cast<freeable_bytes<Size>*>(blocks), capacity);
 }
 
 template <size_t Size>
-constexpr void* _take_bytes(freeable_bytes<Size>* blocks, freeable_bytes<Size>*& head) noexcept {
+constexpr void* _take_bytes(
+    freeable_bytes<Size>* blocks, freeable_bytes<Size>*& head) noexcept {
     if (head == nullptr) [[unlikely]] {
         return nullptr;
     }
@@ -601,10 +613,13 @@ constexpr void _put_bytes(
 /**
  * @class _pool_proxy
  * @brief A contiguous memory manager.
- * It's designed for container internal implementation and optimization, or you should not use it.
+ * It's designed for container internal implementation and optimization, or you
+ * should not use it.
  * @tparam Size Size of each memory block, used to store an object by `take`.
- * @tparam Deletor A functor determines how to delete the contiguous memory block.
- * @note The `void` deletor would do nothing, you should delete the memory block.
+ * @tparam Deletor A functor determines how to delete the contiguous memory
+ * block.
+ * @note The `void` deletor would do nothing, you should delete the memory
+ * block.
  */
 template <size_t Size, typename Deletor = void>
 class _pool_proxy;
@@ -612,7 +627,8 @@ class _pool_proxy;
 template <size_t Size, typename Deletor>
 class _pool_proxy {
 public:
-    // Check if Deletor supports typed delete: deletor(_free_block<Size>*, size_t)
+    // Check if Deletor supports typed delete: deletor(_free_block<Size>*,
+    // size_t)
     constexpr static bool deletor_supports_typed =
         requires(Deletor& del, freeable_bytes<Size>* blocks, size_t capacity) {
             // You may need to notice the noexcept identifier.
@@ -635,8 +651,9 @@ public:
      */
     template <typename Dx = Deletor>
     constexpr _pool_proxy(void* blocks, size_t capacity, Dx&& deletor) noexcept
-        : blocks_(static_cast<freeable_bytes<Size>*>(blocks)), free_head_(blocks),
-          capacity_(capacity), deletor_(std::forward<Dx>(deletor)) {
+        : blocks_(static_cast<freeable_bytes<Size>*>(blocks)),
+          free_head_(blocks), capacity_(capacity),
+          deletor_(std::forward<Dx>(deletor)) {
         _init_uninitialized_freeable_bytes(blocks_, capacity);
     }
 
@@ -644,7 +661,8 @@ public:
      * @warning The alignment of `blocks` should be checked before calling this.
      */
     template <typename Dx = Deletor>
-    constexpr _pool_proxy(freeable_bytes<Size>* blocks, size_t capacity, Dx&& deletor) noexcept
+    constexpr _pool_proxy(
+        freeable_bytes<Size>* blocks, size_t capacity, Dx&& deletor) noexcept
         : blocks_(blocks), free_head_(blocks), capacity_(capacity),
           deletor_(std::forward<Dx>(deletor)) {
         _init_freeable_bytes(blocks_, capacity);
@@ -656,7 +674,8 @@ public:
     constexpr _pool_proxy(_pool_proxy&& that) noexcept
         : blocks_(std::exchange(that.blocks_, nullptr)),
           free_head_(std::exchange(that.free_head_, nullptr)),
-          capacity_(std::exchange(that.capacity_, 0)), deletor_(std::move(that.deletor_)) {}
+          capacity_(std::exchange(that.capacity_, 0)),
+          deletor_(std::move(that.deletor_)) {}
 
     constexpr _pool_proxy& operator=(_pool_proxy&& that) noexcept {
         if (this != &that) [[likely]] {
@@ -678,20 +697,23 @@ public:
     }
 
     /**
-     * @brief Acquire a raw memory block suitable for constructing an object of type `Ty`.
-     * @return Pointer to uninitialized memory, or nullptr if no block available.
+     * @brief Acquire a raw memory block suitable for constructing an object of
+     * type `Ty`.
+     * @return Pointer to uninitialized memory, or nullptr if no block
+     * available.
      */
     template <typename Ty>
     requires(sizeof(Ty) <= Size)
     constexpr Ty* take() noexcept {
-        // To make it constexpr, we use `static_cast` rather than `reinterpret_cast`
+        // To make it constexpr, we use `static_cast` rather than
+        // `reinterpret_cast`
         return static_cast<Ty*>(_take_bytes(blocks_, free_head_));
     }
 
     /**
      * @brief Return a previously acquired block to the pool.
-     * @param pointer Pointer to memory obtained via `take`. The pointed-to object must be already
-     * destroyed.
+     * @param pointer Pointer to memory obtained via `take`. The pointed-to
+     * object must be already destroyed.
      * @note No validation is performed on `ptr`. Caller must ensure validity.
      */
     constexpr void put(void* pointer) noexcept {
@@ -720,15 +742,16 @@ public:
      * @warning The alignment of `blocks` should be checked before calling this.
      */
     constexpr _pool_proxy(void* blocks, size_t capacity) noexcept
-        : blocks_(static_cast<freeable_bytes<Size>*>(blocks)), free_head_(blocks_),
-          capacity_(capacity) {
+        : blocks_(static_cast<freeable_bytes<Size>*>(blocks)),
+          free_head_(blocks_), capacity_(capacity) {
         _init_uninitialized_freeable_bytes<Size>(blocks, capacity);
     }
 
     /**
      * @warning The alignment of `blocks` should be checked before calling this.
      */
-    constexpr _pool_proxy(freeable_bytes<Size>* blocks, size_t capacity) noexcept
+    constexpr _pool_proxy(
+        freeable_bytes<Size>* blocks, size_t capacity) noexcept
         : blocks_(blocks), free_head_(blocks_), capacity_(capacity) {
         _init_freeable_bytes(blocks, capacity);
     }
@@ -752,8 +775,10 @@ public:
     constexpr ~_pool_proxy() noexcept = default;
 
     /**
-     * @brief Acquire a raw memory block suitable for constructing an object of type `Ty`.
-     * @return Pointer to uninitialized memory, or nullptr if no block available.
+     * @brief Acquire a raw memory block suitable for constructing an object of
+     * type `Ty`.
+     * @return Pointer to uninitialized memory, or nullptr if no block
+     * available.
      */
     template <typename Ty>
     requires(sizeof(Ty) <= Size)
@@ -763,8 +788,8 @@ public:
 
     /**
      * @brief Return a previously acquired block to the pool.
-     * @param pointer Pointer to memory obtained via `take`. The pointed-to object must be already
-     * destroyed.
+     * @param pointer Pointer to memory obtained via `take`. The pointed-to
+     * object must be already destroyed.
      * @note No validation is performed on `ptr`. Caller must ensure validity.
      */
     constexpr void put(void* pointer) noexcept {
@@ -784,7 +809,8 @@ private:
 };
 
 /*
- * This implementation could save 8 bytes because of the tprama with larger binary.
+ * This implementation could save 8 bytes because of the tprama with larger
+ * binary.
  */
 template <size_t Size, size_t Capacity, size_t Align = alignof(void*)>
 requires _single_bit<Align>
@@ -806,7 +832,8 @@ public:
 
     template <typename Ty>
     constexpr Ty* take() noexcept {
-        return std::assume_aligned<Align>(static_cast<Ty*>(_take_bytes(blocks_, free_head_)));
+        return std::assume_aligned<Align>(
+            static_cast<Ty*>(_take_bytes(blocks_, free_head_)));
     }
 
     constexpr void put(void* pointer) noexcept {
@@ -827,7 +854,10 @@ requires _single_bit<Align>
 class runtime_pool {
 public:
     explicit constexpr runtime_pool(size_t capacity)
-        : proxy_(::operator new(Size* capacity, static_cast<std::align_val_t>(Align)), capacity) {}
+        : proxy_(
+              ::operator new(
+                  Size* capacity, static_cast<std::align_val_t>(Align)),
+              capacity) {}
 
     runtime_pool(const runtime_pool&)            = delete;
     runtime_pool& operator=(const runtime_pool&) = delete;
