@@ -1,10 +1,23 @@
 #pragma once
 #include <functional>
 #include <type_traits>
-#include "neutron/neutron.hpp"
 #include "neutron/type_traits.hpp"
+#include "../src/neutron/internal/macros.hpp"
+#include "../src/neutron/internal/spreader.hpp"
 
 namespace neutron {
+
+/**
+ * @class delegate
+ * @brief A thin wrapper of function pointer and context.
+ * It prefers performance over usability. We can only bind it by template
+ * non-type arugment, which means it could be inlined by compiler as much as
+ * possible.
+ * @tparam Ret Return type of the function.
+ * @tparam Args Arguments of the function.
+ */
+template <typename>
+class delegate;
 
 template <typename Ret, typename... Args>
 class delegate<Ret(Args...)> {
@@ -27,7 +40,7 @@ public:
      * `neutron::spread_arg<Candidate>`.
      */
     template <auto Candidate>
-    constexpr explicit delegate(spreader<Candidate> spreader) noexcept {
+    constexpr explicit delegate(value_spreader<Candidate> spreader) noexcept {
         bind<Candidate>();
     }
 
@@ -42,7 +55,7 @@ public:
      */
     template <auto Candidate, typename Type>
     constexpr explicit delegate(
-        spreader<Candidate> spreader, Type& instance) noexcept {
+        value_spreader<Candidate> spreader, Type& instance) noexcept {
         bind<Candidate>(instance);
     }
 
@@ -207,7 +220,7 @@ public:
      * `neutron::spread_arg<Candidate>`.
      */
     template <auto Candidate>
-    constexpr explicit delegate(spreader<Candidate> spreader) noexcept {
+    constexpr explicit delegate(value_spreader<Candidate> spreader) noexcept {
         bind<Candidate>();
     }
 
@@ -222,7 +235,7 @@ public:
      */
     template <auto Candidate, typename Type>
     constexpr explicit delegate(
-        spreader<Candidate> spreader, Type& instance) noexcept {
+        value_spreader<Candidate> spreader, Type& instance) noexcept {
         bind<Candidate>(instance);
     }
 

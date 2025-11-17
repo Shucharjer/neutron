@@ -1,11 +1,10 @@
 #pragma once
 #include <ranges>
-#include "neutron/internal/ranges.hpp"
-#include "neutron/neutron.hpp"
+#include "ranges.hpp"
 
 #if HAS_CXX23 && false
 
-namespace neutron {
+namespace neutron::ranges {
 
 using std::ranges::to;
 
@@ -13,9 +12,9 @@ using std::ranges::to;
 
 #else
 
-    #include "neutron/internal/phony_input_iterator.hpp"
+    #include "phony_input_iterator.hpp"
 
-namespace neutron {
+namespace neutron::ranges {
 
 // NOLINTBEGIN(cppcoreguidelines-require-return-statement)
 
@@ -230,6 +229,6 @@ template <template <typename...> typename Container, typename... Args>
         std::forward<Args>(args)...);
 }
 
-} // namespace neutron
+} // namespace neutron::ranges
 
 #endif

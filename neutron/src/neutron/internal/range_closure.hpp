@@ -1,5 +1,5 @@
 #pragma once
-#include "neutron/internal/range_adaptor_closure.hpp"
+#include "range_adaptor_closure.hpp"
 
 namespace neutron {
 /**

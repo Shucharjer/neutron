@@ -2,7 +2,7 @@
 #include <algorithm>
 #include <cstring>
 #include <string_view>
-#include "neutron/neutron.hpp"
+#include "../src/neutron/internal/macros.hpp"
 
 namespace neutron {
 

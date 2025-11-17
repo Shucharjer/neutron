@@ -2,8 +2,8 @@
 #include <cstddef>
 #include <type_traits>
 #include <utility>
-#include "neutron/internal/compressed_element.hpp"
 #include "neutron/type_traits.hpp"
+#include "../src/neutron/internal/compressed_element.hpp"
 
 namespace neutron {
 
@@ -173,6 +173,26 @@ public:
         return static_cast<const second_base&>(*this).value();
     }
 
+    template <size_t Index>
+    requires(Index <= 1)
+    [[nodiscard]] constexpr auto& get() noexcept {
+        if constexpr (Index == 0) {
+            return first();
+        } else {
+            return second();
+        }
+    }
+
+    template <size_t Index>
+    requires(Index <= 1)
+    [[nodiscard]] constexpr auto& get() const noexcept {
+        if constexpr (Index == 0) {
+            return first();
+        } else {
+            return second();
+        }
+    }
+
     constexpr operator std::pair<First, Second>() noexcept(
         std::is_nothrow_copy_constructible_v<First> &&
         std::is_nothrow_copy_constructible_v<Second>)
@@ -306,6 +326,26 @@ public:
 
     [[nodiscard]] constexpr const Second& second() const noexcept {
         return static_cast<const first_base&>(*this).value();
+    }
+
+    template <size_t Index>
+    requires(Index <= 1)
+    [[nodiscard]] constexpr auto& get() noexcept {
+        if constexpr (Index == 0) {
+            return first();
+        } else {
+            return second();
+        }
+    }
+
+    template <size_t Index>
+    requires(Index <= 1)
+    [[nodiscard]] constexpr auto& get() const noexcept {
+        if constexpr (Index == 0) {
+            return first();
+        } else {
+            return second();
+        }
     }
 };
 
@@ -510,6 +550,26 @@ public:
         }
     }
 
+    template <size_t Index>
+    requires(Index <= 1)
+    [[nodiscard]] constexpr auto& get() noexcept {
+        if constexpr (Index == 0) {
+            return first();
+        } else {
+            return second();
+        }
+    }
+
+    template <size_t Index>
+    requires(Index <= 1)
+    [[nodiscard]] constexpr auto& get() const noexcept {
+        if constexpr (Index == 0) {
+            return first();
+        } else {
+            return second();
+        }
+    }
+
 private:
     Pair<First, Second> pair_;
 };
@@ -569,73 +629,6 @@ constexpr decltype(auto) reverse(Pair& pair) noexcept {
         reversed_result_t<std::remove_cv_t<Pair>>, Pair>;
     // NOLINTNEXTLINE(cppcoreguidelines-pro-type-reinterpret-cast)
     return reinterpret_cast<result_type&>(pair);
-}
-
-template <size_t Index, typename First, typename Second>
-constexpr decltype(auto) get(compressed_pair<First, Second>& pair) noexcept {
-    static_assert(Index < 2, "Pair doesn't contains so many elements.");
-    if constexpr (Index == 0U) {
-        return pair.first();
-    } else {
-        return pair.second();
-    }
-}
-
-template <size_t Index, typename First, typename Second>
-constexpr decltype(auto)
-    get(const compressed_pair<First, Second>& pair) noexcept {
-    static_assert(Index < 2, "Pair doesn't contains so many elements.");
-    if constexpr (Index == 0U) {
-        return pair.first();
-    } else {
-        return pair.second();
-    }
-}
-
-template <size_t Index, typename First, typename Second>
-constexpr decltype(auto)
-    get(reversed_compressed_pair<First, Second>& pair) noexcept {
-    static_assert(Index < 2, "Pair doesn't contains so many elements.");
-    if constexpr (Index == 0U) {
-        return pair.first();
-    } else {
-        return pair.second();
-    }
-}
-
-template <size_t Index, typename First, typename Second>
-constexpr decltype(auto)
-    get(const reversed_compressed_pair<First, Second>& pair) noexcept {
-    static_assert(Index < 2, "Pair doesn't contains so many elements.");
-    if constexpr (Index == 0U) {
-        return pair.first();
-    } else {
-        return pair.second();
-    }
-}
-
-template <
-    size_t Index, typename First, typename Second,
-    template <typename, typename> typename Pair = compressed_pair>
-constexpr decltype(auto) get(pair<First, Second, Pair>& pair) noexcept {
-    static_assert(Index < 2, "Pair doesn't contains so many elements.");
-    if constexpr (Index == 0U) {
-        return pair.first();
-    } else {
-        return pair.second();
-    }
-}
-
-template <
-    size_t Index, typename First, typename Second,
-    template <typename, typename> typename Pair = compressed_pair>
-constexpr decltype(auto) get(const pair<First, Second, Pair>& pair) noexcept {
-    static_assert(Index < 2, "Pair doesn't contains so many elements.");
-    if constexpr (Index == 0U) {
-        return pair.first();
-    } else {
-        return pair.second();
-    }
 }
 
 } // namespace neutron

@@ -1,7 +1,8 @@
+#pragma once
 #include <cstddef>
 #include <ranges>
-#include "neutron/internal/get.hpp"
-#include "neutron/internal/range_adaptor_closure.hpp"
+#include "get.hpp"
+#include "range_adaptor_closure.hpp"
 
 namespace neutron::ranges::views {
 
@@ -24,7 +25,7 @@ struct element_iterator {
         if constexpr (gettible<
                           Index, std::remove_const_t<
                                      std::ranges::range_value_t<Rng>>>) {
-            return _get<Index>(*iter_);
+            return get<Index>(*iter_);
         } else {
             static_assert(false, "No suitable method to get the value.");
         }
@@ -34,7 +35,7 @@ struct element_iterator {
         if constexpr (gettible<
                           Index, std::remove_const_t<
                                      std::ranges::range_value_t<Rng>>>) {
-            return _get<Index>(*iter_);
+            return get<Index>(*iter_);
         } else {
             static_assert(false, "No suitable method to get the value.");
         }

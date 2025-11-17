@@ -2,7 +2,7 @@
 #include <exception>
 #include <future> // for std::future_error
 #include <mutex>
-#include "neutron/neutron.hpp"
+#include "../src/neutron/internal/macros.hpp"
 
 #if defined(_WIN32)
 

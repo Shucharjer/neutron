@@ -27,18 +27,6 @@ namespace neutron {
 class type_identity;
 class non_type_identity;
 
-/**
- * @class delegate
- * @brief A thin wrapper of function pointer and context.
- * It prefers performance over usability. We can only bind it by template
- * non-type arugment, which means it could be inlined by compiler as much as
- * possible.
- * @tparam Ret Return type of the function.
- * @tparam Args Arguments of the function.
- */
-template <typename = void()>
-class delegate;
-
 template <typename = void>
 class coroutine;
 

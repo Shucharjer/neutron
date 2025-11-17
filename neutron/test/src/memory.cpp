@@ -2,6 +2,7 @@
 #include <memory_resource>
 #include <string>
 #include <neutron/memory.hpp>
+#include <neutron/object_pool.hpp>
 #include "require.hpp"
 
 using namespace neutron;

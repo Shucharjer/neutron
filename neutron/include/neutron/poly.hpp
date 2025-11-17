@@ -1,10 +1,13 @@
 #pragma once
+#include <cstddef>
 #include <cstdlib>
 #include <new>
 #include <utility>
-#include "neutron/internal/member_function_traits.hpp"
 #include "neutron/template_list.hpp"
 #include "neutron/type_hash.hpp"
+#include "../src/neutron/internal/exception_guard.hpp"
+#include "../src/neutron/internal/poly/vtable.hpp"
+#include "../src/neutron/internal/spreader.hpp"
 
 namespace neutron {
 
@@ -32,200 +35,7 @@ constexpr size_t k_default_poly_storage_size = 16;
 
 constexpr size_t k_default_poly_storage_align = 16;
 
-namespace internal {
-struct poly_empty_impl {
-    struct _universal {
-        template <typename Ty>
-        [[noreturn]] constexpr operator Ty&&() {
-            // If you meet error here, you must called function in static vtable
-            // without initializing it by an polymorphic object.
-            std::abort();
-        }
-    };
-
-    template <size_t Index, typename Object = void, typename... Args>
-    constexpr auto invoke(Args&&...) noexcept {
-        return _universal{};
-    }
-    template <size_t Index, typename Object = void, typename... Args>
-    constexpr auto invoke(Args&&...) const noexcept {
-        return _universal{};
-    }
-};
-} // namespace internal
-
-template <typename Ty>
-concept _poly_basic_object = requires {
-    // Ty should declared a class template called interface.
-    typename Ty::template interface<internal::poly_empty_impl>;
-    requires std::is_base_of_v<
-        internal::poly_empty_impl,
-        typename Ty::template interface<internal::poly_empty_impl>>;
-
-    // Ty should declared a alias which is a value_list called impl.
-    typename Ty::template impl<
-        typename Ty::template interface<internal::poly_empty_impl>>;
-    requires is_value_list_v<typename Ty::template impl<
-        typename Ty::template interface<internal::poly_empty_impl>>>;
-};
-
-template <typename Ty>
-concept _poly_has_extend = requires {
-    // Ty should declared a class template called extends.
-    typename Ty::template extends<internal::poly_empty_impl>;
-    requires std::is_base_of_v<
-        internal::poly_empty_impl,
-        typename Ty::template extends<internal::poly_empty_impl>>;
-    typename Ty::template extends<internal::poly_empty_impl>::from;
-
-    // Ty should declared a alias which is a value_list called impl.
-    typename Ty::template impl<
-        typename Ty::template extends<internal::poly_empty_impl>>;
-    requires is_value_list_v<typename Ty::template impl<
-        typename Ty::template extends<internal::poly_empty_impl>>>;
-};
-
-namespace internal {
-template <typename>
-struct poly_assert;
-template <typename... Tys>
-struct poly_assert<type_list<Tys...>> {
-    constexpr static bool value = (poly_assert<Tys>::value && ...);
-};
-template <typename Ty>
-struct poly_assert {
-    constexpr static bool value = []() {
-        if constexpr (_poly_basic_object<Ty>) {
-            return true;
-        } else if constexpr (_poly_has_extend<Ty>) {
-            return poly_assert<Ty>::value;
-        } else {
-            return false;
-        }
-    };
-};
-} // namespace internal
-
-template <typename Ty>
-concept _poly_extend_object =
-    _poly_has_extend<Ty> &&
-    internal::poly_assert<
-        typename Ty::template extends<internal::poly_empty_impl>::from>::value;
-
-template <typename Ty>
-concept _poly_object = _poly_basic_object<Ty> || _poly_extend_object<Ty>;
-
-template <typename Ty, typename Object>
-concept _poly_impl = requires {
-    // The template argument `Object` should satisfy _poly_object
-    requires _poly_object<Object>;
-
-    // `Ty` should has functions required in Object impl
-    typename Object::template impl<std::remove_cvref_t<Ty>>;
-} && !requires {
-    // The type has a class or alias named 'poly_tag' is already a polymorphic
-    // object or the designer does not whish you do this. You should not pass
-    // thru this type as a polymorphic implementation.
-    typename Ty::poly_tag;
-};
-
-template <_poly_object Object>
-struct _vtable;
-
-template <_poly_object Object>
-requires _poly_basic_object<Object>
-struct _vtable<Object> {
-    using exlist = type_list<>;
-    using interface =
-        typename Object::template interface<internal::poly_empty_impl>;
-    using exvalues             = value_list<>;
-    using vals                 = typename Object::template impl<interface>;
-    using values               = value_list_cat_t<exvalues, vals>;
-    constexpr static auto size = value_list_size_v<vals>;
-
-private:
-    template <typename MemFunc>
-    using void_type_t = typename member_function_traits<MemFunc>::void_type;
-
-    template <auto... Vals>
-    constexpr static auto _deduce(value_list<Vals...>) noexcept {
-        return static_cast<std::tuple<void_type_t<decltype(Vals)>...>*>(
-            nullptr);
-    }
-    constexpr static auto _deduce() noexcept { return _deduce(values{}); }
-
-public:
-    using type = std::remove_pointer_t<decltype(_deduce())>;
-};
-
-/*! @cond TURN_OFF_DOXYGEN */
-
-template <_poly_object Object>
-using vtable = typename _vtable<Object>::type;
-
-/*! @cond TURN_OFF_DOXYGEN */
-
-template <_poly_object Object, _poly_impl<Object> Impl>
-struct _vtable_value_list {
-    template <typename ValueList>
-    struct _static_list;
-
-    template <auto... Vals>
-    struct _static_list<value_list<Vals...>> {
-        template <auto, typename>
-        struct _element;
-        template <auto Val, typename Ret, typename Class, typename... Args>
-        struct _element<Val, Ret (Class::*)(Args...)> {
-            constexpr static Ret (*value)(void*, Args...) = [](void* ptr,
-                                                               Args... args) {
-                return (static_cast<Class*>(ptr)->*Val)(
-                    std::forward<Args>(args)...);
-            };
-        };
-        template <auto Val, typename Ret, typename Class, typename... Args>
-        struct _element<Val, Ret (Class::*)(Args...) const> {
-            constexpr static Ret (*value)(const void*, Args...) =
-                [](const void* ptr, Args... args) {
-                    return (static_cast<const Class*>(ptr)->*Val)(
-                        std::forward<Args>(args)...);
-                };
-        };
-        template <auto Val, typename Ret, typename Class, typename... Args>
-        struct _element<Val, Ret (Class::*)(Args...) noexcept> {
-            constexpr static Ret (*value)(void*, Args...) noexcept =
-                [](void* ptr, Args... args) noexcept {
-                    return (static_cast<Class*>(ptr)->*Val)(
-                        std::forward<Args>(args)...);
-                };
-        };
-        template <auto Val, typename Ret, typename Class, typename... Args>
-        struct _element<Val, Ret (Class::*)(Args...) const noexcept> {
-            constexpr static Ret (*value)(const void*, Args...) noexcept =
-                [](const void* ptr, Args... args) noexcept {
-                    return (static_cast<const Class*>(ptr)->*Val)(
-                        std::forward<Args>(args)...);
-                };
-        };
-        template <auto Val, typename Func>
-        constexpr static auto _element_v = _element<Val, Func>::value;
-
-        using type = value_list<_element_v<Vals, decltype(Vals)>...>;
-    };
-
-    using type = _static_list<typename Object::template impl<Impl>>::type;
-};
-
-template <_poly_object Object, _poly_impl<Object> Impl>
-using _vtable_value_list_t = _vtable_value_list<Object, Impl>::type;
-
-/*! @endcond */
-
-template <_poly_object Object, _poly_impl<Object> Impl>
-consteval auto make_vtable() noexcept {
-    return make_tuple<_vtable_value_list_t<Object, Impl>>();
-}
-
-template <_poly_object Object, _poly_impl<Object> Impl>
+template <poly_object Object, poly_impl<Object> Impl>
 constexpr static inline auto static_vtable = make_vtable<Object, Impl>();
 
 template <typename Poly>
@@ -234,13 +44,11 @@ class poly_base;
 // polymorphic<Object> ->  Object::temlate interface<Impl> ->
 // polymorphic_base<polymorphic<Object>
 
-template <_poly_object Object, typename>
-struct _poly_object_extract;
-template <_poly_basic_object Object, typename Arg>
-struct _poly_object_extract<Object, Arg> {
+template <poly_object Object, typename Arg>
+struct _poly_object_extract {
     using type = Object::template interface<Arg>;
 };
-template <_poly_object Object, typename Arg>
+template <poly_object Object, typename Arg>
 using _poly_object_extract_t = typename _poly_object_extract<Object, Arg>::type;
 
 /**
@@ -254,7 +62,7 @@ using _poly_object_extract_t = typename _poly_object_extract<Object, Arg>::type;
  * @tparam Ops Custom operations tuple
  */
 template <
-    _poly_object Object, size_t Size = k_default_poly_storage_size,
+    poly_object Object, size_t Size = k_default_poly_storage_size,
     size_t Align = k_default_poly_storage_align, typename Ops = std::tuple<>>
 class poly :
     private _poly_object_extract_t<
@@ -277,11 +85,6 @@ class poly :
         decltype(std::tuple_cat(Ops{}, std::tuple<_poly_operation_destroy>{}));
     using size_type = uint32_t;
 
-    // Storage management
-
-    constexpr static bool _store_vtable_as_pointer = sizeof(vtable_t) >
-                                                     sizeof(void*) * 2;
-
     ///< Pointer to stored object
     void* ptr_;
 
@@ -289,11 +92,10 @@ class poly :
     size_t hash_code_;
 
     /// The vtable for the polymorphic object.
-    std::conditional_t<_store_vtable_as_pointer, const vtable_t*, vtable_t>
-        vtable_;
+    vtable<Object> vtable_;
 
     ///< Custom operations
-    ops_t operations_;
+    ops_t ops_;
 
     // NOLINTBEGIN(cppcoreguidelines-avoid-c-arrays)
     // NOLINTBEGIN(modernize-avoid-c-arrays)
@@ -307,21 +109,11 @@ class poly :
     // NOLINTEND(modernize-avoid-c-arrays)
     // NOLINTEND(cppcoreguidelines-avoid-c-arrays)
 
-    /// @brief return compile-time virtual table value.
-    template <_poly_impl<Object> Impl>
-    consteval static auto _vtable_value() noexcept {
-        if constexpr (_store_vtable_as_pointer) {
-            return &static_vtable<Object, Impl>;
-        } else {
-            return make_vtable<Object, Impl>();
-        }
-    }
-
-    template <_poly_impl<Object> Impl>
+    template <poly_impl<Object> Impl>
     constexpr static bool builtin_storable =
         sizeof(Impl) <= Size && alignof(Impl) <= Align;
 
-    template <_poly_impl<Object> Impl>
+    template <poly_impl<Object> Impl>
     constexpr void* _init_ptr() {
         if constexpr (builtin_storable<Impl>) {
             return static_cast<void*>(storage_);
@@ -331,18 +123,18 @@ class poly :
         }
     }
 
-    template <_poly_impl<Object> Impl>
+    template <poly_impl<Object> Impl>
     constexpr void _construct(Impl&& impl) {
         ::new (ptr_) Impl(std::forward<Impl>(impl));
         ptr_ = std::launder(static_cast<Impl*>(ptr_));
     }
 
     constexpr void _destroy_without_reset() {
-        get_first<_poly_operation_destroy>(operations_).value(ptr_);
+        get_first<_poly_operation_destroy>(ops_).value(ptr_);
     }
 
     constexpr void _destroy() {
-        auto& operation = get_first<_poly_operation_destroy>(operations_);
+        auto& operation = get_first<_poly_operation_destroy>(ops_);
         operation.value(ptr_);
         ptr_            = nullptr;
         operation.value = nullptr;
@@ -368,7 +160,7 @@ class poly :
         }
     }
 
-    template <_poly_impl<Object> Impl>
+    template <poly_impl<Object> Impl>
     constexpr static ops_t _operations() noexcept {
         ops_t ops;
         if constexpr (type_list_has_v<poly_op_default_construct, ops_t>) {
@@ -415,9 +207,9 @@ class poly :
     }
 
     constexpr void _assign_context(const poly& that) {
-        hash_code_  = that.hash_code_;
-        vtable_     = that.vtable_;
-        operations_ = that.operations_;
+        hash_code_ = that.hash_code_;
+        vtable_    = that.vtable_;
+        ops_       = that.ops_;
     }
 
 public:
@@ -432,26 +224,25 @@ public:
      * implementation before using it.
      */
     constexpr poly() noexcept
-        : ptr_(nullptr), hash_code_(),
-          vtable_(_vtable_value<_empty_interface>()), operations_(),
-          storage_() {}
+        : ptr_(nullptr), hash_code_(), vtable_(spread_type<_empty_interface>),
+          ops_(), storage_() {}
 
-    template <_poly_impl<Object> Impl>
+    template <poly_impl<Object> Impl>
     constexpr poly(Impl&& impl)
         : ptr_(_init_ptr<Impl>()), hash_code_(hash_of<Impl>()),
-          vtable_(_vtable_value<Impl>()), operations_(_operations<Impl>()),
-          storage_() {
+          vtable_(spread_type<Impl>), ops_(_operations<Impl>()), storage_() {
+        auto guard = make_exception_guard([this] { _destroy(); });
         _construct(std::forward<Impl>(impl));
+        guard.mark_complete();
     }
 
     constexpr poly(const poly& that)
     requires type_list_has_v<poly_op_copy_construct, ops_t>
         : ptr_(nullptr), hash_code_(that.hash_code_), vtable_(that.vtable_),
-          operations_(that.operations_), storage_() {
+          ops_(that.ops_), storage_() {
         if (that.ptr_ != nullptr) {
             _init_ptr_from(that);
-            const auto operation =
-                get_first<poly_op_copy_construct>(operations_);
+            const auto operation = get_first<poly_op_copy_construct>(ops_);
             operation.value(ptr_, that.ptr_);
         }
     }
@@ -459,16 +250,15 @@ public:
     constexpr poly(poly&& that) noexcept
     requires type_list_has_v<poly_op_move_construct, ops_t>
         : ptr_(nullptr), hash_code_(std::exchange(that.hash_code_, 0)),
-          vtable_(that.vtable_), storage_(), operations_(that.operations_) {
+          vtable_(that.vtable_), storage_(), ops_(that.ops_) {
         if (that.ptr_ != nullptr) {
             _init_ptr_from(std::move(that));
-            const auto operation =
-                get_first<poly_op_move_construct>(operations_);
+            const auto operation = get_first<poly_op_move_construct>(ops_);
             operation.value(ptr_, that.ptr_);
         }
     }
 
-    template <_poly_impl<Object> Impl>
+    template <poly_impl<Object> Impl>
     constexpr poly& operator=(Impl&& that) {
         constexpr auto hash_code = hash_of<Impl>();
         if (hash_code_ != hash_code) {
@@ -477,9 +267,9 @@ public:
             }
             _init_ptr<Impl>();
             _construct(std::forward<Impl>(that));
-            hash_code_  = hash_code;
-            vtable_     = _vtable_value<Impl>();
-            operations_ = _operations<Impl>();
+            hash_code_ = hash_code;
+            vtable_    = _vtable_value<Impl>();
+            ops_       = _operations<Impl>();
         } else {
             *static_cast<Impl*>(ptr_) = std::forward<Impl>(that);
         }
@@ -489,13 +279,12 @@ private:
     constexpr void _make_same(const poly& that) {
         _init_ptr_from(that);
         if constexpr (type_list_has_v<poly_op_copy_construct, ops_t>) {
-            get_first<poly_op_copy_construct>(operations_)
-                .value(ptr_, that.ptr_);
+            get_first<poly_op_copy_construct>(ops_).value(ptr_, that.ptr_);
         } else if constexpr (
             type_list_has_v<poly_op_default_construct, ops_t> &&
             type_list_has_v<poly_op_copy_assign, ops_t>) {
-            get_first<poly_op_default_construct>(operations_).value(ptr_);
-            get_first<poly_op_copy_assign>(operations_).value(ptr_, that.ptr_);
+            get_first<poly_op_default_construct>(ops_).value(ptr_);
+            get_first<poly_op_copy_assign>(ops_).value(ptr_, that.ptr_);
         }
         _assign_context(that);
     }
@@ -514,13 +303,13 @@ public:
             if (ptr_ != nullptr) {
                 if (hash_code_ == that.hash_code_) {
                     if constexpr (type_list_has_v<poly_op_copy_assign, ops_t>) {
-                        get_first<poly_op_copy_assign>(operations_)
-                            .value(ptr_, that.ptr_);
+                        get_first<poly_op_copy_assign>(ops_).value(
+                            ptr_, that.ptr_);
                     } else if constexpr (type_list_has_v<
                                              poly_op_copy_construct, ops_t>) {
                         _destroy_without_reset();
-                        get_first<poly_op_copy_construct>(operations_)
-                            .value(ptr_, that.ptr_);
+                        get_first<poly_op_copy_construct>(ops_).value(
+                            ptr_, that.ptr_);
                     }
                     return *this;
                 }
@@ -540,13 +329,12 @@ private:
     constexpr void _make_same(poly&& that) {
         _init_ptr_from(std::move(that));
         if constexpr (type_list_has_v<poly_op_move_construct, ops_t>) {
-            get_first<poly_op_move_construct>(operations_)
-                .value(ptr_, that.ptr_);
+            get_first<poly_op_move_construct>(ops_).value(ptr_, that.ptr_);
         } else if constexpr (
             type_list_has_v<poly_op_default_construct, ops_t> &&
             type_list_has_v<poly_op_move_assign, ops_t>) {
-            get_first<poly_op_default_construct>(operations_).value(ptr_);
-            get_first<poly_op_move_assign>(operations_).value(ptr_, that.ptr_);
+            get_first<poly_op_default_construct>(ops_).value(ptr_);
+            get_first<poly_op_move_assign>(ops_).value(ptr_, that.ptr_);
         }
         _assign_context(that);
     }
@@ -564,13 +352,13 @@ public:
             if (ptr_ != nullptr) {
                 if (hash_code_ == that.hash_code_) {
                     if constexpr (type_list_has_v<poly_op_move_assign, ops_t>) {
-                        get_first<poly_op_move_assign>(operations_)
-                            .value(ptr_, that.ptr_);
+                        get_first<poly_op_move_assign>(ops_).value(
+                            ptr_, that.ptr_);
                     } else if constexpr (type_list_has_v<
                                              poly_op_move_construct, ops_t>) {
                         _destroy_without_reset();
-                        get_first<poly_op_move_construct>(operations_)
-                            .value(ptr_, that.ptr_);
+                        get_first<poly_op_move_construct>(ops_).value(
+                            ptr_, that.ptr_);
                     }
                     return *this;
                 }
@@ -607,7 +395,7 @@ public:
 };
 
 template <
-    _poly_object Object, _poly_impl<Object> Impl,
+    poly_object Object, poly_impl<Object> Impl,
     size_t Size  = k_default_poly_storage_size,
     size_t Align = k_default_poly_storage_align, typename Ops = std::tuple<>,
     typename... Args>
@@ -619,35 +407,17 @@ constexpr poly<Object, Size, Align, Ops> make_poly(Args&&... args) {
 template <typename Poly>
 class poly_base;
 
-template <_poly_object Object, size_t Size, size_t Align, typename Ops>
+template <poly_object Object, size_t Size, size_t Align, typename Ops>
 class poly_base<poly<Object, Size, Align, Ops>> {
 public:
     using polymorphic_type = poly<Object, Size, Align, Ops>;
 
-    template <size_t Index, _poly_object O = Object, typename... Args>
-    constexpr decltype(auto) invoke(Args&&... args) {
-        constexpr size_t off = value_list_size_v<typename _vtable<O>::exvalues>;
-        auto* const ptr      = static_cast<polymorphic_type*>(this);
-        if constexpr (polymorphic_type::_store_vtable_as_pointer) {
-            return std::get<off + Index>(*(ptr->vtable_))(
-                ptr->ptr_, std::forward<Args>(args)...);
-        } else {
-            return std::get<off + Index>(ptr->vtable_)(
-                ptr->ptr_, std::forward<Args>(args)...);
-        }
-    }
-
-    template <size_t Index, _poly_object O = Object, typename... Args>
+    template <size_t Index, poly_object O = Object, typename... Args>
     constexpr decltype(auto) invoke(Args&&... args) const {
-        constexpr size_t off = value_list_size_v<typename _vtable<O>::exvalues>;
+        constexpr size_t off = 0;
         auto* const ptr      = static_cast<const polymorphic_type*>(this);
-        if constexpr (polymorphic_type::_store_vtable_as_pointer) {
-            return std::get<off + Index>(*(ptr->vtable_))(
-                ptr->ptr_, std::forward<Args>(args)...);
-        } else {
-            return std::get<off + Index>(ptr->vtable_)(
-                ptr->ptr_, std::forward<Args>(args)...);
-        }
+        return (ptr->vtable_.template get<off + Index>())(
+            ptr->ptr_, std::forward<Args>(args)...);
     }
 };
 

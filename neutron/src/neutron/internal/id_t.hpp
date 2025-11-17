@@ -9,4 +9,6 @@ using id_t = uint32_t;
 using id_t = uint64_t;
 #endif
 
-}
+} // namespace neutron
+
+using neutron::id_t;

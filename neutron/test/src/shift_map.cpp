@@ -1,4 +1,5 @@
 #include <memory_resource>
+#include <neutron/auxiliary.hpp>
 #include <neutron/shift_map.hpp>
 #include "require.hpp"
 

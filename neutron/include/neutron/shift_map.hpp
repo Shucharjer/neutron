@@ -8,12 +8,17 @@
 #include <type_traits>
 #include <utility>
 #include <vector>
-#include "neutron/internal/const_identity.hpp"
-#include "neutron/internal/iterator.hpp"
-#include "neutron/internal/map_like.hpp"
 #include "neutron/memory.hpp"
-#include "neutron/neutron.hpp"
-#include "neutron/type.hpp"
+#include "neutron/packet_uint.hpp"
+#include "pair.hpp"
+#include "../src/neutron/internal/const_identity.hpp"
+#include "../src/neutron/internal/iterator.hpp"
+#include "../src/neutron/internal/macros.hpp"
+#include "../src/neutron/internal/mask.hpp"
+
+#if HAS_CXX23
+    #include "../src/neutron/internal/map_like.hpp"
+#endif
 
 namespace neutron {
 
@@ -360,7 +365,7 @@ public:
 private:
     constexpr static _kept_type _kept(key_type key) noexcept {
         return static_cast<_kept_type>(
-            key & std::numeric_limits<_kept_type>::max());
+            key & (std::numeric_limits<_kept_type>::max)());
     }
 
     constexpr static size_type _page_of(_kept_type kept) noexcept {

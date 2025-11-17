@@ -182,4 +182,3 @@
 #else
     #define CONST_EVALUATED (std::is_constant_evaluated())
 #endif
-

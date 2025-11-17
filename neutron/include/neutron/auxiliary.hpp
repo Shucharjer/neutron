@@ -1,4 +1,7 @@
 #pragma once
+#include "../src/neutron/internal/id_t.hpp"
+#include "../src/neutron/internal/immediately.hpp"
+#include "../src/neutron/internal/spreader.hpp"
 
 namespace neutron {
 

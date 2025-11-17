@@ -11,9 +11,10 @@
 #include <tuple>
 #include <type_traits>
 #include <utility>
-#include "neutron/neutron.hpp"
 #include "neutron/type.hpp"
 #include "neutron/type_hash.hpp"
+#include "../src/neutron/internal/id_t.hpp"
+#include "../src/neutron/internal/macros.hpp"
 
 #ifndef FORCE_INLINE
     #ifdef _MSC_VER

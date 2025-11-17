@@ -1,8 +1,7 @@
 #pragma once
+#include <ranges>
 
 #if __cplusplus > 202002L
-
-    #include <ranges>
 
 namespace neutron {
 

@@ -3,7 +3,6 @@
 #include <tuple>
 #include <type_traits>
 #include "neutron/shared_tuple.hpp"
-#include "shared_tuple.hpp"
 
 namespace neutron {
 
@@ -12,8 +11,8 @@ struct value_list {};
 
 template <typename>
 struct is_value_list : std::false_type {};
-template <auto... Vals>
-struct is_value_list<value_list<Vals...>> : std::true_type {};
+template <template <auto...> typename Template, auto... Vals>
+struct is_value_list<Template<Vals...>> : std::true_type {};
 template <typename Ty>
 constexpr auto is_value_list_v = is_value_list<Ty>::value;
 

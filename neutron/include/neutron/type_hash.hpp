@@ -3,8 +3,8 @@
 #include <cstddef>
 #include <cstdint>
 #include <string_view>
-#include "neutron/internal/macros.hpp"
 #include "neutron/template_list.hpp"
+#include "../src/neutron/internal/macros.hpp"
 
 namespace neutron {
 

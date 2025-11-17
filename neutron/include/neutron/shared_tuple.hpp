@@ -1,6 +1,7 @@
 #pragma once
 #include <concepts>
 #include <cstddef>
+#include <new>
 #include <tuple>
 #include <type_traits>
 #include <utility>
@@ -23,7 +24,7 @@ template <typename T, typename... Rest>
 requires(sizeof...(Rest) != 0)
 class shared_tuple<T, Rest...> {
 
-    struct alignas(64) _aligned_t {
+    struct alignas(std::hardware_destructive_interference_size) _aligned_t {
         T value;
 
         constexpr _aligned_t() noexcept(
@@ -117,15 +118,5 @@ template <size_t Index, typename... Tys>
 struct tuple_element<Index, neutron::shared_tuple<Tys...>> {
     using type = std::tuple_element_t<Index, std::tuple<Tys...>>;
 };
-
-template <size_t Index, typename... Args>
-constexpr auto& get(const neutron::shared_tuple<Args...>& tup) noexcept {
-    return tup.template get<Index>();
-}
-
-template <size_t Index, typename... Args>
-constexpr auto& get(neutron::shared_tuple<Args...>& tup) noexcept {
-    return tup.template get<Index>();
-}
 
 } // namespace std

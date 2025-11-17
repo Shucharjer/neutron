@@ -9,8 +9,7 @@
     #define ENABLED_CPP_EXCEPTIONS false
 #endif
 
-#include "neutron/internal/exception_guard.hpp"
-#include "neutron/internal/macros.hpp"
+#include "macros.hpp"
 
 #if ENABLED_CPP_EXCEPTIONS
 
