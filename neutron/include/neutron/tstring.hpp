@@ -1,6 +1,7 @@
 #pragma once
 #include <algorithm>
 #include <cstring>
+#include <format>
 #include <string_view>
 #include "../src/neutron/internal/macros.hpp"
 
@@ -29,15 +30,23 @@ struct tstring {
         return std::strcmp(value, rhs.value);
     }
 
+    constexpr auto operator==(const tstring& rhs) const noexcept {
+        return view() == rhs.view();
+    }
+
     template <std::size_t RLength>
     constexpr auto operator==(const tstring<RLength>& rhs) const noexcept
         -> bool {
-        return !(*this <=> rhs);
+        return false;
+    }
+
+    constexpr auto operator!=(const tstring& rhs) const noexcept {
+        return view() != rhs.view();
     }
 
     template <std::size_t RLength>
     constexpr auto operator!=(const tstring<RLength>& obj) const -> bool {
-        return (*this <=> obj);
+        return false;
     }
 
     template <typename OStream>
@@ -56,6 +65,8 @@ struct tstring {
 
     NODISCARD constexpr size_t length() const noexcept { return Length - 1; }
 
+    NODISCARD constexpr size_t capacity() const noexcept { return Length; }
+
     NODISCARD constexpr std::string_view view() const noexcept { return value; }
 
     // NOLINTBEGIN(cppcoreguidelines-avoid-c-arrays)
@@ -67,15 +78,16 @@ struct tstring {
     // NOLINTEND(cppcoreguidelines-avoid-c-arrays)
 };
 
+} // namespace neutron
+
 template <size_t Length>
-struct tstring_view {
-    std::string_view view;
-    constexpr tstring_view(const tstring<Length>& tstring) noexcept
-        : view(tstring.value) {}
-    constexpr operator std::string_view() const noexcept { return view; }
-    constexpr bool operator==(std::string_view rvw) const noexcept {
-        return view == rvw;
+struct std::formatter<neutron::tstring<Length>, char> {
+    std::formatter<std::string_view, char> underlying;
+    constexpr auto parse(auto& ctx) { return underlying.parse(ctx); }
+    template <typename FormatContext>
+    constexpr auto
+        format(const neutron::tstring<Length>& ts, FormatContext& ctx) const {
+        std::string_view sv{ ts.value, Length - 1 };
+        return underlying.format(sv, ctx);
     }
 };
-
-} // namespace neutron

@@ -35,7 +35,12 @@ const auto max_spin_time = 1024;
  */
 class spinlock;
 
+} // namespace neutron
+
 #if __has_include(<pthread.h>)
+    #include <pthread.h>
+
+namespace neutron {
 
 class spinlock {
     pthread_spinlock_t lock_{};
@@ -49,6 +54,7 @@ public:
     spinlock(spinlock&& that) noexcept : lock_(std::exchange(that.lock_, 0)) {}
     spinlock& operator=(spinlock&& that) noexcept {
         std::swap(lock_, that.lock_);
+        return *this;
     }
 
     ~spinlock() noexcept {
