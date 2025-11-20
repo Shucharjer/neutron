@@ -1,5 +1,6 @@
 #pragma once
 
+#include <cstdint>
 #include <utility>
 #include <version>
 #if defined(__cpp_lib_execution) && __cpp_lib_execution >= 202602L
@@ -288,12 +289,39 @@ concept scheduler = _enable_scheduler<Scheduler> && queryable<Scheduler> &&
                         } -> std::same_as<std::remove_cvref_t<Scheduler>>;
                     };
 
+enum class forward_progress_guarantee : uint8_t {
+    concurrent,
+    parallel,
+    weakly_parallel
+};
+
+constexpr inline struct get_forward_progress_guarantee_t :
+    _query<get_forward_progress_guarantee_t> {
+} get_forward_progress_guarantee;
+
+struct default_domain {};
+
+template <sender Sender1, sender Sender2>
+constexpr inline decltype(auto)
+    operator|(Sender1&& sender1, Sender2&& sender2) noexcept {
+    // TODO:
+}
+
 // policy
 
 constexpr inline struct just_t {
     template <typename Value>
     constexpr auto operator()(Value&& value) const;
 } just{};
+
+constexpr inline struct transfer_just_t {
+    template <scheduler Scheduler, typename... Args>
+    constexpr auto operator()(Scheduler&& scheduler, Args&&... args)
+        -> decltype(auto) {
+        auto domain = query_or(get_domain, scheduler, default_domain{});
+        return transform_sender(domain, std::forward<Scheduler>(scheduler));
+    }
+} transfer_just;
 
 constexpr inline struct then_t {
     template <typename Fn>
