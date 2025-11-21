@@ -28,6 +28,7 @@ using namespace stdexec;
     #include <concepts>
     #include <type_traits>
     #include "../src/neutron/internal/concepts/one_of.hpp"
+    #include "../src/neutron/internal/pipeline.hpp"
     #include "../src/neutron/internal/tag_invoke.hpp"
 
 namespace neutron::execution {
@@ -197,7 +198,7 @@ template <typename CompletionTag>
 struct get_completion_scheduler_t {
     template <typename Env>
     constexpr decltype(auto) operator()(Env&& env) const {
-        return env.get_completion_scheduler();
+        return std::forward<Env>(env).get_completion_scheduler();
     }
 };
 
@@ -271,7 +272,7 @@ concept _enable_scheduler = std::derived_from<
 constexpr inline struct schedule_t {
     template <typename Scheduler>
     constexpr decltype(auto) operator()(Scheduler&& scheduler) const {
-        return scheduler.schedule();
+        return std::forward<Scheduler>(scheduler).schedule();
     }
 } schedule;
 
@@ -301,20 +302,42 @@ constexpr inline struct get_forward_progress_guarantee_t :
 
 struct default_domain {};
 
-template <sender Sender1, sender Sender2>
-constexpr inline decltype(auto)
-    operator|(Sender1&& sender1, Sender2&& sender2) noexcept {
-    // TODO:
-}
+template <typename Derived>
+struct sender_adaptor_closure : adaptor_closure<Derived> {};
+
+template <typename Ty>
+concept _sender_adaptor_closure = _adaptor_closure<Ty, sender_adaptor_closure>;
+
+template <typename Ty, typename Sender>
+concept _sender_adaptor_closure_for =
+    sender<std::remove_cvref_t<Sender>> &&
+    _adaptor_closure_for<Ty, sender_adaptor_closure, Sender> &&
+    sender<std::invoke_result_t<Ty, std::remove_cvref_t<Ty>>>;
+
+template <typename Closure1, typename Closure2>
+struct _sender_closure_compose :
+    public _closure_compose<Closure1, Closure2, sender_adaptor_closure> {
+    using _compose_base =
+        _closure_compose<Closure1, Closure2, sender_adaptor_closure>;
+
+    using _compose_base::_compose_base;
+    using _compose_base::operator();
+};
+
+template <typename C1, typename C2>
+_sender_closure_compose(C1&&, C2&&) -> _sender_closure_compose<
+    std::remove_cvref_t<C1>, std::remove_cvref_t<C2>>;
 
 // policy
 
 constexpr inline struct just_t {
+    using sender_concept = sender_t;
     template <typename Value>
     constexpr auto operator()(Value&& value) const;
 } just{};
 
 constexpr inline struct transfer_just_t {
+    using sender_concept = sender_t;
     template <scheduler Scheduler, typename... Args>
     constexpr auto operator()(Scheduler&& scheduler, Args&&... args)
         -> decltype(auto) {
@@ -340,5 +363,23 @@ constexpr inline struct sync_wait_t {
 } sync_wait{};
 
 } // namespace neutron::execution
+
+template <
+    neutron::execution::sender Sender,
+    neutron::execution::_sender_adaptor_closure_for<Sender> Closure>
+constexpr decltype(auto) operator|(Sender&& sender, Closure&& closure) noexcept(
+    std::is_nothrow_invocable_v<Closure, Sender>) {
+    return std::forward<Closure>(closure)(std::forward<Sender>(sender));
+}
+
+template <
+    neutron::execution::_sender_adaptor_closure C1,
+    neutron::execution::_sender_adaptor_closure C2>
+constexpr auto operator|(C1&& closure1, C2&& closure2)
+    -> neutron::execution::_sender_closure_compose<
+        std::remove_cvref_t<C1>, std::remove_cvref_t<C2>> {
+    return _sender_closure_compose(
+        std::forward<C1>(closure1), std::forward<C2>(closure2));
+}
 
 #endif

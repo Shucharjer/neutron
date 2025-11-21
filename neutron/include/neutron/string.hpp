@@ -83,7 +83,6 @@ NODISCARD inline auto find_char(
             }
         }
     }
-#elif defined(TARGET_RISCV)
 #endif
 
     for (; iter != last; ++iter) {

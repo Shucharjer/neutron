@@ -1,6 +1,6 @@
 #pragma once
 #include <ranges>
-#include "ranges.hpp"
+#include "./concepts.hpp"
 
 #if HAS_CXX23 && false
 
@@ -12,7 +12,7 @@ using std::ranges::to;
 
 #else
 
-    #include "phony_input_iterator.hpp"
+    #include "../iterator/phony_input_iterator.hpp"
 
 namespace neutron::ranges {
 

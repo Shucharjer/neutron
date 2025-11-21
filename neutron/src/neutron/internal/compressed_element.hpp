@@ -13,7 +13,7 @@ namespace neutron {
  *
  * Implements EBCO (Empty Base Class Optimization) for pair elements
  * @tparam Ty Element type
- * @tparam IsFirst Flag indicating if this is the first element
+ * @tparam Index Parameter indicating the num of the element.
  */
 template <typename Ty, size_t Index>
 class _compressed_element {

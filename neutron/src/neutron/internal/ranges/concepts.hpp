@@ -51,6 +51,7 @@ concept common_constructible_range =
         Container, std::ranges::iterator_t<Rng>, std::ranges::iterator_t<Rng>,
         Args...>;
 
+/*! @cond TURN_OFF_DOXYGEN */
 namespace internal {
 
 // concept: can_emplace_back
@@ -76,6 +77,7 @@ concept can_insert_end = requires(Container& cnt) {
 };
 
 } // namespace internal
+/*! @endcond */
 
 // concept: constructible_appendable
 /**

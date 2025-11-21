@@ -17,6 +17,7 @@ int main() {
     using std_allocator = std::allocator<std::byte>;
     static_context_thread_pool<maker, std_allocator> pool;
     auto sch = pool.get_scheduler();
+    schedule(sch);
 
     return 0;
 }

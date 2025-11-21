@@ -1,4 +1,5 @@
 #pragma once
+#include <type_traits>
 #include <utility>
 #include "pair.hpp"
 
@@ -36,34 +37,32 @@ struct adaptor_closure {
 };
 
 template <typename First, typename Second>
-class pipeline_result : public adaptor_closure<pipeline_result<First, Second>> {
+class _closure_compose :
+    public adaptor_closure<_closure_compose<First, Second>> {
 public:
-    using input_require = typename std::remove_cvref_t<First>::input_require;
-    using output_type   = typename std::remove_cvref_t<Second>::output_type;
-
     template <typename Left, typename Right>
-    constexpr pipeline_result(Left&& left, Right&& right) noexcept(
+    constexpr _closure_compose(Left&& left, Right&& right) noexcept(
         std::is_nothrow_constructible_v<
             compressed_pair<First, Second>, Left, Right>)
         : closures_(std::forward<Left>(left), std::forward<Right>(right)) {}
 
-    constexpr ~pipeline_result() noexcept(
+    constexpr ~_closure_compose() noexcept(
         std::is_nothrow_destructible_v<compressed_pair<First, Second>>) =
         default;
 
-    constexpr pipeline_result(const pipeline_result&) noexcept(
+    constexpr _closure_compose(const _closure_compose&) noexcept(
         std::is_nothrow_copy_constructible_v<compressed_pair<First, Second>>) =
         default;
 
-    constexpr pipeline_result(pipeline_result&& that) noexcept(
+    constexpr _closure_compose(_closure_compose&& that) noexcept(
         std::is_nothrow_move_constructible_v<compressed_pair<First, Second>>)
         : closures_(std::move(that.closures_)) {}
 
-    constexpr pipeline_result& operator=(const pipeline_result&) noexcept(
+    constexpr _closure_compose& operator=(const _closure_compose&) noexcept(
         std::is_nothrow_copy_assignable_v<compressed_pair<First, Second>>) =
         default;
 
-    constexpr pipeline_result& operator=(pipeline_result&& that) noexcept(
+    constexpr _closure_compose& operator=(_closure_compose&& that) noexcept(
         std::is_nothrow_move_assignable_v<compressed_pair<First, Second>>) {
         closures_ = std::move(that.closures_);
     }
@@ -112,6 +111,20 @@ private:
     compressed_pair<First, Second> closures_;
 };
 
+template <typename First, typename Second>
+_closure_compose(First&&, Second&&) -> _closure_compose<
+    std::remove_cvref_t<First>, std::remove_cvref_t<Second>>;
+
+template <typename First, typename Second>
+struct closure_compose : public _closure_compose<First, Second> {
+    using input_require = typename std::remove_cvref_t<First>::input_require;
+    using output_type   = typename std::remove_cvref_t<Second>::output_type;
+    using _compose_base = _closure_compose<First, Second>;
+    using _compose_base::_closure_compose;
+    using _compose_base::operator=;
+    using _compose_base::operator();
+};
+
 } // namespace neutron
 
 template <typename Ty, neutron::strict_pipeline Closure>
@@ -126,7 +139,7 @@ requires neutron::rebind_template_t<
     typename std::remove_cvref_t<Closure2>::input_require,
     typename std::remove_cvref_t<Closure1>::output_type>::value
 constexpr decltype(auto) operator|(Closure1&& closure1, Closure2&& closure2) {
-    return neutron::pipeline_result<Closure1, Closure2>{
+    return neutron::closure_compose<Closure1, Closure2>{
         std::forward<Closure1>(closure1), std::forward<Closure2>(closure2)
     };
 }
@@ -145,7 +158,7 @@ requires neutron::rebind_template_t<
     typename std::remove_cvref_t<Closure2>::input_require,
     typename std::remove_cvref_t<Closure1>::output_type>::value
 consteval decltype(auto) operator|(Closure1&& closure1, Closure2&& closure2) {
-    return neutron::pipeline_result<Closure1, Closure2>{
+    return neutron::closure_compose<Closure1, Closure2>{
         std::forward<Closure1>(closure1), std::forward<Closure2>(closure2)
     };
 }

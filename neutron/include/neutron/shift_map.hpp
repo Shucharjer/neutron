@@ -12,7 +12,7 @@
 #include "neutron/packet_uint.hpp"
 #include "pair.hpp"
 #include "../src/neutron/internal/const_identity.hpp"
-#include "../src/neutron/internal/iterator.hpp"
+#include "../src/neutron/internal/iterator/concepts.hpp"
 #include "../src/neutron/internal/macros.hpp"
 #include "../src/neutron/internal/mask.hpp"
 
@@ -377,6 +377,7 @@ private:
     }
 
     constexpr bool _contains(
+        // NOLINTNEXTLINE: internal implementation
         key_type key, size_type page, size_type offset) const noexcept {
         if (dense_.empty() || sparse_.size() <= page) {
             return false;

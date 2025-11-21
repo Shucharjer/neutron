@@ -6,9 +6,6 @@
 #elif defined(__arm__) || defined(__aarch64__) || defined(__arm64ec__)
     #define TARGET_ARM
     #include <arm_neon.h>
-#elif defined(__riscv)
-    #define TARGET_RISCV
-    #include <riscv_vector.h>
 #else
     #error "not supported yet"
 #endif

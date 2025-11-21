@@ -7,8 +7,8 @@
 #include <ranges>
 #include <type_traits>
 #include <utility>
-#include "neutron/internal/macros.hpp"
-#include "neutron/internal/ranges.hpp"
+#include "../src/neutron/internal/macros.hpp"
+#include "../src/neutron/internal/ranges/concepts.hpp"
 
 namespace neutron {
 

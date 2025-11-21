@@ -1,8 +1,8 @@
 #pragma once
 #include <cstddef>
 #include <ranges>
-#include "get.hpp"
-#include "range_adaptor_closure.hpp"
+#include "../../get.hpp"
+#include "../adaptor_closure.hpp"
 
 namespace neutron::ranges::views {
 
@@ -23,8 +23,8 @@ struct element_iterator {
     requires(!IsConst)
     {
         if constexpr (gettible<
-                          Index, std::remove_const_t<
-                                     std::ranges::range_value_t<Rng>>>) {
+                          std::remove_const_t<std::ranges::range_value_t<Rng>>,
+                          Index>) {
             return get<Index>(*iter_);
         } else {
             static_assert(false, "No suitable method to get the value.");
@@ -33,8 +33,8 @@ struct element_iterator {
 
     [[nodiscard]] constexpr decltype(auto) operator*() const noexcept {
         if constexpr (gettible<
-                          Index, std::remove_const_t<
-                                     std::ranges::range_value_t<Rng>>>) {
+                          std::remove_const_t<std::ranges::range_value_t<Rng>>,
+                          Index>) {
             return get<Index>(*iter_);
         } else {
             static_assert(false, "No suitable method to get the value.");
@@ -207,7 +207,7 @@ template <size_t Index>
 struct element_fn : range_adaptor_closure<element_fn<Index>> {
 
     template <std::ranges::viewable_range Rng>
-    requires gettible<Index, std::ranges::range_value_t<Rng>>
+    requires gettible<std::ranges::range_value_t<Rng>, Index>
     [[nodiscard]] constexpr auto operator()(Rng&& range) const noexcept {
         static_assert(
             Index < std::tuple_size_v<std::ranges::range_value_t<Rng>>,

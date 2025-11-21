@@ -13,8 +13,12 @@
 #include "neutron/pair.hpp"
 #include "../src/neutron/internal/allocator.hpp"
 #include "../src/neutron/internal/const_identity.hpp"
+#include "../src/neutron/internal/macros.hpp"
 #include "../src/neutron/internal/mask.hpp"
-#include "../src/neutron/internal/ranges.hpp"
+
+#if HAS_CXX23
+    #include "../src/neutron/internal/ranges/map_like.hpp"
+#endif
 
 namespace neutron {
 
