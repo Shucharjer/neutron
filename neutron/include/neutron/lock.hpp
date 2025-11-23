@@ -2,30 +2,9 @@
 #include <algorithm>
 #include <array>
 #include <atomic>
-
-#if defined(__x86_64__) || defined(__i386__) || defined(_M_IX86) ||            \
-    defined(_M_X64)
-    #include <xmmintrin.h>
-#endif
+#include "../src/neutron/internal/parallel/cpu_relax.hpp"
 
 namespace neutron {
-
-/*! @cond TURN_OFF_DOXYGEN */
-namespace internal {
-
-#if defined(__x86_64__) || defined(__i386__) || defined(_M_IX86) ||            \
-    defined(_M_X64)
-inline void cpu_relax() { _mm_pause(); }
-#elif defined(__aarch64__)
-inline void cpu_relax() { __asm__ volatile("yield"); }
-#else
-inline void cpu_relax() {}
-#endif
-
-const auto max_spin_time = 1024;
-
-} // namespace internal
-/*! @endcond */
 
 /**
  * @class spinlock
@@ -69,7 +48,11 @@ public:
     bool try_lock() noexcept { return pthread_spin_trylock(&lock_) == 0; }
 };
 
+}
+
 #else
+
+namespace neutron {
 
 class spinlock {
 public:

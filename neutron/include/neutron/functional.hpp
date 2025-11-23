@@ -103,11 +103,9 @@ public:
 
         context_  = &instance;
         function_ = [](void const* payload, Args... args) -> Ret {
-            Type* type_instance =
-                // NOLINTNEXTLINE: function calling should have same constant
-                // qualification.
-                static_cast<Type*>(
-                    const_cast<same_constness_t<void, Type>*>(payload));
+            Type* type_instance = static_cast<Type*>(
+                // NOLINTNEXTLINE: calling should have same qualification.
+                const_cast<same_constness_t<void, Type>*>(payload));
             return Ret(
                 std::invoke(
                     Candidate, *type_instance, std::forward<Args>(args)...));
@@ -283,11 +281,9 @@ public:
 
         context_  = &instance;
         function_ = [](void const* payload, Args... args) noexcept -> Ret {
-            Type* type_instance =
-                // NOLINTNEXTLINE: function calling should have same constant
-                // qualification.
-                static_cast<Type*>(
-                    const_cast<same_constness_t<void, Type>*>(payload));
+            Type* type_instance = static_cast<Type*>(
+                // NOLINTNEXTLINE: calling should have same qualification.
+                const_cast<same_constness_t<void, Type>*>(payload));
             return Ret(
                 std::invoke(
                     Candidate, *type_instance, std::forward<Args>(args)...));

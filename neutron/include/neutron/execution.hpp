@@ -28,6 +28,7 @@ using namespace stdexec;
     #include <concepts>
     #include <type_traits>
     #include "../src/neutron/internal/concepts/one_of.hpp"
+    #include "../src/neutron/internal/get.hpp"
     #include "../src/neutron/internal/pipeline.hpp"
     #include "../src/neutron/internal/tag_invoke.hpp"
 
@@ -37,39 +38,6 @@ namespace neutron::execution {
 
 template <typename Env>
 concept queryable = std::destructible<Env>;
-
-template <typename Env, typename Query, typename... Args>
-concept _member_queryable_with =
-    requires(const Env& env, const Query& query, Args... args) {
-        { env.query(query, args...) };
-    };
-
-template <typename Env, typename Query, typename... Args>
-concept _nothrow_member_queryable_with =
-    _member_queryable_with<Env, Query, Args...> &&
-    requires(const Env& env, const Query& query, Args... args) {
-        { env.query(query, args...) } noexcept;
-    };
-
-template <typename Derived>
-struct _query { // NOLINT(bugprone-crtp-constructor-accessibility)
-    template <typename Env, typename... Args>
-    requires _member_queryable_with<Env, Derived, Args...>
-    constexpr auto
-        operator()(const Env& env, const Derived& query, Args&&... args) noexcept(
-            _nothrow_member_queryable_with<Env, Derived, Args...>) {
-        return env.query(query, std::forward<Args>(args)...);
-    }
-
-    template <typename Env, typename... Args>
-    requires(!_member_queryable_with<Env, Derived, Args...>) &&
-            tag_invocable<Derived, const Env&, Args...>
-    constexpr auto
-        operator()(const Env& env, const Derived& query, Args&&... args) noexcept(
-            nothrow_tag_invocable<Derived, const Env&, Args...>) {
-        return tag_invoke(query, env, std::forward<Args>(args)...);
-    }
-};
 
 constexpr inline struct connect_t {
     template <typename Sndr, typename Rcvr>
@@ -110,20 +78,6 @@ constexpr inline struct get_completion_signatures_t {
 template <typename Sndr, typename Env>
 using completion_signatures_of_t =
     std::invoke_result_t<get_completion_signatures_t, Sndr, Env>;
-
-constexpr inline struct get_allocator_t : _query<get_allocator_t> {
-} get_allocator;
-
-constexpr inline struct get_domain_t {
-
-} get_domain;
-
-constexpr inline struct get_scheduler_t {
-    template <typename Env>
-    constexpr auto operator()(Env& env) const {
-        return env.get_scheduler();
-    }
-} get_scheduler;
 
 constexpr inline struct set_value_t {
 
@@ -194,6 +148,64 @@ constexpr inline struct set_stopped_t {
     }
 } set_stopped;
 
+struct _none_such {};
+
+enum class forward_progress_guarantee : uint8_t {
+    concurrent,
+    parallel,
+    weakly_parallel
+};
+
+namespace queries {
+
+template <typename Env, typename Query, typename... Args>
+concept _member_queryable_with =
+    requires(const Env& env, const Query& query, Args... args) {
+        { env.query(query, args...) };
+    };
+
+template <typename Env, typename Query, typename... Args>
+concept _nothrow_member_queryable_with =
+    _member_queryable_with<Env, Query, Args...> &&
+    requires(const Env& env, const Query& query, Args... args) {
+        { env.query(query, args...) } noexcept;
+    };
+
+constexpr inline _none_such _no_default{};
+
+template <typename Derived, auto Default = _no_default>
+struct _query { // NOLINT(bugprone-crtp-constructor-accessibility)
+    template <typename Env, typename... Args>
+    requires _member_queryable_with<Env, Derived, Args...>
+    constexpr auto
+        operator()(const Env& env, const Derived& query, Args&&... args) noexcept(
+            _nothrow_member_queryable_with<Env, Derived, Args...>) {
+        return env.query(query, std::forward<Args>(args)...);
+    }
+
+    template <typename Env, typename... Args>
+    requires(!_member_queryable_with<Env, Derived, Args...>) &&
+            tag_invocable<Derived, const Env&, Args...>
+    constexpr auto
+        operator()(const Env& env, const Derived& query, Args&&... args) noexcept(
+            nothrow_tag_invocable<Derived, const Env&, Args...>) {
+        return tag_invoke(query, env, std::forward<Args>(args)...);
+    }
+};
+
+struct get_domain_t {};
+
+struct get_scheduler_t : _query<get_scheduler_t> {};
+
+struct get_allocator_t : _query<get_allocator_t> {};
+
+struct get_delegatee_scheduler_t : _query<get_delegatee_scheduler_t> {};
+
+struct get_forward_progress_guarantee_t :
+    _query<
+        get_forward_progress_guarantee_t,
+        forward_progress_guarantee::weakly_parallel> {};
+
 template <typename CompletionTag>
 struct get_completion_scheduler_t {
     template <typename Env>
@@ -205,9 +217,22 @@ struct get_completion_scheduler_t {
 template <typename Tag>
 concept _completion_tag = one_of<Tag, set_value_t, set_error_t, set_stopped_t>;
 
-template <_completion_tag CompletionTag>
-constexpr inline get_completion_scheduler_t<CompletionTag>
-    get_completion_scheduler{};
+struct get_stop_token_t : _query<get_stop_token_t> {};
+} // namespace queries
+
+using queries::get_domain_t;
+using queries::get_scheduler_t;
+using queries::get_delegatee_scheduler_t;
+using queries::get_forward_progress_guarantee_t;
+using queries::get_completion_scheduler_t;
+
+constexpr inline get_domain_t get_domain{};
+constexpr inline get_scheduler_t get_scheduler{};
+constexpr inline get_delegatee_scheduler_t get_delegatee_scheduler{};
+constexpr inline get_forward_progress_guarantee_t
+    get_forward_progress_guarantee{};
+template <typename Cpo>
+constexpr inline get_completion_scheduler_t<Cpo> get_completion_scheduler{};
 
 struct receiver_t {};
 
@@ -290,17 +315,119 @@ concept scheduler = _enable_scheduler<Scheduler> && queryable<Scheduler> &&
                         } -> std::same_as<std::remove_cvref_t<Scheduler>>;
                     };
 
-enum class forward_progress_guarantee : uint8_t {
-    concurrent,
-    parallel,
-    weakly_parallel
+/// Let `sndr` be an expression such that `decltype((sndr))` is `Sndr`.
+/// The type `tag_of_t<Sndr>` is as follows:
+/// - If the declaration `auto&& [tag, data, ...children] = sndr;` would be
+/// well-formed, `tag_of_t<Sndr>` is an alias for `decltype(auto(tag))`.
+/// - Otherwise, `tag_of_t<Sndr>` is ill-formed.
+template <sender Sndr>
+requires gettible<Sndr, 0>
+using tag_of_t = decltype(get<0>(std::declval<Sndr>()));
+
+template <typename Sndr, typename... Args>
+concept _has_member_transform_sender =
+    sender<Sndr> && requires(Sndr&& sndr, Args&&... args) {
+        tag_of_t<Sndr>().transform_sender(
+            std::forward<Sndr>(sndr), std::forward<Args>(args)...);
+    };
+
+template <typename Sndr, typename... Args>
+concept _has_member_transform_env =
+    sender<Sndr> && requires(Sndr&& sndr, Args&&... args) {
+        tag_of_t<Sndr>().transform_env(
+            std::forward<Sndr>(sndr), std::forward<Args>(args)...);
+    };
+
+struct default_domain {
+    template <sender Sndr, queryable... Env>
+    requires(sizeof...(Env) <= 1)
+    constexpr sender decltype(auto)
+        transform_sender(Sndr&& sndr, const Env&... env) noexcept(
+            _has_member_transform_sender<Sndr, const Env&...>
+                ? noexcept(tag_of_t<Sndr>().transform_sender(
+                      std::forward<Sndr>(sndr), env...))
+                : true) {
+        if constexpr (_has_member_transform_sender<Sndr, const Env&...>) {
+            return tag_of_t<Sndr>().transform_sender(
+                std::forward<Sndr>(sndr), env...);
+        } else {
+            return std::forward<Sndr>(sndr);
+        }
+    }
+
+    template <sender Sndr, queryable Env>
+    constexpr queryable decltype(auto)
+        transform_env(Sndr&& sndr, Env&& env) noexcept(
+            _has_member_transform_env<Sndr, Env&&>
+                ? noexcept(tag_of_t<Sndr>().transform_env(
+                      std::forward<Sndr>(sndr), std::forward<Env>(env)))
+                : true) {
+        if constexpr (_has_member_transform_env<Sndr, Env&&>) {
+            return tag_of_t<Sndr>().transform_env(
+                std::forward<Sndr>(sndr), std::forward<Env>(env));
+        } else {
+            return static_cast<Env>(std::forward<Env>(env));
+        }
+    }
+
+    template <typename Tag, sender Sndr, typename... Args>
+    static constexpr decltype(auto)
+        apply_sender(Tag, Sndr&& sndr, Args&&... args) noexcept(
+            noexcept(Tag().apply_sender(
+                std::forward<Sndr>(sndr), std::forward<Args>(args)...))) {
+        Tag().apply_sender(
+            std::forward<Sndr>(sndr), std::forward<Args>(args)...);
+    }
 };
 
-constexpr inline struct get_forward_progress_guarantee_t :
-    _query<get_forward_progress_guarantee_t> {
-} get_forward_progress_guarantee;
+template <typename Domain, sender Sndr, queryable... Env>
+requires(sizeof...(Env) <= 1)
+constexpr sender decltype(auto)
+    transform_sender(Domain dom, Sndr&& sndr, Env&&... env) noexcept {
+    if constexpr (requires {
+                      dom.transform_sender(
+                          std::forward<Sndr>(sndr), std::forward<Env>(env)...);
+                  }) {
+        return dom.transform_sender(
+            std::forward<Sndr>(sndr), std::forward<Env>(env)...);
+    } else {
+        return default_domain().transform_sender(
+            std::forward<Sndr>(sndr), std::forward<Env>(env)...);
+    }
+}
 
-struct default_domain {};
+template <typename Domain, sender Sndr, queryable Env>
+constexpr queryable decltype(auto)
+    transform_env(Domain dom, Sndr&& sndr, Env&& env) noexcept {
+    if constexpr (requires {
+                      dom.transform_env(
+                          std::forward<Sndr>(sndr), std::forward<Env>(env));
+                  }) {
+        return dom.transform_env(
+            std::forward<Sndr>(sndr), std::forward<Env>(env));
+    } else {
+        return default_domain().transform_env(
+            std::forward<Sndr>(sndr), std::forward<Env>(env));
+    }
+}
+
+template <typename Domain, typename... Args>
+concept _has_apply_sender = requires(Domain dom, Args&&... args) {
+    dom.apply_sender(std::forward<Args>(args)...);
+};
+
+template <typename Domain, typename Tag, sender Sndr, typename... Args>
+constexpr decltype(auto) apply_sender(
+    Domain dom, Tag, Sndr&& sndr,
+    Args&&... args) noexcept(_has_apply_sender<Domain, Tag, Sndr, Args...>) {
+    if constexpr (_has_apply_sender<Domain, Tag, Sndr, Args...>) {
+        return dom.apply_sender(
+            Tag{}, std::forward<Sndr>(sndr), std::forward<Args>(args)...);
+    } else {
+        return default_domain().apply_sender(
+            Tag{}, std::forward<Sndr>(sndr), std::forward<Args>(args)...);
+    }
+}
 
 template <typename Derived>
 struct sender_adaptor_closure : adaptor_closure<Derived> {};
@@ -346,21 +473,108 @@ constexpr inline struct transfer_just_t {
     }
 } transfer_just;
 
-constexpr inline struct then_t {
-    template <typename Fn>
-    constexpr auto operator()(Fn&& fn) const;
-} then{};
-
-constexpr inline struct on_t {
-} on{};
-
-constexpr inline struct when_all_t {
-
-} when_all{};
-
 constexpr inline struct sync_wait_t {
 
 } sync_wait{};
+
+template <typename Tag, typename Data, typename... Children>
+class _sender {
+public:
+    using sender_concept = sender_t;
+
+private:
+};
+
+template <typename Tag, typename Data, typename... Children>
+constexpr auto make_sender(Tag tag, Data&& data, Children&&... children) {
+    return _sender(
+        tag, std::forward<Data>(data), std::forward<Children>(children)...);
+}
+
+namespace sender_adaptors {
+
+struct on_t {
+    template <scheduler Scheduler, sender Sndr>
+    constexpr auto operator()(Scheduler&& sch, Sndr&& sndr) const {
+        auto domain = _get_early_domain(sndr);
+        return transform_sender(
+            domain,
+            make_sender(
+                *this, std::forward<Scheduler>(sch), std::forward<Sndr>(sndr)));
+    }
+
+    template <
+        sender Sndr, scheduler Scheduler,
+        _sender_adaptor_closure_for<Sndr> Closure>
+    constexpr auto
+        operator()(Sndr&& sndr, Scheduler&& sch, Closure&& closure) const {
+        // TODO:
+    }
+};
+struct transfer_t {};
+struct schedule_from_t {};
+struct then_t {};
+struct upon_error_t {};
+struct upon_stopped_t {};
+struct let_value_t {};
+struct let_error_t {};
+struct let_stopped_t {};
+struct bulk_t {};
+struct split_t {};
+struct when_all_t {};
+struct when_all_with_variant_t {};
+struct into_variant_t {};
+struct stopped_as_optional_t {};
+struct stopped_as_error_t {};
+struct ensure_started_t {};
+
+} // namespace sender_adaptors
+
+using sender_adaptors::on_t;
+using sender_adaptors::transfer_t;
+using sender_adaptors::schedule_from_t;
+using sender_adaptors::then_t;
+using sender_adaptors::upon_error_t;
+using sender_adaptors::upon_stopped_t;
+using sender_adaptors::let_value_t;
+using sender_adaptors::let_error_t;
+using sender_adaptors::let_stopped_t;
+using sender_adaptors::bulk_t;
+using sender_adaptors::split_t;
+using sender_adaptors::when_all_t;
+using sender_adaptors::when_all_with_variant_t;
+using sender_adaptors::into_variant_t;
+using sender_adaptors::stopped_as_optional_t;
+using sender_adaptors::stopped_as_error_t;
+using sender_adaptors::ensure_started_t;
+
+inline constexpr on_t on{};
+inline constexpr transfer_t transfer{};
+inline constexpr schedule_from_t schedule_from{};
+inline constexpr then_t then{};
+inline constexpr upon_error_t upon_error{};
+inline constexpr upon_stopped_t upon_stopped{};
+inline constexpr let_value_t let_value{};
+inline constexpr let_error_t let_error{};
+inline constexpr let_stopped_t let_stopped{};
+inline constexpr bulk_t bulk{};
+inline constexpr split_t split{};
+inline constexpr when_all_t when_all{};
+inline constexpr when_all_with_variant_t when_all_with_variant{};
+inline constexpr into_variant_t into_variant{};
+inline constexpr stopped_as_optional_t stopped_as_optional;
+inline constexpr stopped_as_error_t stopped_as_error;
+inline constexpr ensure_started_t ensure_started{};
+
+namespace sender_consumers {
+
+struct start_detached_t {};
+
+} // namespace sender_consumers
+
+using sender_consumers::start_detached_t;
+
+inline constexpr start_detached_t start_detached{};
 
 } // namespace neutron::execution
 

@@ -13,9 +13,7 @@ struct maker {
 };
 
 int main() {
-    using allocator     = numa_allocator<std::byte>;
-    using std_allocator = std::allocator<std::byte>;
-    static_context_thread_pool<maker, std_allocator> pool;
+    static_context_thread_pool<maker> pool;
     auto sch = pool.get_scheduler();
     schedule(sch);
 
