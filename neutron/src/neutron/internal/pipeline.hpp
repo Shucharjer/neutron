@@ -68,9 +68,11 @@ struct adaptor_closure {
 };
 
 template <typename Ty, template <typename> typename AdaptorClosure>
-concept _adaptor_closure = std::derived_from<Ty, AdaptorClosure<Ty>> &&
-                           std::move_constructible<std::remove_cvref_t<Ty>> &&
-                           std::constructible_from<std::remove_cvref_t<Ty>, Ty>;
+concept _adaptor_closure =
+    std::derived_from<
+        std::remove_cvref_t<Ty>, AdaptorClosure<std::remove_cvref_t<Ty>>> &&
+    std::move_constructible<std::remove_cvref_t<Ty>> &&
+    std::constructible_from<std::remove_cvref_t<Ty>, Ty>;
 
 template <
     typename Ty, template <typename> typename AdaptorClosure, typename Arg>
@@ -78,10 +80,10 @@ concept _adaptor_closure_for =
     _adaptor_closure<Ty, AdaptorClosure> && std::is_invocable_v<Ty, Arg>;
 
 template <
-    typename First, typename Second,
-    template <typename> typename AdaptorClosure>
-class _closure_compose :
-    AdaptorClosure<_closure_compose<First, Second, AdaptorClosure>> {
+    template <typename, typename> typename Derived,
+    template <typename> typename AdaptorClosure, typename First,
+    typename Second>
+class _closure_compose : public AdaptorClosure<Derived<First, Second>> {
 public:
     template <typename Clousre1, typename Closure2>
     constexpr _closure_compose(Clousre1&& closure1, Closure2&& closure2)
@@ -99,8 +101,8 @@ public:
     requires std::is_invocable_v<First, Arg> &&
              std::is_invocable_v<Second, std::invoke_result_t<First, Arg>>
     NODISCARD constexpr auto operator()(Arg&& arg) const& noexcept(
-        noexcept(pair_.second()(pair_.first())(std::forward<Arg>(arg)))) {
-        return pair_.second()(pair_.first())(std::forward<Arg>(arg));
+        noexcept((pair_.second())(pair_.first()(std::forward<Arg>(arg))))) {
+        return (pair_.second())(pair_.first()(std::forward<Arg>(arg)));
     }
 
     /**
@@ -114,20 +116,13 @@ public:
              std::is_invocable_v<Second, std::invoke_result_t<First, Arg>>
     NODISCARD constexpr auto
         operator()(Arg&& arg) && noexcept(noexcept(std::move(pair_.second())(
-            std::move(pair_.first()))(std::forward<Arg>(arg)))) {
-        return std::move(pair_.second())(std::move(pair_.first()))(
-            std::forward<Arg>(arg));
+            std::move(pair_.first())(std::forward<Arg>(arg))))) {
+        return std::move(pair_.second())(
+            std::move(pair_.first())(std::forward<Arg>(arg)));
     }
 
 private:
     compressed_pair<First, Second> pair_;
 };
-
-template <
-    typename Closure1, typename Closure2,
-    template <typename> typename AdaptorClosure = adaptor_closure>
-_closure_compose(Closure1&&, Closure2&&) -> _closure_compose<
-    std::remove_cvref_t<Closure1>, std::remove_cvref_t<Closure2>,
-    AdaptorClosure>;
 
 } // namespace neutron

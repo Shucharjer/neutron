@@ -11,9 +11,9 @@ using namespace std::execution;
 
 }
 
-#elif __has_include(<stdexec/execution>)
+#elif __has_include(<stdexec/execution.hpp>)
 
-    #include <stdexec/execution>
+    #include <stdexec/execution.hpp>
 
 namespace neutron::execution {
 

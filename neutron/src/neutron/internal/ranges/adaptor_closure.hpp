@@ -34,7 +34,8 @@ struct range_adaptor_closure : adaptor_closure<Derived> {};
  */
 template <typename First, typename Second>
 struct _range_closure_compose :
-    public _closure_compose<First, Second, range_adaptor_closure> {};
+    public _closure_compose<
+        _range_closure_compose, range_adaptor_closure, First, Second> {};
 
 template <typename C1, typename C2>
 _range_closure_compose(C1&&, C2&&)

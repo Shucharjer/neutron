@@ -20,9 +20,10 @@ concept _sender_adaptor_closure_for =
 
 template <typename Closure1, typename Closure2>
 struct _sender_closure_compose :
-    public _closure_compose<Closure1, Closure2, sender_adaptor_closure> {
-    using _compose_base =
-        _closure_compose<Closure1, Closure2, sender_adaptor_closure>;
+    _closure_compose<
+        _sender_closure_compose, sender_adaptor_closure, Closure1, Closure2> {
+    using _compose_base = _closure_compose<
+        _sender_closure_compose, sender_adaptor_closure, Closure1, Closure2>;
 
     using _compose_base::_compose_base;
     using _compose_base::operator();
@@ -37,11 +38,13 @@ class _sender_closure : public sender_adaptor_closure<_sender_closure<Fn>> {
 public:
     template <typename F>
     requires std::constructible_from<Fn, F>
-    constexpr _sender_closure(F&& fn) noexcept : fn_(std::forward<F>(fn)) {}
+    constexpr _sender_closure(F&& fn) noexcept : fn_(std::forward<F>(fn)) {
+        static_assert(false); // TODO
+    }
 
     template <sender Sndr>
     constexpr auto operator()(Sndr&& sndr) const {
-        return fn_(std::forward<Sndr>(sndr));
+        static_assert(false); // TODO
     }
 
 private:
