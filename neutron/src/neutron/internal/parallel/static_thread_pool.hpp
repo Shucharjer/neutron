@@ -5,7 +5,7 @@
  * involve NUMA scheduling because its use case it typically a single NUMA
  * node. Additionally, it supports custom thread context; you only need to
  * provide a suitable `Callable` to construct it via `Alloc`.
- * 
+ *
  * @date 2025-11-23
  */
 #pragma once
@@ -98,20 +98,21 @@ public:
     using alloc_traits   = std::allocator_traits<Alloc>;
     using context_type   = invoke_result_t;
 
-    struct domain : default_domain {};
-
     class scheduler {
         class sender {
             struct env {
                 _static_thread_pool& pool_;
 
-                template <typename Cpo>
-                auto query(get_completion_scheduler_t<Cpo>) const noexcept {
+                template <typename CPO>
+                auto query(get_completion_scheduler_t<CPO>) const noexcept {
                     return _static_thread_pool::scheduler{ pool_ };
                 }
             };
 
         public:
+            using sender_concept        = sender_t;
+            using completion_signatures = execution::completion_signatures<
+                set_value_t(), set_stopped_t()>;
             sender(_static_thread_pool& pool) : pool_(pool) {}
 
             NODISCARD auto get_env() const noexcept -> env {
@@ -123,6 +124,8 @@ public:
         };
 
     public:
+        using scheduler_concept = execution::scheduler_t;
+
         scheduler(_static_thread_pool& pool) : pool_(&pool) {}
 
         NODISCARD sender schedule() { return sender{ *pool_ }; }
@@ -132,7 +135,13 @@ public:
             return forward_progress_guarantee::parallel;
         }
 
-        NODISCARD domain query(get_domain_t) const noexcept { return {}; }
+        NODISCARD default_domain query(get_domain_t) const noexcept {
+            return {};
+        }
+
+        constexpr bool operator==(const scheduler& that) const noexcept {
+            return pool_ == that.pool_;
+        }
 
     private:
         _static_thread_pool* pool_;
@@ -150,10 +159,7 @@ public:
         }
     }
 
-    ~_static_thread_pool() noexcept {
-        request_stop();
-        join();
-    }
+    ~_static_thread_pool() noexcept { request_stop(); }
 
     void request_stop() noexcept {
         for (auto& state : thread_states_) {

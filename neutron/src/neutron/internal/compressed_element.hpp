@@ -2,6 +2,7 @@
 #include <cstddef>
 #include <type_traits>
 #include <utility>
+#include "./macros.hpp"
 
 namespace neutron {
 
@@ -61,14 +62,18 @@ public:
      * @brief Get the value of this element.
      *
      */
-    [[nodiscard]] constexpr reference value() noexcept { return value_; }
+    NODISCARD constexpr reference value() & noexcept { return value_; }
 
     /**
      * @brief Get the value of this element.
      *
      */
-    [[nodiscard]] constexpr const_reference value() const noexcept {
+    NODISCARD constexpr const_reference value() const& noexcept {
         return value_;
+    }
+
+    NODISCARD constexpr value_type&& value() && noexcept {
+        return std::move(value_);
     }
 
 private:
@@ -123,13 +128,19 @@ public:
      * @brief Get the value of this element.
      *
      */
-    [[nodiscard]] constexpr reference value() noexcept { return value_; }
+    NODISCARD constexpr reference value() & noexcept { return value_; }
 
     /**
      * @brief Get the value of this element.
      *
      */
-    [[nodiscard]] constexpr auto& value() const noexcept { return value_; }
+    NODISCARD constexpr auto& value() const& noexcept { return value_; }
+
+    /**
+     * @brief Get the value of this element.
+     *
+     */
+    NODISCARD constexpr value_type value() && noexcept { return value_; }
 
 private:
     Ty* value_;
@@ -165,13 +176,15 @@ public:
      * @brief Get the value of this element.
      *
      */
-    constexpr reference value() noexcept { return value_; }
+    constexpr reference value() & noexcept { return value_; }
 
     /**
      * @brief Get the value of this element.
      *
      */
-    constexpr const_reference value() const noexcept { return value_; }
+    constexpr const_reference value() const& noexcept { return value_; }
+
+    constexpr value_type value() && noexcept { return value_; }
 
 private:
     value_type value_;

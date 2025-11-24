@@ -179,3 +179,11 @@
 #else
     #define CONST_EVALUATED (std::is_constant_evaluated())
 #endif
+
+#ifndef DEPRECATED26
+    #if HAS_CXX26
+        #define DEPRECATED26 [[deprecated]]
+    #else
+        #define DEPRECATED26
+    #endif
+#endif

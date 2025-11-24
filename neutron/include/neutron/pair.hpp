@@ -4,6 +4,7 @@
 #include <utility>
 #include "neutron/type_traits.hpp"
 #include "../src/neutron/internal/compressed_element.hpp"
+#include "../src/neutron/internal/macros.hpp"
 
 namespace neutron {
 
@@ -157,25 +158,33 @@ public:
         std::is_nothrow_destructible_v<first_base> &&
         std::is_nothrow_destructible_v<second_base>) = default;
 
-    [[nodiscard]] constexpr First& first() noexcept {
+    NODISCARD constexpr First& first() & noexcept {
         return static_cast<first_base&>(*this).value();
     }
 
-    [[nodiscard]] constexpr const First& first() const noexcept {
+    NODISCARD constexpr const First& first() const& noexcept {
         return static_cast<const first_base&>(*this).value();
     }
 
-    [[nodiscard]] constexpr Second& second() noexcept {
+    NODISCARD constexpr First&& first() && noexcept {
+        return static_cast<first_base&&>(*this).value();
+    }
+
+    NODISCARD constexpr Second& second() & noexcept {
         return static_cast<second_base&>(*this).value();
     }
 
-    [[nodiscard]] constexpr const Second& second() const noexcept {
+    NODISCARD constexpr const Second& second() const& noexcept {
         return static_cast<const second_base&>(*this).value();
     }
 
+    NODISCARD constexpr Second&& second() && noexcept {
+        return static_cast<second_base&&>(*this).value();
+    }
+
     template <size_t Index>
     requires(Index <= 1)
-    [[nodiscard]] constexpr auto& get() noexcept {
+    NODISCARD constexpr decltype(auto) get() & noexcept {
         if constexpr (Index == 0) {
             return first();
         } else {
@@ -185,7 +194,7 @@ public:
 
     template <size_t Index>
     requires(Index <= 1)
-    [[nodiscard]] constexpr auto& get() const noexcept {
+    NODISCARD constexpr decltype(auto) get() const& noexcept {
         if constexpr (Index == 0) {
             return first();
         } else {
@@ -193,7 +202,17 @@ public:
         }
     }
 
-    constexpr operator std::pair<First, Second>() noexcept(
+    template <size_t Index>
+    requires(Index <= 1)
+    NODISCARD constexpr decltype(auto) get() && noexcept {
+        if constexpr (Index == 0) {
+            return first();
+        } else {
+            return second();
+        }
+    }
+
+    constexpr operator std::pair<First, Second>() const& noexcept(
         std::is_nothrow_copy_constructible_v<First> &&
         std::is_nothrow_copy_constructible_v<Second>)
     requires std::is_copy_constructible_v<First> &&
@@ -201,11 +220,20 @@ public:
     {
         return std::pair<First, Second>(first(), second());
     }
+
+    constexpr operator std::pair<First, Second>() && noexcept(
+        std::is_nothrow_move_constructible_v<First> &&
+        std::is_nothrow_move_constructible_v<Second>)
+    requires std::is_move_constructible_v<First> &&
+             std::is_move_constructible_v<Second>
+    {
+        return std::pair<First, Second>(first(), second());
+    }
 };
 
 // if it returns true, two `compressed_pair`s must have the same tparams.
 template <typename LFirst, typename LSecond, typename RFirst, typename RSecond>
-[[nodiscard]] constexpr bool operator==(
+NODISCARD constexpr bool operator==(
     const compressed_pair<LFirst, LSecond>& lhs,
     const compressed_pair<RFirst, RSecond>& rhs) noexcept {
     if constexpr (
@@ -217,14 +245,14 @@ template <typename LFirst, typename LSecond, typename RFirst, typename RSecond>
 }
 
 template <typename LFirst, typename LSecond, typename RFirst, typename RSecond>
-[[nodiscard]] constexpr bool operator!=(
+NODISCARD constexpr bool operator!=(
     const compressed_pair<LFirst, LSecond>& lhs,
     const compressed_pair<RFirst, RSecond>& rhs) noexcept {
     return !(lhs == rhs);
 }
 
 template <typename Ty, typename First, typename Second>
-[[nodiscard]] constexpr bool operator==(
+NODISCARD constexpr bool operator==(
     const compressed_pair<First, Second>& pair, const Ty& val) noexcept {
     if constexpr (std::is_convertible_v<Ty, First>) {
         return pair.first() == val;
@@ -236,7 +264,7 @@ template <typename Ty, typename First, typename Second>
 }
 
 template <typename Ty, typename First, typename Second>
-[[nodiscard]] constexpr bool operator!=(
+NODISCARD constexpr bool operator!=(
     const compressed_pair<First, Second>& pair, const Ty& val) noexcept {
     return !(pair == val);
 }
@@ -312,25 +340,33 @@ public:
         std::is_nothrow_destructible_v<first_base> &&
         std::is_nothrow_destructible_v<second_base>) = default;
 
-    [[nodiscard]] constexpr First& first() noexcept {
+    NODISCARD constexpr First& first() & noexcept {
         return static_cast<second_base&>(*this).value();
     }
 
-    [[nodiscard]] constexpr const First& first() const noexcept {
+    NODISCARD constexpr const First& first() const& noexcept {
         return static_cast<const second_base&>(*this).value();
     }
 
-    [[nodiscard]] constexpr Second& second() noexcept {
+    NODISCARD constexpr First&& first() && noexcept {
+        return static_cast<const second_base&>(*this).value();
+    }
+
+    NODISCARD constexpr Second& second() & noexcept {
         return static_cast<first_base&>(*this).value();
     }
 
-    [[nodiscard]] constexpr const Second& second() const noexcept {
+    NODISCARD constexpr const Second& second() const& noexcept {
         return static_cast<const first_base&>(*this).value();
+    }
+
+    NODISCARD constexpr Second& second() && noexcept {
+        return static_cast<first_base&>(*this).value();
     }
 
     template <size_t Index>
     requires(Index <= 1)
-    [[nodiscard]] constexpr auto& get() noexcept {
+    NODISCARD constexpr decltype(auto) get() & noexcept {
         if constexpr (Index == 0) {
             return first();
         } else {
@@ -340,7 +376,17 @@ public:
 
     template <size_t Index>
     requires(Index <= 1)
-    [[nodiscard]] constexpr auto& get() const noexcept {
+    NODISCARD constexpr decltype(auto) get() const& noexcept {
+        if constexpr (Index == 0) {
+            return first();
+        } else {
+            return second();
+        }
+    }
+
+    template <size_t Index>
+    requires(Index <= 1)
+    NODISCARD constexpr decltype(auto) get() && noexcept {
         if constexpr (Index == 0) {
             return first();
         } else {
@@ -484,7 +530,7 @@ public:
 
     ~pair() noexcept(std::is_nothrow_destructible_v<value_type>) = default;
 
-    constexpr First& first() noexcept {
+    constexpr First& first() & noexcept {
         if constexpr (_public_pair<value_type>) {
             return pair_.first;
         } else if constexpr (_private_pair<value_type>) {
@@ -494,7 +540,7 @@ public:
         }
     }
 
-    constexpr const First& first() const noexcept {
+    constexpr const First& first() const& noexcept {
         if constexpr (_public_pair<value_type>) {
             return pair_.first;
         } else if constexpr (_private_pair<value_type>) {
@@ -504,7 +550,17 @@ public:
         }
     }
 
-    constexpr Second& second() noexcept {
+    constexpr First&& first() && noexcept {
+        if constexpr (_public_pair<value_type>) {
+            return pair_.first;
+        } else if constexpr (_private_pair<value_type>) {
+            return pair_.first();
+        } else {
+            static_assert(false, "No valid way to get the first value.");
+        }
+    }
+
+    constexpr Second& second() & noexcept {
         if constexpr (_public_pair<value_type>) {
             return pair_.second;
         } else if constexpr (_private_pair<value_type>) {
@@ -514,7 +570,17 @@ public:
         }
     }
 
-    constexpr const Second& second() const noexcept {
+    constexpr const Second& second() const& noexcept {
+        if constexpr (_public_pair<value_type>) {
+            return pair_.second;
+        } else if constexpr (_private_pair<value_type>) {
+            return pair_.second();
+        } else {
+            static_assert(false, "No valid way to get the second value.");
+        }
+    }
+
+    constexpr Second&& second() && noexcept {
         if constexpr (_public_pair<value_type>) {
             return pair_.second;
         } else if constexpr (_private_pair<value_type>) {
@@ -552,7 +618,7 @@ public:
 
     template <size_t Index>
     requires(Index <= 1)
-    [[nodiscard]] constexpr auto& get() noexcept {
+    NODISCARD constexpr auto& get() & noexcept {
         if constexpr (Index == 0) {
             return first();
         } else {
@@ -562,7 +628,17 @@ public:
 
     template <size_t Index>
     requires(Index <= 1)
-    [[nodiscard]] constexpr auto& get() const noexcept {
+    NODISCARD constexpr auto& get() const& noexcept {
+        if constexpr (Index == 0) {
+            return first();
+        } else {
+            return second();
+        }
+    }
+
+    template <size_t Index>
+    requires(Index <= 1)
+    NODISCARD constexpr decltype(auto) get() && noexcept {
         if constexpr (Index == 0) {
             return first();
         } else {

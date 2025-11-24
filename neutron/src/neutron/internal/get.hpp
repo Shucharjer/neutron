@@ -18,6 +18,7 @@ concept _has_member_get =
 template <typename T, size_t Index>
 concept _has_adl_get = requires(T&& obj) { get<Index>(std::forward<T>(obj)); };
 
+// BUG: std::get is not SFINAE friendly
 template <typename T, size_t Index>
 concept _has_std_get =
     requires(T&& obj) { std::get<Index>(std::forward<T>(obj)); };
@@ -72,12 +73,30 @@ struct get_t {
     }
 };
 
-} // namespace _get
-/*! @endcond */
-
 template <size_t Index>
 constexpr inline _get::get_t<Index> get{};
 
+template <size_t Index, typename Ty>
+constexpr size_t gettible_size() noexcept {
+    if constexpr (gettible<Ty, Index + 1>) {
+        return gettible_size<Index + 1, Ty>();
+    } else {
+        return Index;
+    }
+}
+
+} // namespace _get
+/*! @endcond */
+
+using _get::get;
+
 using _get::gettible;
+
+template <size_t Index, typename Ty>
+using gettible_element_t = decltype(get<Index>(std::declval<Ty>()));
+
+template <typename Ty>
+constexpr size_t gettible_size =
+    gettible<Ty, 0> ? _get::gettible_size<0, Ty>() : 0;
 
 } // namespace neutron

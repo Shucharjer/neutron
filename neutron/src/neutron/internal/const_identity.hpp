@@ -7,14 +7,16 @@ namespace neutron {
 /**
  * @class const_identity
  * @brief A wrapper wrapps a type with const.
- * It's mainly used to compate with standard library and
- * optimization.
+ * It's mainly used to compate with standard library and optimization.
  * E.g. We usually store `std::pair<const Kty, Ty>` in associate compitable
  * cotainers, but we may modifing the key instead of relocating the key to get a
  * higher performance.
+ * @tparam Ty A type has const identifier logically.
  */
 template <typename Ty>
 class const_identity {
+    static_assert(!std::is_const_v<Ty>);
+
     Ty value_;
 
 public:
@@ -41,7 +43,9 @@ public:
     constexpr ~const_identity() noexcept(std::is_nothrow_destructible_v<Ty>) =
         default;
 
-    constexpr operator Ty() const noexcept { return value_; }
+    constexpr operator Ty() const& noexcept { return value_; }
+
+    constexpr operator Ty&&() && noexcept { return std::move(value_); }
 
     constexpr void swap(const_identity& that) noexcept {
         std::swap(value_, that.value_);
@@ -53,8 +57,5 @@ public:
         value_ = std::forward<T>(val);
     }
 };
-
-template <typename Ty>
-class const_identity<const Ty> : public const_identity<Ty> {};
 
 } // namespace neutron

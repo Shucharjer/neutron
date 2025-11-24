@@ -1,6 +1,4 @@
 #include <cstddef>
-#include <memory>
-#include <type_traits>
 #include <neutron/execution.hpp>
 #include <neutron/parallel.hpp>
 
@@ -14,8 +12,9 @@ struct maker {
 
 int main() {
     static_context_thread_pool<maker> pool;
-    auto sch = pool.get_scheduler();
-    schedule(sch);
+    scheduler auto sch = pool.get_scheduler();
+    sender auto sndr   = schedule(sch) | then([] {});
+    sync_wait(std::move(sndr));
 
     return 0;
 }

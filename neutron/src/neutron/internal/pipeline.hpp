@@ -58,6 +58,7 @@
 #include <type_traits>
 #include <utility>
 #include "neutron/pair.hpp"
+#include "./macros.hpp"
 
 namespace neutron {
 
@@ -97,11 +98,9 @@ public:
     template <typename Arg>
     requires std::is_invocable_v<First, Arg> &&
              std::is_invocable_v<Second, std::invoke_result_t<First, Arg>>
-    [[nodiscard]] constexpr auto operator()(Arg&& arg) noexcept(
-        noexcept(std::forward<Second>(pair_.second())(
-            std::forward<First>(pair_.first())(std::forward<Arg>(arg))))) {
-        return std::forward<Second>(pair_.second())(
-            std::forward<First>(pair_.first())(std::forward<Arg>(arg)));
+    NODISCARD constexpr auto operator()(Arg&& arg) const& noexcept(
+        noexcept(pair_.second()(pair_.first())(std::forward<Arg>(arg)))) {
+        return pair_.second()(pair_.first())(std::forward<Arg>(arg));
     }
 
     /**
@@ -113,11 +112,11 @@ public:
     template <typename Arg>
     requires std::is_invocable_v<First, Arg> &&
              std::is_invocable_v<Second, std::invoke_result_t<First, Arg>>
-    [[nodiscard]] constexpr auto operator()(Arg&& arg) const
-        noexcept(noexcept(std::forward<Second>(pair_.second())(
-            std::forward<First>(pair_.first())(std::forward<Arg>(arg))))) {
-        return std::forward<Second>(pair_.second())(
-            std::forward<First>(pair_.first())(std::forward<Arg>(arg)));
+    NODISCARD constexpr auto
+        operator()(Arg&& arg) && noexcept(noexcept(std::move(pair_.second())(
+            std::move(pair_.first()))(std::forward<Arg>(arg)))) {
+        return std::move(pair_.second())(std::move(pair_.first()))(
+            std::forward<Arg>(arg));
     }
 
 private:
