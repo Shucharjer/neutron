@@ -90,7 +90,8 @@ private:
         template <typename Al>
         CONSTEXPR26 explicit block_t(size_t block_size, const Al& alloc = {})
             : head_{ 0 }, tail_{ 0 }, steal_head_{ 0 },
-              steal_tail_{ block_size }, ring_buffer_(block_size, alloc) {}
+              steal_tail_{ block_size },
+              ring_buffer_(block_size, allocator_type{ alloc }) {}
 
         CONSTEXPR26 block_t(const block_t& that)
             : ring_buffer_(that.ring_buffer_) {

@@ -19,6 +19,8 @@ namespace neutron::execution {
 
 using namespace stdexec;
 
+struct scheduler_t {};
+
 }
 
 #else

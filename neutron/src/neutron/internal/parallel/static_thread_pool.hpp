@@ -75,19 +75,14 @@ class _static_thread_pool<ExternalContextMaker, Alloc> {
 
     struct _task_base {};
 
-    struct _thread_state_base {
-        explicit _thread_state_base(uint32_t index) noexcept : index(index) {}
-        uint32_t index;
-    };
-
-    class _thread_state : _thread_state_base {
+    class _thread_state {
     public:
         template <typename Al>
         explicit _thread_state(
-            _static_thread_pool* pool, uint32_t index, lifo_params params,
-            const Al& alloc)
-            : _thread_state_base(index),
-              local_queue_(params.num_blocks, params.block_size, alloc) {}
+            _static_thread_pool* pool, lifo_params params, const Al& alloc)
+            : local_queue_(params.num_blocks, params.block_size, alloc) {}
+
+        void request_stop() {}
 
     private:
         lifo_queue<_task_base*, _allocator_t<_task_base*>> local_queue_;
@@ -151,11 +146,11 @@ public:
     _static_thread_pool(
         uint32_t num_threads = _hardware_concurrency(), lifo_params params = {},
         const Al& alloc = {})
-        : thread_count_(num_threads), threads_(num_threads) {
+        : thread_count_(num_threads), params_(params), threads_(num_threads) {
         assert(num_threads > 0);
 
         for (uint32_t i = 0; i < num_threads; ++i) {
-            thread_states_[i].emplace(this);
+            thread_states_[i].emplace(this, params, threads_.get_allocator());
         }
     }
 
@@ -176,8 +171,12 @@ private:
     }
 
     uint32_t thread_count_;
-    std::vector<std::optional<_thread_state>> thread_states_;
-    std::vector<std::jthread> threads_;
+    lifo_params params_;
+    std::vector<
+        std::optional<_thread_state>,
+        _allocator_t<std::optional<_thread_state>>>
+        thread_states_;
+    std::vector<std::jthread, _allocator_t<std::jthread>> threads_;
 };
 
 } // namespace _thread_pool

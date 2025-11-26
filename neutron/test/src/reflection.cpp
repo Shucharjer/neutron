@@ -1,4 +1,5 @@
 #include <cstdlib>
+#include <neutron/auxiliary.hpp>
 #include <neutron/reflection.hpp>
 #include "require.hpp"
 
@@ -61,11 +62,11 @@ void test_get() {
     require(get<0>(nagg) == num);
     require(get<1>(nagg) == cha);
 
-    require(get<"member1">(agg) == num);
-    require(get<"member2">(agg) == cha);
+    require(get_by_name<"member1">(agg) == num);
+    require(get_by_name<"member2">(agg) == cha);
 
-    require(get<"another_member1_">(nagg) == num);
-    require(get<"another_member2_">(nagg) == cha);
+    require(get_by_name<"another_member1_">(nagg) == num);
+    require(get_by_name<"another_member2_">(nagg) == cha);
 }
 
 void test_member_names_of() {
@@ -80,10 +81,10 @@ void test_member_names_of() {
 }
 
 void test_description_of() {
-    auto description_a  = description_of<aggregate>();
-    auto description_na = description_of<not_aggregate>();
+    auto description_a  = traits_of<aggregate>();
+    auto description_na = traits_of<not_aggregate>();
 
-    using namespace bits;
+    using enum traits_bits;
 
     require(authenticity_of({ .desc = description_a, .bits = is_aggregate }));
     require(!authenticity_of({ .desc = description_na, .bits = is_aggregate }));
@@ -92,10 +93,10 @@ void test_reflected() {
     auto reflected_a  = reflected<aggregate>();
     auto reflected_na = reflected<not_aggregate>();
 
-    using namespace bits;
+    using enum traits_bits;
 
-    auto description_a  = reflected_a.description();
-    auto description_na = reflected_na.description();
+    auto description_a  = reflected_a.traits();
+    auto description_na = reflected_na.traits();
 
     require(authenticity_of({ .desc = description_a, .bits = is_aggregate }));
     require_false(

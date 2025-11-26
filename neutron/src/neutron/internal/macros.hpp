@@ -187,3 +187,11 @@
         #define DEPRECATED26
     #endif
 #endif
+
+#ifndef HAS_REFLECTION
+    #if __has_feature(reflection) && __cplusplus >= 202602L
+        #define HAS_REFLECTION 1
+    #else
+        #define HAS_REFLECTION 0
+    #endif
+#endif

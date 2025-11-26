@@ -15,8 +15,6 @@ class closure : public range_adaptor_closure<closure<Fn, Args...>> {
     using self_type      = closure;
 
 public:
-    using pipeline_tag = void;
-
     static_assert((std::same_as<std::decay_t<Args>, Args> && ...));
     static_assert(std::is_empty_v<Fn> || std::is_default_constructible_v<Fn>);
 

@@ -1,68 +1,11 @@
 #pragma once
 #include <array>
 #include <cstddef>
-#include <cstdint>
-#include <string_view>
 #include "neutron/template_list.hpp"
 #include "../src/neutron/internal/macros.hpp"
+#include "../src/neutron/internal/reflection/legacy/type_hash.hpp"
 
 namespace neutron {
-
-/**
- * @brief Get the name of a type.
- *
- */
-template <typename Ty>
-[[nodiscard]] consteval std::string_view name_of() noexcept {
-#ifdef _MSC_VER
-    constexpr std::string_view funcname = __FUNCSIG__;
-#else
-    constexpr std::string_view funcname = __PRETTY_FUNCTION__;
-#endif
-
-#ifdef __clang__
-    auto split = funcname.substr(0, funcname.size() - 1);
-    return split.substr(split.find_last_of(' ') + 1);
-#elif defined(__GNUC__)
-    auto split = funcname.substr(77);
-    return split.substr(0, split.size() - 50);
-#elif defined(_MSC_VER)
-    auto split = funcname.substr(110);
-    split      = split.substr(split.find_first_of(' ') + 1);
-    return split.substr(0, split.size() - 7);
-#else
-    static_assert(false, "Unsupportted compiler");
-#endif
-}
-
-/*! @cond TURN_OFF_DOXYGEN */
-
-namespace internal {
-
-constexpr uint64_t hash(std::string_view string) noexcept {
-    // fnv1a
-    constexpr uint64_t magic = 0xcbf29ce484222325;
-    constexpr uint64_t prime = 0x100000001b3;
-
-    uint64_t value = magic;
-    for (char ch : string) {
-        value = value ^ ch;
-        value *= prime;
-    }
-
-    return value;
-}
-
-} // namespace internal
-
-/*! @endcond */
-
-template <typename Ty, auto Hasher = internal::hash>
-requires std::is_same_v<Ty, std::remove_cvref_t<Ty>>
-consteval auto hash_of() noexcept {
-    constexpr auto name = name_of<Ty>();
-    return Hasher(name);
-}
 
 template <typename Ty, auto Hash>
 struct hash_pair {};
