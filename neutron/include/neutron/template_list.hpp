@@ -3,6 +3,7 @@
 #include <tuple>
 #include <type_traits>
 #include "neutron/shared_tuple.hpp"
+#include "neutron/type_traits.hpp"
 
 namespace neutron {
 
@@ -456,36 +457,6 @@ struct type_list_expose<Tmp, Template<Tys...>> {
 template <template <typename...> typename Tmp, typename TypeList>
 using type_list_expose_t = typename type_list_expose<Tmp, TypeList>::type;
 
-template <
-    template <typename...> typename Tmp, typename TypeList,
-    template <typename> typename = std::type_identity>
-struct type_list_recurse_expose;
-template <
-    template <typename...> typename Tmp,
-    template <typename...> typename Template, template <typename> typename Ex>
-struct type_list_recurse_expose<Tmp, Template<>, Ex> {
-    using type = Template<>;
-};
-template <
-    template <typename...> typename Tmp,
-    template <typename...> typename Template, typename... Tys,
-    template <typename> typename Ex>
-struct type_list_recurse_expose<Tmp, Template<Tys...>, Ex> {
-    template <typename Ty>
-    struct expose {
-        using type = Template<Ty>;
-    };
-    template <typename... Args>
-    struct expose<Tmp<Args...>> {
-        using type =
-            type_list_cat_t<typename expose<typename Ex<Args>::type>::type...>;
-    };
-    using type = type_list_cat_t<typename expose<Tys>::type...>;
-};
-template <template <typename...> typename Tmp, typename TypeList>
-using type_list_recurse_expose_t =
-    typename type_list_recurse_expose<Tmp, TypeList>::type;
-
 template <template <typename...> typename Tmp, typename TypeList>
 struct type_list_export;
 template <
@@ -601,18 +572,30 @@ template <typename Template, typename Old, typename New>
 using type_list_substitute_t =
     typename type_list_substitute<Template, Old, New>::type;
 
-template <template <typename> typename Predicate, typename TypeList>
+template <typename Ty>
+struct always_true : std::true_type {};
+
+template <
+    template <typename> typename Predicate, typename TypeList,
+    template <typename> typename Continue = always_true>
 struct type_list_requires_recurse {
     template <typename Ty>
     struct requires_recurse {
         constexpr static bool value = Predicate<Ty>::value;
     };
     template <template <typename...> typename Template, typename... Tys>
+    requires Continue<Template<Tys...>>::value &&
+             (!Predicate<Template<Tys...>>::value)
     struct requires_recurse<Template<Tys...>> {
         constexpr static bool value = (requires_recurse<Tys>::value && ...);
     };
     constexpr static bool value = requires_recurse<TypeList>::value;
 };
+template <
+    template <typename> typename Predicate, typename TypeList,
+    template <typename> typename Continue = always_true>
+constexpr auto type_list_requires_recurse_v =
+    type_list_requires_recurse<Predicate, TypeList, Continue>::value;
 
 template <template <auto> typename, typename>
 struct type_list_from_value;
@@ -832,6 +815,67 @@ struct type_list_convert<Predicate, Template<Tys...>> {
 template <template <typename> typename Predicate, typename TypeList>
 using type_list_convert_t =
     typename type_list_convert<Predicate, TypeList>::type;
+
+template <typename To, typename From>
+using ignore_cvref = std::remove_cvref<To>;
+
+template <
+    template <typename...> typename Tmp, typename TypeList,
+    template <typename, typename> typename Qualifier = ignore_cvref>
+struct type_list_recurse_expose;
+template <
+    template <typename...> typename Tmp,
+    template <typename...> typename Template,
+    template <typename, typename> typename Qualifier>
+struct type_list_recurse_expose<Tmp, Template<>, Qualifier> {
+    using type = Template<>;
+};
+template <
+    template <typename...> typename Tmp,
+    template <typename...> typename Template, typename... Tys,
+    template <typename, typename> typename Qualifier>
+struct type_list_recurse_expose<Tmp, Template<Tys...>, Qualifier> {
+    template <typename Ty>
+    struct try_expose;
+    template <typename Ty>
+    struct expose {
+        using type = Template<Ty>;
+    };
+    template <typename... Args>
+    struct expose<Tmp<Args...>> {
+        using type = type_list_cat_t<typename try_expose<Args>::type...>;
+    };
+    template <typename Ty>
+    requires std::same_as<std::remove_cvref_t<Ty>, Ty>
+    struct try_expose<Ty> {
+        using type = typename expose<Ty>::type;
+    };
+    template <typename Ty>
+    requires(!std::same_as<std::remove_cvref_t<Ty>, Ty>)
+    struct try_expose<Ty> {
+        template <typename T>
+        using predicate_type = Qualifier<T, Ty>;
+        using type           = type_list_convert_t<
+                      predicate_type, typename expose<std::remove_cvref_t<Ty>>::type>;
+    };
+    using type = type_list_cat_t<typename try_expose<Tys>::type...>;
+};
+template <
+    template <typename...> typename Tmp, typename TypeList,
+    template <typename, typename> typename Qualifier = ignore_cvref>
+using type_list_recurse_expose_t =
+    typename type_list_recurse_expose<Tmp, TypeList, Qualifier>::type;
+
+template <template <typename...> typename Template, typename TypeList>
+struct type_list_rebind;
+template <
+    template <typename...> typename Template,
+    template <typename...> typename Tmp, typename... Tys>
+struct type_list_rebind<Template, Tmp<Tys...>> {
+    using type = Template<Tys...>;
+};
+template <template <typename...> typename Template, typename TypeList>
+using type_list_rebind_t = typename type_list_rebind<Template, TypeList>::type;
 
 template <typename Ty, typename Tuple>
 struct tuple_first;

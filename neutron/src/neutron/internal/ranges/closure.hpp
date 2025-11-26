@@ -10,7 +10,7 @@ namespace neutron {
  * @tparam Args Arguments that
  */
 template <typename Fn, typename... Args>
-class closure : range_adaptor_closure<closure<Fn, Args...>> {
+class closure : public range_adaptor_closure<closure<Fn, Args...>> {
     using index_sequence = std::index_sequence_for<Args...>;
     using self_type      = closure;
 

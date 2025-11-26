@@ -9,10 +9,6 @@ namespace neutron {
 template <typename Derived>
 using range_adaptor_closure = std::ranges::range_adaptor_closure<Derived>;
 
-template <typename Ty>
-concept _range_adaptor_closure_object = std::is_base_of_v<
-    range_adaptor_closure<std::remove_cvref_t<Ty>>, std::remove_cvref_t<Ty>>;
-
 } // namespace neutron
 
 #else
@@ -34,8 +30,13 @@ struct range_adaptor_closure : adaptor_closure<Derived> {};
  */
 template <typename First, typename Second>
 struct _range_closure_compose :
-    public _closure_compose<
-        _range_closure_compose, range_adaptor_closure, First, Second> {};
+    _closure_compose<
+        _range_closure_compose, range_adaptor_closure, First, Second> {
+    using _compose_base = _closure_compose<
+        _range_closure_compose, range_adaptor_closure, First, Second>;
+    using _compose_base::_compose_base;
+    using _compose_base::operator();
+};
 
 template <typename C1, typename C2>
 _range_closure_compose(C1&&, C2&&)
@@ -70,7 +71,8 @@ constexpr decltype(auto) operator|(WildClosure&& wild, Closure&& closure) {
 
 template <_range_adaptor_closure Closure, typename WildClosure>
 constexpr decltype(auto) operator|(Closure&& closure, WildClosure&& wild) {
-    return neutron::_range_closure_compose<Closure, WildClosure>(
+    return neutron::_range_closure_compose<
+        std::remove_cvref_t<Closure>, WildClosure>(
         std::forward<Closure>(closure), std::forward<WildClosure>(wild));
 }
 
