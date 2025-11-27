@@ -1,8 +1,9 @@
 #pragma once
+#include "queries.hpp"
 #include "./fwd.hpp"
 
-#include "./sender.hpp"
 #include "../get.hpp"
+#include "./sender.hpp"
 
 namespace neutron::execution {
 
@@ -70,5 +71,16 @@ struct default_domain {
             std::forward<Sndr>(sndr), std::forward<Args>(args)...);
     }
 };
+
+template <typename Sender>
+constexpr auto _get_early_domain(const Sender& sender) noexcept {
+    if constexpr (requires { get_domain(get_env(sender)); }) {
+        return decltype(get_domain(get_env(sender))){};
+    } else if constexpr (requires { _completion_domain(sender); }) {
+        return decltype(_completion_domain(sender)){};
+    } else {
+        return default_domain{};
+    }
+}
 
 } // namespace neutron::execution

@@ -1,6 +1,8 @@
 #pragma once
 #include "./fwd.hpp"
 
+#include <tuple>
+#include <type_traits>
 #include <utility>
 #include "../tag_invoke.hpp"
 
@@ -85,11 +87,27 @@ constexpr inline struct set_stopped_t {
 
 constexpr inline struct get_completion_signatures_t {
     template <typename Sndr, typename Env>
-    constexpr auto operator()(Sndr&& sndr, Env&& env) const;
+    constexpr auto operator()(Sndr&& sndr, Env&& env) const noexcept {}
 } get_completion_signatures;
 
 template <typename Sndr, typename Env>
 using completion_signatures_of_t = decltype(get_completion_signatures(
     std::declval<Sndr>(), std::declval<Env>()));
+
+template <typename... Args>
+using _decayed_tuple = std::tuple<std::decay_t<Args>...>;
+
+template <
+    typename Tag, typename Signatures, template <typename...> typename Tuple,
+    template <typename...> typename Variant>
+requires false // TODO: impl
+using _gather_signatures = Signatures;
+
+template <
+    typename Sender, typename Env = empty_env,
+    template <typename...> typename Tuple   = _decayed_tuple,
+    template <typename...> typename Variant = std::type_identity_t>
+using value_types_of_t = _gather_signatures<
+    set_value_t, completion_signatures_of_t<Sender, Env>, Tuple, Variant>;
 
 } // namespace neutron::execution

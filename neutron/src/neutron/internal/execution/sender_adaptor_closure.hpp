@@ -38,8 +38,8 @@ _sender_closure_compose(C1&&, C2&&) -> _sender_closure_compose<
     std::remove_cvref_t<C1>, std::remove_cvref_t<C2>>;
 
 template <typename... Args>
-class _sender_closure :
-    public sender_adaptor_closure<_sender_closure<Args...>>,
+class _sender_adaptor :
+    public sender_adaptor_closure<_sender_adaptor<Args...>>,
     public std::tuple<std::decay_t<Args>...> {
     using _base = std::tuple<std::decay_t<Args>...>;
 
@@ -70,7 +70,7 @@ private:
 };
 
 template <typename Fn>
-_sender_closure(Fn&&) -> _sender_closure<std::remove_cvref_t<Fn>>;
+_sender_adaptor(Fn&&) -> _sender_adaptor<std::remove_cvref_t<Fn>>;
 
 } // namespace neutron::execution
 
@@ -93,9 +93,9 @@ constexpr auto operator|(C1&& closure1, C2&& closure2)
 }
 
 template <typename... Args>
-struct std::tuple_size<neutron::execution::_sender_closure<Args...>> :
+struct std::tuple_size<neutron::execution::_sender_adaptor<Args...>> :
     std::integral_constant<size_t, sizeof...(Args)> {};
 
 template <size_t Index, typename... Args>
-struct std::tuple_element<Index, neutron::execution::_sender_closure<Args...>> :
+struct std::tuple_element<Index, neutron::execution::_sender_adaptor<Args...>> :
     std::tuple_element<Index, std::tuple<std::decay_t<Args>...>> {};

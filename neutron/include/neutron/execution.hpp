@@ -21,7 +21,7 @@ using namespace stdexec;
 
 struct scheduler_t {};
 
-}
+} // namespace neutron::execution
 
 #else
 
@@ -46,6 +46,10 @@ struct scheduler_t {};
     #include "../src/neutron/internal/execution/sender_adaptor_closure.hpp" // IWYU pragma: export
 
     #include "../src/neutron/internal/execution/run_loop.hpp" // IWYU pragma: export
+
+// sender consumers
+
+    #include "../src/neutron/internal/execution/sender_consumers/sync_wait.hpp" // IWYU pragma: export
 
 // sender adaptors
 

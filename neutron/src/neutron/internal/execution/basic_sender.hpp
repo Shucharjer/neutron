@@ -1,38 +1,40 @@
 #pragma once
+#include <concepts>
+#include <tuple>
 #include <utility>
-#include "../get.hpp"
+#include "receiver.hpp"
 #include "./sender.hpp"
 
 namespace neutron::execution {
 
 template <typename Tag, typename Data, typename... Child>
-class basic_sender : product_type<Tag, Data, Child...> {
+class basic_sender : std::tuple<Tag, Data, Child...> {
 public:
-    using sender_concept = sender_t;
-    using _indices_for   = std::index_sequence_for<Child...>;
+    using sender_concept     = sender_t;
+    using _indices_for_child = std::index_sequence_for<Child...>;
+    using _base              = std::tuple<Tag, Data, Child...>;
+    using _base::_base;
 
-    constexpr decltype(auto) get_env() const noexcept {
-        auto& [_, data, ... child] = *this;
-        return _impls_for<Tag>::_get_attrs(data, child...);
-    }
+    constexpr decltype(auto) get_env() const noexcept {}
 
-    template <size_t Index>
-    constexpr decltype(auto) get() && {
-        return ::neutron::get<Index>(std::move(children_));
-    }
+    constexpr auto get_completion_signatures() const noexcept {}
 
-    template <size_t Index>
-    constexpr decltype(auto) get() const& {
-        return ::neutron::get<Index>(children_);
-    }
+    template <receiver Receiver>
+    constexpr auto connect(Receiver receiver) & {}
+
+    template <receiver Receiver>
+    constexpr auto connect(Receiver receiver) const& {}
+
+    template <receiver Receiver>
+    constexpr auto connect(Receiver receiver) && {}
 
 private:
-    std::tuple<Child...> children_;
 };
 
-template <typename Tag, sender Sndr>
-constexpr sender auto _make_sender(Sndr&& sndr) noexcept {
-    return basic_sender<Tag, Sndr>(std::forward<Sndr>(sndr));
+template <std::semiregular Tag, typename Data, typename... Child>
+constexpr auto _make_sender(Tag tag, Data&& data, Child&&... child) {
+    return basic_sender<Tag, std::decay_t<Data>, std::decay_t<Child>...>(
+        tag, std::forward<Data>(data), std::forward<Child>(child)...);
 }
 
 } // namespace neutron::execution
