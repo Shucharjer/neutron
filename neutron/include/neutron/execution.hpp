@@ -2,16 +2,18 @@
 
 #include <version>
 #if defined(__cpp_lib_execution) && __cpp_lib_execution >= 202602L
+    #define NEUTRON_EXECUTION 1
 
-    #include <execution>
+    #include <execution> // IWYU pragma: export
 
 namespace neutron::execution {
 
 using namespace std::execution;
 
-}
+} // namespace neutron::execution
 
 #elif __has_include(<stdexec/execution.hpp>)
+    #define NEUTRON_EXECUTION 2
 
     #include <stdexec/execution.hpp>
 
@@ -24,6 +26,7 @@ struct scheduler_t {};
 } // namespace neutron::execution
 
 #else
+    #define NEUTRON_EXECUTION 0
 
     #include "../src/neutron/internal/execution/fwd.hpp" // IWYU pragma: export
 
@@ -37,7 +40,7 @@ struct scheduler_t {};
 
     #include "../src/neutron/internal/execution/sender.hpp" // IWYU pragma: export
 
-    #include "../src/neutron/internal/execution/completion_signatures.hpp" // IWYU pragma: export
+    #include "../src/neutron/internal/execution/completion_signatures.hpp" // IWYU pragma : export
 
     #include "../src/neutron/internal/execution/connect.hpp" // IWYU pragma: export
 

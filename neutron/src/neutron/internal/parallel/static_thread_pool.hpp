@@ -73,7 +73,12 @@ class _static_thread_pool<ExternalContextMaker, Alloc> {
     template <typename T>
     using _allocator_t = rebind_alloc_t<Alloc, T>;
 
-    struct _task_base {};
+    struct _task_base {
+        _task_base* next;
+        void (*_execute)(_task_base*) = nullptr;
+
+        constexpr void execute() { _execute(this); }
+    };
 
     class _thread_state {
     public:
@@ -114,6 +119,9 @@ public:
                 return env{ .pool_ = pool_ };
             }
 
+            template <receiver Receiver>
+            auto connect(Receiver receiver) const {}
+
         private:
             _static_thread_pool& pool_;
         };
@@ -123,7 +131,7 @@ public:
 
         scheduler(_static_thread_pool& pool) : pool_(&pool) {}
 
-        NODISCARD sender schedule() { return sender{ *pool_ }; }
+        NODISCARD sender schedule() const { return sender{ *pool_ }; }
 
         NODISCARD auto query(get_forward_progress_guarantee_t) const noexcept
             -> forward_progress_guarantee {

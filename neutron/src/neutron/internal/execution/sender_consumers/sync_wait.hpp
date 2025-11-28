@@ -12,14 +12,25 @@ namespace neutron::execution {
 
 constexpr inline struct sync_wait_t {
 
-    struct env {};
+    struct env {
+        _run_loop::run_loop* loop;
 
-    template <typename Sndr>
-    using result_t = value_types_of_t<Sndr, env>;
+        NODISCARD constexpr auto query(get_scheduler_t) const noexcept {
+            return loop->get_scheduler();
+        }
+
+        NODISCARD constexpr auto
+            query(get_delegation_scheduler_t) const noexcept {
+            return loop->get_scheduler();
+        }
+    };
+
+    template <sender_in<sync_wait_t::env> Sndr>
+    using result_t = value_types_of_t<Sndr, sync_wait_t::env>;
 
     template <typename Sndr>
     struct state {
-        run_loop loop;
+        _run_loop::run_loop loop;
         std::exception_ptr error;
         result_t<Sndr> result;
     };

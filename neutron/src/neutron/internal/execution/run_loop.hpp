@@ -1,6 +1,5 @@
 #pragma once
 #include <condition_variable>
-#include <coroutine>
 #include <exception>
 #include <mutex>
 #include <type_traits>
@@ -12,7 +11,10 @@
 
 namespace neutron::execution {
 
+namespace _run_loop {
+
 class run_loop {
+public:
     struct env;
 
     struct opstate_base {
@@ -30,7 +32,6 @@ class run_loop {
     class sender;
     class scheduler;
 
-public:
     run_loop() noexcept                  = default;
     run_loop(const run_loop&)            = delete;
     run_loop(run_loop&&)                 = delete;
@@ -164,5 +165,7 @@ void run_loop::finish() {
     stop_ = true;
     cv_.notify_one();
 }
+
+} // namespace _run_loop
 
 } // namespace neutron::execution

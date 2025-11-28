@@ -75,7 +75,7 @@ struct into_variant_t;
 struct stopped_as_optional_t;
 struct stopped_as_error_t;
 
-class run_loop;
+// class run_loop;
 
 } // namespace execution
 

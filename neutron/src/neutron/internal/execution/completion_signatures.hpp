@@ -4,6 +4,8 @@
 #include <tuple>
 #include <type_traits>
 #include <utility>
+#include "neutron/template_list.hpp"
+#include "transform.hpp"
 #include "../tag_invoke.hpp"
 
 namespace neutron::execution {
@@ -87,7 +89,22 @@ constexpr inline struct set_stopped_t {
 
 constexpr inline struct get_completion_signatures_t {
     template <typename Sndr, typename Env>
-    constexpr auto operator()(Sndr&& sndr, Env&& env) const noexcept {}
+    constexpr auto operator()(Sndr&& sndr, Env&& env) const noexcept {
+        constexpr auto mksndr = [](auto&& sndr, auto&& env) {
+            auto domain = _get_late_domain(sndr, env);
+            return transform_sender(
+                domain, std::forward<decltype(sndr)>(sndr),
+                std::forward<decltype(env)>(env));
+        };
+
+        using sndr_t = std::remove_cvref_t<decltype(mksndr(sndr, env))>;
+        if constexpr (requires { // has member get_completion_signatures
+                          mksndr(sndr, env).get_completion_signatures();
+                      }) {
+            return decltype(mksndr(sndr, env).get_completion_signatures()){};
+        } else if constexpr (tag_invocable<get_completion_signatures_t, >) {
+        }
+    }
 } get_completion_signatures;
 
 template <typename Sndr, typename Env>
@@ -97,11 +114,24 @@ using completion_signatures_of_t = decltype(get_completion_signatures(
 template <typename... Args>
 using _decayed_tuple = std::tuple<std::decay_t<Args>...>;
 
+template <typename Tag, typename Fn>
+struct _same_with_tag : std::false_type {};
+template <typename Tag, typename Ret, typename... Args>
+struct _same_with_tag<Tag, Ret(Args...)> : std::is_same<Tag, Ret> {};
+
+template <
+    typename Tag, typename Sigs, template <typename...> typename Tuple,
+    template <typename...> typename Variant>
+struct _gather_signatures_helper {
+    template <typename Ty>
+    using _same_with_tag = std::is_same<Tag, Ty>;
+};
+
 template <
     typename Tag, typename Signatures, template <typename...> typename Tuple,
     template <typename...> typename Variant>
-requires false // TODO: impl
-using _gather_signatures = Signatures;
+using _gather_signatures =
+    typename _gather_signatures_helper<Tag, Signatures, Tuple, Variant>::type;
 
 template <
     typename Sender, typename Env = empty_env,
@@ -109,5 +139,12 @@ template <
     template <typename...> typename Variant = std::type_identity_t>
 using value_types_of_t = _gather_signatures<
     set_value_t, completion_signatures_of_t<Sender, Env>, Tuple, Variant>;
+
+template <
+    typename Sender, typename Env = empty_env,
+    template <typename...> typename Tuple   = _decayed_tuple,
+    template <typename...> typename Variant = std::type_identity_t>
+using error_types_of_t = _gather_signatures<
+    set_error_t, completion_signatures_of_t<Sender, Env>, Tuple, Variant>;
 
 } // namespace neutron::execution

@@ -577,8 +577,20 @@ struct always_true : std::true_type {};
 
 template <
     template <typename> typename Predicate, typename TypeList,
-    template <typename> typename Continue = always_true>
+    template <typename> typename Continue  = always_true,
+    template <typename> typename Qualifier = std::type_identity_t>
 struct type_list_requires_recurse {
+    template <typename Ty>
+    struct requires_recurse;
+    template <typename Ty>
+    struct try_requires_recurse {
+        constexpr static bool value = requires_recurse<Qualifier<Ty>>::value;
+    };
+    template <typename Ty>
+    requires std::same_as<Ty, std::remove_cvref_t<Ty>>
+    struct try_requires_recurse<Ty> {
+        constexpr static bool value = requires_recurse<Ty>::value;
+    };
     template <typename Ty>
     struct requires_recurse {
         constexpr static bool value = Predicate<Ty>::value;
@@ -587,13 +599,14 @@ struct type_list_requires_recurse {
     requires Continue<Template<Tys...>>::value &&
              (!Predicate<Template<Tys...>>::value)
     struct requires_recurse<Template<Tys...>> {
-        constexpr static bool value = (requires_recurse<Tys>::value && ...);
+        constexpr static bool value = (try_requires_recurse<Tys>::value && ...);
     };
-    constexpr static bool value = requires_recurse<TypeList>::value;
+    constexpr static bool value = try_requires_recurse<TypeList>::value;
 };
 template <
     template <typename> typename Predicate, typename TypeList,
-    template <typename> typename Continue = always_true>
+    template <typename> typename Continue = always_true,
+    template <typename> typename Qualifer = std::type_identity_t>
 constexpr auto type_list_requires_recurse_v =
     type_list_requires_recurse<Predicate, TypeList, Continue>::value;
 
