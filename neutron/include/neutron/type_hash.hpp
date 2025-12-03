@@ -1,8 +1,11 @@
 #pragma once
 #include <array>
 #include <cstddef>
+#include <cstdint>
+#include <ranges>
 #include "neutron/template_list.hpp"
 #include "../src/neutron/internal/macros.hpp"
+#include "../src/neutron/internal/reflection/hash.hpp"
 #include "../src/neutron/internal/reflection/legacy/type_hash.hpp"
 
 namespace neutron {
@@ -66,6 +69,19 @@ template <
 NODISCARD consteval auto make_hash_array() noexcept {
     return sorted_hash::table<TypeList>::template _to_array<
         sorted_list_t<TypeList>>::value;
+}
+
+template <
+    typename TypeList,
+    template <typename, typename> typename Pr = sorted_hash::less>
+NODISCARD consteval uint64_t make_array_hash() noexcept {
+    auto array = make_hash_array<TypeList, Pr>();
+    return internal::hash_combine(array);
+}
+
+template <std::ranges::range Range>
+NODISCARD constexpr uint64_t hash_combine(const Range& range) noexcept {
+    return internal::hash_combine(range);
 }
 
 } // namespace neutron
