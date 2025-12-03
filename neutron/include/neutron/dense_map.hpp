@@ -17,7 +17,8 @@
 #include "../src/neutron/internal/mask.hpp"
 
 #if HAS_CXX23
-    #include "../src/neutron/internal/ranges/map_like.hpp"
+    #include "../src/neutron/internal/map_like.hpp"
+    #include "../src/neutron/internal/ranges/concepts.hpp"
 #endif
 
 namespace neutron {
