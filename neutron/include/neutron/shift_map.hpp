@@ -1,5 +1,6 @@
 #pragma once
 #include <concepts>
+#include <cstddef>
 #include <initializer_list>
 #include <limits>
 #include <memory>
@@ -22,6 +23,9 @@
 
 namespace neutron {
 
+template <typename Ty>
+constexpr size_t half_bits = sizeof(Ty) * 4UL;
+
 /**
  * @brief A sparse-dense map optimized for ECS entity-component lookup with
  * generation-aware identities. This container provides O(1) average loopup and
@@ -36,13 +40,15 @@ namespace neutron {
  * @tparam Kty      Unsigned integral type for keys (e.g. uint64_t)
  * @tparam Ty       Value type stored
  * @tparam Alloc    Allocator type for internal container (default:
- * std::allocator)
- * @tparam PageSize Number of entries per sparse page (must be power of two)
+ * std::allocator).
+ * @tparam PageSize Number of entries per sparse page (must be power of two).
+ * @tparam Shift    The shift size.
  */
 template <
     std::unsigned_integral Kty, typename Ty, size_t PageSize = 32UL,
-    size_t Shift                = sizeof(Kty) * 4UL,
+    size_t Shift                = half_bits<Ty>,
     _std_simple_allocator Alloc = std::allocator<std::pair<Kty, Ty>>>
+requires _single_bit<PageSize>
 class shift_map {
 public:
     static_assert(PageSize, "page size should not be zero");
