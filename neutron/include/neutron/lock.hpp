@@ -48,7 +48,7 @@ public:
     bool try_lock() noexcept { return pthread_spin_trylock(&lock_) == 0; }
 };
 
-}
+} // namespace neutron
 
 #else
 
@@ -91,6 +91,8 @@ private:
 #endif
 
 #if defined(__cpp_lib_atomic_wait) && __cpp_lib_atomic_wait >= 201907L
+
+namespace neutron {
 
 /**
  * @class hybrid_spinlock
