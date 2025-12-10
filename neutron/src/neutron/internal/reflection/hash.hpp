@@ -8,12 +8,12 @@
 /*! @cond TURN_OFF_DOXYGEN */
 namespace neutron::internal {
 
-constexpr uint64_t hash(std::string_view string) noexcept {
+constexpr uint32_t hash(std::string_view string) noexcept {
     // fnv1a
-    constexpr uint64_t magic = 0xcbf29ce484222325;
-    constexpr uint64_t prime = 0x100000001b3;
+    constexpr uint32_t magic = 0x811c9dc5;
+    constexpr uint32_t prime = 0x01000193;
 
-    uint64_t value = magic;
+    uint32_t value = magic;
     for (char ch : string) {
         value = value ^ static_cast<uint8_t>(ch);
         value *= prime;
@@ -23,7 +23,7 @@ constexpr uint64_t hash(std::string_view string) noexcept {
 }
 
 template <std::ranges::range Rng>
-requires std::same_as<std::ranges::range_value_t<Rng>, uint64_t>
+requires std::same_as<std::ranges::range_value_t<Rng>, uint32_t>
 ATOM_FORCE_INLINE constexpr uint64_t hash_combine(const Rng& range) noexcept {
     constexpr uint64_t magic     = 0xcbf29ce484222325;
     constexpr uint64_t prime     = 0x100000001b3;
@@ -40,14 +40,6 @@ ATOM_FORCE_INLINE constexpr uint64_t hash_combine(const Rng& range) noexcept {
         hash ^= static_cast<uint8_t>(elem >> 16U);
         hash *= prime;
         hash ^= static_cast<uint8_t>(elem >> 24U);
-        hash *= prime;
-        hash ^= static_cast<uint8_t>(elem >> 32U);
-        hash *= prime;
-        hash ^= static_cast<uint8_t>(elem >> 40U);
-        hash *= prime;
-        hash ^= static_cast<uint8_t>(elem >> 48U);
-        hash *= prime;
-        hash ^= static_cast<uint8_t>(elem >> 56U);
         hash *= prime;
         // NOLINTEND
     }
