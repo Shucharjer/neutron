@@ -4,6 +4,7 @@
 #include <initializer_list>
 #include <limits>
 #include <memory>
+#include <memory_resource>
 #include <stdexcept>
 #include <tuple>
 #include <type_traits>
