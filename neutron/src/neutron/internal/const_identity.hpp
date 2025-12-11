@@ -1,5 +1,6 @@
 #pragma once
 #include <concepts>
+#include <type_traits>
 #include <utility>
 
 namespace neutron {
@@ -37,8 +38,15 @@ public:
     constexpr const_identity& operator=(const const_identity& that) noexcept(
         std::is_nothrow_copy_assignable_v<Ty>) = default;
 
-    constexpr const_identity(const_identity&& that)            = delete;
-    constexpr const_identity& operator=(const_identity&& that) = delete;
+    constexpr const_identity(const_identity&& that) noexcept(
+        std::is_nothrow_move_constructible_v<Ty>)
+        : value_(std::move(that.value_)) {}
+
+    constexpr const_identity& operator=(const_identity&& that) noexcept(
+        std::is_nothrow_move_assignable_v<Ty>) {
+        value_ = std::move(that.value_);
+        return *this;
+    }
 
     constexpr ~const_identity() noexcept(std::is_nothrow_destructible_v<Ty>) =
         default;
@@ -47,7 +55,8 @@ public:
 
     constexpr operator Ty&&() && noexcept { return std::move(value_); }
 
-    constexpr void swap(const_identity& that) noexcept {
+    constexpr void
+        swap(const_identity& that) noexcept(std::is_nothrow_swappable_v<Ty>) {
         std::swap(value_, that.value_);
     }
 
