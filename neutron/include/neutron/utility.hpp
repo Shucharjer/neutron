@@ -3,7 +3,6 @@
 #include "../src/neutron/internal/id_t.hpp"         // IWYU pragma: export
 #include "../src/neutron/internal/immediately.hpp"  // IWYU pragma: export
 #include "../src/neutron/internal/spreader.hpp"     // IWYU pragma: export
-#include "../src/neutron/internal/utility/copy.hpp" // IWYU pragma: export
 
 namespace neutron {
 
