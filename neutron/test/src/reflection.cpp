@@ -1,6 +1,6 @@
 #include <cstdlib>
-#include <neutron/auxiliary.hpp>
 #include <neutron/reflection.hpp>
+#include <neutron/utility.hpp>
 #include "require.hpp"
 
 void test_member_count_of();
