@@ -4,6 +4,7 @@
 #include <cstdint>
 #include <ranges>
 #include "neutron/template_list.hpp"
+#include "../src/neutron/internal/immediately.hpp"
 #include "../src/neutron/internal/macros.hpp"
 #include "../src/neutron/internal/reflection/hash.hpp"
 #include "../src/neutron/internal/reflection/legacy/type_hash.hpp"
@@ -53,6 +54,15 @@ struct sorted_hash {
         using vlist = value_list<Hashes...>;
         using tlist = Template<Tys...>;
     };
+
+    template <typename Ori, typename Sorted>
+    struct _indices;
+    template <
+        template <typename...> typename Template, typename... Tys,
+        typename Sorted>
+    struct _indices<Template<Tys...>, Sorted> {
+        static constexpr std::array value = { tuple_first_v<Tys, Sorted>... };
+    };
 };
 template <
     typename TypeList,
@@ -62,6 +72,14 @@ template <typename SortedHashList>
 using sorted_hash_t = typename sorted_hash::expand<SortedHashList>::vlist;
 template <typename SortedHashList>
 using sorted_type_t = typename sorted_hash::expand<SortedHashList>::tlist;
+template <
+    typename TypeList,
+    template <typename, typename> typename Pr = sorted_hash::less>
+consteval auto sort_index() noexcept {
+    using sorted_list = sorted_list_t<TypeList, Pr>;
+    using sorted_type = sorted_type_t<sorted_list>;
+    return sorted_hash::_indices<TypeList, sorted_type>::value;
+}
 
 template <
     typename TypeList,
@@ -80,7 +98,13 @@ NODISCARD consteval uint64_t make_array_hash() noexcept {
 }
 
 template <std::ranges::range Range>
-NODISCARD constexpr uint64_t hash_combine(const Range& range) noexcept {
+NODISCARD constexpr uint64_t hash_combine(Range&& range) noexcept {
+    return internal::hash_combine(std::forward<Range>(range));
+}
+
+template <std::ranges::range Range>
+NODISCARD consteval uint64_t
+    hash_combine(immediately_t, const Range& range) noexcept {
     return internal::hash_combine(range);
 }
 
