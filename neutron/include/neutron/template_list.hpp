@@ -195,7 +195,7 @@ template <
     std::size_t Index, template <typename...> typename Template, typename Ty,
     typename... Args>
 struct type_list_element<Index, Template<Ty, Args...>> {
-    using type = type_list_element<Index - 1, Args...>::type;
+    using type = type_list_element<Index - 1, Template<Args...>>::type;
 };
 template <std::size_t Index, typename TypeList>
 using type_list_element_t = typename type_list_element<Index, TypeList>::type;
