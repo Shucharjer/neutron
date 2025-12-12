@@ -2,8 +2,10 @@
 #include <cstddef>
 #include <tuple>
 #include <type_traits>
+#include <utility>
 #include "neutron/shared_tuple.hpp"
 #include "neutron/type_traits.hpp"
+#include "../src/neutron/internal/get.hpp"
 
 namespace neutron {
 
@@ -179,10 +181,11 @@ struct type_list_size<Template<Tys...>> {
     constexpr static size_t value = sizeof...(Tys);
 };
 template <typename Ty>
-constexpr static auto tuple_list_size_v = type_list_size<Ty>::value;
+constexpr static auto type_list_size_v = type_list_size<Ty>::value;
 
 template <std::size_t Index, typename TypeList>
 struct type_list_element;
+
 template <
     template <typename...> typename Template, typename Ty, typename... Args>
 struct type_list_element<0, Template<Ty, Args...>> {
@@ -192,7 +195,7 @@ template <
     std::size_t Index, template <typename...> typename Template, typename Ty,
     typename... Args>
 struct type_list_element<Index, Template<Ty, Args...>> {
-    using type = type_list_element<Index - 1, Args...>;
+    using type = type_list_element<Index - 1, Args...>::type;
 };
 template <std::size_t Index, typename TypeList>
 using type_list_element_t = typename type_list_element<Index, TypeList>::type;
@@ -542,6 +545,30 @@ template <typename TypeList1, typename TypeList2>
 constexpr auto type_list_all_differs_from_v =
     type_list_all_differs_from<TypeList1, TypeList2>::value;
 
+/// @brief Metafunction that substitutes all occurrences of a type `Old` with
+/// `New`
+///        in a type list represented as an instantiation of a variadic
+///        template.
+///
+/// This metafunction works on any template that takes a parameter pack of
+/// types, such as `std::tuple`, `std::variant`, or user-defined templates like
+/// `template<typename...> struct my_list;`.
+///
+/// For example:
+/// @code
+/// using Input = std::tuple<int, float, int>;
+/// using Output = type_list_substitute_t<Input, int, long>;
+/// // Output is std::tuple<long, float, long>
+/// @endcode
+///
+/// @tparam Template  An instantiated variadic template type (e.g.,
+/// `std::tuple<int, char>`)
+/// @tparam Old       The type to be replaced
+/// @tparam New       The type to replace `Old` with
+///
+/// @note Only direct occurrences of `Old` are replaced; nested types (e.g.,
+/// inside
+///       `std::vector<Old>`) are not affected.
 template <typename Template, typename Old, typename New>
 struct type_list_substitute;
 template <
@@ -968,6 +995,28 @@ template <typename Ty, typename... Tys>
 requires(tuple_last_v<Ty, std::tuple<Tys...>> != static_cast<size_t>(-1))
 constexpr const Ty& get_last(const shared_tuple<Tys...>& tup) noexcept {
     return tup.template get<tuple_last_v<Ty, shared_tuple<Tys...>>>();
+}
+
+template <typename Ty, typename Tup>
+constexpr size_t _rmcvref_first = static_cast<size_t>(-1);
+template <
+    typename Ty, template <typename...> typename Template, typename... Tys>
+constexpr size_t _rmcvref_first<Ty, Template<Tys...>> =
+    []<size_t... Is>(std::index_sequence<Is...>) {
+        auto index = static_cast<size_t>(sizeof...(Tys));
+        (...,
+         (index = std::is_same_v<std::remove_cvref_t<Tys>, Ty> ? Is : index));
+        return index;
+    }(std::index_sequence_for<Tys...>());
+
+template <typename Ty, typename Tup>
+requires(
+    _rmcvref_first<Ty, std::remove_cvref_t<Tup>> <
+    type_list_size_v<std::remove_cvref_t<Tup>>)
+constexpr decltype(auto) rmcvref_first(Tup&& tup) noexcept {
+    using tuple          = std::remove_cvref_t<Tup>;
+    constexpr auto index = _rmcvref_first<Ty, tuple>;
+    return get<index>(std::forward<Tup>(tup));
 }
 
 } // namespace neutron

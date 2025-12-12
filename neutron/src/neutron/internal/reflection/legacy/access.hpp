@@ -3,6 +3,7 @@
 #include "./concepts.hpp"
 #include "./member_count.hpp"
 #include "./member_names.hpp"
+#include "./get.hpp"
 
 namespace neutron {
 
@@ -108,7 +109,7 @@ template <tstring Name, typename Ty>
 constexpr auto& get_by_name(Ty& obj) noexcept {
     constexpr auto index = index_of<Name, Ty>();
     static_assert(index < _reflection::member_count_of<Ty>());
-    return get<index>(obj);
+    return _reflection::get<index>(obj);
 }
 
 } // namespace neutron
