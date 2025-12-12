@@ -1,6 +1,5 @@
 #pragma once
 #include <array>
-#include <cstddef>
 #include <cstdint>
 #include <ranges>
 #include "neutron/template_list.hpp"
