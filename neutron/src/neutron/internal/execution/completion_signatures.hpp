@@ -4,8 +4,6 @@
 #include <tuple>
 #include <type_traits>
 #include <utility>
-#include "neutron/template_list.hpp"
-#include "transform.hpp"
 #include "../tag_invoke.hpp"
 
 namespace neutron::execution {
@@ -102,7 +100,8 @@ constexpr inline struct get_completion_signatures_t {
                           mksndr(sndr, env).get_completion_signatures();
                       }) {
             return decltype(mksndr(sndr, env).get_completion_signatures()){};
-        } else if constexpr (tag_invocable<get_completion_signatures_t, >) {
+            // } else if constexpr (tag_invocable<get_completion_signatures_t,
+            // >) {
         }
     }
 } get_completion_signatures;
