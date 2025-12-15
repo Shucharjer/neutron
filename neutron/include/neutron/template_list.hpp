@@ -1011,13 +1011,13 @@ constexpr const Ty& get_first(const std::tuple<Tys...>& tuple) noexcept {
 template <typename Ty, typename... Tys>
 requires(tuple_first_v<Ty, std::tuple<Tys...>> != static_cast<size_t>(-1))
 constexpr Ty& get_first(shared_tuple<Tys...>& tup) noexcept {
-    return tup.template get<tuple_first_v<Ty, shared_tuple<Tys...>>>();
+    return get<tuple_first_v<Ty, shared_tuple<Tys...>>>(tup);
 }
 
 template <typename Ty, typename... Tys>
 requires(tuple_first_v<Ty, std::tuple<Tys...>> != static_cast<size_t>(-1))
 constexpr const Ty& get_first(const shared_tuple<Tys...>& tup) noexcept {
-    return tup.template get<tuple_first_v<Ty, shared_tuple<Tys...>>>();
+    return get<tuple_first_v<Ty, shared_tuple<Tys...>>>(tup);
 }
 
 template <typename Ty, typename... Tys>
