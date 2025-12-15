@@ -1,3 +1,4 @@
+#pragma once
 #include <string_view>
 #include <tuple>
 #include "neutron/tstring.hpp"
