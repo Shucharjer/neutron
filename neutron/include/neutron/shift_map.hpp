@@ -365,7 +365,7 @@ public:
         return dense_.capacity();
     }
 
-    NODISCARD constexpr allocator_type& get_allocator() noexcept {
+    NODISCARD constexpr allocator_type get_allocator() const noexcept {
         return dense_.get_allocator();
     }
 
