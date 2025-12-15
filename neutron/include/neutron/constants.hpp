@@ -1,5 +1,4 @@
-#ifndef ATOM_UTILS_NUMBERS_HPP
-#define ATOM_UTILS_NUMBERS_HPP
+#pragma once
 
 namespace neutron::constants {
 
@@ -13,5 +12,3 @@ constexpr auto _1_2_d = 0.5;
 } // namespace floating
 
 } // namespace neutron::constants
-
-#endif
