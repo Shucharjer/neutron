@@ -20,18 +20,9 @@
 
 namespace neutron {
 
-
-
-
 // in identity.hpp
 class type_identity;
 class non_type_identity;
-
-template <typename = void>
-class coroutine;
-
-template <typename = void>
-class lazy_routine;
 
 template <typename Ty1, typename Ty2>
 concept _not = (!std::same_as<Ty1, Ty2>);
