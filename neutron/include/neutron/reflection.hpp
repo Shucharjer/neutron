@@ -1,6 +1,6 @@
 #pragma once
 
-#if __has_feature(reflection) && __cplusplus >= 202602L
+#if __has_feature(reflection) && __cplusplus >= 202602L && false
 
     #include "../src/neutron/internal/reflection/meta/reserve.hpp" // IWYU pragma: export
 
