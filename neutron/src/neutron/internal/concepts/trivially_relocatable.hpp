@@ -22,8 +22,6 @@ namespace _trivially_relocatable {
 template <typename Ty>
 struct _is_trivially_relocatable;
 
-auto vvv = std::define_static_array(std::vector{ 3, 3, 3, 3, 3 });
-
 template <typename Ty>
 constexpr bool _has_any_virtual_base_class = [] {
     constexpr auto ctx = std::meta::access_context::current();
