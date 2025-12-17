@@ -83,6 +83,16 @@ public:
             return std::move(others_).template get<Index - 1>();
         }
     }
+
+    template <size_t Index>
+    requires(Index <= sizeof...(Rest))
+    constexpr decltype(auto) get() const&& noexcept {
+        if constexpr (Index == 0) {
+            return std::move(current_.value);
+        } else {
+            return std::move(others_).template get<Index - 1>();
+        }
+    }
 };
 
 // an empty shared_tuple would cost 1 byte which uses an external line.
@@ -104,19 +114,25 @@ public:
 
     template <size_t Index>
     requires(Index == 0)
-    constexpr decltype(auto) get() & noexcept {
+    constexpr T& get() & noexcept {
         return value_;
     }
 
     template <size_t Index>
     requires(Index == 0)
-    constexpr decltype(auto) get() const& noexcept {
+    constexpr const T& get() const& noexcept {
         return value_;
     }
 
     template <size_t Index>
     requires(Index == 0)
-    constexpr decltype(auto) get() && noexcept {
+    constexpr T&& get() && noexcept {
+        return std::move(value_);
+    }
+
+    template <size_t Index>
+    requires(Index == 0)
+    constexpr const T&& get() const&& noexcept {
         return std::move(value_);
     }
 };
