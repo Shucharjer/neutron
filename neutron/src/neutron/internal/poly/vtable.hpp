@@ -5,7 +5,7 @@
 #include "neutron/template_list.hpp"
 #include "../macros.hpp"
 #include "../member_function_traits.hpp"
-#include "../spreader.hpp"
+#include "../utility/spreader.hpp"
 #include "./concepts.hpp"
 
 namespace neutron {

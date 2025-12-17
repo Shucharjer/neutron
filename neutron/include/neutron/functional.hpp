@@ -3,7 +3,7 @@
 #include <type_traits>
 #include "neutron/type_traits.hpp"
 #include "../src/neutron/internal/macros.hpp"
-#include "../src/neutron/internal/spreader.hpp"
+#include "../src/neutron/internal/utility/spreader.hpp"
 
 namespace neutron {
 

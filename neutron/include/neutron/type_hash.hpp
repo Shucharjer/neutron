@@ -3,10 +3,10 @@
 #include <cstdint>
 #include <ranges>
 #include "neutron/template_list.hpp"
-#include "../src/neutron/internal/immediately.hpp"
 #include "../src/neutron/internal/macros.hpp"
 #include "../src/neutron/internal/reflection/hash.hpp"
 #include "../src/neutron/internal/reflection/legacy/type_hash.hpp"
+#include "../src/neutron/internal/utility/immediately.hpp"
 
 namespace neutron {
 

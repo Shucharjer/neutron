@@ -1,8 +1,8 @@
 #pragma once
-#include "../src/neutron/internal/get.hpp"          // IWYU pragma: export
-#include "../src/neutron/internal/id_t.hpp"         // IWYU pragma: export
-#include "../src/neutron/internal/immediately.hpp"  // IWYU pragma: export
-#include "../src/neutron/internal/spreader.hpp"     // IWYU pragma: export
+#include "../src/neutron/internal/utility/get.hpp"  // IWYU pragma: export
+#include "../src/neutron/internal/utility/id_t.hpp" // IWYU pragma: export
+#include "../src/neutron/internal/utility/immediately.hpp" // IWYU pragma: export
+#include "../src/neutron/internal/utility/spreader.hpp" // IWYU pragma: export
 
 namespace neutron {
 

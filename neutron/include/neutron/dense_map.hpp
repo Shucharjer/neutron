@@ -12,9 +12,9 @@
 #include "neutron/memory.hpp"
 #include "neutron/pair.hpp"
 #include "../src/neutron/internal/allocator.hpp"
-#include "../src/neutron/internal/const_identity.hpp"
 #include "../src/neutron/internal/macros.hpp"
 #include "../src/neutron/internal/mask.hpp"
+#include "../src/neutron/internal/utility/const_identity.hpp"
 
 #if HAS_CXX23
     #include "../src/neutron/internal/map_like.hpp"

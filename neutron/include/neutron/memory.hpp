@@ -22,8 +22,8 @@
 #include <utility>
 #include "neutron/template_list.hpp"
 #include "../src/neutron/internal/allocator.hpp"
-#include "../src/neutron/internal/exception_guard.hpp"
-#include "../src/neutron/internal/immediately.hpp"
+#include "../src/neutron/internal/utility/exception_guard.hpp"
+#include "../src/neutron/internal/utility/immediately.hpp"
 
 namespace neutron {
 

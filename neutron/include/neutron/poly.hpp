@@ -5,9 +5,9 @@
 #include <utility>
 #include "neutron/template_list.hpp"
 #include "neutron/type_hash.hpp"
-#include "../src/neutron/internal/exception_guard.hpp"
 #include "../src/neutron/internal/poly/vtable.hpp"
-#include "../src/neutron/internal/spreader.hpp"
+#include "../src/neutron/internal/utility/exception_guard.hpp"
+#include "../src/neutron/internal/utility/spreader.hpp"
 
 namespace neutron {
 

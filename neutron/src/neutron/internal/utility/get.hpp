@@ -6,7 +6,7 @@
 #include <tuple>   // IWYU pragma: keep
 #include <utility> // IWYU pragma: keep
 
-#include "./reflection/legacy/get.hpp"
+#include "../reflection/legacy/get.hpp"
 
 namespace neutron {
 

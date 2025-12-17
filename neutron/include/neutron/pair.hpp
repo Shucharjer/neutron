@@ -3,8 +3,8 @@
 #include <type_traits>
 #include <utility>
 #include "neutron/type_traits.hpp"
-#include "../src/neutron/internal/compressed_element.hpp"
 #include "../src/neutron/internal/macros.hpp"
+#include "../src/neutron/internal/utility/compressed_element.hpp"
 
 namespace neutron {
 

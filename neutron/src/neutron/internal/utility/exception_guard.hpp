@@ -9,7 +9,7 @@
     #define ENABLED_CPP_EXCEPTIONS false
 #endif
 
-#include "macros.hpp"
+#include "../macros.hpp"
 
 #if ENABLED_CPP_EXCEPTIONS
 
