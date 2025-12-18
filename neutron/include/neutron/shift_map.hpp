@@ -400,9 +400,13 @@ private:
         Args&&... args) {
         auto dense_guard = make_exception_guard([this] { dense_.pop_back(); });
         const auto index = dense_.size();
-        dense_.emplace_back(
-            std::piecewise_construct, std::forward_as_tuple(key),
-            std::forward_as_tuple(std::forward<Args>(args)...));
+        if constexpr (std::is_constructible_v<value_type, key_type, Args...>) {
+            dense_.emplace_back(key, std::forward<Args>(args)...);
+        } else {
+            dense_.emplace_back(
+                std::piecewise_construct, std::forward_as_tuple(key),
+                std::forward_as_tuple(std::forward<Args>(args)...));
+        }
         _set_index(kept, page, offset, index);
         dense_guard.mark_complete();
         return std::make_pair(dense_.begin() + index, true);
