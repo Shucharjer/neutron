@@ -1,6 +1,6 @@
 #include <memory_resource>
-#include <neutron/utility.hpp>
 #include <neutron/shift_map.hpp>
+#include <neutron/utility.hpp>
 #include "require.hpp"
 
 void test_shift_map();
