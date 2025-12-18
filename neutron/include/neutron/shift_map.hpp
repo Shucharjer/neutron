@@ -365,6 +365,16 @@ public:
         return dense_.capacity();
     }
 
+    constexpr void
+        clear() noexcept(std::is_nothrow_destructible_v<value_type>) {
+        dense_.clear();
+        for (_storage_t& storage : sparse_) {
+            for (auto& index : *storage) {
+                index = 0;
+            }
+        }
+    }
+
     NODISCARD constexpr allocator_type get_allocator() const noexcept {
         return dense_.get_allocator();
     }
