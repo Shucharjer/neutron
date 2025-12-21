@@ -1,6 +1,6 @@
 #pragma once
 #include <atomic>
-#include "../src/neutron/internal/id_t.hpp"
+#include "../src/neutron/internal/utility/id_t.hpp"
 
 namespace neutron {
 
