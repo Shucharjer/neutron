@@ -133,7 +133,7 @@ public:
      * @brief Construct by initializer list and allocator.
      *
      */
-    template <typename Al = Alloc, _pair Pair = value_type>
+    template <typename Al = Alloc, pair Pair = value_type>
     requires std::convertible_to<Pair, value_type>
     constexpr sparse_map(
         std::initializer_list<Pair> list, const Al& allocator = Alloc{})
@@ -147,7 +147,7 @@ public:
         }
     }
 
-    template <typename Al, _pair Pair = value_type>
+    template <typename Al, pair Pair = value_type>
     requires std::convertible_to<Pair, value_type>
     constexpr sparse_map(
         std::allocator_arg_t, const Al& alloc, std::initializer_list<Pair> list)

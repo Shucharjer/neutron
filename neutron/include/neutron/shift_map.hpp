@@ -126,21 +126,21 @@ public:
         Iter first, Sentinel last)
         : shift_map(first, last, alloc) {}
 
-    template <_pair Pair = value_type>
+    template <pair Pair = value_type>
     constexpr shift_map(
         std::initializer_list<Pair> il, const allocator_type& alloc)
         : dense_(il.begin(), il.end(), alloc), sparse_(alloc) {
         _set_sparse(0);
     }
 
-    template <_pair Pair = value_type>
+    template <pair Pair = value_type>
     constexpr shift_map(std::initializer_list<Pair> il)
         : dense_(il.begin(), il.end(), allocator_type{}),
           sparse_(_sparse_alloc_t{}) {
         _set_sparse(0);
     }
 
-    template <_pair Pair = value_type>
+    template <pair Pair = value_type>
     constexpr shift_map(
         [[maybe_unused]] std::allocator_arg_t, const allocator_type& alloc,
         std::initializer_list<Pair> list)
