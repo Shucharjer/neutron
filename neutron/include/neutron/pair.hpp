@@ -14,7 +14,7 @@ namespace neutron {
  * Requires first/second members and first_type/second_type typedefs
  */
 template <typename Ty>
-concept _public_pair = requires(const Ty& val) {
+concept public_pair = requires(const Ty& val) {
     typename Ty::first_type;
     typename Ty::second_type;
     val.first;
@@ -29,7 +29,7 @@ concept _public_pair = requires(const Ty& val) {
  * Requires first()/second() methods and first_type/second_type typedefs
  */
 template <typename Ty>
-concept _private_pair = requires(const Ty& val) {
+concept private_pair = requires(const Ty& val) {
     typename Ty::first_type;
     typename Ty::second_type;
     val.first();
@@ -42,7 +42,7 @@ concept _private_pair = requires(const Ty& val) {
  * Matches either public or private pair types
  */
 template <typename Ty>
-concept _pair = _public_pair<Ty> || _private_pair<Ty>;
+concept pair = public_pair<Ty> || private_pair<Ty>;
 
 /**
  * @brief Compressed pair using EBCO (Empty Base Class Optimization)
@@ -113,9 +113,9 @@ public:
                 compressed_pair,
                 std::remove_cv_t<std::remove_reference_t<That>>>)
         : first_base([&] {
-              if constexpr (_public_pair<That>) {
+              if constexpr (public_pair<That>) {
                   return std::forward<That>(that).first;
-              } else if constexpr (_private_pair<That>) {
+              } else if constexpr (private_pair<That>) {
                   return std::forward<That>(that).first();
               } else {
                   static_assert(
@@ -123,9 +123,9 @@ public:
               }
           }),
           second_base([&] {
-              if constexpr (_public_pair<That>) {
+              if constexpr (public_pair<That>) {
                   return std::forward<That>(that).second;
-              } else if constexpr (_private_pair<That>) {
+              } else if constexpr (private_pair<That>) {
                   return std::forward<That>(that).second();
               } else {
                   static_assert(
@@ -170,6 +170,10 @@ public:
         return static_cast<first_base&&>(*this).value();
     }
 
+    NODISCARD constexpr const First&& first() const&& noexcept {
+        return static_cast<const first_base&&>(*this).value();
+    }
+
     NODISCARD constexpr Second& second() & noexcept {
         return static_cast<second_base&>(*this).value();
     }
@@ -180,6 +184,10 @@ public:
 
     NODISCARD constexpr Second&& second() && noexcept {
         return static_cast<second_base&&>(*this).value();
+    }
+
+    NODISCARD constexpr const Second&& second() const&& noexcept {
+        return static_cast<const second_base&&>(*this).value();
     }
 
     template <size_t Index>
@@ -212,6 +220,16 @@ public:
         }
     }
 
+    template <size_t Index>
+    requires(Index <= 1)
+    NODISCARD constexpr decltype(auto) get() const&& noexcept {
+        if constexpr (Index == 0) {
+            return first();
+        } else {
+            return second();
+        }
+    }
+
     constexpr operator std::pair<First, Second>() const& noexcept(
         std::is_nothrow_copy_constructible_v<First> &&
         std::is_nothrow_copy_constructible_v<Second>)
@@ -229,45 +247,51 @@ public:
     {
         return std::pair<First, Second>(first(), second());
     }
+
+    template <
+        template <typename, typename> typename PvtPair, typename F, typename S>
+    requires private_pair<PvtPair<F, S>>
+    NODISCARD constexpr bool
+        operator==(const PvtPair<F, S>& pair) const noexcept {
+        if constexpr (std::is_same_v<First, F> && std::is_same_v<Second, S>) {
+            return first() == pair.first() && second() == pair.second();
+        }
+        return false;
+    }
+
+    template <
+        template <typename, typename> typename PvtPair, typename F, typename S>
+    requires private_pair<PvtPair<F, S>>
+    NODISCARD constexpr bool
+        operator!=(const PvtPair<F, S>& pair) const noexcept {
+        if constexpr (std::is_same_v<First, F> && std::is_same_v<Second, S>) {
+            return first() != pair.first() || second() != pair.second();
+        }
+        return true;
+    }
+
+    template <
+        template <typename, typename> typename PubPair, typename F, typename S>
+    requires public_pair<PubPair<F, S>>
+    NODISCARD constexpr bool
+        operator==(const PubPair<F, S>& pair) const noexcept {
+        if constexpr (std::is_same_v<F, F> && std::is_same_v<S, S>) {
+            return first() == pair.first && second() == pair.second;
+        }
+        return false;
+    }
+
+    template <
+        template <typename, typename> typename PubPair, typename F, typename S>
+    requires public_pair<PubPair<F, S>>
+    NODISCARD constexpr bool
+        operator!=(const PubPair<F, S>& pair) const noexcept {
+        if constexpr (std::is_same_v<First, F> && std::is_same_v<Second, S>) {
+            return first() != pair.first || second() != pair.second;
+        }
+        return true;
+    }
 };
-
-// if it returns true, two `compressed_pair`s must have the same tparams.
-template <typename LFirst, typename LSecond, typename RFirst, typename RSecond>
-NODISCARD constexpr bool operator==(
-    const compressed_pair<LFirst, LSecond>& lhs,
-    const compressed_pair<RFirst, RSecond>& rhs) noexcept {
-    if constexpr (
-        std::is_same_v<LFirst, RFirst> && std::is_same_v<LSecond, RSecond>) {
-        return lhs.first() == rhs.first() && lhs.second() && rhs.second();
-    } else {
-        return false;
-    }
-}
-
-template <typename LFirst, typename LSecond, typename RFirst, typename RSecond>
-NODISCARD constexpr bool operator!=(
-    const compressed_pair<LFirst, LSecond>& lhs,
-    const compressed_pair<RFirst, RSecond>& rhs) noexcept {
-    return !(lhs == rhs);
-}
-
-template <typename Ty, typename First, typename Second>
-NODISCARD constexpr bool operator==(
-    const compressed_pair<First, Second>& pair, const Ty& val) noexcept {
-    if constexpr (std::is_convertible_v<Ty, First>) {
-        return pair.first() == val;
-    } else if constexpr (std::is_convertible_v<Ty, Second>) {
-        return pair.second() == val;
-    } else {
-        return false;
-    }
-}
-
-template <typename Ty, typename First, typename Second>
-NODISCARD constexpr bool operator!=(
-    const compressed_pair<First, Second>& pair, const Ty& val) noexcept {
-    return !(pair == val);
-}
 
 /**
  * @brief Reversed compressed pair with element order swapped
@@ -349,7 +373,11 @@ public:
     }
 
     NODISCARD constexpr First&& first() && noexcept {
-        return static_cast<const second_base&>(*this).value();
+        return static_cast<second_base&&>(*this).value();
+    }
+
+    NODISCARD constexpr const First&& first() const&& noexcept {
+        return static_cast<const second_base&&>(*this).value();
     }
 
     NODISCARD constexpr Second& second() & noexcept {
@@ -360,8 +388,12 @@ public:
         return static_cast<const first_base&>(*this).value();
     }
 
-    NODISCARD constexpr Second& second() && noexcept {
-        return static_cast<first_base&>(*this).value();
+    NODISCARD constexpr Second&& second() && noexcept {
+        return static_cast<first_base&&>(*this).value();
+    }
+
+    NODISCARD constexpr const Second&& second() const&& noexcept {
+        return static_cast<const first_base&&>(*this).value();
     }
 
     template <size_t Index>
@@ -393,46 +425,61 @@ public:
             return second();
         }
     }
+
+    template <size_t Index>
+    requires(Index <= 1)
+    NODISCARD constexpr decltype(auto) get() const&& noexcept {
+        if constexpr (Index == 0) {
+            return first();
+        } else {
+            return second();
+        }
+    }
+
+    template <
+        template <typename, typename> typename PvtPair, typename F, typename S>
+    requires private_pair<PvtPair<F, S>>
+    NODISCARD constexpr bool
+        operator==(const PvtPair<F, S>& pair) const noexcept {
+        if constexpr (std::is_same_v<First, F> && std::is_same_v<Second, S>) {
+            return first() == pair.first() && second() == pair.second();
+        }
+        return false;
+    }
+
+    template <
+        template <typename, typename> typename PvtPair, typename F, typename S>
+    requires private_pair<PvtPair<F, S>>
+    NODISCARD constexpr bool
+        operator!=(const PvtPair<F, S>& pair) const noexcept {
+        if constexpr (std::is_same_v<First, F> && std::is_same_v<Second, S>) {
+            return first() != pair.first() || second() != pair.second();
+        }
+        return true;
+    }
+
+    template <
+        template <typename, typename> typename PubPair, typename F, typename S>
+    requires public_pair<PubPair<F, S>>
+    NODISCARD constexpr bool
+        operator==(const PubPair<F, S>& pair) const noexcept {
+        if constexpr (std::is_same_v<F, F> && std::is_same_v<S, S>) {
+            return first() == pair.first && second() == pair.second;
+        }
+        return false;
+    }
+
+    template <
+        template <typename, typename> typename PubPair, typename F, typename S>
+    requires public_pair<PubPair<F, S>>
+    NODISCARD constexpr bool
+        operator!=(const PubPair<F, S>& pair) const noexcept {
+        if constexpr (std::is_same_v<First, F> && std::is_same_v<Second, S>) {
+            return first() != pair.first || second() != pair.second;
+        }
+        return true;
+    }
 };
-
-// if it returns true, two `reversed_compressed_pair`s must have the same
-// tparams.
-template <typename LFirst, typename LSecond, typename RFirst, typename RSecond>
-constexpr bool operator==(
-    const reversed_compressed_pair<LFirst, LSecond>& lhs,
-    const reversed_compressed_pair<RFirst, RSecond>& rhs) {
-    if constexpr (
-        std::is_same_v<LFirst, RFirst> && std::is_same_v<LFirst, RFirst>) {
-        return lhs.first() == rhs.first();
-    } else {
-        return false;
-    }
-}
-
-template <typename LFirst, typename LSecond, typename RFirst, typename RSecond>
-constexpr bool operator!=(
-    const reversed_compressed_pair<LFirst, LSecond>& lhs,
-    const reversed_compressed_pair<RFirst, RSecond>& rhs) {
-    return !(lhs == rhs);
-}
-
-template <typename Ty, typename First, typename Second>
-constexpr bool operator==(
-    const Ty& lhs, const reversed_compressed_pair<First, Second>& rhs) {
-    if constexpr (std::is_convertible_v<Ty, First>) {
-        return lhs == rhs.first();
-    } else if constexpr (std::is_convertible_v<Ty, Second>) {
-        return lhs == rhs.second();
-    } else {
-        return false;
-    }
-}
-
-template <typename Ty, typename First, typename Second>
-constexpr bool operator!=(
-    const Ty& lhs, const reversed_compressed_pair<First, Second>& rhs) {
-    return !(lhs == rhs);
-}
 
 template <typename First, typename Second>
 struct reversed_pair {
@@ -441,49 +488,56 @@ struct reversed_pair {
 
     first_type second;
     second_type first;
+
+    template <
+        template <typename, typename> typename PvtPair, typename F, typename S>
+    requires private_pair<PvtPair<F, S>>
+    NODISCARD constexpr bool
+        operator==(const PvtPair<F, S>& pair) const noexcept {
+        if constexpr (std::is_same_v<First, F> && std::is_same_v<Second, S>) {
+            return first == pair.first() && second == pair.second();
+        }
+        return false;
+    }
+
+    template <
+        template <typename, typename> typename PvtPair, typename F, typename S>
+    requires private_pair<PvtPair<F, S>>
+    NODISCARD constexpr bool
+        operator!=(const PvtPair<F, S>& pair) const noexcept {
+        if constexpr (std::is_same_v<First, F> && std::is_same_v<Second, S>) {
+            return first != pair.first() || second != pair.second();
+        }
+        return true;
+    }
+
+    template <
+        template <typename, typename> typename PubPair, typename F, typename S>
+    requires public_pair<PubPair<F, S>>
+    NODISCARD constexpr bool
+        operator==(const PubPair<F, S>& pair) const noexcept {
+        if constexpr (std::is_same_v<F, F> && std::is_same_v<S, S>) {
+            return first == pair.first && second == pair.second;
+        }
+        return false;
+    }
+
+    template <
+        template <typename, typename> typename PubPair, typename F, typename S>
+    requires public_pair<PubPair<F, S>>
+    NODISCARD constexpr bool
+        operator!=(const PubPair<F, S>& pair) const noexcept {
+        if constexpr (std::is_same_v<First, F> && std::is_same_v<Second, S>) {
+            return first != pair.first || second != pair.second;
+        }
+        return true;
+    }
 };
-
-template <typename LFirst, typename LSecond, typename RFirst, typename RSecond>
-constexpr bool operator==(
-    const reversed_pair<LFirst, LSecond>& lhs,
-    const reversed_pair<RFirst, RSecond>& rhs) {
-    if constexpr (
-        std::is_same_v<LFirst, RFirst> && std::is_same_v<LSecond, RSecond>) {
-        return lhs.second == rhs.second && lhs.first == rhs.first;
-    } else {
-        return false;
-    }
-}
-
-template <typename LFirst, typename LSecond, typename RFirst, typename RSecond>
-constexpr bool operator!=(
-    const reversed_pair<LFirst, LSecond>& lhs,
-    const reversed_pair<RFirst, RSecond>& rhs) {
-    return !(lhs == rhs);
-}
-
-template <typename Ty, typename First, typename Second>
-constexpr bool
-    operator==(const Ty& lhs, const reversed_pair<First, Second>& rhs) {
-    if constexpr (std::is_convertible_v<Ty, First>) {
-        return rhs.first == lhs;
-    } else if constexpr (std::is_convertible_v<Ty, Second>) {
-        return rhs.second == lhs;
-    } else {
-        return false;
-    }
-}
-
-template <typename Ty, typename First, typename Second>
-constexpr bool
-    operator!=(const Ty& lhs, const reversed_pair<First, Second>& rhs) {
-    return !(lhs == rhs);
-}
 
 template <
     typename First, typename Second,
     template <typename, typename> typename Pair = compressed_pair>
-struct pair {
+struct compated_pair {
 public:
     using value_type  = Pair<First, Second>;
     using first_type  = typename value_type::first_type;
@@ -491,28 +545,30 @@ public:
 
     template <typename... Args>
     requires std::is_constructible_v<value_type, Args...>
-    pair(Args&&... args) noexcept(
+    compated_pair(Args&&... args) noexcept(
         std::is_nothrow_constructible_v<value_type, Args...>)
         : pair_(std::forward<Args>(args)...) {}
 
-    pair(const pair& that) noexcept(
+    compated_pair(const compated_pair& that) noexcept(
         std::is_nothrow_copy_constructible_v<value_type>)
         : pair_(that.pair_) {}
 
-    pair(pair&& that) noexcept(std::is_nothrow_move_constructible_v<value_type>)
+    compated_pair(compated_pair&& that) noexcept(
+        std::is_nothrow_move_constructible_v<value_type>)
         : pair_(std::move(that.pair_)) {}
 
     template <typename... Tys1, typename... Tys2>
-    pair(
+    compated_pair(
         std::piecewise_construct_t, std::tuple<Tys1...> tup1,
         std::tuple<Tys2...>
             tup2) noexcept(std::
                                is_nothrow_constructible_v<
                                    value_type, std::piecewise_construct_t,
                                    std::tuple<Tys1...>, std::tuple<Tys2...>>)
-        : pair(std::piecewise_construct, std::move(tup1), std::move(tup2)) {}
+        : compated_pair(
+              std::piecewise_construct, std::move(tup1), std::move(tup2)) {}
 
-    pair& operator=(const pair& that) noexcept(
+    compated_pair& operator=(const compated_pair& that) noexcept(
         std::is_nothrow_copy_assignable_v<value_type>) {
         if (this != &that) [[likely]] {
             pair_ = that.pair_;
@@ -520,7 +576,7 @@ public:
         return *this;
     }
 
-    pair& operator=(pair&& that) noexcept(
+    compated_pair& operator=(compated_pair&& that) noexcept(
         std::is_nothrow_move_assignable_v<value_type>) {
         if (this != &that) [[likely]] {
             pair_ = that.pair_;
@@ -528,12 +584,13 @@ public:
         return *this;
     }
 
-    ~pair() noexcept(std::is_nothrow_destructible_v<value_type>) = default;
+    ~compated_pair() noexcept(std::is_nothrow_destructible_v<value_type>) =
+        default;
 
     constexpr First& first() & noexcept {
-        if constexpr (_public_pair<value_type>) {
+        if constexpr (public_pair<value_type>) {
             return pair_.first;
-        } else if constexpr (_private_pair<value_type>) {
+        } else if constexpr (private_pair<value_type>) {
             return pair_.first();
         } else {
             static_assert(false, "No valid way to get the first value.");
@@ -541,9 +598,9 @@ public:
     }
 
     constexpr const First& first() const& noexcept {
-        if constexpr (_public_pair<value_type>) {
+        if constexpr (public_pair<value_type>) {
             return pair_.first;
-        } else if constexpr (_private_pair<value_type>) {
+        } else if constexpr (private_pair<value_type>) {
             return pair_.first();
         } else {
             static_assert(false, "No valid way to get the first value.");
@@ -551,9 +608,19 @@ public:
     }
 
     constexpr First&& first() && noexcept {
-        if constexpr (_public_pair<value_type>) {
+        if constexpr (public_pair<value_type>) {
             return pair_.first;
-        } else if constexpr (_private_pair<value_type>) {
+        } else if constexpr (private_pair<value_type>) {
+            return pair_.first();
+        } else {
+            static_assert(false, "No valid way to get the first value.");
+        }
+    }
+
+    constexpr const First&& first() const&& noexcept {
+        if constexpr (public_pair<value_type>) {
+            return pair_.first;
+        } else if constexpr (private_pair<value_type>) {
             return pair_.first();
         } else {
             static_assert(false, "No valid way to get the first value.");
@@ -561,9 +628,9 @@ public:
     }
 
     constexpr Second& second() & noexcept {
-        if constexpr (_public_pair<value_type>) {
+        if constexpr (public_pair<value_type>) {
             return pair_.second;
-        } else if constexpr (_private_pair<value_type>) {
+        } else if constexpr (private_pair<value_type>) {
             return pair_.second();
         } else {
             static_assert(false, "No valid way to get the second value.");
@@ -571,9 +638,9 @@ public:
     }
 
     constexpr const Second& second() const& noexcept {
-        if constexpr (_public_pair<value_type>) {
+        if constexpr (public_pair<value_type>) {
             return pair_.second;
-        } else if constexpr (_private_pair<value_type>) {
+        } else if constexpr (private_pair<value_type>) {
             return pair_.second();
         } else {
             static_assert(false, "No valid way to get the second value.");
@@ -581,16 +648,26 @@ public:
     }
 
     constexpr Second&& second() && noexcept {
-        if constexpr (_public_pair<value_type>) {
+        if constexpr (public_pair<value_type>) {
             return pair_.second;
-        } else if constexpr (_private_pair<value_type>) {
+        } else if constexpr (private_pair<value_type>) {
             return pair_.second();
         } else {
             static_assert(false, "No valid way to get the second value.");
         }
     }
 
-    constexpr bool operator==(const pair& that) const noexcept {
+    constexpr const Second&& second() const&& noexcept {
+        if constexpr (public_pair<value_type>) {
+            return pair_.second;
+        } else if constexpr (private_pair<value_type>) {
+            return pair_.second();
+        } else {
+            static_assert(false, "No valid way to get the second value.");
+        }
+    }
+
+    constexpr bool operator==(const compated_pair& that) const noexcept {
         return pair_ == that.pair_;
     }
 
@@ -603,7 +680,7 @@ public:
         }
     }
 
-    constexpr bool operator!=(const pair& that) const noexcept {
+    constexpr bool operator!=(const compated_pair& that) const noexcept {
         return pair_ != that.pair_;
     }
 
@@ -646,6 +723,16 @@ public:
         }
     }
 
+    template <size_t Index>
+    requires(Index <= 1)
+    NODISCARD constexpr decltype(auto) get() const&& noexcept {
+        if constexpr (Index == 0) {
+            return first();
+        } else {
+            return second();
+        }
+    }
+
 private:
     Pair<First, Second> pair_;
 };
@@ -676,8 +763,8 @@ struct reversed_result<reversed_pair<Second, First>> {
 template <
     typename First, typename Second,
     template <typename, typename> typename Pair>
-struct reversed_result<pair<First, Second, Pair>> {
-    using type = pair<Second, First, Pair>;
+struct reversed_result<compated_pair<First, Second, Pair>> {
+    using type = compated_pair<Second, First, Pair>;
 };
 
 template <typename Pair>
@@ -685,7 +772,7 @@ using reversed_result_t = typename reversed_result<Pair>::type;
 
 /*! @cond TURN_OFF_DOXYGEN */
 template <typename Ty>
-concept _reversible_pair = _pair<Ty> && requires {
+concept _reversible_pair = pair<Ty> && requires {
     typename reversed_result<std::remove_cvref_t<Ty>>::type;
     std::is_trivial_v<typename std::remove_cvref_t<Ty>::first_type>;
     std::is_trivial_v<typename std::remove_cvref_t<Ty>::second_type>;
@@ -724,7 +811,7 @@ struct tuple_size<neutron::reversed_compressed_pair<First, Second>> :
 template <
     typename First, typename Second,
     template <typename, typename> typename Pair>
-struct tuple_size<neutron::pair<First, Second, Pair>> :
+struct tuple_size<neutron::compated_pair<First, Second, Pair>> :
     std::integral_constant<size_t, 2> {};
 
 template <size_t Index, typename First, typename Second>
@@ -746,9 +833,9 @@ struct tuple_element<Index, neutron::reversed_compressed_pair<First, Second>> {
 template <
     size_t Index, typename First, typename Second,
     template <typename, typename> typename Pair>
-struct tuple_element<Index, neutron::pair<First, Second, Pair>> {
+struct tuple_element<Index, neutron::compated_pair<First, Second, Pair>> {
     static_assert(Index < 2);
-    using pair = neutron::pair<First, Second, Pair>;
+    using pair = neutron::compated_pair<First, Second, Pair>;
     using type = std::conditional_t<
         (Index == 0), typename pair::first_type, typename pair::second_type>;
 };
