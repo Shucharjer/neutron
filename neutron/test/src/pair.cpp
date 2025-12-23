@@ -10,7 +10,7 @@ int main() {
     // cause error: std::string is not trivial type.
     // auto& another_reversed = utils::reverse(another);
 
-    auto pcpair      = pair<char, int>{};
+    auto pcpair      = compated_pair<char, int>{};
     auto& [pcf, pcs] = pcpair;
 
     compressed_pair<int, int> third{ cpair.first(), cpair.second() };
