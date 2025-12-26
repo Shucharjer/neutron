@@ -13,7 +13,6 @@
 #include "neutron/memory.hpp"
 #include "neutron/packet_uint.hpp"
 #include "pair.hpp"
-#include "../src/neutron/internal/iterator/concepts.hpp"
 #include "../src/neutron/internal/macros.hpp"
 #include "../src/neutron/internal/mask.hpp"
 #include "../src/neutron/internal/utility/const_identity.hpp"
@@ -112,7 +111,7 @@ public:
         [[maybe_unused]] std::allocator_arg_t, const allocator_type& alloc)
         : dense_(alloc), sparse_(alloc) {}
 
-    template <input_iterator Iter, typename Sentinel>
+    template <std::input_iterator Iter, typename Sentinel>
     constexpr shift_map(
         Iter first, Sentinel last,
         const allocator_type& alloc = allocator_type{})
@@ -120,7 +119,7 @@ public:
         _set_sparse(0);
     }
 
-    template <input_iterator Iter, typename Sentinel>
+    template <std::input_iterator Iter, typename Sentinel>
     constexpr shift_map(
         [[maybe_unused]] std::allocator_arg_t, const allocator_type& alloc,
         Iter first, Sentinel last)
