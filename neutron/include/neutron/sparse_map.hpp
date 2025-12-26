@@ -196,8 +196,11 @@ public:
     }
 
     constexpr auto operator[](const key_type key) -> Ty& {
-        auto page   = _page_of(key);
-        auto offset = _offset_of(key);
+        const auto page   = _page_of(key);
+        const auto offset = _offset_of(key);
+        if (!_contains_impl(key, page, offset)) {
+            try_emplace(key);
+        }
         return dense_[sparse_[page]->at(offset)].second;
     }
 
