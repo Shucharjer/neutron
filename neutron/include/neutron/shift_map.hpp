@@ -12,7 +12,7 @@
 #include <vector>
 #include "neutron/memory.hpp"
 #include "neutron/packet_uint.hpp"
-#include "pair.hpp"
+#include "../src/neutron/internal/concepts/pair.hpp"
 #include "../src/neutron/internal/macros.hpp"
 #include "../src/neutron/internal/mask.hpp"
 #include "../src/neutron/internal/utility/const_identity.hpp"

@@ -1,7 +1,6 @@
 #pragma once
 #include <ranges>
-
-#include "neutron/pair.hpp"
+#include "./pair.hpp"
 
 namespace neutron {
 
@@ -17,7 +16,7 @@ concept map = std::ranges::range<Rng> && requires {
 
 template <typename Rng>
 concept map_view =
-    std::ranges::view<Rng> && _pair<std::ranges::range_value_t<Rng>> &&
+    std::ranges::view<Rng> && pair<std::ranges::range_value_t<Rng>> &&
     std::is_const_v<typename std::ranges::range_value_t<Rng>::first_type>;
 
 } // namespace _map_like
