@@ -8,7 +8,7 @@ namespace neutron {
 template <typename Ty>
 using trivially_relocatable = std::is_trivially_relocatable_v<Ty>;
 
-#elif __has_feature(reflection) && __cplusplus >= 202602L
+#elif __has_feature(reflection) && __cplusplus > 202302L
 }
 
     #include <concepts>
@@ -100,21 +100,16 @@ concept _default_movable = [] {
 }();
 
 template <typename Ty>
-consteval bool _verify_trivially_relocatable() {
-    if constexpr (std::is_fundamental_v<Ty>) {
-        return true;
-    } else {
-        return _eligible_for_relocation<Ty> &&
-               (_has_trivially_relocatable_if_eligible<Ty> ||
-                _union_without_user_defined_special_member_functions<Ty> ||
-                _default_movable<Ty>);
-    }
-}
-
-template <typename Ty>
 struct _is_trivially_relocatable {
-    static constexpr bool value = _verify_trivially_relocatable<Ty>();
+    static constexpr bool value =
+        _eligible_for_relocation<Ty> &&
+        (_has_trivially_relocatable_if_eligible<Ty> ||
+         _union_without_user_defined_special_member_functions<Ty> ||
+         _default_movable<Ty>);
 };
+template <typename Ty>
+requires std::is_fundamental_v<Ty>
+struct _is_trivially_relocatable<Ty> : std::true_type {};
 
 } // namespace _trivially_relocatable
 
