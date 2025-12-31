@@ -1,9 +1,10 @@
 #pragma once
 #include <functional>
 #include <type_traits>
+#include "neutron/detail/macros.hpp"
+#include "neutron/detail/utility/spreader.hpp"
 #include "neutron/type_traits.hpp"
-#include "../src/neutron/internal/macros.hpp"
-#include "../src/neutron/internal/utility/spreader.hpp"
+
 
 namespace neutron {
 
@@ -179,7 +180,7 @@ public:
      *
      * @return function_type* Pointer of function
      */
-    NODISCARD constexpr function_type* target() const noexcept {
+    ATOM_NODISCARD constexpr function_type* target() const noexcept {
         return function_;
     }
 
@@ -188,7 +189,7 @@ public:
      *
      * @return void const* Pointer to the context
      */
-    NODISCARD constexpr const void* context() const noexcept {
+    ATOM_NODISCARD constexpr const void* context() const noexcept {
         return context_;
     }
 
@@ -337,7 +338,7 @@ public:
      *
      * @return function_type* Pointer of function
      */
-    NODISCARD constexpr function_type* target() const noexcept {
+    ATOM_NODISCARD constexpr function_type* target() const noexcept {
         return function_;
     }
 
@@ -346,7 +347,7 @@ public:
      *
      * @return void const* Pointer to the context
      */
-    NODISCARD constexpr const void* context() const noexcept {
+    ATOM_NODISCARD constexpr const void* context() const noexcept {
         return context_;
     }
 

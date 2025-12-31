@@ -2,9 +2,9 @@
 #include <cstddef>
 #include <memory>
 #include <utility>
-#include "../src/neutron/internal/macros.hpp"
-#include "../src/neutron/internal/mask.hpp"
-#include "../src/neutron/internal/memory/freeable_bytes.hpp"
+#include "neutron/detail/macros.hpp"
+#include "neutron/detail/mask.hpp"
+#include "neutron/detail/memory/freeable_bytes.hpp"
 
 namespace neutron {
 
@@ -120,9 +120,13 @@ public:
 
     constexpr auto* data() noexcept { return blocks_; }
 
-    NODISCARD constexpr const auto* data() const noexcept { return blocks_; }
+    ATOM_NODISCARD constexpr const auto* data() const noexcept {
+        return blocks_;
+    }
 
-    NODISCARD constexpr size_t capacity() const noexcept { return capacity_; }
+    ATOM_NODISCARD constexpr size_t capacity() const noexcept {
+        return capacity_;
+    }
 
 private:
     freeable_bytes<Size>* blocks_;
@@ -196,9 +200,13 @@ public:
 
     constexpr auto* data() noexcept { return blocks_; }
 
-    NODISCARD constexpr const auto* data() const noexcept { return blocks_; }
+    ATOM_NODISCARD constexpr const auto* data() const noexcept {
+        return blocks_;
+    }
 
-    NODISCARD constexpr size_t capacity() const noexcept { return capacity_; }
+    ATOM_NODISCARD constexpr size_t capacity() const noexcept {
+        return capacity_;
+    }
 
 private:
     freeable_bytes<Size>* blocks_;

@@ -2,7 +2,7 @@
 #include <algorithm>
 #include <array>
 #include <atomic>
-#include "../src/neutron/internal/parallel/cpu_relax.hpp"
+#include "neutron/detail/parallel/cpu_relax.hpp"
 
 namespace neutron {
 

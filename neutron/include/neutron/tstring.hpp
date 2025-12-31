@@ -3,7 +3,7 @@
 #include <cstring>
 #include <format>
 #include <string_view>
-#include "../src/neutron/internal/macros.hpp"
+#include "neutron/detail/macros.hpp"
 
 namespace neutron {
 
@@ -15,7 +15,7 @@ struct tstring {
     constexpr tstring(const char (&arr)[Length]) noexcept {
         // memcpy is not a compile-time function
         // std::memcpy(val, arr, N);
-        if CONST_EVALUATED {
+        if ATOM_CONST_EVALUATED {
             std::copy(arr, arr + Length, value);
         } else {
             std::memcpy(value, arr, Length);
@@ -55,19 +55,25 @@ struct tstring {
         return stream;
     }
 
-    NODISCARD constexpr bool empty() const noexcept { return Length == 1; }
+    ATOM_NODISCARD constexpr bool empty() const noexcept { return Length == 1; }
 
-    NODISCARD constexpr const char* data() const noexcept { return value; }
+    ATOM_NODISCARD constexpr const char* data() const noexcept { return value; }
 
-    NODISCARD constexpr const char* c_str() const noexcept { return value; }
+    ATOM_NODISCARD constexpr const char* c_str() const noexcept {
+        return value;
+    }
 
-    NODISCARD constexpr size_t size() const noexcept { return Length - 1; }
+    ATOM_NODISCARD constexpr size_t size() const noexcept { return Length - 1; }
 
-    NODISCARD constexpr size_t length() const noexcept { return Length - 1; }
+    ATOM_NODISCARD constexpr size_t length() const noexcept {
+        return Length - 1;
+    }
 
-    NODISCARD constexpr size_t capacity() const noexcept { return Length; }
+    ATOM_NODISCARD constexpr size_t capacity() const noexcept { return Length; }
 
-    NODISCARD constexpr std::string_view view() const noexcept { return value; }
+    ATOM_NODISCARD constexpr std::string_view view() const noexcept {
+        return value;
+    }
 
     // NOLINTBEGIN(cppcoreguidelines-avoid-c-arrays)
     // NOLINTBEGIN(modernize-avoid-c-arrays)

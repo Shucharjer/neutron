@@ -1,10 +1,12 @@
 #pragma once
-#include <ranges> // IWYU pragma: export
-#include "../src/neutron/internal/ranges/adaptor_closure.hpp" // IWYU pragma: export
-#include "../src/neutron/internal/ranges/closure.hpp"  // IWYU pragma: export
-#include "../src/neutron/internal/ranges/concepts.hpp" // IWYU pragma: export
-#include "../src/neutron/internal/ranges/to.hpp"       // IWYU pragma: export
-#include "../src/neutron/internal/ranges/views/elements_view.hpp" // IWYU pragma: export
+// IWYU pragma: begin_exports
+#include <ranges>
+#include "neutron/detail/ranges/adaptor_closure.hpp"
+#include "neutron/detail/ranges/closure.hpp"
+#include "neutron/detail/ranges/concepts.hpp"
+#include "neutron/detail/ranges/to.hpp"
+#include "neutron/detail/ranges/views/elements_view.hpp"
+// IWYU pragma: end_exports
 
 namespace neutron {
 

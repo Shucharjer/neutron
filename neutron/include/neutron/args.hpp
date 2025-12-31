@@ -4,7 +4,6 @@
 #include <tuple>
 #include <utility>
 #include <vector>
-#include "neutron/neutron.hpp"
 #include "neutron/tstring.hpp"
 
 namespace neutron {
@@ -72,7 +71,7 @@ public:
         }
     }
     template <tstring Alpha>
-    NODISCARD const auto& get() const noexcept {
+    ATOM_NODISCARD const auto& get() const noexcept {
         constexpr auto index = _index<Alpha>();
         static_assert(index != args_count, "No such argument");
         return std::get<index>(args_);

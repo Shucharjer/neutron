@@ -4,21 +4,23 @@
 #include <initializer_list>
 #include <limits>
 #include <memory>
-#include <memory_resource>
+#include <memory_resource> // IWYU pragma: keep
 #include <stdexcept>
 #include <tuple>
 #include <type_traits>
 #include <utility>
 #include <vector>
-#include "neutron/memory.hpp"
+#include "neutron/detail/concepts/allocator.hpp"
+#include "neutron/detail/concepts/pair.hpp"
+#include "neutron/detail/macros.hpp"
+#include "neutron/detail/mask.hpp"
+#include "neutron/detail/memory/rebind_alloc.hpp"
+#include "neutron/detail/memory/unique_storage.hpp"
+#include "neutron/detail/utility/const_identity.hpp"
 #include "neutron/packet_uint.hpp"
-#include "../src/neutron/internal/concepts/pair.hpp"
-#include "../src/neutron/internal/macros.hpp"
-#include "../src/neutron/internal/mask.hpp"
-#include "../src/neutron/internal/utility/const_identity.hpp"
 
-#if HAS_CXX23
-    #include "../src/neutron/internal/map_like.hpp"
+#if ATOM_HAS_CXX23
+    #include "neutron/detail/map_like.hpp"
 #endif
 
 namespace neutron {
@@ -46,8 +48,8 @@ constexpr size_t half_bits = sizeof(Ty) * 4UL;
  */
 template <
     std::unsigned_integral Kty, typename Ty, size_t PageSize = 32UL,
-    size_t Shift                = half_bits<Ty>,
-    _std_simple_allocator Alloc = std::allocator<std::pair<Kty, Ty>>>
+    size_t Shift               = half_bits<Ty>,
+    std_simple_allocator Alloc = std::allocator<std::pair<Kty, Ty>>>
 requires _single_bit<PageSize>
 class shift_map {
 public:
@@ -145,7 +147,7 @@ public:
         std::initializer_list<Pair> list)
         : shift_map(list, alloc) {}
 
-#if HAS_CXX23
+#if ATOM_HAS_CXX23
     template <std::ranges::range Rng>
     constexpr shift_map(
         [[maybe_unused]] std::from_range_t, Rng&& range,
@@ -207,7 +209,7 @@ public:
         return try_emplace(val.first, std::move(val.second));
     }
 
-#if HAS_CXX23
+#if ATOM_HAS_CXX23
     template <typename Rng>
     constexpr void insert_range(Rng&& range) {
         const auto size = dense_.size();
@@ -262,7 +264,7 @@ public:
         _check_page(_page_of(_kept(size)));
     }
 
-    NODISCARD constexpr iterator find(key_type key) noexcept {
+    ATOM_NODISCARD constexpr iterator find(key_type key) noexcept {
         const auto kept   = _kept(key);
         const auto page   = _page_of(kept);
         const auto offset = _offset_of(kept);
@@ -272,7 +274,7 @@ public:
         return dense_.end();
     }
 
-    NODISCARD constexpr const_iterator find(key_type key) const noexcept {
+    ATOM_NODISCARD constexpr const_iterator find(key_type key) const noexcept {
         const auto kept   = _kept(key);
         const auto page   = _page_of(kept);
         const auto offset = _offset_of(kept);
@@ -282,7 +284,7 @@ public:
         return dense_.end();
     }
 
-    NODISCARD constexpr mapped_type& at(key_type key) {
+    ATOM_NODISCARD constexpr mapped_type& at(key_type key) {
         const auto kept   = _kept(key);
         const auto page   = _page_of(kept);
         const auto offset = _offset_of(kept);
@@ -292,7 +294,7 @@ public:
         return dense_[sparse_[page]->at(offset)].second;
     }
 
-    NODISCARD constexpr const mapped_type& at(key_type key) const {
+    ATOM_NODISCARD constexpr const mapped_type& at(key_type key) const {
         const auto kept   = _kept(key);
         const auto page   = _page_of(kept);
         const auto offset = _offset_of(kept);
@@ -313,54 +315,60 @@ public:
         return dense_[sparse_[page]->at(offset)].second;
     }
 
-    NODISCARD constexpr bool contains(key_type key) const noexcept {
+    ATOM_NODISCARD constexpr bool contains(key_type key) const noexcept {
         const auto kept   = _kept(key);
         const auto page   = _page_of(kept);
         const auto offset = _offset_of(kept);
         return _contains(key, page, offset);
     }
 
-    NODISCARD constexpr iterator begin() noexcept { return dense_.begin(); }
-    NODISCARD constexpr const_iterator begin() const noexcept {
+    ATOM_NODISCARD constexpr iterator begin() noexcept {
         return dense_.begin();
     }
-    NODISCARD constexpr const_iterator cbegin() const noexcept {
+    ATOM_NODISCARD constexpr const_iterator begin() const noexcept {
+        return dense_.begin();
+    }
+    ATOM_NODISCARD constexpr const_iterator cbegin() const noexcept {
         return dense_.cbegin();
     }
 
-    NODISCARD constexpr iterator end() noexcept { return dense_.end(); }
-    NODISCARD constexpr const_iterator end() const noexcept {
+    ATOM_NODISCARD constexpr iterator end() noexcept { return dense_.end(); }
+    ATOM_NODISCARD constexpr const_iterator end() const noexcept {
         return dense_.end();
     }
-    NODISCARD constexpr const_iterator cend() const noexcept {
+    ATOM_NODISCARD constexpr const_iterator cend() const noexcept {
         return dense_.cend();
     }
 
-    NODISCARD constexpr reverse_iterator rbegin() noexcept {
+    ATOM_NODISCARD constexpr reverse_iterator rbegin() noexcept {
         return dense_.rbegin();
     }
-    NODISCARD constexpr const_reverse_iterator rbegin() const noexcept {
+    ATOM_NODISCARD constexpr const_reverse_iterator rbegin() const noexcept {
         return dense_.rbegin();
     }
-    NODISCARD constexpr const_reverse_iterator crbegin() const noexcept {
+    ATOM_NODISCARD constexpr const_reverse_iterator crbegin() const noexcept {
         return dense_.crbegin();
     }
 
-    NODISCARD constexpr reverse_iterator rend() noexcept {
+    ATOM_NODISCARD constexpr reverse_iterator rend() noexcept {
         return dense_.rend();
     }
-    NODISCARD constexpr const_reverse_iterator rend() const noexcept {
+    ATOM_NODISCARD constexpr const_reverse_iterator rend() const noexcept {
         return dense_.rend();
     }
-    NODISCARD constexpr const_reverse_iterator crend() const noexcept {
+    ATOM_NODISCARD constexpr const_reverse_iterator crend() const noexcept {
         return dense_.crend();
     }
 
-    NODISCARD constexpr bool empty() const noexcept { return dense_.empty(); }
+    ATOM_NODISCARD constexpr bool empty() const noexcept {
+        return dense_.empty();
+    }
 
-    NODISCARD constexpr size_t size() const noexcept { return dense_.size(); }
+    ATOM_NODISCARD constexpr size_t size() const noexcept {
+        return dense_.size();
+    }
 
-    NODISCARD constexpr size_t capacity() const noexcept {
+    ATOM_NODISCARD constexpr size_t capacity() const noexcept {
         return dense_.capacity();
     }
 
@@ -374,7 +382,7 @@ public:
         }
     }
 
-    NODISCARD constexpr allocator_type get_allocator() const noexcept {
+    ATOM_NODISCARD constexpr allocator_type get_allocator() const noexcept {
         return dense_.get_allocator();
     }
 

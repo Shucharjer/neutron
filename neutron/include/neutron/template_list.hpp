@@ -3,9 +3,9 @@
 #include <tuple>
 #include <type_traits>
 #include <utility>
+#include "neutron/detail/utility/get.hpp"
 #include "neutron/shared_tuple.hpp"
 #include "neutron/type_traits.hpp"
-#include "../src/neutron/internal/utility/get.hpp"
 
 namespace neutron {
 
@@ -1009,13 +1009,13 @@ constexpr const Ty& get_first(const std::tuple<Tys...>& tuple) noexcept {
 }
 
 template <typename Ty, typename... Tys>
-requires(tuple_first_v<Ty, std::tuple<Tys...>> != static_cast<size_t>(-1))
+requires(tuple_first_v<Ty, shared_tuple<Tys...>> != static_cast<size_t>(-1))
 constexpr Ty& get_first(shared_tuple<Tys...>& tup) noexcept {
     return get<tuple_first_v<Ty, shared_tuple<Tys...>>>(tup);
 }
 
 template <typename Ty, typename... Tys>
-requires(tuple_first_v<Ty, std::tuple<Tys...>> != static_cast<size_t>(-1))
+requires(tuple_first_v<Ty, shared_tuple<Tys...>> != static_cast<size_t>(-1))
 constexpr const Ty& get_first(const shared_tuple<Tys...>& tup) noexcept {
     return get<tuple_first_v<Ty, shared_tuple<Tys...>>>(tup);
 }
@@ -1033,13 +1033,13 @@ constexpr const Ty& get_last(const std::tuple<Tys...>& tuple) noexcept {
 }
 
 template <typename Ty, typename... Tys>
-requires(tuple_last_v<Ty, std::tuple<Tys...>> != static_cast<size_t>(-1))
+requires(tuple_last_v<Ty, shared_tuple<Tys...>> != static_cast<size_t>(-1))
 constexpr Ty& get_last(shared_tuple<Tys...>& tup) noexcept {
     return tup.template get<tuple_last_v<Ty, shared_tuple<Tys...>>>();
 }
 
 template <typename Ty, typename... Tys>
-requires(tuple_last_v<Ty, std::tuple<Tys...>> != static_cast<size_t>(-1))
+requires(tuple_last_v<Ty, shared_tuple<Tys...>> != static_cast<size_t>(-1))
 constexpr const Ty& get_last(const shared_tuple<Tys...>& tup) noexcept {
     return tup.template get<tuple_last_v<Ty, shared_tuple<Tys...>>>();
 }

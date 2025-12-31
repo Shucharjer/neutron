@@ -2,11 +2,11 @@
 #include <array>
 #include <cstdint>
 #include <ranges>
+#include "neutron/detail/macros.hpp"
+#include "neutron/detail/reflection/hash.hpp"
+#include "neutron/detail/reflection/legacy/type_hash.hpp"
+#include "neutron/detail/utility/immediately.hpp"
 #include "neutron/template_list.hpp"
-#include "../src/neutron/internal/macros.hpp"
-#include "../src/neutron/internal/reflection/hash.hpp"
-#include "../src/neutron/internal/reflection/legacy/type_hash.hpp"
-#include "../src/neutron/internal/utility/immediately.hpp"
 
 namespace neutron {
 
@@ -83,7 +83,7 @@ consteval auto sort_index() noexcept {
 template <
     typename TypeList,
     template <typename, typename> typename Pr = sorted_hash::less>
-NODISCARD consteval auto make_hash_array() noexcept {
+ATOM_NODISCARD consteval auto make_hash_array() noexcept {
     return sorted_hash::table<TypeList>::template _to_array<
         sorted_list_t<TypeList>>::value;
 }
@@ -91,18 +91,18 @@ NODISCARD consteval auto make_hash_array() noexcept {
 template <
     typename TypeList,
     template <typename, typename> typename Pr = sorted_hash::less>
-NODISCARD consteval uint64_t make_array_hash() noexcept {
+ATOM_NODISCARD consteval uint64_t make_array_hash() noexcept {
     auto array = make_hash_array<TypeList, Pr>();
     return internal::hash_combine(array);
 }
 
 template <std::ranges::range Range>
-NODISCARD constexpr uint64_t hash_combine(Range&& range) noexcept {
+ATOM_NODISCARD constexpr uint64_t hash_combine(Range&& range) noexcept {
     return internal::hash_combine(std::forward<Range>(range));
 }
 
 template <std::ranges::range Range>
-NODISCARD consteval uint64_t
+ATOM_NODISCARD consteval uint64_t
     hash_combine(immediately_t, const Range& range) noexcept {
     return internal::hash_combine(range);
 }

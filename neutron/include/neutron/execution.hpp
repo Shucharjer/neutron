@@ -28,34 +28,34 @@ struct scheduler_t {};
 #else
     #define NEUTRON_EXECUTION 0
 
-    #include "../src/neutron/internal/execution/fwd.hpp" // IWYU pragma: export
+    #include "neutron/detail/execution/fwd.hpp"      // IWYU pragma: export
 
-    #include "../src/neutron/internal/execution/queries.hpp" // IWYU pragma: export
+    #include "neutron/detail/execution/queries.hpp"  // IWYU pragma: export
 
-    #include "../src/neutron/internal/execution/env.hpp" // IWYU pragma: export
+    #include "neutron/detail/execution/env.hpp"      // IWYU pragma: export
 
-    #include "../src/neutron/internal/execution/domain.hpp" // IWYU pragma: export
+    #include "neutron/detail/execution/domain.hpp"   // IWYU pragma: export
 
-    #include "../src/neutron/internal/execution/receiver.hpp" // IWYU pragma: export
+    #include "neutron/detail/execution/receiver.hpp" // IWYU pragma: export
 
-    #include "../src/neutron/internal/execution/sender.hpp" // IWYU pragma: export
+    #include "neutron/detail/execution/sender.hpp"   // IWYU pragma: export
 
-    #include "../src/neutron/internal/execution/completion_signatures.hpp" // IWYU pragma : export
+    #include "neutron/detail/execution/completion_signatures.hpp" // IWYU pragma : export
 
-    #include "../src/neutron/internal/execution/connect.hpp" // IWYU pragma: export
+    #include "neutron/detail/execution/connect.hpp"   // IWYU pragma: export
 
-    #include "../src/neutron/internal/execution/scheduler.hpp" // IWYU pragma: export
+    #include "neutron/detail/execution/scheduler.hpp" // IWYU pragma: export
 
-    #include "../src/neutron/internal/execution/sender_adaptor_closure.hpp" // IWYU pragma: export
+    #include "neutron/detail/execution/sender_adaptor_closure.hpp" // IWYU pragma: export
 
-    #include "../src/neutron/internal/execution/run_loop.hpp" // IWYU pragma: export
+    #include "neutron/detail/execution/run_loop.hpp" // IWYU pragma: export
 
 // sender consumers
 
-    #include "../src/neutron/internal/execution/sender_consumers/sync_wait.hpp" // IWYU pragma: export
+    #include "neutron/detail/execution/sender_consumers/sync_wait.hpp" // IWYU pragma: export
 
 // sender adaptors
 
-    #include "../src/neutron/internal/execution/sender_adaptors/then.hpp" // IWYU pragma: export
+    #include "neutron/detail/execution/sender_adaptors/then.hpp" // IWYU pragma: export
 
 #endif

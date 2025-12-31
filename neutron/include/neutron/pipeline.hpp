@@ -1,2 +1,2 @@
 #pragma once
-#include "../src/neutron/internal/pipeline.hpp" // IWYU pragma: export
+#include "neutron/detail/pipeline.hpp" // IWYU pragma: export

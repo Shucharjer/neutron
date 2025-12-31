@@ -4,7 +4,7 @@
 #include <cstdint>
 #include <ranges>
 #include <string_view>
-#include "../src/neutron/internal/macros.hpp"
+#include "neutron/detail/macros.hpp"
 
 namespace neutron {
 
@@ -16,18 +16,17 @@ namespace neutron {
  * @note We assume that the two pointer is avaliable!
  * @return The pointer to the `character`. Otherwise `last`.
  */
-NODISCARD inline auto find_char(
+ATOM_NODISCARD inline auto find_char(
     const char character, const char* first, const char* last) noexcept -> const
     char* {
-#ifdef TARGET_X86
+#ifdef ATOM_TARGET_X86
     #if defined(__AVX512F__) && defined(__AVX512BW__)
     constexpr size_t vector_width = 64; // bytes
     #else
     constexpr size_t vector_width = 32; // bytes
     #endif
-#elif defined(TARGET_ARM)
+#elif defined(ATOM_TARGET_ARM)
     constexpr size_t vector_width = 16; // bytes
-#elif defined(TARGET_RISCV)
 #endif
     constexpr uintptr_t alignement = vector_width;
     constexpr uintptr_t mask       = ~(vector_width - 1);
@@ -93,7 +92,7 @@ NODISCARD inline auto find_char(
     return last;
 }
 
-NODISCARD inline auto
+ATOM_NODISCARD inline auto
     find_char(const char character, const char* c_str, size_t size) noexcept {
     return find_char(character, c_str, c_str + size);
 }
@@ -101,14 +100,14 @@ NODISCARD inline auto
 // NOLINTEND(cppcoreguidelines-pro-type-reinterpret-cast,
 // cppcoreguidelines-pro-bounds-pointer-arithmetic)
 
-NODISCARD inline auto
+ATOM_NODISCARD inline auto
     find_char(const char character, std::string_view view) noexcept {
     return find_char(character, view.cbegin(), view.cend());
 }
 
 template <std::ranges::range Rng>
 requires std::same_as<char*, std::ranges::iterator_t<Rng>>
-NODISCARD inline auto
+ATOM_NODISCARD inline auto
     find_char(const char character, const Rng& range) noexcept {
     return find_char(character, std::begin(range), std::end(range));
 }

@@ -1,29 +1,10 @@
 #pragma once
-#include "../src/neutron/internal/utility/get.hpp"  // IWYU pragma: export
-#include "../src/neutron/internal/utility/id_t.hpp" // IWYU pragma: export
-#include "../src/neutron/internal/utility/immediately.hpp" // IWYU pragma: export
-#include "../src/neutron/internal/utility/spreader.hpp" // IWYU pragma: export
-
-namespace neutron {
-
-template <typename Derived>
-class singleton {
-public:
-    using value_type                       = Derived;
-    using self_type                        = singleton;
-    singleton(const singleton&)            = delete;
-    singleton(singleton&&)                 = delete;
-    singleton& operator=(const singleton&) = delete;
-    singleton& operator=(singleton&&)      = delete;
-
-    [[nodiscard]] static auto& instance() {
-        static Derived inst;
-        return inst;
-    }
-
-protected:
-    singleton() noexcept  = default;
-    ~singleton() noexcept = default;
-};
-
-} // namespace neutron
+// IWYU pragma: begin_exports
+#include "neutron/detail/utility/compressed_pair.hpp"
+#include "neutron/detail/utility/exception_guard.hpp"
+#include "neutron/detail/utility/get.hpp"
+#include "neutron/detail/utility/id_t.hpp"
+#include "neutron/detail/utility/immediately.hpp"
+#include "neutron/detail/utility/make_array.hpp"
+#include "neutron/detail/utility/spreader.hpp"
+// IWYU pragma: end_exports

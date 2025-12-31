@@ -7,123 +7,14 @@
 #include <ranges>
 #include <type_traits>
 #include <utility>
-#include "../src/neutron/internal/macros.hpp"
-#include "../src/neutron/internal/ranges/concepts.hpp"
+#include "neutron/detail/iterator/iter_wrapper.hpp"
+#include "neutron/detail/macros.hpp"
+#include "neutron/detail/ranges/concepts.hpp"
 
 namespace neutron {
 
 template <typename Ty>
 class bare_vector;
-
-template <typename Ty>
-class _iter_wrapper;
-
-template <typename Ty>
-class _iter_wrapper<Ty*> {
-    friend class bare_vector<std::remove_cvref_t<Ty>>;
-
-    constexpr _iter_wrapper(Ty* iter) noexcept : iter_(iter) {}
-
-public:
-    using iterator_type = Ty*;
-    using value_type = typename std::iterator_traits<iterator_type>::value_type;
-    using difference_type =
-        typename std::iterator_traits<iterator_type>::difference_type;
-    using pointer   = typename std::iterator_traits<iterator_type>::pointer;
-    using reference = typename std::iterator_traits<iterator_type>::reference;
-    using iterator_category =
-        typename std::iterator_traits<iterator_type>::iterator_category;
-    using iterator_concept = std::contiguous_iterator_tag;
-
-    constexpr _iter_wrapper();
-
-    template <typename T>
-    constexpr _iter_wrapper(const _iter_wrapper<T>& that) noexcept;
-
-    constexpr reference operator*() const noexcept { return *iter_; }
-    constexpr pointer operator->() const noexcept { return iter_; }
-    constexpr _iter_wrapper& operator++() noexcept {
-        ++iter_;
-        return *this;
-    }
-    constexpr _iter_wrapper operator++(int) noexcept {
-        auto iter = iter_;
-        return _iter_wrapper{ ++iter };
-    }
-    constexpr _iter_wrapper& operator--() noexcept {
-        --iter_;
-        return *this;
-    }
-    constexpr _iter_wrapper operator--(int) noexcept {
-        auto iter = iter_;
-        return _iter_wrapper{ --iter };
-    }
-    constexpr _iter_wrapper operator+(difference_type n) noexcept {
-        return _iter_wrapper{ iter_ + n };
-    }
-    constexpr _iter_wrapper& operator+=(difference_type n) noexcept {
-        iter_ += n;
-        return *this;
-    }
-    constexpr _iter_wrapper operator-(difference_type n) noexcept {
-        return _iter_wrapper{ iter_ - n };
-    }
-    constexpr _iter_wrapper& operator-=(difference_type n) noexcept {
-        iter_ -= n;
-        return *this;
-    }
-
-    constexpr iterator_type base() const noexcept { return iter_; }
-
-private:
-    iterator_type iter_;
-};
-
-template <typename It>
-constexpr std::strong_ordering operator<=>(
-    const _iter_wrapper<It>& lhs, const _iter_wrapper<It>& rhs) noexcept {
-    if constexpr (std::three_way_comparable_with<
-                      It, It, std::strong_ordering>) {
-        return lhs.base() <=> rhs.base();
-    } else {
-        if (lhs.base() < rhs.base()) {
-            return std::strong_ordering::less;
-        }
-        if (lhs.base() == rhs.base()) {
-            return std::strong_ordering::equal;
-        }
-        return std::strong_ordering::greater;
-    }
-}
-
-template <typename It1, typename It2>
-constexpr std::strong_ordering operator<=>(
-    const _iter_wrapper<It1>& lhs, const _iter_wrapper<It2>& rhs) noexcept {
-    if constexpr (std::three_way_comparable_with<
-                      It1, It2, std::strong_ordering>) {
-        return lhs.base() <=> rhs.base();
-    } else {
-        if (lhs.base() < rhs.base()) {
-            return std::strong_ordering::less;
-        }
-        if (lhs.base() == rhs.base()) {
-            return std::strong_ordering::equal;
-        }
-        return std::strong_ordering::greater;
-    }
-}
-
-template <typename It>
-constexpr bool operator!=(
-    const _iter_wrapper<It>& lhs, const _iter_wrapper<It>& rhs) noexcept {
-    return lhs.base() != rhs.base();
-}
-
-template <typename It1, typename It2>
-constexpr bool operator!=(
-    const _iter_wrapper<It1>& lhs, const _iter_wrapper<It2>& rhs) noexcept {
-    return lhs.base() != rhs.base();
-}
 
 template <typename Ty>
 class bare_vector {
@@ -173,7 +64,7 @@ public:
         _init_with_size(alloc, il.begin(), il.end(), il.size());
     }
 
-#if HAS_CXX23
+#if ATOM_HAS_CXX23
     template <std::ranges::input_range Rng, typename Alloc>
     constexpr bare_vector(std::from_range_t, Rng&& range, Alloc& alloc) {
         if constexpr (
@@ -286,65 +177,65 @@ public:
         size_ = 0;
     }
 
-    NODISCARD constexpr size_type size() const noexcept { return size_; }
+    ATOM_NODISCARD constexpr size_type size() const noexcept { return size_; }
 
-    NODISCARD constexpr bool empty() const noexcept { return size_ != 0; }
+    ATOM_NODISCARD constexpr bool empty() const noexcept { return size_ != 0; }
 
-    NODISCARD constexpr size_type capacity() const noexcept {
+    ATOM_NODISCARD constexpr size_type capacity() const noexcept {
         return capacity_;
     }
 
-    NODISCARD constexpr value_type* data() noexcept { return data_; }
+    ATOM_NODISCARD constexpr value_type* data() noexcept { return data_; }
 
-    NODISCARD constexpr const value_type* data() const noexcept {
+    ATOM_NODISCARD constexpr const value_type* data() const noexcept {
         return data_;
     }
 
-    NODISCARD constexpr iterator begin() noexcept {
+    ATOM_NODISCARD constexpr iterator begin() noexcept {
         return _iter_wrapper{ data_ };
     }
 
-    NODISCARD constexpr const_iterator begin() const noexcept {
+    ATOM_NODISCARD constexpr const_iterator begin() const noexcept {
         return _iter_wrapper{ data_ };
     }
 
-    NODISCARD constexpr const_iterator cbegin() const noexcept {
+    ATOM_NODISCARD constexpr const_iterator cbegin() const noexcept {
         return _iter_wrapper{ data_ };
     }
 
-    NODISCARD constexpr iterator end() noexcept {
+    ATOM_NODISCARD constexpr iterator end() noexcept {
         return _iter_wrapper{ data_ + size_ };
     }
 
-    NODISCARD constexpr const_iterator end() const noexcept {
+    ATOM_NODISCARD constexpr const_iterator end() const noexcept {
         return _iter_wrapper{ data_ + size_ };
     }
 
-    NODISCARD constexpr const_iterator cend() const noexcept {
+    ATOM_NODISCARD constexpr const_iterator cend() const noexcept {
         return _iter_wrapper{ data_ + size_ };
     }
 
-    NODISCARD constexpr reverse_iterator rbegin() noexcept {
+    ATOM_NODISCARD constexpr reverse_iterator rbegin() noexcept {
         return std::make_reverse_iterator(_iter_wrapper{ data_ });
     }
 
-    NODISCARD constexpr const_reverse_iterator rbegin() const noexcept {
+    ATOM_NODISCARD constexpr const_reverse_iterator rbegin() const noexcept {
         return std::make_reverse_iterator(_iter_wrapper{ data_ });
     }
 
-    NODISCARD constexpr const_reverse_iterator crbegin() const noexcept {
+    ATOM_NODISCARD constexpr const_reverse_iterator crbegin() const noexcept {
         return std::make_reverse_iterator(_iter_wrapper{ data_ });
     }
 
-    NODISCARD constexpr reverse_iterator rend() noexcept {
+    ATOM_NODISCARD constexpr reverse_iterator rend() noexcept {
         return std::make_reverse_iterator(_iter_wrapper{ data_ + size_ });
     }
 
-    NODISCARD constexpr const_reverse_iterator rend() const noexcept {
+    ATOM_NODISCARD constexpr const_reverse_iterator rend() const noexcept {
         return std::make_reverse_iterator(_iter_wrapper{ data_ + size_ });
     }
 
-    NODISCARD constexpr const_reverse_iterator crend() const noexcept {
+    ATOM_NODISCARD constexpr const_reverse_iterator crend() const noexcept {
         return std::make_reverse_iterator(_iter_wrapper{ data_ + size_ });
     }
 
