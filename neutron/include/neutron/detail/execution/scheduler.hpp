@@ -3,7 +3,8 @@
 
 #include <concepts>
 #include <type_traits>
-#include "../tag_invoke.hpp"
+// NOTE: tag_invoke lives under concepts/, not top-level
+#include "../concepts/tag_invoke.hpp"
 #include "./queries.hpp"
 #include "./sender.hpp"
 

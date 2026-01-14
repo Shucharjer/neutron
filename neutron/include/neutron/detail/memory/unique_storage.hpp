@@ -1,3 +1,4 @@
+// IWYU pragma: private, include <neutron/memory.hpp>
 #pragma once
 #include <concepts>
 #include <memory>
@@ -6,7 +7,7 @@
 #include "neutron/detail/memory/alloc_traits.hpp"
 #include "neutron/detail/utility/exception_guard.hpp"
 #include "neutron/detail/utility/immediately.hpp"
-#include "neutron/template_list.hpp"
+#include "neutron/metafn.hpp"
 
 namespace neutron {
 

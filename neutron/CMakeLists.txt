@@ -30,6 +30,9 @@ target_include_directories(
   neutron INTERFACE $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
                   $<INSTALL_INTERFACE:${CMAKE_INSTALL_INCLUDEDIR}>)
 
+find_package(stdexec CONFIG REQUIRED)
+target_link_libraries(neutron INTERFACE STDEXEC::stdexec)
+
 set_target_properties(
   neutron
   PROPERTIES EXPORT_NAME "neutron"

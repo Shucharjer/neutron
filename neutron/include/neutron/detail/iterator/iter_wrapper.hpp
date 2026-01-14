@@ -1,3 +1,4 @@
+// IWYU pragma: private, include <neutron/iterator.hpp>
 #pragma once
 #include <iterator>
 #include <type_traits>
@@ -22,7 +23,7 @@ public:
 
     constexpr _iter_wrapper(Ty* iter) noexcept : iter_(iter) {}
 
-    constexpr _iter_wrapper();
+    constexpr _iter_wrapper() noexcept = default;
 
     template <typename T>
     constexpr _iter_wrapper(const _iter_wrapper<T>& that) noexcept;

@@ -1,3 +1,4 @@
+// IWYU pragma: private, include <neutron/iterator.hpp>
 #pragma once
 #include <ranges>
 

@@ -1,5 +1,6 @@
 #pragma once
-#include "../tag_invoke.hpp"
+// NOTE: tag_invoke lives under concepts/, not top-level
+#include "../concepts/tag_invoke.hpp"
 #include "./fwd.hpp"
 
 namespace neutron::execution {

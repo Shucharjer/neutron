@@ -1,8 +1,9 @@
+// IWYU pragma: private, include <neutron/polymorphic.hpp>
 #pragma once
 #include <concepts>
 #include <cstdlib>
 #include <type_traits>
-#include "neutron/template_list.hpp"
+#include "neutron/metafn.hpp"
 
 namespace neutron {
 

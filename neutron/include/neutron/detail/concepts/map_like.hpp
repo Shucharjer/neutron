@@ -1,5 +1,7 @@
+// IWYU pragma: private, include <neutron/concepts.hpp>
 #pragma once
 #include <ranges>
+#include <type_traits>
 #include "./pair.hpp"
 
 namespace neutron {
@@ -10,8 +12,8 @@ namespace _map_like {
 
 template <typename Rng>
 concept map = std::ranges::range<Rng> && requires {
-    typename Rng::key_type;
-    typename Rng::mapped_type;
+    typename std::remove_cvref_t<Rng>::key_type;
+    typename std::remove_cvref_t<Rng>::mapped_type;
 };
 
 template <typename Rng>

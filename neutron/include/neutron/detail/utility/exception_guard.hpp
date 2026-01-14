@@ -1,4 +1,4 @@
-// IWYU pragma: private, include "neutron/utility.hpp"
+// IWYU pragma: private, include <neutron/utility.hpp>
 #pragma once
 #include "../macros.hpp"
 

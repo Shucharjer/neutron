@@ -1,6 +1,6 @@
-#include <neutron/poly.hpp>
+#include <neutron/polymorphic.hpp>
 #include <neutron/print.hpp>
-#include <neutron/template_list.hpp>
+#include <neutron/metafn.hpp>
 
 using namespace neutron;
 

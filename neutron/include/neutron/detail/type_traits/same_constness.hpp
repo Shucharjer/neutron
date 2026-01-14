@@ -1,4 +1,4 @@
-// IWYU pragma: private, include "neutron/type_traits.hpp"
+// IWYU pragma: private, include <neutron/type_traits.hpp>
 #pragma once
 
 namespace neutron {

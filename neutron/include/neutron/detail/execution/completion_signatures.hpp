@@ -4,7 +4,8 @@
 #include <tuple>
 #include <type_traits>
 #include <utility>
-#include "../utility/tag_invoke.hpp"
+// NOTE: tag_invoke lives under concepts/, not utility/
+#include "../concepts/tag_invoke.hpp"
 
 namespace neutron::execution {
 

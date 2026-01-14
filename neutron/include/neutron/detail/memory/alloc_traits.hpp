@@ -1,3 +1,4 @@
+// IWYU pragma: private, include <neutron/memory.hpp>
 #pragma once
 #include <memory>
 

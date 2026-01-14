@@ -1,4 +1,4 @@
-// IWYU pragma: private, include "neutron/concepts.hpp"
+// IWYU pragma: private, include <neutron/concepts.hpp>
 #pragma once
 #include <type_traits>
 

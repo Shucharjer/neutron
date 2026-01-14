@@ -1,8 +1,9 @@
+// IWYU pragma: private, include <neutron/polymorphic.hpp>
 #pragma once
 #include <cstddef>
 #include <tuple>
 #include <type_traits>
-#include "neutron/template_list.hpp"
+#include "neutron/metafn.hpp"
 #include "../macros.hpp"
 #include "../member_function_traits.hpp"
 #include "../utility/spreader.hpp"
@@ -41,7 +42,7 @@ public:
 
     template <auto... Fns>
     constexpr _vtable(value_list<Fns...> vl) noexcept
-        : values(make_tuple(vl)) {}
+        : values(tuple_from_value(vl)) {}
 
 private:
     std::remove_pointer_t<decltype(_deduce(empty_values{}))> values;

@@ -6,7 +6,8 @@
 #include "neutron/detail/reflection/hash.hpp"
 #include "neutron/detail/reflection/legacy/type_hash.hpp"
 #include "neutron/detail/utility/immediately.hpp"
-#include "neutron/template_list.hpp"
+#include "neutron/metafn.hpp"
+#include "neutron/tuple.hpp"
 
 namespace neutron {
 

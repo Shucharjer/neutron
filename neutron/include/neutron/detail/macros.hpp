@@ -114,7 +114,7 @@
     #if ATOM_HAS_CXX20
         #define ATOM_CONSTEXPR_SINCE_CXX20 constexpr ///< C++20 constexpr
     #else
-        #define ATOM_CONSTEXPR_SINCE_CXX20 ///< Empty for older standards
+        #define ATOM_CONSTEXPR_SINCE_CXX20 inline ///< Empty for older standards
     #endif
 #endif
 
@@ -122,7 +122,7 @@
     #if ATOM_HAS_CXX23
         #define ATOM_CONSTEXPR_SINCE_CXX23 constexpr ///< C++23 constexpr
     #else
-        #define ATOM_CONSTEXPR_SINCE_CXX23 ///< Empty for older standards
+        #define ATOM_CONSTEXPR_SINCE_CXX23 inline ///< Empty for older standards
     #endif
 #endif
 
@@ -130,7 +130,7 @@
     #if ATOM_HAS_CXX26
         #define ATOM_CONSTEXPR_SINCE_CXX26 constexpr ///< C++26 constexpr
     #else
-        #define ATOM_CONSTEXPR_SINCE_CXX26 ///< Empty for older standards
+        #define ATOM_CONSTEXPR_SINCE_CXX26 inline ///< Empty for older standards
     #endif
 #endif
 
@@ -210,4 +210,14 @@
     #else
         #define ATOM_ENABLE_EXCEPTIONS 0
     #endif
+#endif
+
+#if ATOM_ENABLE_EXCEPTIONS
+    #define ATOM_TRY try
+    #define ATOM_CATCH(...) catch (__VA_ARGS__)
+    #define ATOM_RETHROW throw
+#else
+    #define ATOM_TRY
+    #define ATOM_CATCH(...)
+    #define ATOM_RETHROE
 #endif
