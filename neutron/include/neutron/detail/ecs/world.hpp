@@ -94,7 +94,6 @@ public:
     }
 
 private:
-public:
     // static constexpr auto _hash_array() noexcept {
     //     return neutron::make_hash_array<components>();
     // }
