@@ -218,6 +218,6 @@
     #define ATOM_RETHROW throw
 #else
     #define ATOM_TRY
-    #define ATOM_CATCH(...)
+    #define ATOM_CATCH(...) if (false)
     #define ATOM_RETHROE
 #endif
