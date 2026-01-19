@@ -12,6 +12,7 @@
 #include <iterator>
 #include <type_traits>
 #include <utility>
+#include "neutron/detail/macros.hpp"
 
 #ifdef _MSC_VER
     #define SKA_NOINLINE(...) __declspec(noinline) __VA_ARGS__
@@ -151,8 +152,8 @@ struct sherwood_v3_entry {
     };
 };
 
-inline int8_t log2(size_t value) {
-    static constexpr int8_t table[64] = {
+constexpr int8_t log2(size_t value) {
+    ATOM_STATIC_SINCE_CXX23 constexpr std::array<int8_t, 64> table = {
         63, 0,  58, 1,  59, 47, 53, 2,  60, 39, 48, 27, 54, 33, 42, 3,
         61, 51, 37, 40, 49, 18, 28, 20, 55, 30, 34, 11, 43, 14, 22, 4,
         62, 57, 46, 52, 38, 26, 32, 41, 50, 36, 17, 19, 29, 10, 13, 21,
@@ -178,7 +179,7 @@ struct AssignIfTrue<T, false> {
     void operator()(T&, T&&) {}
 };
 
-inline size_t next_power_of_two(size_t i) {
+constexpr size_t next_power_of_two(size_t i) {
     --i;
     i |= i >> 1;
     i |= i >> 2;
