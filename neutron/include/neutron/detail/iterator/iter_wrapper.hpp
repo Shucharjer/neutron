@@ -25,8 +25,12 @@ public:
 
     constexpr _iter_wrapper() noexcept = default;
 
+    // allow implicit conversion between iterator and const_iterator wrappers
+    // Accepts e.g. _iter_wrapper<int*> -> _iter_wrapper<const int*>
     template <typename T>
-    constexpr _iter_wrapper(const _iter_wrapper<T>& that) noexcept;
+    requires(std::is_convertible_v<T, Ty*>)
+    constexpr _iter_wrapper(const _iter_wrapper<T>& that) noexcept
+        : iter_(that.base()) {}
 
     constexpr reference operator*() const noexcept { return *iter_; }
     constexpr pointer operator->() const noexcept { return iter_; }
@@ -111,6 +115,18 @@ template <typename It1, typename It2>
 constexpr bool operator!=(
     const _iter_wrapper<It1>& lhs, const _iter_wrapper<It2>& rhs) noexcept {
     return lhs.base() != rhs.base();
+}
+
+template <typename It>
+constexpr bool operator==(
+    const _iter_wrapper<It>& lhs, const _iter_wrapper<It>& rhs) noexcept {
+    return lhs.base() == rhs.base();
+}
+
+template <typename It1, typename It2>
+constexpr bool operator==(
+    const _iter_wrapper<It1>& lhs, const _iter_wrapper<It2>& rhs) noexcept {
+    return lhs.base() == rhs.base();
 }
 
 } // namespace neutron
