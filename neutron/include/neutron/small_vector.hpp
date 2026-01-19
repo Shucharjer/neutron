@@ -2,6 +2,7 @@
 #pragma once
 #include <algorithm>
 #include <cassert>
+#include <concepts>
 #include <cstddef>
 #include <initializer_list>
 #include <iterator>
@@ -10,8 +11,6 @@
 #include <stdexcept>
 #include <type_traits>
 #include <utility>
-#include <neutron/memory.hpp>
-#include "neutron/detail/macros.hpp"
 #include "neutron/detail/concepts/nothrow_conditional_movable.hpp"
 #include "neutron/detail/iterator/iter_wrapper.hpp"
 #include "neutron/detail/macros.hpp"
@@ -29,7 +28,7 @@ class small_vector {
         typename std::allocator_traits<Alloc>::template rebind_alloc<T>;
 
     union _storage {
-        alignas(Ty) std::byte dummy[sizeof(Ty)]; // NOLINT
+        alignas(Ty) std::byte dummy[sizeof(Ty)]{}; // NOLINT
         Ty data;
 
         constexpr _storage() noexcept                  = default;
@@ -37,7 +36,8 @@ class small_vector {
         constexpr _storage& operator=(const _storage&) = delete;
         constexpr _storage(_storage&&)                 = delete;
         constexpr _storage& operator=(_storage&&)      = delete;
-        constexpr ~_storage() noexcept                 = default;
+        // Do not invoke member destructor here; owner manages lifetime
+        ~_storage() noexcept {}
     };
     using _truely_alloc = _allocator_t<Ty>;
 
@@ -54,14 +54,24 @@ public:
     using iterator        = _iter_wrapper<Ty*>;
     using const_iterator  = _iter_wrapper<const Ty*>;
 
+    // default and allocator constructors
+    constexpr small_vector() noexcept(
+        std::is_nothrow_default_constructible_v<_truely_alloc>)
+        : alloc_() {}
+
     template <typename Al = Alloc>
-    constexpr small_vector(const Al& alloc = {}) noexcept : alloc_(alloc) {}
+    requires std::convertible_to<_truely_alloc, allocator_type>
+    constexpr explicit small_vector(const Al& alloc) noexcept
+    requires(std::same_as<std::remove_cvref_t<Al>, Alloc>)
+        : alloc_(allocator_type(alloc)) {}
 
     // size constructors
     template <typename Al = Alloc>
+    requires std::convertible_to<_truely_alloc, allocator_type>
     explicit ATOM_CONSTEXPR_SINCE_CXX26
-        small_vector(size_type count, const Al& alloc)
-        : alloc_(alloc) {
+        small_vector(size_type count, const Al& alloc = {})
+    requires(std::same_as<std::remove_cvref_t<Al>, Alloc>)
+        : alloc_(allocator_type(alloc)) {
         if (count == 0) {
             return;
         }
@@ -84,13 +94,12 @@ public:
         size_ = count;
     }
 
-    explicit ATOM_CONSTEXPR_SINCE_CXX26 small_vector(size_type count)
-        : small_vector(count, Alloc{}) {}
-
     template <typename Al = Alloc>
+    requires std::convertible_to<_truely_alloc, allocator_type>
     ATOM_CONSTEXPR_SINCE_CXX26
         small_vector(size_type count, const Ty& value, const Al& alloc = {})
-        : alloc_(alloc) {
+    requires(std::same_as<std::remove_cvref_t<Al>, Alloc>)
+        : alloc_(allocator_type(alloc)) {
         if (count == 0) {
             return;
         }
@@ -114,9 +123,11 @@ public:
     }
 
     template <std::input_iterator InputIter, typename Al = Alloc>
+    requires std::convertible_to<Al, _truely_alloc>
     constexpr small_vector(
         InputIter first, InputIter last, const Al& alloc = {})
-        : alloc_(alloc) {
+    requires(std::same_as<std::remove_cvref_t<Al>, Alloc>)
+        : alloc_(allocator_type(alloc)) {
         if constexpr (std::forward_iterator<InputIter>) {
             _init_with_size(first, last);
         } else {
@@ -125,9 +136,11 @@ public:
     }
 
     template <typename Al = Alloc>
+    requires std::convertible_to<Al, allocator_type>
     ATOM_CONSTEXPR_SINCE_CXX26
         small_vector(std::initializer_list<Ty> ilist, const Al& alloc = {})
-        : alloc_(alloc) {
+    requires(std::same_as<std::remove_cvref_t<Al>, Alloc>)
+        : alloc_(allocator_type(alloc)) {
         _init_with_size(ilist.begin(), ilist.end());
     }
 
@@ -180,8 +193,10 @@ public:
     }
 
     template <typename Al = Alloc>
+    requires std::convertible_to<Al, allocator_type>
     constexpr small_vector(small_vector&& that, const Al& alloc = {})
-        : alloc_(alloc) {
+    requires(std::same_as<std::remove_cvref_t<Al>, Alloc>)
+        : alloc_(allocator_type(alloc)) {
         if (that.size_ == 0) {
             return;
         }
@@ -642,7 +657,6 @@ public:
             }
         }
         ATOM_CATCH(...) { std::destroy_n(ptr, idx); }
-        size_ = count;
         size_ = count;
     }
 
