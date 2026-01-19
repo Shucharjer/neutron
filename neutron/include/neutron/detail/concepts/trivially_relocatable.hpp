@@ -3,6 +3,10 @@
 
 namespace neutron {
 
+#ifndef __has_feature
+    #define __has_feature(x) 0
+#endif
+
 #if __has_feature(__cpp_trivial_relocatability) &&                             \
     __cpp_trivial_relocatability >= 202502L
 

@@ -13,6 +13,14 @@
 
 #include <version>
 
+// Feature-detection fallbacks for non-clang compilers
+#ifndef __has_feature
+    #define __has_feature(x) 0
+#endif
+#ifndef __has_builtin
+    #define __has_builtin(x) 0
+#endif
+
 // Compiler-specific function name macros
 
 #ifdef _MSC_VER
