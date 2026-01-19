@@ -44,7 +44,7 @@ struct type_list_sort<Predicate, Template<Tys...>> {
     using left = typename type_list_sort<
         Predicate, type_list_filt_t<comp, pop_first_t>>::type;
     using right = typename type_list_sort<
-        Predicate, type_list_erase_in_t<left, pop_first_t>>::type;
+        Predicate, type_list_erase_in_t<pop_first_t, left>>::type;
     using type = type_list_cat_t<left, Template<pivot_t>, right>;
 };
 template <template <typename, typename> typename Predicate, typename TypeList>
