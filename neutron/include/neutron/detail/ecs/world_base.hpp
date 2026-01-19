@@ -19,7 +19,6 @@
 #include "neutron/metafn.hpp"
 #include "neutron/shift_map.hpp"
 #include "neutron/small_vector.hpp"
-#include "neutron/type_hash.hpp"
 #include "neutron/utility.hpp"
 
 namespace neutron {
@@ -59,7 +58,7 @@ class world_base {
     template <typename Ty>
     using _vector_t = std::vector<Ty, _allocator_t<Ty>>;
 
-    using archetype = archetype<Alloc>;
+    using archetype = ::neutron::archetype<Alloc>;
 
     template <
         typename Kty, typename Ty, typename Hasher = std::hash<Kty>,
@@ -408,8 +407,8 @@ namespace std {
 
 template <>
 struct hash<neutron::_world_base::_hash_transition> {
-    constexpr size_t operator()(const neutron::_world_base::_hash_transition&
-                                    transition) const noexcept {
+    size_t operator()(const neutron::_world_base::_hash_transition& transition)
+        const noexcept {
         return hash<uint64_t>{}(transition.from) ^
                (hash<uint64_t>{}(transition.delta) << 1);
     }

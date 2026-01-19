@@ -15,12 +15,16 @@
 #include <type_traits>
 #include <utility>
 #include <vector>
+#include "neutron/concepts.hpp"
 #include "neutron/detail/ecs/component.hpp"
 #include "neutron/detail/ecs/entity.hpp"
 #include "neutron/detail/ecs/fwd.hpp"
+#include "neutron/detail/metafn/make.hpp"
+#include "neutron/detail/reflection/hash.hpp"
+#include "neutron/detail/reflection/legacy/hash_of.hpp"
+#include "neutron/detail/tuple/rmcvref_first.hpp"
 #include "neutron/detail/utility/spreader.hpp"
 #include "neutron/shift_map.hpp"
-#include "neutron/type_hash.hpp"
 
 namespace neutron {
 
@@ -169,10 +173,8 @@ public:
 
     // using iterator        = _view::iterator<Components...>;
     using _type_list = neutron::type_list<std::remove_cvref_t<Components>...>;
-    using _sorted_list =
-        neutron::sorted_type_t<neutron::sorted_list_t<_type_list>>;
-
-    static constexpr auto indices = neutron::sort_index<_type_list>();
+    using _hash_list = hash_list_t<_type_list>;
+    using _hash_sequence = hash_sequence_t<_type_list>;
 
     static_assert(
         sizeof...(Components) > 0,
@@ -337,11 +339,9 @@ public:
     using difference_type = ptrdiff_t;
 
     // using iterator        = _view::iterator<Components...>;
-    using _type_list = neutron::type_list<std::remove_cvref_t<Components>...>;
-    using _sorted_list =
-        neutron::sorted_type_t<neutron::sorted_list_t<_type_list>>;
-
-    static constexpr auto indices = neutron::sort_index<_type_list>();
+    using _type_list     = type_list<std::remove_cvref_t<Components>...>;
+    using _hash_list     = hash_list_t<_type_list>;
+    using _hash_sequence = hash_sequence_t<_type_list>;
 
     static_assert(
         sizeof...(Components) > 0,
@@ -387,7 +387,7 @@ template <template <typename...> typename Vw, component... Components>
 struct _removed_empty<Vw<Components...>> {
     template <typename Ty>
     using predicate_type = std::negation<std::is_empty<Ty>>;
-    using type = neutron::type_list_filt_t<predicate_type, Vw<Components...>>;
+    using type           = type_list_filt_t<predicate_type, Vw<Components...>>;
 };
 
 } // namespace _view
@@ -467,7 +467,7 @@ static_assert(sizeof(basic_info) == sizeof(uint64_t));
  * @return A compile-time `std::array<basic_info, sizeof...(Tys)>`.
  */
 template <typename... Tys>
-consteval auto make_info(neutron::type_list<Tys...>) noexcept {
+consteval auto make_info(type_list<Tys...>) noexcept {
     return std::array{ basic_info::make<Tys>()... };
 }
 
@@ -482,9 +482,7 @@ consteval auto make_info(neutron::type_list<Tys...>) noexcept {
  */
 template <typename... Tys>
 consteval auto make_info() noexcept {
-    return make_info(
-        neutron::sorted_type_t<
-            neutron::sorted_list_t<neutron::type_list<Tys...>>>{});
+    return make_info(hash_list_t<type_list<Tys...>>{});
 }
 
 template <component... Comp>
@@ -546,10 +544,10 @@ public:
     using difference_type  = ptrdiff_t;
     using _hash_type       = uint32_t;
     using _hash_vector     = _vector_t<_hash_type>;
-    using _ctor_fn         = void (*)(void*, size_type);
-    using _mov_ctor_fn     = void* (*)(void*, size_type, void*);
-    using _mov_assign_fn   = void (*)(void*, void*);
-    using _dtor_fn         = void (*)(void*, size_type) noexcept;
+    using _ctor_fn         = void (*)(void* ptr, size_type n);
+    using _mov_ctor_fn     = void (*)(void* src, size_type n, void* dst);
+    using _mov_assign_fn   = void (*)(void* dst, void* src);
+    using _dtor_fn         = void (*)(void* ptr, size_type n) noexcept;
     using allocator_type   = _allocator_t<std::byte>;
     using allocator_traits = std::allocator_traits<allocator_type>;
 
@@ -564,47 +562,64 @@ public:
      */
     template <component... Components, typename Al = Alloc>
     requires(sizeof...(Components) != 0)
-    ATOM_CONSTEXPR_SINCE_CXX23 archetype(
-        neutron::immediately_t, neutron::type_list<Components...>,
-        const Al& alloc = {})
+    ATOM_CONSTEXPR_SINCE_CXX23
+        archetype(immediately_t, type_list<Components...>, const Al& alloc = {})
         : hash_list_(
-              std::initializer_list<uint32_t>{
-                  neutron::hash_of<Components>()... },
+              std::initializer_list<uint32_t>{ hash_of<Components>()... },
               alloc),
           basic_info_({ basic_info::make<Components>()... }, alloc),
           constructors_(
               { [](void* ptr, size_t n) noexcept(
                     std::is_nothrow_default_constructible_v<Components>) {
+                  if constexpr (std::is_empty_v<Components>) {
+                      return;
+                  }
+
                   auto* const first = static_cast<Components*>(ptr);
                   std::uninitialized_default_construct_n(first, n);
               }... },
               alloc),
           move_constructors_(
-              { [](void* dst, size_type n, void* src) noexcept(
+              { [](void* src, size_type n, void* dst) noexcept(
                     std::is_nothrow_move_constructible_v<Components> ||
-                    std::is_nothrow_copy_constructible_v<Components>) -> void* {
+                    std::is_nothrow_copy_constructible_v<Components>) {
+                  if constexpr (std::is_empty_v<Components>) {
+                      return;
+                  }
+
+                  constexpr auto align = _get_align(alignof(Components));
+                  constexpr auto alg   = static_cast<size_t>(align);
+
                   auto* const psrc = static_cast<Components*>(src);
                   auto* const pdst = static_cast<Components*>(dst);
-                  return static_cast<void*>(
-                      neutron::uninitialized_move_if_noexcept_n(psrc, n, pdst));
+                  uninitialized_move_if_noexcept_n(
+                      std::assume_aligned<alg>(psrc), n,
+                      std::assume_aligned<alg>(pdst));
               }... },
               alloc),
           move_assignments_(
               { [](void* dst, void* src) noexcept(
                     std::is_nothrow_move_assignable_v<Components>) {
+                  if constexpr (std::is_empty_v<Components>) {
+                      return;
+                  }
+
                   (*static_cast<Components*>(dst) =
                        std::move(*static_cast<Components*>(src)));
               }... },
               alloc),
           destructors_(
               { [](void* ptr, size_type n) noexcept {
+                  if constexpr (std::is_empty_v<Components>) {
+                      return;
+                  }
+
                   std::destroy_n(static_cast<Components*>(ptr), n);
               }... },
               alloc),
           storage_(sizeof...(Components), alloc), capacity_(initial_capacity),
-          hash_(neutron::make_array_hash<neutron::type_list<Components...>>()),
+          hash_(make_array_hash<type_list<Components...>>()),
           entity2index_(alloc), index2entity_(alloc) {
-        using namespace neutron;
         [this]<size_t... Is>(std::index_sequence<Is...>) {
             (_set_storage<Is, Components...>(), ...);
         }(std::index_sequence_for<Components...>());
@@ -617,13 +632,9 @@ public:
      */
     template <component... Components, typename Al = Alloc>
     requires(sizeof...(Components) != 0)
-    constexpr archetype(
-        neutron::type_spreader<Components...>, const Al& alloc = {})
+    constexpr archetype(type_spreader<Components...>, const Al& alloc = {})
         : archetype(
-              neutron::immediately,
-              neutron::sorted_type_t<
-                  neutron::sorted_list_t<neutron::type_list<Components...>>>{},
-              alloc) {}
+              immediately, hash_list_t<type_list<Components...>>{}, alloc) {}
 
     template <component... Components>
     archetype(const archetype& archetype, add_components_t<Components...>)
@@ -638,11 +649,10 @@ public:
           index2entity_(archetype.get_allocator())
     //   created_(archetype.get_allocator())
     {
-        using namespace neutron;
-        using sorted_list =
-            sorted_type_t<sorted_list_t<type_list<Components...>>>;
+        using hash_list =
+            hash_list_t<type_list<std::remove_cvref_t<Components>...>>;
         constexpr auto hash_array = make_hash_array<type_list<Components...>>();
-        constexpr auto metainfo   = _get_metainfo(sorted_list{});
+        constexpr auto metainfo   = _get_metainfo(hash_list{});
         constexpr auto newinfo    = std::get<0>(metainfo);
 
         const auto size = archetype.hash_list_.size();
@@ -658,7 +668,7 @@ public:
                 move_assignments_.push_back(archetype.move_assignments_[i]);
                 destructors_.push_back(archetype.destructors_[i]);
                 const auto align = _get_align(info.align);
-                auto* const ptr  = _get_ptr(info.size, align);
+                auto* const ptr  = _get_ptr(info.size, initial_capacity, align);
                 storage_.emplace_back(ptr, _buffer_deletor{ align });
                 ++i;
             } else {
@@ -670,7 +680,7 @@ public:
                 move_assignments_.push_back(std::get<3>(metainfo)[j]);
                 destructors_.push_back(std::get<4>(metainfo)[j]);
                 const auto align = _get_align(info.align);
-                auto* const ptr  = _get_ptr(info.size, align);
+                auto* const ptr  = _get_ptr(info.size, initial_capacity, align);
                 storage_.emplace_back(ptr, _buffer_deletor{ align });
                 ++j;
             }
@@ -684,7 +694,7 @@ public:
             move_assignments_.push_back(archetype.move_assignments_[i]);
             destructors_.push_back(archetype.destructors_[i]);
             const auto align = _get_align(info.align);
-            auto* const ptr  = _get_ptr(info.size, align);
+            auto* const ptr  = _get_ptr(info.size, initial_capacity, align);
             storage_.emplace_back(ptr, _buffer_deletor{ align });
         }
         for (; j < hash_array.size(); ++j) {
@@ -696,7 +706,7 @@ public:
             move_assignments_.push_back(std::get<3>(metainfo)[j]);
             destructors_.push_back(std::get<4>(metainfo)[j]);
             const auto align = _get_align(info.align);
-            auto* const ptr  = _get_ptr(info.size, align);
+            auto* const ptr  = _get_ptr(info.size, initial_capacity, align);
             storage_.emplace_back(ptr, _buffer_deletor{ align });
         }
         capacity_ = initial_capacity;
@@ -715,7 +725,6 @@ public:
           storage_(archetype.get_allocator()),
           entity2index_(archetype.get_allocator()),
           index2entity_(archetype.get_allocator()) {
-        using namespace neutron;
         constexpr auto hash_array = make_hash_array<type_list<Components...>>();
 
         const auto size = archetype.hash_list_.size();
@@ -734,7 +743,7 @@ public:
                     archetype.move_assignments_[offset]);
                 destructors_.push_back(archetype.destructors_[offset]);
                 const auto align = _get_align(info.align);
-                auto* const ptr  = _get_ptr(info.size, align);
+                auto* const ptr  = _get_ptr(info.size, initial_capacity, align);
                 storage_.emplace_back(ptr, _buffer_deletor{ align });
                 ++offset;
             } else {
@@ -751,7 +760,7 @@ public:
             move_assignments_.push_back(archetype.move_assignments_[offset]);
             destructors_.push_back(archetype.destructors_[offset]);
             const auto align = _get_align(info.align);
-            auto* const ptr  = _get_ptr(info.size, align);
+            auto* const ptr  = _get_ptr(info.size, initial_capacity, align);
             storage_.emplace_back(ptr, _buffer_deletor{ align });
         }
         capacity_ = initial_capacity;
@@ -811,7 +820,7 @@ public:
     template <typename... Args>
     ATOM_NODISCARD constexpr bool has() const noexcept {
         if constexpr (sizeof...(Args) == 1U) {
-            constexpr auto hash = neutron::hash_of<Args...>();
+            constexpr auto hash = hash_of<Args...>();
             return std::binary_search(
                 this->hash_list_.begin(), this->hash_list_.end(), hash);
         } else {
@@ -823,22 +832,19 @@ public:
 
     template <component... Components>
     ATOM_NODISCARD auto emplace(entity_t entity) {
-        constexpr uint64_t combined_hash =
-            neutron::make_array_hash<neutron::type_list<Components...>>();
+        using type_list                  = type_list<Components...>;
+        using hash_list                  = hash_list_t<type_list>;
+        constexpr uint64_t combined_hash = make_array_hash<type_list>();
         assert(combined_hash == hash_);
 
-        using namespace neutron;
-        using sorted_list  = sorted_list_t<type_list<Components...>>;
-        using sorted_types = sorted_type_t<sorted_list>;
-
-        _emplace(entity, sorted_types{});
+        _emplace(entity, hash_list{});
     }
 
     template <component... Components>
     ATOM_NODISCARD constexpr auto
         emplace(entity_t entity, Components&&... components) {
-        constexpr uint64_t combined_hash = neutron::make_array_hash<
-            neutron::type_list<std::remove_cvref_t<Components>...>>();
+        constexpr uint64_t combined_hash =
+            make_array_hash<type_list<std::remove_cvref_t<Components>...>>();
         assert(combined_hash == hash_);
 
         _emplace(entity, std::forward<Components>(components)...);
@@ -920,11 +926,9 @@ public:
     template <component... Components>
     ATOM_NODISCARD constexpr auto get()
         -> std::array<std::byte*, sizeof...(Components)> {
-        using namespace neutron;
-        using type_list   = type_list<std::remove_cvref_t<Components>...>;
-        using sorted_list = sorted_list_t<type_list>;
-        using sorted_type = sorted_type_t<sorted_list>;
-        auto sorted       = _get_sorted(sorted_type{});
+        using type_list = type_list<std::remove_cvref_t<Components>...>;
+        using hash_list = hash_list_t<type_list>;
+        auto sorted     = _get_sorted(hash_list{});
         return _apply_indices(sorted, type_list{});
     }
 
@@ -964,14 +968,18 @@ private:
     }
 
     constexpr static std::byte*
-        _get_ptr(size_t size, std::align_val_t align) noexcept {
-        return static_cast<std::byte*>(
-            ::operator new(size * initial_capacity, align));
+        _get_ptr(size_t size, size_type n, std::align_val_t align) {
+        return static_cast<std::byte*>(::operator new(size * n, align));
+    }
+
+    constexpr static _buffer_ptr
+        _get_buffer(size_t size, size_type n, std::align_val_t align) {
+        return _buffer_ptr{ _get_ptr(size, n, align),
+                            _buffer_deletor{ align } };
     }
 
     template <size_t Index, component... SortedComponents>
     ATOM_CONSTEXPR_SINCE_CXX23 void _set_storage() {
-        using namespace neutron;
         using type = type_list_element_t<Index, type_list<SortedComponents...>>;
         constexpr auto align = _get_align(alignof(type));
 
@@ -981,13 +989,11 @@ private:
 
         _buffer_ptr& data = storage_[Index];
 
-        data = _buffer_ptr{ _get_ptr(sizeof(type), align),
-                            _buffer_deletor{ align } };
+        data = _get_buffer(sizeof(type), initial_capacity, align);
     }
 
     template <component... SortedComponents>
-    consteval auto
-        _get_metainfo(neutron::type_list<SortedComponents...>) noexcept {
+    consteval auto _get_metainfo(type_list<SortedComponents...>) noexcept {
         constexpr std::array basic_info   = make_info<SortedComponents...>();
         constexpr std::array constructors = {
             [](void* ptr, size_type n) noexcept(
@@ -999,14 +1005,13 @@ private:
             }...
         };
         constexpr std::array move_constructors = {
-            [](void* dst, size_type n, void* src) noexcept(
+            [](void* src, size_type n, void* dst) noexcept(
                 std::is_nothrow_move_constructible_v<SortedComponents> ||
                 std::is_nothrow_copy_constructible_v<SortedComponents>) {
                 if constexpr (!std::is_empty_v<SortedComponents>) {
-                    auto* const ofirst = static_cast<SortedComponents*>(dst);
                     auto* const ifirst = static_cast<SortedComponents*>(src);
-                    neutron::uninitialized_move_if_noexcept_n(
-                        ifirst, n, ofirst);
+                    auto* const ofirst = static_cast<SortedComponents*>(dst);
+                    uninitialized_move_if_noexcept_n(ifirst, n, ofirst);
                 }
             }...
         };
@@ -1043,30 +1048,27 @@ private:
     }
 
     constexpr auto _emplace_normally() {
-        size_type idx = 0;
-        auto guard    = neutron::make_exception_guard([this, &idx]() noexcept {
-            for (auto i = idx; i >= 0; --i) {
+        int64_t idx = 0;
+        auto guard  = make_exception_guard([this, &idx]() noexcept {
+            for (int64_t i = idx - 1; i-- > 0;) {
                 const basic_info info = basic_info_[i];
-                if (info.size == 0) {
-                    continue;
-                }
 
                 _buffer_ptr& data = storage_[i];
                 auto* const ptr   = data.get();
-                destructors_[i](ptr + (idx * info.size), 1);
+                destructors_[i](
+                    ptr + (static_cast<size_t>(idx) * info.size), 1);
             }
         });
 
-        for (auto i = 0; i < hash_list_.size(); ++i) {
-            const basic_info info = basic_info_[i];
-            if (info.size == 0) {
-                continue;
-            }
+        for (; idx < hash_list_.size(); ++idx) {
+            const basic_info info = basic_info_[idx];
 
-            _buffer_ptr& data = storage_[i];
+            _buffer_ptr& data = storage_[idx];
             auto* const ptr   = data.get();
-            constructors_[i](ptr + (size_ * info.size), 1);
+            constructors_[idx](ptr + (size_ * info.size), 1);
         }
+
+        guard.mark_complete();
     }
 
     auto _prepare_for_relocation(
@@ -1079,18 +1081,16 @@ private:
             }
 
             const auto align = _get_align(info.align);
-
-            buffers[i] = _buffer_ptr{ _get_ptr(info.size, align),
-                                      _buffer_deletor{ align } };
+            buffers[i]       = _get_buffer(info.size, capacity, align);
         }
     }
 
     auto
         _relocate_data(const size_type kinds, _vector_t<_buffer_ptr>& buffers) {
-        size_type idx = kinds - 1;
-        auto guard    = neutron::make_exception_guard(
-            [this, kinds, &idx, &buffers]() noexcept {
-                for (size_type i = idx; i < kinds; ++i) {
+        auto idx = static_cast<int64_t>(kinds);
+        auto guard =
+            make_exception_guard([this, kinds, &idx, &buffers]() noexcept {
+                for (size_type i = idx + 1; i < kinds; ++i) {
                     const basic_info info = basic_info_[i];
                     if (info.size == 0) {
                         continue;
@@ -1098,17 +1098,15 @@ private:
                     destructors_[i](buffers[i].get(), size_);
                 }
             });
-        for (; idx >= 0; --idx) {
+        for (; idx-- > 0;) {
             const basic_info info = basic_info_[idx];
             if (info.size == 0) {
                 continue;
             }
 
-            void* const dst = buffers[idx].get();
-
             // NOTE: move_constructors_ uses uninitialized_move_if_noexcept_n
             move_constructors_[idx](
-                buffers[idx].get(), size_, storage_[idx].get());
+                storage_[idx].get(), size_, buffers[idx].get());
         }
         guard.mark_complete();
         for (size_type i = 0; i < kinds; ++i) {
@@ -1129,8 +1127,8 @@ private:
 
     template <
         size_t Index, typename TypeList,
-        typename Ty = neutron::type_list_element_t<Index, TypeList>>
-    auto _prepare_for_relocation(
+        typename Ty = type_list_element_t<Index, TypeList>>
+    void _prepare_for_relocation(
         _vector_t<_buffer_ptr>& buffers,
         size_type capacity) noexcept(std::is_empty_v<Ty>) {
         if constexpr (std::is_empty_v<Ty>) {
@@ -1138,19 +1136,15 @@ private:
         }
 
         constexpr auto align = _get_align(alignof(Ty));
-
-        auto* const ptr = static_cast<std::byte*>(
-            ::operator new(sizeof(Ty) * capacity, align));
-        buffers[Index] = _buffer_ptr{ ptr, _buffer_deletor{ align } };
+        buffers[Index]       = _get_buffer(sizeof(Ty), capacity, align);
     }
 
     template <
         size_t Index, typename TypeList,
-        typename Ty = neutron::type_list_element_t<Index, TypeList>>
-    requires neutron::nothrow_conditional_movable<Ty>
-    auto _relocate_data(
+        typename Ty = type_list_element_t<Index, TypeList>>
+    void _relocate_data(
         _vector_t<_buffer_ptr>& buffers,
-        [[maybe_unused]] size_type& succ) noexcept {
+        size_type& succ) noexcept(nothrow_conditional_movable<Ty>) {
         if constexpr (std::is_empty_v<Ty>) {
             return;
         }
@@ -1159,40 +1153,17 @@ private:
         constexpr auto alg   = static_cast<size_t>(align);
 
         _buffer_ptr& data = storage_[Index];
-        auto* const src =
-            std::assume_aligned<alg>(reinterpret_cast<Ty*>(data.get()));
-        auto* const dst = std::assume_aligned<alg>(
-            reinterpret_cast<Ty*>(buffers[Index].get()));
-        if constexpr (neutron::trivially_relocatable<Ty>) {
-            std::memcpy(dst, src, sizeof(Ty) * size_);
-        } else {
-            neutron::uninitialized_move_if_noexcept_n(
-                std::assume_aligned<alg>(src), size_,
-                std::assume_aligned<alg>(dst));
-        }
-        ++succ;
-    }
-
-    template <
-        size_t Index, typename TypeList,
-        typename Ty = neutron::type_list_element_t<Index, TypeList>>
-    requires(!neutron::nothrow_conditional_movable<Ty>)
-    auto _relocate_data(_vector_t<_buffer_ptr>& buffers, size_type& succ) {
-        constexpr auto align     = _get_align(alignof(Ty));
-        constexpr auto alignment = static_cast<size_t>(align);
-
-        _buffer_ptr& data = storage_[Index];
         auto* const src   = reinterpret_cast<Ty*>(data.get());
         auto* const dst   = reinterpret_cast<Ty*>(buffers[Index].get());
-        neutron::uninitialized_move_if_noexcept_n(
-            std::assume_aligned<alignment>(src), size_,
-            std::assume_aligned<alignment>(dst));
+        uninitialized_move_if_noexcept_n(
+            std::assume_aligned<alg>(src), size_,
+            std::assume_aligned<alg>(dst));
         ++succ;
     }
 
     template <
         size_t Index, typename TypeList,
-        typename Ty = neutron::type_list_element_t<Index, TypeList>>
+        typename Ty = type_list_element_t<Index, TypeList>>
     auto _clean_for_relocation(
         _vector_t<_buffer_ptr>& buffers, size_type succ) noexcept {
         if constexpr (std::is_empty_v<Ty>) {
@@ -1204,56 +1175,50 @@ private:
 
         if (Index < succ) {
             _buffer_ptr& data = buffers[Index];
-            auto* const ptr =
-                std::assume_aligned<alg>(reinterpret_cast<Ty*>(data.get()));
-            std::destroy_n(ptr, size_);
+            auto* const ptr   = reinterpret_cast<Ty*>(data.get());
+            std::destroy_n(std::assume_aligned<alg>(ptr), size_);
         }
     }
 
     template <
         size_t Index, typename TypeList,
-        typename Ty = neutron::type_list_element_t<Index, TypeList>>
+        typename Ty = type_list_element_t<Index, TypeList>>
     auto _apply_relocation() noexcept {
+        constexpr auto align = _get_align(alignof(Ty));
+        constexpr auto alg   = static_cast<size_t>(align);
+
         auto* const ptr = reinterpret_cast<Ty*>(storage_[Index].get());
-        std::destroy_n(ptr, size_);
+        std::destroy_n(std::assume_aligned<alg>(ptr), size_);
     }
 
     template <component... Components>
-    auto _apply_relocation(_vector_t<_buffer_ptr>& buffers) noexcept {
-        using tlist = neutron::type_list<Components...>;
-        [this]<size_t... Is>(std::index_sequence<Is...>) {
-            (_apply_relocation<Is, tlist>(), ...);
-        }(std::index_sequence_for<Components...>());
-        storage_ = std::move(buffers);
-    }
-
-    template <component... Components>
-    requires(neutron::nothrow_conditional_movable<Components> && ...)
+    requires(nothrow_conditional_movable<Components> && ...)
     auto _relocate(size_type capacity) {
-        using tlist          = neutron::type_list<Components...>;
+        using tlist          = type_list<Components...>;
         constexpr auto count = sizeof...(Components);
-        [this, capacity]<size_t... Is>(std::index_sequence<Is...>) {
-            _vector_t<_buffer_ptr> buffers(count, storage_.get_allocator());
+        _vector_t<_buffer_ptr> buffers(count, storage_.get_allocator());
+        [this, &buffers, capacity]<size_t... Is>(std::index_sequence<Is...>) {
             (_prepare_for_relocation<Is, tlist>(buffers, capacity), ...);
             [[maybe_unused]] size_type succ = 0;
-            (_relocate_data<Is, tlist>(buffers, succ), ...);
+            (..., _relocate_data<Is, tlist>(buffers, succ));
             (_apply_relocation<Is, tlist>(), ...);
-            storage_ = std::move(buffers);
         }(std::index_sequence_for<Components...>());
+        storage_  = std::move(buffers);
         capacity_ = capacity;
     }
 
     template <component... Components>
-    requires(!(neutron::nothrow_conditional_movable<Components> && ...))
-    auto _relocate(size_type capacity) {
-        using tlist        = neutron::type_list<Components...>;
+    requires(!(nothrow_conditional_movable<Components> && ...))
+    void _relocate(size_type capacity) {
+        using tlist        = type_list<Components...>;
         constexpr auto num = sizeof...(Components);
 
         [this, capacity]<size_t... Is>(std::index_sequence<Is...>) {
             _vector_t<_buffer_ptr> buffers(num, storage_.get_allocator());
             (_prepare_for_relocation<Is, tlist>(buffers), ...);
             size_type succ = 0;
-            auto guard     = neutron::make_exception_guard([this, &succ] {
+            auto guard     = make_exception_guard([this, &buffers,
+                                               &succ]() noexcept {
                 if (succ != num) [[unlikely]] {
                     ((_clean_for_relocation<Is, tlist>(buffers, succ)), ...);
                 }
@@ -1270,7 +1235,7 @@ private:
 
     template <
         size_t Index, typename TypeList,
-        typename Ty = neutron::type_list_element_t<Index, TypeList>>
+        typename Ty = type_list_element_t<Index, TypeList>>
     requires std::is_nothrow_default_constructible_v<Ty>
     constexpr void _emplace_one_normally_noexcept() noexcept {
         if constexpr (std::is_empty_v<Ty>) {
@@ -1286,15 +1251,14 @@ private:
     requires(std::is_nothrow_default_constructible_v<Components> && ...)
     constexpr void _emplace_normally() noexcept {
         [this]<size_t... Is>(std::index_sequence<Is...>) {
-            (_emplace_one_normally_noexcept<
-                 Is, neutron::type_list<Components...>>(),
+            (_emplace_one_normally_noexcept<Is, type_list<Components...>>(),
              ...);
         }(std::index_sequence_for<Components...>());
     }
 
     template <
         size_t Index, typename TypeList,
-        typename Ty = neutron::type_list_element_t<Index, TypeList>>
+        typename Ty = type_list_element_t<Index, TypeList>>
     constexpr void _emplace_one_normally(size_t& succ) noexcept(
         std::is_nothrow_default_constructible_v<Ty>) {
         if constexpr (std::is_empty_v<Ty>) {
@@ -1309,7 +1273,7 @@ private:
 
     template <
         size_t Index, typename TypeList,
-        typename Ty = neutron::type_list_element_t<Index, TypeList>>
+        typename Ty = type_list_element_t<Index, TypeList>>
     void _clean_for_emplace_one(size_t succ) noexcept {
         if (Index < succ) {
             _buffer_ptr& data = storage_[Index];
@@ -1321,10 +1285,10 @@ private:
     template <component... Components>
     requires(!(std::is_nothrow_default_constructible_v<Components> && ...))
     void _emplace_normally() {
-        using tlist          = neutron::type_list<Components...>;
+        using tlist          = type_list<Components...>;
         constexpr size_t num = sizeof...(Components);
         size_t succ          = 0;
-        auto guard           = neutron::make_exception_guard([this, &succ] {
+        auto guard           = make_exception_guard([this, &succ] {
             if (succ != num) [[unlikely]] {
                 [this, succ]<size_t... Is>(std::index_sequence<Is...>) {
                     (_clean_for_emplace_one<Is, tlist>(succ), ...);
@@ -1338,9 +1302,9 @@ private:
     }
 
     template <component... Components>
-    auto _emplace(
-        entity_t entity, [[maybe_unused]] neutron::type_list<Components...>) {
+    auto _emplace(entity_t entity, [[maybe_unused]] type_list<Components...>) {
         const index_t index = size_;
+        println("_emplace");
         if (size_ == capacity_) [[unlikely]] {
             _relocate<Components...>(capacity_ << 1);
         }
@@ -1354,9 +1318,9 @@ private:
 
     template <
         size_t Index, typename TypeList, typename Tup,
-        typename Ty = neutron::type_list_element_t<Index, TypeList>>
+        typename Ty = type_list_element_t<Index, TypeList>>
     requires std::is_nothrow_constructible_v<
-        Ty, neutron::type_list_element_t<neutron::_rmcvref_first<Ty, Tup>, Tup>>
+        Ty, type_list_element_t<_rmcvref_first<Ty, Tup>, Tup>>
     constexpr void _emplace_one_val_normally_noexcept(Tup&& tup) noexcept {
         if constexpr (std::is_empty_v<Ty>) {
             return;
@@ -1364,20 +1328,18 @@ private:
 
         _buffer_ptr& data = storage_[Index];
         auto* const ptr   = data.get() + (sizeof(Ty) * size_);
-        ::new (ptr) Ty(neutron::rmcvref_first<Ty>(std::forward<Tup>(tup)));
+        ::new (ptr) Ty(rmcvref_first<Ty>(std::forward<Tup>(tup)));
     }
 
     template <component... SortedComponents, typename Tup>
     requires(
         std::is_nothrow_constructible_v<
             SortedComponents,
-            neutron::type_list_element_t<
-                neutron::_rmcvref_first<SortedComponents, Tup>, Tup>> &&
+            type_list_element_t<_rmcvref_first<SortedComponents, Tup>, Tup>> &&
         ...)
     constexpr void _emplace_vals_normally(
-        [[maybe_unused]] neutron::type_list<SortedComponents...>,
-        Tup&& tup) noexcept {
-        using tlist = neutron::type_list<SortedComponents...>;
+        [[maybe_unused]] type_list<SortedComponents...>, Tup&& tup) noexcept {
+        using tlist = type_list<SortedComponents...>;
         [this, &tup]<size_t... Is>(std::index_sequence<Is...>) {
             (_emplace_one_val_normally_noexcept<Is, tlist>(
                  std::forward<Tup>(tup)),
@@ -1387,9 +1349,9 @@ private:
 
     template <
         size_t Index, typename TypeList, typename Tup,
-        typename Ty = neutron::type_list_element_t<Index, TypeList>>
+        typename Ty = type_list_element_t<Index, TypeList>>
     requires std::is_nothrow_constructible_v<
-        Ty, neutron::type_list_element_t<neutron::_rmcvref_first<Ty, Tup>, Tup>>
+        Ty, type_list_element_t<_rmcvref_first<Ty, Tup>, Tup>>
     constexpr void
         _emplace_one_val_normally(Tup&& tup, size_type& succ) noexcept {
         if constexpr (std::is_empty_v<Ty>) {
@@ -1398,16 +1360,15 @@ private:
 
         _buffer_ptr& data = storage_[Index];
         auto* const ptr   = data.get() + (sizeof(Ty) * size_);
-        ::new (ptr) Ty(neutron::rmcvref_first<Ty>(std::forward<Tup>(tup)));
+        ::new (ptr) Ty(rmcvref_first<Ty>(std::forward<Tup>(tup)));
         ++succ;
     }
 
     template <
         size_t Index, typename TypeList, typename Tup,
-        typename Ty = neutron::type_list_element_t<Index, TypeList>>
+        typename Ty = type_list_element_t<Index, TypeList>>
     requires(!std::is_nothrow_constructible_v<
-             Ty, neutron::type_list_element_t<
-                     neutron::_rmcvref_first<Ty, Tup>, Tup>>)
+             Ty, type_list_element_t<_rmcvref_first<Ty, Tup>, Tup>>)
     constexpr void _emplace_one_val_normally(Tup&& tup, size_type& succ) {
         if constexpr (std::is_empty_v<Ty>) {
             return;
@@ -1415,25 +1376,24 @@ private:
 
         _buffer_ptr& data = storage_[Index];
         auto* const ptr   = data.get() + (sizeof(Ty) * size_);
-        ::new (ptr) Ty(neutron::rmcvref_first<Ty>(std::forward<Tup>(tup)));
+        ::new (ptr) Ty(rmcvref_first<Ty>(std::forward<Tup>(tup)));
         ++succ;
     }
 
     template <component... SortedComponents, typename Tup>
     constexpr void _emplace_vals_normally(
-        [[maybe_unused]] neutron::type_list<SortedComponents...>, Tup&& tup)
-    requires(
-        !(std::is_nothrow_constructible_v<
-              SortedComponents,
-              neutron::type_list_element_t<
-                  neutron::_rmcvref_first<SortedComponents, Tup>, Tup>> &&
-          ...))
+        [[maybe_unused]] type_list<SortedComponents...>, Tup&& tup)
+    requires(!(
+        std::is_nothrow_constructible_v<
+            SortedComponents,
+            type_list_element_t<_rmcvref_first<SortedComponents, Tup>, Tup>> &&
+        ...))
     {
-        using tlist = neutron::type_list<SortedComponents...>;
+        using tlist = type_list<SortedComponents...>;
 
         [this, &tup]<size_t... Is>(std::index_sequence<Is...>) {
             size_type succ = 0;
-            auto guard     = neutron::make_exception_guard([this, &succ] {
+            auto guard     = make_exception_guard([this, &succ] {
                 if (succ != sizeof...(SortedComponents)) {
                     (_clean_for_emplace_one<Is, tlist>(), ...);
                 }
@@ -1444,8 +1404,7 @@ private:
 
     template <component... SortedComponents, typename Tup>
     constexpr void _emplace(
-        entity_t entity,
-        [[maybe_unused]] neutron::type_list<SortedComponents...> sorted,
+        entity_t entity, [[maybe_unused]] type_list<SortedComponents...> sorted,
         Tup&& components) {
         const auto index = size_;
         if (size_ == capacity_) [[unlikely]] {
@@ -1459,9 +1418,8 @@ private:
 
     template <component... Components>
     constexpr void _emplace(entity_t entity, Components&&... components) {
-        using namespace neutron;
-        using sorted = sorted_type_t<
-            sorted_list_t<type_list<std::remove_cvref_t<Components>...>>>;
+        using sorted =
+            hash_list_t<type_list<std::remove_cvref_t<Components>...>>;
         _emplace(
             entity, sorted{},
             std::forward_as_tuple(std::forward<Components>(components)...));
@@ -1469,10 +1427,18 @@ private:
 
     // vw
 
+    template <size_t Index, typename TypeList>
+    constexpr void _get_sorted(auto& result, auto& hint) const noexcept {
+        using type = type_list_element_t<Index, TypeList>;
+
+        hint = std::lower_bound(hint, hash_list_.end(), hash_of<type>());
+        const auto index = std::distance(hash_list_.begin(), hint);
+        result[Index]    = storage_[index].get();
+    }
+
     template <component... Components>
-    constexpr auto _get_sorted(neutron::type_list<Components...>) const noexcept
+    constexpr auto _get_sorted(type_list<Components...>) const noexcept
         -> std::array<std::byte*, sizeof...(Components)> {
-        using namespace neutron;
         using type_list = type_list<Components...>;
         return [this]<size_t... Is>(std::index_sequence<Is...>) {
             std::array<std::byte*, sizeof...(Components)> result;
@@ -1482,20 +1448,11 @@ private:
         }(std::index_sequence_for<Components...>());
     }
 
-    template <size_t Index, typename TypeList>
-    constexpr void _get_sorted(auto& result, auto& hint) const noexcept {
-        using namespace neutron;
-        using type = type_list_element_t<Index, TypeList>;
-
-        hint = std::lower_bound(hint, hash_list_.end(), hash_of<type>());
-        const auto index = std::distance(hash_list_.begin(), hint);
-        result[Index]    = storage_[index].get();
-    }
-
     template <typename TypeList>
     constexpr auto _apply_indices(
         const auto& sorted, [[maybe_unused]] TypeList) const noexcept {
-        constexpr std::array indices = neutron::sort_index<TypeList>();
+        using index_sequence         = hash_sequence_t<TypeList>;
+        constexpr std::array indices = make_array<index_sequence>();
         std::remove_cvref_t<decltype(sorted)> result;
         for (size_t i = 0; i < indices.size(); ++i) {
             result[i] = sorted[indices[i]];
@@ -1513,8 +1470,7 @@ private:
     size_type size_{};
     size_type capacity_{};
     uint64_t hash_{};
-    neutron::shift_map<
-        entity_t, index_t, 256UL, neutron::half_bits<entity_t>, Alloc>
+    shift_map<entity_t, index_t, 256UL, half_bits<entity_t>, Alloc>
         entity2index_;
     // _vector_t<bool> created_;
     _vector_t<entity_t> index2entity_;

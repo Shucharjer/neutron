@@ -4,11 +4,13 @@
 #include <new>
 #include <utility>
 #include "neutron/detail/poly/vtable.hpp"
+#include "neutron/detail/reflection/hash.hpp"
+#include "neutron/detail/reflection/legacy/hash_of.hpp"
+// #include "neutron/detail/reflection/meta/hash_of.hpp"
+#include "neutron/detail/tuple/first.hpp"
 #include "neutron/detail/utility/exception_guard.hpp"
 #include "neutron/detail/utility/spreader.hpp"
 #include "neutron/metafn.hpp"
-#include "neutron/type_hash.hpp"
-
 
 namespace neutron {
 

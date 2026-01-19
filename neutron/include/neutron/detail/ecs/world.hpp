@@ -15,7 +15,6 @@
 #include "neutron/execution.hpp"
 #include "neutron/memory.hpp"
 #include "neutron/tuple.hpp"
-#include "neutron/type_hash.hpp"
 
 namespace neutron {
 
@@ -35,7 +34,7 @@ class basic_world<world_descriptor_t<>, Alloc> : public world_base<Alloc> {
 
 public:
     using allocator_type = Alloc;
-    using command_buffer = command_buffer<Alloc>;
+    using command_buffer = ::neutron::command_buffer<Alloc>;
     using query_type     = basic_query<Alloc>;
     using commands_type  = basic_commands<Alloc>;
     using sysinfo        = world_descriptor_t<>::sysinfo;
@@ -72,8 +71,8 @@ class basic_world : public world_base<Alloc> {
 
 public:
     using allocator_type = Alloc;
-    using archetype      = archetype<_byte_alloc>;
-    using command_buffer = command_buffer<_byte_alloc>;
+    using archetype      = ::neutron::archetype<_byte_alloc>;
+    using command_buffer = ::neutron::command_buffer<_byte_alloc>;
 
     using desc_traits = descriptor_traits<Descriptor>;
     using sysinfo     = typename desc_traits::sysinfo;
@@ -156,7 +155,7 @@ private:
                     return when_all((schedule(sch) | then([world] {
                                          _call_sys<Is, SysInfo::fn>{}(world);
                                      }))...);
-                }(std::index_sequence_for<SystemLists...>());
+                }(std::index_sequence_for<SysInfo...>());
                 sync_wait(std::move(all));
                 world->_apply_command_buffers();
             }
