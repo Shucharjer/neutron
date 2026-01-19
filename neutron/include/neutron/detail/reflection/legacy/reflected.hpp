@@ -1,3 +1,4 @@
+// IWYU pragma: private, include <neutron/reflection.hpp>
 #pragma once
 #include <string_view>
 #include <tuple>
@@ -5,8 +6,8 @@
 #include "./concepts.hpp"
 #include "./destroy.hpp"
 #include "./member_traits.hpp"
-#include "./name.hpp"
-#include "./type_hash.hpp"
+#include "./name_of.hpp"
+#include "./hash_of.hpp"
 #include "./type_traits.hpp"
 
 namespace neutron {

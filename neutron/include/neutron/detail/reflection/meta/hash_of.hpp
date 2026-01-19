@@ -1,6 +1,6 @@
 #pragma once
-#include "../hash.hpp"
-#include "./name.hpp"
+#include "neutron/detail/reflection/hash.hpp"
+#include "neutron/detail/reflection/meta/name_of.hpp"
 
 namespace neutron {
 

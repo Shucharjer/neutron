@@ -1,4 +1,6 @@
+// IWYU pragma: private, include <neutron/reflection.hpp>
 #pragma once
+#include <memory>
 #include "./concepts.hpp"
 #include "./member_count.hpp"
 

@@ -1,3 +1,4 @@
+// IWYU pragma: private, include <neutron/reflection.hpp>
 #pragma once
 #include <cstddef>
 #include <tuple>
@@ -14,8 +15,8 @@ struct member_type_of;
 template <std::size_t Index, reflectible Ty>
 requires default_reflectible_aggregate<Ty>
 struct member_type_of<Index, Ty> {
-    using type = std::remove_pointer_t<
-        std::tuple_element_t<Index, decltype(struct_to_tuple_view<Ty>())>>;
+    using type = std::remove_const_t<std::remove_pointer_t<
+        std::tuple_element_t<Index, decltype(struct_to_tuple_view<Ty>())>>>;
 };
 
 template <std::size_t Index, reflectible Ty>

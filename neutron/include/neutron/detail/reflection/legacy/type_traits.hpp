@@ -1,3 +1,4 @@
+// IWYU pragma: private, include <neutron/reflection.hpp>
 #pragma once
 #include <cstdint>
 #include "neutron/detail/concepts/value.hpp"

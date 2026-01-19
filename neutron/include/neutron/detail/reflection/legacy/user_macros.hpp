@@ -1,3 +1,4 @@
+// IWYU pragma: private, include <neutron/reflection.hpp>
 #pragma once
 
 namespace neutron::_reflection {

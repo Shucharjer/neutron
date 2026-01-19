@@ -2,6 +2,8 @@
 
 // IWYU pragma: begin_exports
 
+#include "neutron/detail/reflection/hash.hpp"
+
 #if __has_feature(reflection) && __cplusplus >= 202602L && false
 
     #include "neutron/detail/reflection/meta/reserve.hpp"
