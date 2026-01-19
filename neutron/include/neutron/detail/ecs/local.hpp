@@ -9,6 +9,7 @@
 #include "neutron/detail/ecs/systuple.hpp"
 #include "neutron/detail/ecs/world_accessor.hpp"
 #include "neutron/detail/tuple/first.hpp"
+#include "neutron/detail/tuple/shared_tuple.hpp"
 
 namespace neutron {
 

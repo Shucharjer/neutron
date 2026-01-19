@@ -19,7 +19,7 @@
 #include "neutron/detail/utility/const_identity.hpp"
 
 #if ATOM_HAS_CXX23
-    #include "neutron/detail/map_like.hpp"
+    #include "neutron/detail/concepts/map_like.hpp"
     #include "neutron/detail/ranges/concepts.hpp"
 #endif
 

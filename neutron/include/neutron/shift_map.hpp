@@ -20,7 +20,7 @@
 #include "neutron/packet_uint.hpp"
 
 #if ATOM_HAS_CXX23
-    #include "neutron/detail/map_like.hpp"
+    #include "neutron/detail/concepts/map_like.hpp"
 #endif
 
 namespace neutron {
