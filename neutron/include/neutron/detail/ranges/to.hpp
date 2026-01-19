@@ -2,7 +2,7 @@
 #pragma once
 #include <ranges>
 
-#if ATOM_HAS_CXX23 && false
+#if ATOM_HAS_CXX23
 
 namespace neutron::ranges {
 
