@@ -43,16 +43,17 @@ struct _fn_traits<Fn, Ret (*)(Args...)> {
     template <typename... Tys>
     using _systuple = systuple<Fn, Tys...>;
     using local     = type_list_rebind_t<
-            _systuple, type_list_first_t<type_list_filt_nempty_t<
-                           internal::_is_local, arg_list, type_list<local<>>>>>;
+            _systuple,
+            type_list_first_t<type_list_filt_nempty_t<
+                internal::_is_local, arg_list, type_list<::neutron::local<>>>>>;
 };
 
 template <stage Stage, auto Fn, typename... Requires>
 struct sysinfo {
-    static constexpr stage stage = Stage;
-    static constexpr auto fn     = Fn;
-    using fn_traits              = _fn_traits<Fn>;
-    using requirements           = type_list<Requires...>;
+    static constexpr auto stage = Stage;
+    static constexpr auto fn    = Fn;
+    using fn_traits             = _fn_traits<Fn>;
+    using requirements          = type_list<Requires...>;
 };
 
 template <typename, typename>
@@ -73,7 +74,9 @@ template <
     typename... RRequires>
 struct _has_before<
     sysinfo<Stage, LFn, LRequires...>, sysinfo<Stage, RFn, RRequires...>> {
-    static_assert(LFn != RFn, "Cannot compare with same system");
+    static_assert(
+        !std::same_as<value_list<LFn>, value_list<RFn>>,
+        "Cannot compare with same system");
 
     template <typename Require>
     using _predicate_type       = is_specific_value_list<before, Require>;
@@ -105,7 +108,9 @@ template <
     typename... RRequires>
 struct _has_after<
     sysinfo<Stage, LFn, LRequires...>, sysinfo<Stage, RFn, RRequires...>> {
-    static_assert(LFn != RFn, "Cannot compare with same system");
+    static_assert(
+        !std::same_as<value_list<LFn>, value_list<RFn>>,
+        "Cannot compare with same system");
 
     template <typename Require>
     using _predicate_type       = is_specific_value_list<after, Require>;
