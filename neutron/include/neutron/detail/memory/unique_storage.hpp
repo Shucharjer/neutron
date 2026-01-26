@@ -4,7 +4,7 @@
 #include <memory>
 #include "neutron/detail/concepts/allocator.hpp"
 #include "neutron/detail/macros.hpp"
-#include "neutron/detail/memory/alloc_traits.hpp"
+#include "neutron/detail/memory/using_allocator.hpp"
 #include "neutron/detail/utility/exception_guard.hpp"
 #include "neutron/detail/utility/immediately.hpp"
 #include "neutron/metafn.hpp"
@@ -50,17 +50,17 @@ class unique_storage :
     constexpr void _construct_it(Args&&... args) noexcept(
         std::is_nothrow_constructible_v<Ty, Args...>) {
         auto guard = make_exception_guard([this] {
-            traits_deallocate(get_allocator(), ptr_);
+            deallocate(get_allocator(), ptr_);
             ptr_ = nullptr;
         });
-        traits_construct(get_allocator(), ptr_, std::forward<Args>(args)...);
+        construct(get_allocator(), ptr_, std::forward<Args>(args)...);
         guard.mark_complete();
     }
 
     constexpr void _erase_without_clean() noexcept {
         // generally, the two functions shouldn't throw
-        traits_destroy(get_allocator(), ptr_);
-        traits_deallocate(get_allocator(), ptr_);
+        destroy(get_allocator(), ptr_);
+        deallocate(get_allocator(), ptr_);
     }
 
     constexpr void _erase() noexcept(noexcept(_erase_without_clean())) {
@@ -93,7 +93,7 @@ public:
         if (that_alloc == that.get_allocator()) {
             ptr_ = std::exchange(that.ptr_, nullptr);
         } else {
-            ptr_ = traits_allocate(that_alloc);
+            ptr_ = allocate(that_alloc);
             _construct_it(std::move(*that.ptr_));
             that._erase();
         }
@@ -147,7 +147,7 @@ public:
                         std::swap(ptr_, old_ptr);
                         *ptr_ = std::move(*that.ptr_);
                     } else {
-                        ptr_ = traits_allocate(get_allocator());
+                        ptr_ = allocate(get_allocator());
                         _construct_it(std::move(*that.ptr_));
                         that._erase_without_clean();
                     }
@@ -155,8 +155,8 @@ public:
             }
 
             if (old_ptr) {
-                traits_destroy(old_alloc, old_ptr);
-                traits_deallocate(old_alloc, old_ptr);
+                destroy(old_alloc, old_ptr);
+                deallocate(old_alloc, old_ptr);
             }
         }
         return *this;
@@ -169,7 +169,7 @@ public:
                 if (ptr_) {
                     *ptr_ = std::move(*that.ptr_);
                 } else {
-                    ptr_ = traits_allocate(get_allocator());
+                    ptr_ = allocate(get_allocator());
                     _construct_it(std::move(*that.ptr_));
                 }
                 that._erase();
@@ -202,13 +202,13 @@ public:
     explicit constexpr unique_storage(immediately_t)
     requires std::default_initializable<alloc_t> &&
                  std::default_initializable<Ty>
-        : alloc_t(), ptr_(traits_allocate(get_allocator())) {
+        : alloc_t(), ptr_(allocate(get_allocator())) {
         _construct_it();
     }
 
     constexpr unique_storage(
         std::allocator_arg_t, const allocator_type& alloc, immediately_t)
-        : alloc_t(alloc), ptr_(traits_allocate(get_allocator())) {
+        : alloc_t(alloc), ptr_(allocate(get_allocator())) {
         _construct_it();
     }
 
@@ -221,7 +221,7 @@ public:
     requires std::constructible_from<Ty, Args...>
     constexpr unique_storage(
         std::allocator_arg_t, const allocator_type& alloc, Args&&... args)
-        : alloc_t(alloc), ptr_(traits_allocate(get_allocator())) {
+        : alloc_t(alloc), ptr_(allocate(get_allocator())) {
         _construct_it(std::forward<Args>(args)...);
     }
 
