@@ -17,8 +17,6 @@
 #include "neutron/flat_hash_map.hpp"
 #include "neutron/memory.hpp"
 #include "neutron/metafn.hpp"
-#include "neutron/shift_map.hpp"
-#include "neutron/small_vector.hpp"
 #include "neutron/utility.hpp"
 
 namespace neutron {

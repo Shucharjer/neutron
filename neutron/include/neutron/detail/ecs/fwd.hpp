@@ -3,7 +3,6 @@
 #include <cstddef>
 #include <memory>
 #include <neutron/detail/concepts/allocator.hpp>
-#include <neutron/small_vector.hpp>
 
 namespace neutron {
 

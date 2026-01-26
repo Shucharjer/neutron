@@ -10,7 +10,7 @@
 #include "neutron/detail/ecs/world_accessor.hpp"
 #include "neutron/detail/type_traits/same_cvref.hpp"
 #include "neutron/metafn.hpp"
-#include "neutron/small_vector.hpp"
+#include "neutron/smvec.hpp"
 
 namespace neutron {
 
@@ -136,7 +136,7 @@ class basic_query<Alloc, Count, Filters...> {
     using _allocator_t = rebind_alloc_t<Alloc, Ty>;
 
     template <typename Ty>
-    using _vector_t = neutron::small_vector<Ty, 4, _allocator_t<Ty>>;
+    using _vector_t = neutron::smvec<Ty, 4, _allocator_t<Ty>>;
 
     using _archetype_t = archetype<_allocator_t<std::byte>>;
 
@@ -206,7 +206,7 @@ public:
     ATOM_NODISCARD size_t size() const noexcept { return archetypes_.size(); }
 
 private:
-    std::vector<archetype<_allocator_t<std::byte>>*> archetypes_;
+    _vector_t<_archetype_t*> archetypes_;
 };
 
 namespace internal {
