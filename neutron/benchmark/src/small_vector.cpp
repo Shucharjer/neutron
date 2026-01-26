@@ -1,14 +1,14 @@
-// Benchmarks for neutron::small_vector vs std::vector
+// Benchmarks for neutron::smvec vs std::vector
 #include <vector>
 #include <benchmark/benchmark.h>
-#include <neutron/small_vector.hpp>
+#include <neutron/smvec.hpp>
 
 using namespace neutron;
 
 static void BM_push_back_sbo(benchmark::State& st) {
     constexpr size_t SBO = 16;
     for (auto _ : st) {
-        small_vector<int, SBO> v;
+        smvec<int, SBO> v;
         for (size_t i = 0; i < SBO; ++i) v.push_back(static_cast<int>(i));
         benchmark::DoNotOptimize(v.data());
         benchmark::ClobberMemory();
@@ -19,7 +19,7 @@ static void BM_push_back_heap(benchmark::State& st) {
     constexpr size_t SBO = 16;
     const size_t N       = static_cast<size_t>(st.range(0));
     for (auto _ : st) {
-        small_vector<int, SBO> v;
+        smvec<int, SBO> v;
         v.reserve(N);
         for (size_t i = 0; i < N; ++i) v.push_back(static_cast<int>(i));
         benchmark::DoNotOptimize(v.data());
@@ -41,7 +41,7 @@ static void BM_vector_push_back(benchmark::State& st) {
 static void BM_insert_middle(benchmark::State& st) {
     const size_t N = static_cast<size_t>(st.range(0));
     for (auto _ : st) {
-        small_vector<int, 32> v;
+        smvec<int, 32> v;
         for (size_t i = 0; i < N; ++i) v.push_back(static_cast<int>(i));
         v.insert(v.begin() + static_cast<ptrdiff_t>(N / 2), 7);
         benchmark::DoNotOptimize(v.data());
