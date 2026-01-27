@@ -27,10 +27,10 @@ static void test_constructors() {
     // initializer_list prefers element-list
     {
         smvec<int, 4> smv{ 3, 4, 4 };
-        static_require(smv.size() == 3);
-        static_require(smv[0] == 3);
-        static_require(smv[1] == 4);
-        static_require(smv[2] == 4);
+        require(smv.size() == 3);
+        require(smv[0] == 3);
+        require(smv[1] == 4);
+        require(smv[2] == 4);
     }
 
     // size constructor (value-init)
@@ -231,9 +231,14 @@ static void test_iterators_and_emplace() {
 
 int main() {
     test_constructors();
+    println("constructors ok");
     test_push_pop_resize_reserve();
+    println("push pop resize reserve ok");
     test_insert_erase_assign();
+    println("insert erase assign ok");
     test_copy_move_swap_shrink();
+    println("copy move swap shrink ok");
     test_iterators_and_emplace();
+    println("iterator emplace ok");
     return 0;
 }
