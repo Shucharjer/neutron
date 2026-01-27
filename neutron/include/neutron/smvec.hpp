@@ -10,7 +10,6 @@
 #include <stdexcept>
 #include <type_traits>
 #include <utility>
-#include <neutron/memory.hpp>
 #include "neutron/detail/concepts/allocator.hpp"
 #include "neutron/detail/concepts/nothrow_conditional_movable.hpp"
 #include "neutron/detail/iterator/iter_wrapper.hpp"
@@ -162,7 +161,8 @@ public:
                 alloc_, that.data_, that.size_, data_);
             size_ = that.size_;
         } else {
-            data_     = std::exchange(that.data_, nullptr);
+            data_ = that.data_;
+            that._reset_data_ptr();
             size_     = std::exchange(that.size_, 0);
             capacity_ = std::exchange(that.capacity_, Count);
         }
@@ -196,7 +196,8 @@ public:
                     alloc_.deallocate(data_, capacity_);
                     _reset_data_ptr();
                 });
-                uninitialized_move_if_noexcept_n(that.data_, that.size_, data_);
+                uninitialized_move_if_noexcept_n_using_allocator(
+                    that.data_, that.size_, data_);
                 guard.mark_complete();
                 capacity_ = that.size_;
             }
@@ -232,6 +233,7 @@ public:
             }
             uninitialized_move_if_noexcept_n_using_allocator(
                 alloc_, that.data_, that.size_, data_);
+            size_ = that.size_;
         } else {
             std::destroy_n(data_, size_);
             if (!_uses_buffer()) {
@@ -413,7 +415,7 @@ public:
             std::destroy_n(data_, size_);
             alloc_.deallocate(data_, capacity_);
             data_     = ptr;
-            capacity_ = size_;
+            capacity_ = std::max(size_, Count);
         }
     }
 
