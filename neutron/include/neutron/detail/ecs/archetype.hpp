@@ -19,6 +19,7 @@
 #include "neutron/detail/ecs/component.hpp"
 #include "neutron/detail/ecs/entity.hpp"
 #include "neutron/detail/ecs/fwd.hpp"
+#include "neutron/detail/memory/uninitialized_move_if_noexcept.hpp"
 #include "neutron/detail/metafn/make.hpp"
 #include "neutron/detail/reflection/hash.hpp"
 #include "neutron/detail/reflection/legacy/hash_of.hpp"
