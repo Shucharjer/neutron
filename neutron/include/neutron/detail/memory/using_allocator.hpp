@@ -137,7 +137,7 @@ ATOM_CONSTEXPR_SINCE_CXX20 Pointer uninitialized_fill_n_using_allocator(
     ATOM_TRY {
         for (; curr != n; ++curr) {
             std::allocator_traits<Alloc>::construct(
-                alloc, std::to_address(ptr + curr));
+                alloc, std::to_address(ptr + curr), value);
         }
     }
     ATOM_CATCH(...) {
