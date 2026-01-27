@@ -36,10 +36,6 @@ class smvec<Ty, Count, Alloc> {
     using _allocator_t =
         typename std::allocator_traits<Alloc>::template rebind_alloc<T>;
 
-    struct _block {
-        alignas(alignof(Ty)) std::byte _[sizeof(Ty)]; // NOLINT
-    };
-
 public:
     using value_type      = Ty;
     using allocator_type  = _allocator_t<Ty>;
@@ -137,7 +133,7 @@ public:
         }
         if (that.size_ <= Count) {
             uninitialized_copy_n_using_allocator(
-                alloc_, that.data_, size_, data_);
+                alloc_, that.data_, that.size_, data_);
             size_ = that.size_;
         } else {
             data_      = alloc_.allocate(that.size_);
@@ -259,7 +255,6 @@ public:
             std::destroy_n(data_, size_);
             if (!_uses_buffer()) {
                 alloc_.deallocate(data_, capacity_);
-                data_ = reinterpret_cast<pointer>(storage_);
             }
         }
     }
@@ -732,8 +727,8 @@ private:
         uninitialized_move_if_noexcept_n_using_allocator(
             alloc_, data_, index, ptr);
         uninitialized_fill_n_using_allocator(alloc_, ptr + index, count, value);
-        uninitialized_move_if_noexcept_n(
-            data_ + index, size_ - index, ptr + index + count);
+        uninitialized_move_if_noexcept_n_using_allocator(
+            alloc_, data_ + index, size_ - index, ptr + index + count);
         guard.mark_complete();
         std::destroy_n(data_, size_);
         if (!_uses_buffer()) {
@@ -745,7 +740,7 @@ private:
     }
 
     ATOM_NO_UNIQUE_ADDR allocator_type alloc_;
-    _block storage_[Count]; // NOLINT
+    alignas(alignof(Ty)) std::byte storage_[sizeof(Ty) * Count]{}; // NOLINT
     Ty* data_ = reinterpret_cast<Ty*>(storage_);
     size_t size_{};
     size_t capacity_{ Count };
