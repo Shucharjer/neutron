@@ -74,8 +74,10 @@ public:
         }
         if (count > Count) {
             data_      = alloc_.allocate(count);
-            auto guard = make_exception_guard(
-                [this, count] { alloc_.deallocate(data_, count); });
+            auto guard = make_exception_guard([this, count] {
+                alloc_.deallocate(data_, count);
+                _reset_data_ptr();
+            });
             uninitialized_value_construct_n_using_allocator(
                 alloc_, data_, count);
             guard.mark_complete();
@@ -97,8 +99,10 @@ public:
         }
         if (count > Count) {
             data_      = alloc_.allocate(count);
-            auto guard = make_exception_guard(
-                [this, count] { alloc_.deallocate(data_, count); });
+            auto guard = make_exception_guard([this, count] {
+                alloc_.deallocate(data_, count);
+                _reset_data_ptr();
+            });
             uninitialized_fill_n_using_allocator(alloc_, data_, count, value);
             guard.mark_complete();
             capacity_ = count;
@@ -139,7 +143,7 @@ public:
             data_      = alloc_.allocate(that.size_);
             auto guard = make_exception_guard([this] {
                 alloc_.deallocate(data_, capacity_);
-                data_     = reinterpret_cast<pointer>(storage_);
+                _reset_data_ptr();
                 capacity_ = Count;
             });
             uninitialized_copy_n_using_allocator(
@@ -194,7 +198,7 @@ public:
                 data_      = alloc_.allocate(that.size_);
                 auto guard = make_exception_guard([this] {
                     alloc_.deallocate(data_, capacity_);
-                    data_ = reinterpret_cast<pointer>(storage_);
+                    _reset_data_ptr();
                 });
                 uninitialized_move_if_noexcept_n(that.data_, that.size_, data_);
                 guard.mark_complete();
@@ -220,21 +224,30 @@ public:
         if (this == &that) {
             return *this;
         }
-        if (data_ != nullptr) {
+        if (that._uses_buffer()) {
+            std::destroy_n(data_, size_);
+            if constexpr (std::allocator_traits<allocator_type>::
+                              propagate_on_container_move_assignment::value) {
+                if (!_uses_buffer()) {
+                    alloc_.deallocate(data_, capacity_);
+                    alloc_ = std::move(that).alloc_;
+                    _reset_data_ptr();
+                }
+            }
+            uninitialized_move_if_noexcept_n_using_allocator(
+                alloc_, that.data_, that.size_, data_);
+        } else {
             std::destroy_n(data_, size_);
             if (!_uses_buffer()) {
                 alloc_.deallocate(data_, capacity_);
+                _reset_data_ptr();
             }
-            size_ = 0;
-        }
-        alloc_ = that.alloc_;
-        if (that.size_ <= Count) {
-            uninitialized_move_if_noexcept_n_using_allocator(
-                alloc_, that.data_, that.size_, data_);
-            data_ = reinterpret_cast<pointer>(storage_);
-            size_ = that.size_;
-        } else {
-            data_     = std::exchange(that.data_, nullptr);
+            if constexpr (std::allocator_traits<allocator_type>::
+                              propagate_on_container_move_assignment::value) {
+                alloc_ = std::move(that).alloc_;
+            }
+            data_ = that.data_;
+            that._reset_data_ptr();
             size_     = std::exchange(that.size_, 0);
             capacity_ = std::exchange(that.capacity_, Count);
         }
@@ -311,7 +324,6 @@ public:
         }
         alloc_traits::construct(
             alloc_, data_ + size_, std::forward<Args>(args)...);
-        data_ = reinterpret_cast<pointer>(storage_);
         ++size_;
         return back();
     }
@@ -566,6 +578,7 @@ private:
         });
         uninitialized_move_if_noexcept_n_using_allocator(
             alloc_, data_, size_, ptr);
+        guard.mark_complete();
         std::destroy_n(data_, size_);
         if (!_uses_buffer()) {
             alloc_.deallocate(data_, capacity_);
@@ -608,8 +621,9 @@ private:
         }
         if (static_cast<size_type>(count) > Count) {
             auto* const ptr = alloc_.allocate(count);
-            auto guard      = make_exception_guard(
-                [this, count]() noexcept { alloc_.deallocate(data_, count); });
+            auto guard = make_exception_guard([this, ptr, count]() noexcept {
+                alloc_.deallocate(ptr, count);
+            });
             uninitialized_copy_using_allocator(alloc_, first, last, ptr);
             guard.mark_complete();
             data_     = ptr;
@@ -652,8 +666,6 @@ private:
         size_type index, size_type count, Iter first, Iter last) {
         const size_type tail = size_ - index;
         if (count <= tail) {
-            uninitialized_move_if_noexcept_n_using_allocator(
-                alloc_, data_ + size_ - count, count, data_ + size_);
             std::move_backward(
                 data_ + index, data_ + size_ - count, data_ + size_);
             std::copy(first, last, data_ + index);
@@ -663,8 +675,6 @@ private:
             std::advance(mid, tail);
             uninitialized_move_if_noexcept_n_using_allocator(
                 alloc_, data_ + index, tail, data_ + index + count);
-            uninitialized_copy_n_using_allocator(
-                alloc_, mid, extra, data_ + size_);
             std::copy(first, mid, data_ + index);
         }
         size_ += count;
