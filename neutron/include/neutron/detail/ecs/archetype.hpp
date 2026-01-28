@@ -19,6 +19,7 @@
 #include "neutron/detail/ecs/component.hpp"
 #include "neutron/detail/ecs/entity.hpp"
 #include "neutron/detail/ecs/fwd.hpp"
+#include "neutron/detail/macros.hpp"
 #include "neutron/detail/memory/uninitialized_move_if_noexcept.hpp"
 #include "neutron/detail/metafn/make.hpp"
 #include "neutron/detail/reflection/hash.hpp"
@@ -349,7 +350,6 @@ public:
         "the view of components should contains at least one component");
 
     template <typename Archetype>
-    requires requires(Archetype& archetype) { archetype.emplace(); }
     view(Archetype& arche) noexcept : size_(arche.size_) {
         std::array storage = arche.template get<Components...>();
         [this, &storage]<size_t... Is>(std::index_sequence<Is...>) {
@@ -920,6 +920,11 @@ public:
     ATOM_NODISCARD _buffer_ptr* data() noexcept { return storage_.data(); }
 
     template <component... Components>
+    ATOM_NODISCARD constexpr auto view(type_list<Components...>) {
+        return ::neutron::view<Components...>{ *this };
+    }
+
+    template <component... Components>
     ATOM_NODISCARD constexpr auto view() noexcept {
         return ::neutron::view<Components...>{ *this };
     }
@@ -931,6 +936,11 @@ public:
         using hash_list = hash_list_t<type_list>;
         auto sorted     = _get_sorted(hash_list{});
         return _apply_indices(sorted, type_list{});
+    }
+
+    template <component... Components>
+    ATOM_NODISCARD constexpr auto get(type_list<Components...>) {
+        return get<Components...>();
     }
 
     ATOM_NODISCARD constexpr auto entities() noexcept {
@@ -1305,7 +1315,6 @@ private:
     template <component... Components>
     auto _emplace(entity_t entity, [[maybe_unused]] type_list<Components...>) {
         const index_t index = size_;
-        println("_emplace");
         if (size_ == capacity_) [[unlikely]] {
             _relocate<Components...>(capacity_ << 1);
         }
