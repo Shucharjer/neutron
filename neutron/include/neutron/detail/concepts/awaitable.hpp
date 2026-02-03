@@ -3,13 +3,13 @@
 #include <coroutine>
 #include <utility>
 #include "neutron/detail/concepts/one_of.hpp"
-#include "neutron/detail/type_traits/is_instance_of.hpp"
+#include "neutron/detail/metafn/specific.hpp"
 
 namespace neutron {
 
 template <typename Ty>
 concept await_suspend_result =
-    one_of<Ty, void, bool> || is_instance_of_v<Ty, std::coroutine_handle>;
+    one_of<Ty, void, bool> || is_specific_type_list_v<std::coroutine_handle, Ty>;
 
 template <typename Awaiter, typename Promise>
 concept awaiter =

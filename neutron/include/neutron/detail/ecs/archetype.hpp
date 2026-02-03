@@ -1514,9 +1514,25 @@ ATOM_NODISCARD auto view_of(archetype<Alloc>& archetype) noexcept {
 }
 
 template <
+    component... Components, template <typename...> typename Template,
+    std_simple_allocator Alloc = std::allocator<std::byte>>
+ATOM_NODISCARD auto
+    view_of(archetype<Alloc>& archetype, Template<Components...>) noexcept {
+    return view<Alloc, Components...>(archetype);
+}
+
+template <
     component... Components,
     std_simple_allocator Alloc = std::allocator<std::byte>>
 ATOM_NODISCARD auto eview_of(archetype<Alloc>& archetype) noexcept {
+    return eview<Alloc, Components...>(archetype);
+}
+
+template <
+    component... Components, template <typename...> typename Template,
+    std_simple_allocator Alloc = std::allocator<std::byte>>
+ATOM_NODISCARD auto
+    eview_of(archetype<Alloc>& archetype, Template<Components...>) noexcept {
     return eview<Alloc, Components...>(archetype);
 }
 

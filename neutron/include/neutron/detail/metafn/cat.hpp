@@ -1,5 +1,6 @@
 // IWYU pragma: private, include <neutron/metafn.hpp>
 #pragma once
+#include "neutron/detail/metafn/definition.hpp"
 
 namespace neutron {
 
@@ -7,6 +8,10 @@ namespace neutron {
 
 template <typename... Tls>
 struct type_list_cat;
+template <>
+struct type_list_cat<> {
+    using type = type_list<>;
+};
 template <template <typename...> typename Template, typename... Tys>
 struct type_list_cat<Template<Tys...>> {
     using type = Template<Tys...>;
