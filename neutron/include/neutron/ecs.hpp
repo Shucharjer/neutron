@@ -4,7 +4,7 @@
 
 #include "neutron/detail/ecs/archetype.hpp"
 #include "neutron/detail/ecs/basic_commands.hpp"
-#include "neutron/detail/ecs/basic_query.hpp"
+#include "neutron/detail/ecs/basic_querior.hpp"
 #include "neutron/detail/ecs/bundle.hpp"
 #include "neutron/detail/ecs/command_buffer.hpp"
 #include "neutron/detail/ecs/component.hpp"

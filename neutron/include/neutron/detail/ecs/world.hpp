@@ -35,7 +35,7 @@ class basic_world<world_descriptor_t<>, Alloc> : public world_base<Alloc> {
 public:
     using allocator_type = Alloc;
     using command_buffer = ::neutron::command_buffer<Alloc>;
-    using query_type     = basic_query<Alloc>;
+    using query_type     = basic_querior<Alloc>;
     using commands_type  = basic_commands<Alloc>;
     using sysinfo        = world_descriptor_t<>::sysinfo;
     // using systems        = world_descriptor_t<>::systems;
