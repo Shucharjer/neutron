@@ -1,5 +1,6 @@
 #pragma once
-#include "neutron/template_list.hpp"
+#include <type_traits>
+#include "neutron/detail/metafn/definition.hpp"
 
 namespace neutron {
 
