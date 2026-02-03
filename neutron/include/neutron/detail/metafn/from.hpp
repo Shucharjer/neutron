@@ -40,4 +40,13 @@ constexpr auto tuple_from_value(Ty) noexcept {
     }(std::make_index_sequence<value_list_size_v<Ty>>());
 }
 
+template <typename>
+struct value_list_from;
+template <typename Elem, Elem... Vals>
+struct value_list_from<std::integer_sequence<Elem, Vals...>> {
+    using type = value_list<Vals...>;
+};
+template <typename Ty>
+using value_list_from_t = typename value_list_from<Ty>::type;
+
 } // namespace neutron
