@@ -17,7 +17,7 @@
 #include "neutron/detail/memory/rebind_alloc.hpp"
 #include "neutron/detail/memory/unique_storage.hpp"
 #include "neutron/detail/utility/const_identity.hpp"
-#include "neutron/packet_uint.hpp"
+#include "neutron/detail/utility/packed_uint.hpp"
 
 #if ATOM_HAS_CXX23
     #include "neutron/detail/concepts/map_like.hpp"
