@@ -7,6 +7,7 @@
 #include <string>
 #include <vector>
 #include <neutron/print.hpp>
+#include <neutron/utility.hpp>
 #include <neutron/ranges.hpp>
 
 void test_to();

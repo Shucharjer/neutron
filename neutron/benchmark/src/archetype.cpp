@@ -1,4 +1,6 @@
 // Benchmarks for neutron::archetype common operations
+#include <cstddef>
+#include <memory>
 #include <vector>
 #include <benchmark/benchmark.h>
 #include <neutron/ecs.hpp>
@@ -56,6 +58,8 @@ static void BM_archetype_emplace_default(benchmark::State& st) {
     }
 }
 
+template <component... Components>
+using view_t = view<std::allocator<std::byte>, Components...>;
 static void BM_archetype_view_iter(benchmark::State& st) {
     const size_t N = static_cast<size_t>(st.range(0));
     for (auto _ : st) {
@@ -69,7 +73,8 @@ static void BM_archetype_view_iter(benchmark::State& st) {
                 Position{ float(i), float(i + 1) },
                 Velocity{ float(2 * i), float(2 * i + 1) });
         float acc = 0;
-        for (auto [p, v] : a.view<Position&, Velocity&>()) {
+        view_t<Position&, Velocity&> vw{ a };
+        for (auto [p, v] : vw) {
             acc += p.x + p.y + v.vx + v.vy;
         }
         benchmark::DoNotOptimize(acc);

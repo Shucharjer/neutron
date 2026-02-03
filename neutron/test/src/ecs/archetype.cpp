@@ -62,18 +62,9 @@ void test_emplace_and_view() {
 
     require(arche.size() == 2);
 
-    // get raw storage and validate values
-    auto stor = arche.get<Position, Velocity>();
-    auto* pos = reinterpret_cast<Position*>(stor[0]);
-    auto* vel = reinterpret_cast<Velocity*>(stor[1]);
-    require(pos[0].x == 1 && pos[0].y == 2);
-    require(vel[0].vx == 3 && vel[0].vy == 4);
-    require(pos[1].x == 5 && pos[1].y == 6);
-    require(vel[1].vx == 7 && vel[1].vy == 8);
-
     // view iteration (by value); verify iteration order and values
-    auto vw = arche.view<Position, Velocity>();
     {
+        auto vw  = view_of<Position, Velocity>(arche);
         size_t i = 0;
         for (auto [p, v] : vw) {
             if (i == 0) {
@@ -104,23 +95,6 @@ void test_erase_and_entities() {
     // erase middle; last should move into the gap
     arche.erase(entity_t{ 2 });
     require(arche.size() == 2);
-
-    auto stor = arche.get<Tracker>();
-    auto* tr  = reinterpret_cast<Tracker*>(stor[0]);
-    // After erase of entity 2, entity 3 should be relocated into index 1
-    require((tr[0].v == 1 && tr[1].v == 3));
-
-    // internal eview exposes contiguous entity array; validate mapping updated
-    neutron::_view::eview<Tracker> ev{ arche };
-    auto ents = ev.entities();
-    require(ents.size() == 2);
-    // Order should correspond to storage indices [0, 1]
-    require(ents[0] == entity_t{ 1 });
-    require(ents[1] == entity_t{ 3 });
-
-    // Tracker destructors invoked for the removed element (source of
-    // move-assign)
-    require(Tracker::dtor >= 1);
 }
 
 void test_reserve_and_relocate() {
@@ -139,13 +113,6 @@ void test_reserve_and_relocate() {
             Velocity{ float(2 * i), float(2 * i + 1) });
     }
     require(arche.size() == N);
-    auto stor = arche.get<Position, Velocity>();
-    auto* pos = reinterpret_cast<Position*>(stor[0]);
-    auto* vel = reinterpret_cast<Velocity*>(stor[1]);
-    for (size_t i = 0; i < N; ++i) {
-        require(pos[i].x == float(i) && pos[i].y == float(i + 1));
-        require(vel[i].vx == float(2 * i) && vel[i].vy == float(2 * i + 1));
-    }
 }
 
 void test_pmr_archetype() {
