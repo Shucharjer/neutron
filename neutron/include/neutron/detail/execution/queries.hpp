@@ -1,87 +1,51 @@
 #pragma once
-#include "./fwd.hpp"
-
+#include <concepts>
 #include <utility>
-#include "../concepts/one_of.hpp"
-// NOTE: tag_invoke lives under concepts/, not utility/
-#include "../concepts/tag_invoke.hpp"
+#include <neutron/concepts.hpp>
 
 namespace neutron::execution {
 
-namespace queries {
-
-template <typename Env, typename Query, typename... Args>
-concept _member_queryable_with =
-    requires(const Env& env, const Query& query, Args... args) {
-        { env.query(query, args...) };
-    };
-
-template <typename Env, typename Query, typename... Args>
-concept _nothrow_member_queryable_with =
-    _member_queryable_with<Env, Query, Args...> &&
-    requires(const Env& env, const Query& query, Args... args) {
-        { env.query(query, args...) } noexcept;
-    };
-
-struct _none_such {};
-
-constexpr inline _none_such _no_default{};
-
-template <typename Derived, auto Default = _no_default>
-struct _query { // NOLINT(bugprone-crtp-constructor-accessibility)
-    template <typename Env, typename... Args>
-    requires _member_queryable_with<Env, Derived, Args...>
-    constexpr auto operator()(const Env& env, Args&&... args) const
-        noexcept(_nothrow_member_queryable_with<Env, Derived, Args...>) {
-        return env.query(Derived{}, std::forward<Args>(args)...);
-    }
-
-    template <typename Env, typename... Args>
-    requires(!_member_queryable_with<Env, Derived, Args...>) &&
-            tag_invocable<Derived, const Env&, Args...>
-    constexpr auto
-        operator()(const Env& env, const Derived& query, Args&&... args) const
-        noexcept(nothrow_tag_invocable<Derived, const Env&, Args...>) {
-        return tag_invoke(Derived{}, env, std::forward<Args>(args)...);
+struct forwarding_query_t {
+    template <typename Query>
+    constexpr bool operator()(Query&& object) const noexcept {
+        if constexpr (requires { object.query(*this); }) {
+            return true;
+        } else {
+            return std::derived_from<Query, forwarding_query_t>;
+        }
     }
 };
 
-struct get_domain_t {};
+inline constexpr forwarding_query_t forwarding_query{};
 
-struct get_scheduler_t : _query<get_scheduler_t> {};
+struct get_allocator_t {
+    template <typename Query>
+    constexpr bool operator()(Query&& object) const noexcept
+    requires requires(const Query& object) {
+        { std::as_const(object).query(*this) } noexcept -> std_simple_allocator;
+    }
+    {
+        return std::as_const(object).query(*this);
+    }
 
-struct get_allocator_t : _query<get_allocator_t> {};
+    constexpr bool query(forwarding_query_t) const noexcept { return true; }
+};
 
-struct get_delegation_scheduler_t : _query<get_delegation_scheduler_t> {};
+inline constexpr get_allocator_t get_allocator{};
 
-struct get_forward_progress_guarantee_t :
-    _query<
-        get_forward_progress_guarantee_t,
-        forward_progress_guarantee::weakly_parallel> {};
+struct get_stop_token_t {
+    template <typename Query>
+    constexpr auto operator()(Query&& object) const noexcept
+    requires requires {
+        { std::as_const(object).query(*this) } noexcept;
+    }
+    {
+        return std::as_const(object).query(*this);
+    }
 
-template <typename CompletionTag>
-struct get_completion_scheduler_t :
-    _query<get_completion_scheduler_t<CompletionTag>> {};
+    constexpr bool query(forwarding_query_t) const noexcept { return true; }
+};
 
-template <typename Tag>
-concept _completion_tag = one_of<Tag, set_value_t, set_error_t, set_stopped_t>;
-
-struct get_stop_token_t : _query<get_stop_token_t> {};
-
-} // namespace queries
-
-using queries::get_domain_t;
-using queries::get_scheduler_t;
-using queries::get_delegation_scheduler_t;
-using queries::get_forward_progress_guarantee_t;
-using queries::get_completion_scheduler_t;
-
-constexpr inline get_domain_t get_domain{};
-constexpr inline get_scheduler_t get_scheduler{};
-constexpr inline get_delegation_scheduler_t get_delegatee_scheduler{};
-constexpr inline get_forward_progress_guarantee_t
-    get_forward_progress_guarantee{};
-template <typename Cpo>
-constexpr inline get_completion_scheduler_t<Cpo> get_completion_scheduler{};
+inline constexpr get_stop_token_t get_stop_token{};
 
 } // namespace neutron::execution
