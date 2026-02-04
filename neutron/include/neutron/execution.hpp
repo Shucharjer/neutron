@@ -1,4 +1,11 @@
 #pragma once
+#include <thread> // IWYU pragma: export
+
+namespace neutron::this_thread {
+
+using namespace ::std::this_thread;
+
+}
 
 #include <version>
 #if defined(__cpp_lib_execution) && __cpp_lib_execution >= 202602L
@@ -17,13 +24,23 @@ using namespace std::execution;
 
     #include <stdexec/execution.hpp>
 
-namespace neutron::execution {
+namespace neutron {
+
+namespace execution {
 
 using namespace stdexec;
 
 struct scheduler_t {};
 
-} // namespace neutron::execution
+} // namespace execution
+
+namespace this_thread {
+
+using ::stdexec::sync_wait;
+
+}
+
+} // namespace neutron
 
 #else
     #define NEUTRON_EXECUTION 0

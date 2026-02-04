@@ -434,11 +434,3 @@ extern const as_awaitable_t as_awaitable;
 template <_class_type Promise>
 struct with_awaitable_senders;
 } // namespace neutron::execution
-
-namespace neutron::execution {
-
-template <typename Tag, typename Data, typename... Child>
-requires std::semiregular<Tag> && std::movable<Data> && (sender<Child> && ...)
-constexpr auto make_sender(Tag tag, Data&& data, Child&&... child);
-
-}
