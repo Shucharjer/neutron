@@ -911,7 +911,6 @@ private:
     template <component... Components>
     auto _emplace(entity_t entity, [[maybe_unused]] type_list<Components...>) {
         const index_t index = size_;
-        println("_emplace");
         if (size_ == capacity_) [[unlikely]] {
             _relocate<Components...>(capacity_ << 1);
         }
