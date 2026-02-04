@@ -102,8 +102,19 @@ template <class CPO>
 extern const get_completion_scheduler_t<CPO> get_completion_scheduler;
 
 struct empty_env {};
-struct get_env_t;
-extern const get_env_t get_env;
+struct get_env_t {
+    template <typename EnvProvider>
+    auto operator()(EnvProvider&& ep) const noexcept {
+        if constexpr (requires() {
+                          { std::as_const(ep).get_env() } noexcept -> queryable;
+                      }) {
+            return std::as_const(ep).get_env();
+        } else {
+            return empty_env{};
+        }
+    }
+};
+inline constexpr get_env_t get_env;
 
 template <class T>
 using env_of_t = decltype(get_env(declval<T>()));
@@ -431,4 +442,3 @@ requires std::semiregular<Tag> && std::movable<Data> && (sender<Child> && ...)
 constexpr auto make_sender(Tag tag, Data&& data, Child&&... child);
 
 }
-
