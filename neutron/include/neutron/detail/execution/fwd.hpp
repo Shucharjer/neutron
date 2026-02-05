@@ -10,6 +10,8 @@
 #include "neutron/detail/concepts/awaitable.hpp"
 #include "neutron/detail/metafn/filt.hpp"
 #include "neutron/detail/metafn/unique.hpp"
+#include "neutron/detail/utility/fake_copy.hpp"
+#include "neutron/detail/utility/get.hpp"
 
 namespace neutron {
 
@@ -334,8 +336,10 @@ concept scheduler =
 //   template<class Sndr, class Env>
 //     concept single-sender = see below; // exposition only
 
-//   template<sender Sndr>
-//     using tag_of_t = see below;
+template <sender Sndr>
+using tag_of_t = std::remove_pointer_t<decltype(fake_copy(
+    std::forward<decltype(get<0>(std::declval<Sndr>()))>(
+        get<0>(std::declval<Sndr>()))))>;
 
 template <class Sndr, class Rcvr>
 using connect_result_t = decltype(connect(declval<Sndr>(), declval<Rcvr>()));
