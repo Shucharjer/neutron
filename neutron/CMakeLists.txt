@@ -98,7 +98,7 @@ if(BUILD_NEUTRON_TESTING)
   set(test_output_dir ${CMAKE_CURRENT_BINARY_DIR}/test)
   exec_dir(${test_dir} "test-" ${test_output_dir} true neutron)
   if(ATOM_TEST_SEE_ALL_TEMPLATE_BACKTRACE)
-    exec_dir_options(${test_dir} "test-" ftemplate-backtrace-limit=0)
+    exec_dir_options(${test_dir} "test-" -ftemplate-backtrace-limit=0)
   endif()
 endif()
 
