@@ -65,11 +65,12 @@ struct _sync_wait_receiver {
 
 struct sync_wait_t {
     template <typename Sndr>
+    requires execution::sender_to<Sndr, _sync_wait_receiver<Sndr>>
     auto apply_sender(Sndr&& sndr) const {
         _sync_wait_state<Sndr> state;
         auto op = execution::connect(
             std::forward<Sndr>(sndr), _sync_wait_receiver<Sndr>{ &state });
-        start(op);
+        execution::start(op);
 
         state.loop.run();
         if (state.error) {
@@ -79,7 +80,7 @@ struct sync_wait_t {
     }
 
     template <execution::sender Sndr>
-    void operator()(Sndr&& sndr) const {
+    auto operator()(Sndr&& sndr) const {
         auto dom = _get_domain_early(sndr);
         return execution::apply_sender(dom, *this, std::forward<Sndr>(sndr));
     }

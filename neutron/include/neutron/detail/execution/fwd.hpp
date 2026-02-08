@@ -7,6 +7,7 @@
 #include <type_traits>
 #include <utility>
 #include <variant>
+#include <neutron/metafn.hpp>
 #include "neutron/detail/concepts/awaitable.hpp"
 #include "neutron/detail/metafn/filt.hpp"
 #include "neutron/detail/metafn/unique.hpp"
@@ -75,7 +76,7 @@ extern const get_stop_token_t get_stop_token;
 
 template <class T>
 using stop_token_of_t =
-    std::remove_cvref_t<decltype(get_stop_token(declval<T>()))>;
+    std::remove_cvref_t<decltype(get_stop_token(std::declval<T>()))>;
 
 template <class T>
 concept _forwarding_query = // exposition only
@@ -83,6 +84,13 @@ concept _forwarding_query = // exposition only
 } // namespace neutron
 
 namespace neutron::execution {
+
+template <typename T, typename Promise>
+using _await_result_type =
+    decltype(_awaitable::_get_awaiter(
+                 std::declval<T>(), std::declval<Promise&>())
+                 .await_resume());
+
 // [exec.queries], queries
 enum class forward_progress_guarantee : uint8_t {
     concurrent,
@@ -119,7 +127,7 @@ struct get_env_t {
 inline constexpr get_env_t get_env;
 
 template <class T>
-using env_of_t = decltype(get_env(declval<T>()));
+using env_of_t = decltype(get_env(std::declval<T>()));
 
 // [exec.domain.default], execution domains
 struct default_domain;
@@ -187,11 +195,17 @@ constexpr bool _is_completion_signature<set_stopped_t()> = true;
 template <typename Fn>
 concept _completion_signature = _is_completion_signature<Fn>;
 
-template <typename Ty>
-concept _valid_completion_signatures = _is_completion_signature<Ty>;
-
 template <_completion_signature... Fns>
 struct completion_signatures {};
+
+template <typename Sigs>
+constexpr bool _is_valid_completion_signatures = false;
+template <typename... Sigs>
+constexpr bool _is_valid_completion_signatures<completion_signatures<Sigs...>> =
+    true;
+
+template <typename Ty>
+concept _valid_completion_signatures = _is_valid_completion_signatures<Ty>;
 
 template <class Rcvr, class Completions>
 concept _has_completions = // exposition only
@@ -217,18 +231,42 @@ struct _has_same_tag : std::false_type {};
 template <typename Tag, typename... Args>
 struct _has_same_tag<Tag, Tag(Args...)> : std::true_type {};
 
-template <typename Tag, _valid_completion_signatures Completions>
+template <
+    typename Tag, _valid_completion_signatures Completions,
+    template <typename...> typename Tuple,
+    template <typename...> typename Variant>
 struct _gather_signatures_helper {
     template <typename Ty>
     using _predicate = _has_same_tag<Tag, Ty>;
-    using type       = type_list_filt_t<_predicate, Completions>;
+
+    using _cmpsigs_t = type_list_filt_t<_predicate, Completions>;
+
+    template <typename T>
+    struct _convert;
+    template <typename... Args>
+    struct _convert<Tag(Args...)> {
+        using type = Tuple<Args...>;
+    };
+
+    using _cmpsigs_tup = type_list_convert_t<
+        _convert, type_list_rebind_t<type_list, _cmpsigs_t>>;
+
+    using type = std::remove_pointer_t<decltype([] {
+        if constexpr (type_list_size_v<_cmpsigs_tup> == 1) {
+            return static_cast<type_list_first_t<_cmpsigs_tup>*>(nullptr);
+        } else {
+            return static_cast<type_list_rebind_t<Variant, _cmpsigs_tup>*>(
+                nullptr);
+        }
+    }())>;
 };
 
 template <
     typename Tag, _valid_completion_signatures Completions,
     template <typename...> typename Tuple,
     template <typename...> typename Variant>
-using _gather_signatures = _gather_signatures_helper<Tag, Completions>;
+using _gather_signatures =
+    typename _gather_signatures_helper<Tag, Completions, Tuple, Variant>::type;
 
 template <typename... Args>
 using _decayed_tuple = std::tuple<std::decay_t<Args>...>;
@@ -322,7 +360,7 @@ concept scheduler =
         {
             get_completion_scheduler<set_value_t>(
                 get_env(schedule(std::forward<Sch>(sch))))
-        } -> std::same_as<std::remove_cvref<Sch>>;
+        } -> std::same_as<std::remove_cvref_t<Sch>>;
     } && std::equality_comparable<std::remove_cvref_t<Sch>> &&
     std::copy_constructible<std::remove_cvref_t<Sch>>;
 
@@ -341,11 +379,15 @@ using tag_of_t = std::remove_pointer_t<decltype(fake_copy(
     std::forward<decltype(get<0>(std::declval<Sndr>()))>(
         get<0>(std::declval<Sndr>()))))>;
 
+template <typename Sndr, typename Tag>
+concept sender_for = sender<Sndr> && std::same_as<tag_of_t<Sndr>, Tag>;
+
 template <class Sndr, class Rcvr>
-using connect_result_t = decltype(connect(declval<Sndr>(), declval<Rcvr>()));
+using connect_result_t =
+    decltype(connect(std::declval<Sndr>(), std::declval<Rcvr>()));
 
 template <scheduler Sndr>
-using schedule_result_t = decltype(schedule(declval<Sndr>()));
+using schedule_result_t = decltype(schedule(std::declval<Sndr>()));
 
 // [exec.adapt], sender adaptors
 //   template<class-type D>
