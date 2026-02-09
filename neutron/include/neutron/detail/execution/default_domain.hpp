@@ -10,13 +10,27 @@ namespace neutron::execution {
 
 struct default_domain {
     template <sender Sndr, queryable... Env>
-    requires(sizeof...(Env) <= 1)
     static constexpr sender decltype(auto)
         transform_sender(Sndr&& sndr, const Env&... env) noexcept(
             noexcept(tag_of_t<Sndr>().transform_sender(
-                std::forward<Sndr>(sndr), env...))) {
+                std::forward<Sndr>(sndr), env...)))
+    requires(sizeof...(Env) <= 1) && requires {
+        tag_of_t<Sndr>().transform_sender(std::forward<Sndr>(sndr), env...);
+    }
+    {
         return tag_of_t<Sndr>().transform_sender(
             std::forward<Sndr>(sndr), env...);
+    }
+
+    template <sender Sndr, queryable... Env>
+    static constexpr sender decltype(auto)
+        transform_sender(Sndr&& sndr, const Env&... env) noexcept
+    requires(sizeof...(Env) <= 1) && (!requires {
+                tag_of_t<Sndr>().transform_sender(
+                    std::forward<Sndr>(sndr), env...);
+            })
+    {
+        return std::forward<Sndr>(sndr);
     }
 
     template <sender Sndr, queryable Env>
@@ -55,67 +69,43 @@ concept _has_valid_transform =
         dom.transform_sender(std::forward<Sndr>(sndr), env...);
     };
 
-struct _transform_impl {
-    template <typename Domain, sender Sndr, queryable... Env>
-    ATOM_FORCE_INLINE constexpr decltype(auto)
-        try_transform(Domain dom, Sndr&& sndr, const Env&... env) noexcept([] {
-            if constexpr (_has_valid_transform<Domain, Sndr, Env...>) {
-                return noexcept(
-                    dom.transform_sender(std::forward<Sndr>(sndr), env...));
-            } else {
-                return noexcept(default_domain{}.transform_sender(
-                    std::forward<Sndr>(sndr), env...));
-            }
-        }()) {
+template <typename Domain, sender Sndr, queryable... Env>
+ATOM_FORCE_INLINE constexpr decltype(auto)
+    try_transform(Domain dom, Sndr&& sndr, const Env&... env) noexcept([] {
         if constexpr (_has_valid_transform<Domain, Sndr, Env...>) {
-            return dom.transform_sender(std::forward<Sndr>(sndr), env...);
+            return noexcept(
+                dom.transform_sender(std::forward<Sndr>(sndr), env...));
         } else {
-            return default_domain{}.transform_sender(
-                std::forward<Sndr>(sndr), env...);
+            return noexcept(default_domain{}.transform_sender(
+                std::forward<Sndr>(sndr), env...));
         }
+    }()) {
+    if constexpr (_has_valid_transform<Domain, Sndr, Env...>) {
+        return dom.transform_sender(std::forward<Sndr>(sndr), env...);
+    } else {
+        return default_domain{}.transform_sender(
+            std::forward<Sndr>(sndr), env...);
     }
+}
 
-    static constexpr size_t _recurse_transform_limit = 256;
+static constexpr size_t _recurse_transform_limit = 256;
 
-    template <size_t Depth = 0, typename Domain, sender Sndr, queryable... Env>
-    requires(Depth <= _recurse_transform_limit)
-    ATOM_FORCE_INLINE constexpr decltype(auto)
-        operator()(Domain dom, Sndr&& sndr, const Env&... env) noexcept([] {
-            using transformed_sndr_t =
-                decltype(_transform_sender::_transform_impl{}(
-                    dom, std::forward<Sndr>(sndr), env...));
+template <size_t Depth, typename Domain, sender Sndr, queryable... Env>
+requires(Depth <= _recurse_transform_limit)
+ATOM_FORCE_INLINE constexpr decltype(auto)
+    impl(Domain dom, Sndr&& sndr, const Env&... env) {
+    using transformed_sndr_t =
+        decltype(try_transform(dom, std::forward<Sndr>(sndr), env...));
 
-            if constexpr (std::same_as<
-                              std::remove_cvref_t<transformed_sndr_t>,
-                              std::remove_cvref_t<Sndr>>) {
-                return noexcept(_transform_sender::_transform_impl{}(
-                    dom, std::forward<Sndr>(sndr), env...));
-            } else {
-                return noexcept(operator()(
-                    dom,
-                    _transform_sender::_transform_impl{}(
-                        dom, std::forward<Sndr>(sndr), env...),
-                    env...));
-            }
-        }()) {
-        using transformed_sndr_t =
-            decltype(_transform_sender::_transform_impl{}(
-                dom, std::forward<Sndr>(sndr), env...));
-
-        if constexpr (std::same_as<
-                          std::remove_cvref_t<transformed_sndr_t>,
-                          std::remove_cvref_t<Sndr>>) {
-            return _transform_sender::_transform_impl{}(
-                dom, std::forward<Sndr>(sndr), env...);
-        } else {
-            return operator()<Depth + 1>(
-                dom,
-                _transform_sender::_transform_impl{}(
-                    dom, std::forward<Sndr>(sndr), env...),
-                env...);
-        }
+    if constexpr (std::same_as<
+                      std::remove_cvref_t<transformed_sndr_t>,
+                      std::remove_cvref_t<Sndr>>) {
+        return try_transform(dom, std::forward<Sndr>(sndr), env...);
+    } else {
+        return impl<Depth + 1>(
+            dom, try_transform(dom, std::forward<Sndr>(sndr), env...), env...);
     }
-};
+}
 
 } // namespace _transform_sender
 
@@ -123,10 +113,9 @@ template <typename Domain, sender Sndr, queryable... Env>
 requires(sizeof...(Env) <= 1)
 constexpr sender decltype(auto)
     transform_sender(Domain dom, Sndr&& sndr, const Env&... env) noexcept(
-        noexcept(_transform_sender::_transform_impl{}(
+        noexcept(_transform_sender::impl<0>(
             dom, std::forward<Sndr>(sndr), env...))) {
-    return _transform_sender::_transform_impl{}(
-        dom, std::forward<Sndr>(sndr), env...);
+    return _transform_sender::impl<0>(dom, std::forward<Sndr>(sndr), env...);
 }
 
 template <typename Domain, sender Sndr, queryable Env>
