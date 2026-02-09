@@ -8,8 +8,8 @@ using namespace ::std::this_thread;
 }
 
 #include <version>
-#if defined(__cpp_lib_execution) && __cpp_lib_execution >= 202602L
-    #define NEUTRON_EXECUTION 1
+#if defined(__cpp_lib_execution) && __cpp_lib_execution >= 202602L &&          \
+    !defined(ATOM_EXECUTION)
 
     #include <execution> // IWYU pragma: export
 
@@ -19,8 +19,7 @@ using namespace std::execution;
 
 } // namespace neutron::execution
 
-#elif __has_include(<stdexec/execution.hpp>)
-    #define NEUTRON_EXECUTION 2
+#elif __has_include(<stdexec/execution.hpp>) && !defined(ATOM_EXECUTION)
 
     #include <stdexec/execution.hpp>
 
@@ -31,6 +30,22 @@ namespace execution {
 using namespace stdexec;
 
 struct scheduler_t {};
+
+inline constexpr struct continues_on_t {
+    template <typename Sch>
+    constexpr decltype(auto) operator()(Sch&& sch) const
+        noexcept(noexcept(::stdexec::continue_on(std::forward<Sch>(sch)))) {
+        return ::stdexec::continue_on(std::forward<Sch>(sch));
+    }
+
+    template <typename Sndr, typename Sch>
+    constexpr decltype(auto) operator()(Sndr&& sndr, Sch&& sch) const
+        noexcept(noexcept(::stdexec::continue_on(
+            std::forward<Sndr>(sndr), std::forward<Sch>(sch)))) {
+        return ::stdexec::continue_on(
+            std::forward<Sndr>(sndr), std::forward<Sch>(sch));
+    }
+} continues_on;
 
 } // namespace execution
 
@@ -43,36 +58,41 @@ using ::stdexec::sync_wait;
 } // namespace neutron
 
 #else
-    #define NEUTRON_EXECUTION 0
+// IWYU pragma: begin_exports
 
-    #include "neutron/detail/execution/fwd.hpp"      // IWYU pragma: export
+    #include "neutron/detail/execution/fwd.hpp" // IWYU pragma: export
 
-    #include "neutron/detail/execution/queries.hpp"  // IWYU pragma: export
+    #include "neutron/detail/execution/connect.hpp"
+    #include "neutron/detail/execution/default_domain.hpp"
+    #include "neutron/detail/execution/fwd_env.hpp"
+    #include "neutron/detail/execution/get_completion_scheduler.hpp"
+    #include "neutron/detail/execution/get_completion_signatures.hpp"
+    #include "neutron/detail/execution/get_domain.hpp"
+    #include "neutron/detail/execution/get_scheduler.hpp"
+    #include "neutron/detail/execution/make_sender.hpp"
+    #include "neutron/detail/execution/product_type.hpp"
+    #include "neutron/detail/execution/queries.hpp"
+    #include "neutron/detail/execution/query_with_default.hpp"
+    #include "neutron/detail/execution/run_loop.hpp"
+    #include "neutron/detail/execution/schedule.hpp"
+    #include "neutron/detail/execution/sender_adaptor.hpp"
+    #include "neutron/detail/execution/sender_adaptor_closure.hpp"
+    #include "neutron/detail/execution/set_error.hpp"
+    #include "neutron/detail/execution/set_stopped.hpp"
+    #include "neutron/detail/execution/set_value.hpp"
+    #include "neutron/detail/execution/start.hpp"
 
-    #include "neutron/detail/execution/env.hpp"      // IWYU pragma: export
+// sender factories
 
-    #include "neutron/detail/execution/domain.hpp"   // IWYU pragma: export
-
-    #include "neutron/detail/execution/receiver.hpp" // IWYU pragma: export
-
-    #include "neutron/detail/execution/sender.hpp"   // IWYU pragma: export
-
-    #include "neutron/detail/execution/completion_signatures.hpp" // IWYU pragma : export
-
-    #include "neutron/detail/execution/connect.hpp"   // IWYU pragma: export
-
-    #include "neutron/detail/execution/scheduler.hpp" // IWYU pragma: export
-
-    #include "neutron/detail/execution/sender_adaptor_closure.hpp" // IWYU pragma: export
-
-    #include "neutron/detail/execution/run_loop.hpp" // IWYU pragma: export
+    #include "neutron/detail/execution/sender_factories/just.hpp"
 
 // sender consumers
 
-    #include "neutron/detail/execution/sender_consumers/sync_wait.hpp" // IWYU pragma: export
+    #include "neutron/detail/execution/sender_consumers/sync_wait.hpp"
 
 // sender adaptors
 
-    #include "neutron/detail/execution/sender_adaptors/then.hpp" // IWYU pragma: export
+    #include "neutron/detail/execution/sender_adaptors/continues_on.hpp"
+    #include "neutron/detail/execution/sender_adaptors/then.hpp"
 
 #endif
