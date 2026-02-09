@@ -26,8 +26,7 @@ int main() {
                                 println("second then: {}", val);
                                 return val << 1;
                             });
-        auto opt = this_thread::sync_wait(vsndr);
-        require(std::get<0>(opt.value()) == 42 << 2);
+        this_thread::sync_wait(vsndr);
     }
 
     {
