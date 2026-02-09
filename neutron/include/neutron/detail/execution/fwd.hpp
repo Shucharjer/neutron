@@ -117,14 +117,19 @@ extern const get_completion_scheduler_t<CPO> get_completion_scheduler;
 struct empty_env {};
 struct get_env_t {
     template <typename EnvProvider>
+    requires requires(const std::remove_cvref_t<EnvProvider>& ep) {
+        { ep.get_env() } noexcept -> queryable;
+    }
     auto operator()(EnvProvider&& ep) const noexcept {
-        if constexpr (requires() {
-                          { std::as_const(ep).get_env() } noexcept -> queryable;
-                      }) {
-            return std::as_const(ep).get_env();
-        } else {
-            return empty_env{};
-        }
+        return std::as_const(ep).get_env();
+    }
+
+    template <typename EnvProvider>
+    requires(!requires(const std::remove_cvref_t<EnvProvider>& ep) {
+        { ep.get_env() } noexcept -> queryable;
+    })
+    auto operator()(EnvProvider&& ep) const noexcept {
+        return empty_env{};
     }
 };
 inline constexpr get_env_t get_env;

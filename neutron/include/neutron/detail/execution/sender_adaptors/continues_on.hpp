@@ -3,9 +3,11 @@
 #include "neutron/detail/execution/fwd.hpp"
 #include "neutron/detail/execution/fwd_env.hpp"
 #include "neutron/detail/execution/get_domain.hpp"
+#include "neutron/detail/execution/join_env.hpp"
 #include "neutron/detail/execution/make_sender.hpp"
 #include "neutron/detail/execution/sched_attrs.hpp"
 #include "neutron/detail/execution/sender_adaptor.hpp"
+#include "neutron/detail/execution/sender_adaptors/schedule_from.hpp"
 #include "neutron/detail/utility/get.hpp"
 
 namespace neutron::execution {
@@ -27,8 +29,9 @@ inline constexpr struct continues_on_t {
     constexpr sender auto operator()(Sndr&& sndr, Scheduler&& scheduler) const {
         auto domain = _get_domain_early(sndr);
         return ::neutron::execution::transform_sender(
-            domain, std::forward<Sndr>(sndr),
-            std::forward<Scheduler>(scheduler));
+            domain, make_sender(
+                        *this, std::forward<Scheduler>(scheduler),
+                        std::forward<Sndr>(sndr)));
     }
 } continues_on;
 
@@ -36,7 +39,7 @@ template <>
 struct _impls_for<continues_on_t> : _default_impls {
     static constexpr auto get_attrs =
         [](const auto& data, const auto& child) noexcept -> decltype(auto) {
-        return _join_env(_sched_attrs(data), _fwd_env(get_env(child)));
+        return _join_env(_sched_attrs(data), _fwd_env(::neutron::execution::get_env(child)));
     };
 };
 

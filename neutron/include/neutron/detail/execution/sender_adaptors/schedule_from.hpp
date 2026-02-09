@@ -7,6 +7,7 @@
 #include "neutron/detail/execution/default_domain.hpp"
 #include "neutron/detail/execution/fwd.hpp"
 #include "neutron/detail/execution/fwd_env.hpp"
+#include "neutron/detail/execution/join_env.hpp"
 #include "neutron/detail/execution/make_sender.hpp"
 #include "neutron/detail/execution/query_with_default.hpp"
 #include "neutron/detail/execution/sched_attrs.hpp"
@@ -94,7 +95,7 @@ struct _impls_for<schedule_from_t> : _default_impls {
     requires sender_in<
         _child_type<Sndr>, decltype(_fwd_env(std::declval<env_of_t<Rcvr>>()))>
     {
-        auto& sch       = get<1>(sndr);
+        auto& sch       = get<1>(std::forward<Sndr>(sndr));
         using sched_t   = std::remove_pointer_t<decltype(fake_copy(sch))>();
         using variant_t = type_list_cat_t<
             std::variant<std::monostate>,
@@ -105,7 +106,8 @@ struct _impls_for<schedule_from_t> : _default_impls {
                         _child_type<Sndr>, env_of_t<Rcvr>>,
                     completion_signatures<
                         set_error_t(std::exception_ptr), set_stopped_t()>>>>;
-        return _state_type<Rcvr, sched_t, variant_t>(sch, rcvr);
+        return _state_type<Rcvr, sched_t, variant_t>(
+            sch, std::forward<Rcvr>(rcvr));
     };
 
     static constexpr auto complete = []<class Tag, class... Args>(
@@ -123,7 +125,7 @@ struct _impls_for<schedule_from_t> : _default_impls {
             if constexpr (!nothrow) {
                 state.async_result.template emplace<
                     std::tuple<set_error_t, std::exception_ptr>>(
-                    set_error, current_exception());
+                    set_error, std::current_exception());
             }
         }
         start(state.opstate);
