@@ -1,7 +1,7 @@
 #pragma once
 #include <concepts>
 #include <utility>
-#include <neutron/concepts.hpp>
+#include "neutron/detail/concepts/allocator.hpp"
 
 namespace neutron::execution {
 

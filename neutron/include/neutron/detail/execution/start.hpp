@@ -1,10 +1,12 @@
 #pragma once
+#include "neutron/detail/macros.hpp"
 
 namespace neutron::execution {
 
 inline constexpr struct start_t {
     template <typename OpState>
-    void operator()(OpState& opstate) const noexcept {
+    ATOM_FORCE_INLINE constexpr void
+        operator()(OpState& opstate) const noexcept {
         opstate.start();
     }
 } start{};

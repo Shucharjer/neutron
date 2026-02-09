@@ -7,9 +7,12 @@
 #include <type_traits>
 #include <utility>
 #include <variant>
-#include <neutron/metafn.hpp>
 #include "neutron/detail/concepts/awaitable.hpp"
+#include "neutron/detail/metafn/convert.hpp"
 #include "neutron/detail/metafn/filt.hpp"
+#include "neutron/detail/metafn/first_last.hpp"
+#include "neutron/detail/metafn/rebind.hpp"
+#include "neutron/detail/metafn/size.hpp"
 #include "neutron/detail/metafn/unique.hpp"
 #include "neutron/detail/utility/fake_copy.hpp"
 #include "neutron/detail/utility/get.hpp"
