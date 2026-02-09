@@ -26,7 +26,7 @@ inline constexpr struct continues_on_t {
     template <sender Sndr, scheduler Scheduler>
     constexpr sender auto operator()(Sndr&& sndr, Scheduler&& scheduler) const {
         auto domain = _get_domain_early(sndr);
-        return transform_sender(
+        return ::neutron::execution::transform_sender(
             domain, std::forward<Sndr>(sndr),
             std::forward<Scheduler>(scheduler));
     }
