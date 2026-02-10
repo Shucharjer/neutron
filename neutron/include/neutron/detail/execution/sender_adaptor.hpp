@@ -2,6 +2,7 @@
 #include <concepts>
 #include <tuple>
 #include <type_traits>
+#include <utility>
 #include "neutron/detail/execution/fwd.hpp"
 #include "neutron/detail/execution/sender_adaptor_closure.hpp"
 #include "neutron/detail/macros.hpp"
@@ -32,7 +33,7 @@ private:
     ATOM_NO_UNIQUE_ADDR std::tuple<Args...> args_;
 };
 
-template <typename Tag, typename Fn>
-_sender_adaptor(Tag, Fn&&) -> _sender_adaptor<Tag, std::decay_t<Fn>>;
+template <typename Tag, typename... Args>
+_sender_adaptor(Tag, Args&&...) -> _sender_adaptor<Tag, std::decay_t<Args>...>;
 
 } // namespace neutron::execution

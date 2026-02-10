@@ -1,6 +1,7 @@
 #pragma once
 #include <concepts>
 #include <cstddef>
+#include <cstdio>
 #include <tuple>
 #include <type_traits>
 #include <utility>
@@ -13,6 +14,7 @@
 #include "neutron/detail/execution/set_stopped.hpp"
 #include "neutron/detail/execution/set_value.hpp"
 #include "neutron/detail/utility/forward_like.hpp"
+#include "neutron/detail/utility/get.hpp"
 
 namespace neutron::execution {
 
@@ -76,7 +78,7 @@ using _env_type = std::invoke_result_t<
     _state_type<Sndr, Rcvr>&, const Rcvr&>;
 
 template <typename Sndr, size_t I = 0>
-using _child_type = decltype(std::declval<Sndr>().template get<I + 2>());
+using _child_type = decltype(get<I + 2>(std::declval<Sndr>()));
 
 template <typename Sndr>
 using _indices_for = std::remove_reference_t<Sndr>::_indices_for;
@@ -89,11 +91,11 @@ struct _basic_state {
           state(_impls_for<_tag_t>::get_state(std::forward<Sndr>(sndr), rcvr)) {
     }
 
-    void start() & noexcept {}
-
     Rcvr rcvr;
     _state_type<Sndr, Rcvr> state;
 };
+template <typename Sndr, typename Rcvr>
+_basic_state(Sndr&&, Rcvr&&) -> _basic_state<Sndr&&, Rcvr>;
 
 template <typename Sndr, typename Rcvr, typename Index>
 requires _valid_specialization<_env_type, Index, Sndr, Rcvr>
@@ -169,7 +171,7 @@ struct _basic_operation : public _basic_state<Sndr, Rcvr> {
     using operation_state_concept = operation_state_t;
     using _tag_t                  = tag_of_t<Sndr>;
     using _inner_ops_t            = _connect_all_result<Sndr, Rcvr>;
-    _connect_all_result<Sndr, Rcvr> inner_ops;
+    _inner_ops_t inner_ops;
 
     constexpr _basic_operation(Sndr&& sndr, Rcvr&& rcvr)
         : _basic_state<Sndr, Rcvr>(std::forward<Sndr>(sndr), std::move(rcvr)),
@@ -184,6 +186,8 @@ struct _basic_operation : public _basic_state<Sndr, Rcvr> {
             inner_ops);
     }
 };
+template <typename Sndr, typename Rcvr>
+_basic_operation(Sndr&&, Rcvr&&) -> _basic_operation<Sndr&&, Rcvr>;
 
 template <typename Sndr, typename Env>
 struct _completion_signatures_for_impl {
@@ -192,8 +196,8 @@ struct _completion_signatures_for_impl {
 };
 
 template <typename Sndr, typename Env>
-using _completion_signatures_for =
-    typename _completion_signatures_for_impl<Sndr, Env>::type;
+using _completion_signatures_for = typename _completion_signatures_for_impl<
+    std::remove_cvref_t<Sndr>, Env>::type;
 
 template <typename Tag, typename Data, typename... Child>
 struct _basic_sender : public _product_type<Tag, Data, Child...> {
@@ -254,13 +258,13 @@ struct _basic_sender : public _product_type<Tag, Data, Child...> {
 
     template <class Env>
     auto get_completion_signatures(Env&&) const& noexcept
-        -> _completion_signatures_for<_basic_sender, Env> {
+        -> _completion_signatures_for<const _basic_sender, Env> {
         return {};
     }
 
     template <class Env>
     auto get_completion_signatures(Env&&) const&& noexcept
-        -> _completion_signatures_for<_basic_sender, Env> {
+        -> _completion_signatures_for<const _basic_sender, Env> {
         return {};
     }
 

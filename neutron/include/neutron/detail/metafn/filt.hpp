@@ -22,11 +22,6 @@ struct type_list_filt<Predicate, Template<Tys...>> {
     struct filt<Template<Curr...>> {
         using type = Template<Curr...>;
     };
-    template <typename... Curr, typename Ty>
-    struct filt<Template<Curr...>, Ty> {
-        using type = std::conditional_t<
-            Predicate<Ty>::value, Template<Curr..., Ty>, Template<Curr...>>;
-    };
     template <typename... Curr, typename Ty, typename... Others>
     struct filt<Template<Curr...>, Ty, Others...> {
         using type = std::conditional_t<
@@ -52,11 +47,6 @@ struct value_list_filt<Predicate, Template<Tys...>> {
     template <auto... Curr>
     struct filt<Template<Curr...>> {
         using type = Template<Curr...>;
-    };
-    template <auto... Curr, auto Val>
-    struct filt<Template<Curr...>, Val> {
-        using type = std::conditional_t<
-            Predicate<Val>::value, Template<Curr..., Val>, Template<Curr...>>;
     };
     template <auto... Curr, auto Val, auto... Others>
     struct filt<Template<Curr...>, Val, Others...> {

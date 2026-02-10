@@ -1,5 +1,6 @@
 #pragma once
 #include <concepts>
+#include <cstdio>
 #include <exception>
 #include <functional>
 #include <type_traits>
@@ -48,11 +49,12 @@ inline constexpr then_t then;
 
 template <>
 struct _impls_for<then_t> : _default_impls {
-    static constexpr auto complete =
-        []<typename Ignored, typename Tag, typename State, typename Receiver,
-           typename... Args>(
-            Ignored, State& fn, Receiver& rcvr, Tag, Args&&... args) noexcept {
-            // if constexpr (std::same_as<Tag, set_value_t>) {
+    static constexpr auto complete = []<typename Ignored, typename Tag,
+                                        typename State, typename Receiver,
+                                        typename... Args>(
+                                         Ignored, State& fn, Receiver& rcvr,
+                                         Tag, Args&&... args) noexcept {
+        if constexpr (std::same_as<Tag, set_value_t>) {
             ATOM_TRY {
                 if constexpr (std::is_void_v<
                                   std::invoke_result_t<State&, Args...>>) {
@@ -69,10 +71,10 @@ struct _impls_for<then_t> : _default_impls {
                     set_error(std::move(rcvr), std::current_exception());
                 }
             }
-            // } else {
-            //     Tag()(std::move(rcvr), std::forward<Args>(args)...);
-            // }
-        };
+        } else {
+            Tag()(std::move(rcvr), std::forward<Args>(args)...);
+        }
+    };
 };
 
 // Completion signatures for then(sender, fn)

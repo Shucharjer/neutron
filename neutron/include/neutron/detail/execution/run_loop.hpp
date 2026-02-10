@@ -85,9 +85,11 @@ class run_loop {
     };
 
     struct _run_loop_sender {
-        using sender_concept        = sender_t;
-        using completion_signatures = completion_signatures<
-            set_value_t(), set_error_t(std::exception_ptr), set_stopped_t()>;
+        using sender_concept = sender_t;
+        using completion_signatures =
+            ::neutron::execution::completion_signatures<
+                set_value_t(), set_error_t(std::exception_ptr),
+                set_stopped_t()>;
 
         auto get_env() const noexcept -> _run_loop_env { return { loop }; }
 

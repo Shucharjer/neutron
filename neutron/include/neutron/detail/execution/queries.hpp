@@ -2,6 +2,7 @@
 #include <concepts>
 #include <utility>
 #include "neutron/detail/concepts/allocator.hpp"
+#include "neutron/detail/execution/fwd.hpp"
 
 namespace neutron::execution {
 
@@ -41,6 +42,15 @@ struct get_stop_token_t {
     }
     {
         return std::as_const(object).query(*this);
+    }
+
+    template <typename Query>
+    constexpr auto operator()(Query&& object) const noexcept
+    requires(!requires {
+        { std::as_const(object).query(*this) } noexcept;
+    })
+    {
+        return ::neutron::never_stop_token{};
     }
 
     constexpr bool query(forwarding_query_t) const noexcept { return true; }

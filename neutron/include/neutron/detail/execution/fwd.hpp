@@ -1,6 +1,7 @@
 #pragma once
 #include <concepts>
 #include <coroutine>
+#include <cstddef>
 #include <cstdint>
 #include <thread> // IWYU pragma: keep
 #include <tuple>
@@ -10,7 +11,6 @@
 #include "neutron/detail/concepts/awaitable.hpp"
 #include "neutron/detail/metafn/convert.hpp"
 #include "neutron/detail/metafn/filt.hpp"
-#include "neutron/detail/metafn/first_last.hpp"
 #include "neutron/detail/metafn/rebind.hpp"
 #include "neutron/detail/metafn/size.hpp"
 #include "neutron/detail/metafn/unique.hpp"
@@ -53,6 +53,16 @@ struct _env_promise : _with_await_transfrom<_env_promise<Env>> {
 
 template <typename Callable, typename... Args>
 concept callable = std::is_invocable_v<Callable, Args...>;
+
+struct never_stop_token {
+    template <typename>
+    using callback_type = void;
+
+    constexpr bool stop_requested() const noexcept { return false; }
+    constexpr bool stop_possible() const noexcept { return false; }
+    friend constexpr bool
+        operator==(never_stop_token, never_stop_token) noexcept = default;
+};
 
 // [exec.general], helper concepts
 //   template<class T>
@@ -203,8 +213,31 @@ constexpr bool _is_completion_signature<set_stopped_t()> = true;
 template <typename Fn>
 concept _completion_signature = _is_completion_signature<Fn>;
 
+template <typename Tag, typename Ty>
+struct _has_same_tag : std::false_type {};
+template <typename Tag, typename... Args>
+struct _has_same_tag<Tag, Tag(Args...)> : std::true_type {};
+
+template <typename Tag, typename Sigs>
+struct _cmplsigs_count_of {
+    template <typename T>
+    using _predicate = _has_same_tag<Tag, T>;
+    static constexpr size_t value =
+        type_list_size_v<type_list_filt_t<_predicate, Sigs>>;
+};
+
 template <_completion_signature... Fns>
-struct completion_signatures {};
+struct completion_signatures {
+    template <typename Tag>
+    static constexpr size_t count_of(Tag) {
+        return _cmplsigs_count_of<Tag, completion_signatures>::value;
+    }
+
+    template <typename Fn>
+    static constexpr void for_each(Fn&& fn) {
+        (fn(static_cast<Fns*>(nullptr)), ...);
+    }
+};
 
 template <typename Sigs>
 constexpr bool _is_valid_completion_signatures = false;
@@ -234,11 +267,6 @@ concept _enable_sender =                      // exposition only
     _is_sender<Sndr> ||
     awaitable<Sndr, _env_promise<empty_env>>; // [exec.awaitables]
 
-template <typename Tag, typename Ty>
-struct _has_same_tag : std::false_type {};
-template <typename Tag, typename... Args>
-struct _has_same_tag<Tag, Tag(Args...)> : std::true_type {};
-
 template <
     typename Tag, _valid_completion_signatures Completions,
     template <typename...> typename Tuple,
@@ -247,26 +275,20 @@ struct _gather_signatures_helper {
     template <typename Ty>
     using _predicate = _has_same_tag<Tag, Ty>;
 
-    using _cmpsigs_t = type_list_filt_t<_predicate, Completions>;
+    using _cmplsigs_t = type_list_filt_t<_predicate, Completions>;
 
-    template <typename T>
+    using _type_list = type_list_rebind_t<type_list, _cmplsigs_t>;
+
+    template <typename>
     struct _convert;
     template <typename... Args>
     struct _convert<Tag(Args...)> {
         using type = Tuple<Args...>;
     };
 
-    using _cmpsigs_tup = type_list_convert_t<
-        _convert, type_list_rebind_t<type_list, _cmpsigs_t>>;
+    using _tuple_t = type_list_convert_t<_convert, _type_list>;
 
-    using type = std::remove_pointer_t<decltype([] {
-        if constexpr (type_list_size_v<_cmpsigs_tup> == 1) {
-            return static_cast<type_list_first_t<_cmpsigs_tup>*>(nullptr);
-        } else {
-            return static_cast<type_list_rebind_t<Variant, _cmpsigs_tup>*>(
-                nullptr);
-        }
-    }())>;
+    using type = type_list_rebind_t<Variant, _tuple_t>;
 };
 
 template <
@@ -357,6 +379,16 @@ requires sender_in<Sndr, Env>
 using error_types_of_t = _gather_signatures<
     set_error_t, completion_signatures_of_t<Sndr, Env>, std::type_identity_t,
     Variant>;
+
+template <
+    typename Sndr, typename Env = empty_env,
+    template <typename...> typename Tuple   = _decayed_tuple,
+    template <typename...> typename Variant = _variant_or_empty>
+requires sender_in<Sndr, Env>
+constexpr bool sends_stopped = !std::same_as<
+    type_list<>, _gather_signatures<
+                     set_stopped_t, completion_signatures_of_t<Sndr, Env>,
+                     type_list, type_list>>;
 
 template <class Sch>
 concept scheduler =

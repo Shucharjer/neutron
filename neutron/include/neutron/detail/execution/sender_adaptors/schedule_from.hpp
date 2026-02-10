@@ -1,8 +1,10 @@
 #pragma once
 #include <concepts>
+#include <cstdio>
 #include <exception>
 #include <tuple>
 #include <type_traits>
+#include <utility>
 #include <variant>
 #include "neutron/detail/execution/default_domain.hpp"
 #include "neutron/detail/execution/fwd.hpp"
@@ -33,8 +35,12 @@ struct _impls_for<schedule_from_t> : _default_impls {
 
     static constexpr auto get_attrs =
         [](const auto& data, const auto& child) noexcept -> decltype(auto) {
-        return _join_env(_sched_attrs(data), _fwd_env(get_env(child)));
+        return _join_env(
+            _sched_attrs(data), _fwd_env(::neutron::execution::get_env(child)));
     };
+
+    template <typename... Args>
+    using _value_result_tuple = _decayed_tuple<set_value_t, Args...>;
 
     template <typename Rcvr, typename Variant>
     struct _state_base {
@@ -49,31 +55,38 @@ struct _impls_for<schedule_from_t> : _default_impls {
         State* state;
 
         constexpr void set_value() && noexcept {
-            std::visit(
-                [this]<typename Tup>(Tup& result) noexcept -> void {
-                    if constexpr (!std::same_as<std::monostate, Tup>) {
-                        std::apply(
-                            [this](auto& tag, auto&... args) {
-                                tag(std::move(state->rcvr), std::move(args)...);
-                            },
-                            result);
-                    }
-                },
-                state->async_result);
+            ATOM_TRY {
+                std::visit(
+                    [this]<typename Tup>(Tup& result) noexcept -> void {
+                        if constexpr (!std::same_as<std::monostate, Tup>) {
+                            std::apply(
+                                [this](auto&& tag, auto&&... args) {
+                                    tag(std::move(this->state->rcvr),
+                                        std::move(args)...);
+                                },
+                                result);
+                        }
+                    },
+                    state->async_result);
+            }
+            ATOM_CATCH(...) {
+                ::neutron::execution::set_error(
+                    std::move(state->rcvr), std::current_exception());
+            }
         }
 
         template <class Error>
         constexpr void set_error(Error&& err) && noexcept {
-            execution::set_error(
+            ::neutron::execution::set_error(
                 std::move(state->rcvr), std::forward<Error>(err));
         }
 
         constexpr void set_stopped() && noexcept {
-            execution::set_stopped(std::move(state->rcvr));
+            ::neutron::execution::set_stopped(std::move(state->rcvr));
         }
 
         constexpr decltype(auto) get_env() const noexcept {
-            return _fwd_env(execution::get_env(state->rcvr));
+            return _fwd_env(::neutron::execution::get_env(state->rcvr));
         }
     };
 
@@ -85,29 +98,28 @@ struct _impls_for<schedule_from_t> : _default_impls {
 
         operation_type opstate;
 
-        explicit constexpr _state_type(Sch& sch, Rcvr& rcvr)
+        explicit _state_type(const Sch& sch, Rcvr& rcvr)
             : _state_base<Rcvr, Variant>{ rcvr },
-              opstate(connect(schedule(sch)), receiver_type{ this }) {}
+              opstate(connect(schedule(sch), receiver_type{ this })) {}
     };
 
     static constexpr auto get_state =
-        []<typename Sndr, typename Rcvr>(Sndr&& sndr, Rcvr&& rcvr)
-    requires sender_in<
-        _child_type<Sndr>, decltype(_fwd_env(std::declval<env_of_t<Rcvr>>()))>
+        []<typename Sndr, typename Rcvr>(Sndr&& sndr, Rcvr& rcvr)
+    requires sender_in<_child_type<Sndr>, env_of_t<Rcvr>>
     {
-        auto& sch       = get<1>(std::forward<Sndr>(sndr));
-        using sched_t   = std::remove_pointer_t<decltype(fake_copy(sch))>();
-        using variant_t = type_list_cat_t<
-            std::variant<std::monostate>,
-            type_list_rebind_t<
-                std::variant,
-                type_list_cat_t<
-                    completion_signatures_of_t<
-                        _child_type<Sndr>, env_of_t<Rcvr>>,
-                    completion_signatures<
-                        set_error_t(std::exception_ptr), set_stopped_t()>>>>;
-        return _state_type<Rcvr, sched_t, variant_t>(
-            sch, std::forward<Rcvr>(rcvr));
+        auto sch               = get<1>(std::forward<Sndr>(sndr));
+        using sched_t          = decltype(sch);
+        using value_tuple_list = _gather_signatures<
+            set_value_t,
+            completion_signatures_of_t<_child_type<Sndr>, env_of_t<Rcvr>>,
+            _value_result_tuple, type_list>;
+        using variant_types = type_list_cat_t<
+            type_list<std::monostate>, value_tuple_list,
+            type_list<
+                std::tuple<set_error_t, std::exception_ptr>,
+                std::tuple<set_stopped_t>>>;
+        using variant_t = type_list_rebind_t<std::variant, variant_types>;
+        return _state_type<Rcvr, sched_t, variant_t>(sch, rcvr);
     };
 
     static constexpr auto complete = []<class Tag, class... Args>(
@@ -128,11 +140,24 @@ struct _impls_for<schedule_from_t> : _default_impls {
                     set_error, std::current_exception());
             }
         }
-        start(state.opstate);
+        ::neutron::execution::start(state.opstate);
     };
 
     template <typename Sndr, typename... Env>
     static consteval void check_types();
+};
+
+template <typename Sch, typename Sndr, typename Env>
+struct _completion_signatures_for_impl<
+    _basic_sender<schedule_from_t, Sch, Sndr>, Env> {
+    using scheduler_sender = decltype(schedule(std::declval<Sch>()));
+
+    using type = _completion_signatures_for<Sndr, Env>;
+    // using type = unique_type_list_t<type_list_cat_t<
+    //     decltype(get_completion_signatures(
+    //         std::declval<Sndr>(), std::declval<Env>())),
+    //     decltype(get_completion_signatures(
+    //         std::declval<scheduler_sender>(), std::declval<Env>()))>>;
 };
 
 } // namespace neutron::execution

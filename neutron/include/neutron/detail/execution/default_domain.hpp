@@ -56,7 +56,7 @@ struct default_domain {
         apply_sender(Tag, Sndr&& sndr, Args&&... args) noexcept(
             noexcept(Tag().apply_sender(
                 std::forward<Sndr>(sndr), std::forward<Args>(args)...))) {
-        Tag().apply_sender(
+        return Tag().apply_sender(
             std::forward<Sndr>(sndr), std::forward<Args>(args)...);
     }
 };
@@ -94,16 +94,15 @@ template <size_t Depth, typename Domain, sender Sndr, queryable... Env>
 requires(Depth <= _recurse_transform_limit)
 ATOM_FORCE_INLINE constexpr decltype(auto)
     impl(Domain dom, Sndr&& sndr, const Env&... env) {
-    using transformed_sndr_t =
-        decltype(try_transform(dom, std::forward<Sndr>(sndr), env...));
+    auto transformed = try_transform(dom, std::forward<Sndr>(sndr), env...);
+    using transformed_sndr_t = decltype(transformed);
 
     if constexpr (std::same_as<
                       std::remove_cvref_t<transformed_sndr_t>,
                       std::remove_cvref_t<Sndr>>) {
-        return try_transform(dom, std::forward<Sndr>(sndr), env...);
+        return transformed;
     } else {
-        return impl<Depth + 1>(
-            dom, try_transform(dom, std::forward<Sndr>(sndr), env...), env...);
+        return impl<Depth + 1>(dom, std::move(transformed), env...);
     }
 }
 

@@ -9,7 +9,7 @@ using namespace neutron::execution;
 int main() {
     normthread thread;
     scheduler auto sch = thread.get_scheduler();
-    auto sndr = just(1024ULL) | continue_on(sch) | then([](uint64_t val) {
+    auto sndr = just(1024ULL) | continues_on(sch) | then([](uint64_t val) {
                     uint64_t num{};
                     srand(time(nullptr));
                     for (auto i = 0; i < val; ++i) {

@@ -14,7 +14,7 @@ namespace neutron::execution {
 
 inline constexpr struct continues_on_t {
     template <sender_for<continues_on_t> Sndr, typename... Env>
-    constexpr static auto transform_sender(Sndr&& sndr, Env&&... env) {
+    constexpr static auto transform_sender(Sndr&& sndr, Env&&...) {
         auto&& data  = get<1>(sndr);
         auto&& child = get<2>(sndr);
         return schedule_from(std::move(data), std::move(child));
@@ -39,7 +39,8 @@ template <>
 struct _impls_for<continues_on_t> : _default_impls {
     static constexpr auto get_attrs =
         [](const auto& data, const auto& child) noexcept -> decltype(auto) {
-        return _join_env(_sched_attrs(data), _fwd_env(::neutron::execution::get_env(child)));
+        return _join_env(
+            _sched_attrs(data), _fwd_env(::neutron::execution::get_env(child)));
     };
 };
 

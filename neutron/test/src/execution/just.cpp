@@ -9,8 +9,9 @@ int main() {
     sender auto vsndr = just(32);
     sender auto nsndr = just();
 
-    this_thread::sync_wait(vsndr);
-    this_thread::sync_wait(nsndr);
-
+    auto vtuple = this_thread::sync_wait(vsndr).value();
+    static_assert(std::same_as<decltype(vtuple), std::tuple<int>>);
+    auto ntuple = this_thread::sync_wait(nsndr).value();
+    static_assert(std::same_as<decltype(ntuple), std::tuple<>>);
     return 0;
 }
