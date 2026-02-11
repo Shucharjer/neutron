@@ -404,16 +404,6 @@ concept scheduler =
     } && std::equality_comparable<std::remove_cvref_t<Sch>> &&
     std::copy_constructible<std::remove_cvref_t<Sch>>;
 
-//   template<class Sndr, class Env = empty_env>
-//       requires sender_in<Sndr, Env>
-//     inline constexpr bool sends_stopped = see below;
-
-//   template<class Sndr, class Env>
-//     using single-sender-value-type = see below; // exposition only
-
-//   template<class Sndr, class Env>
-//     concept single-sender = see below; // exposition only
-
 template <sender Sndr>
 using tag_of_t = std::remove_pointer_t<decltype(fake_copy(
     std::forward<decltype(get<0>(std::declval<Sndr>()))>(
@@ -428,10 +418,6 @@ using connect_result_t =
 
 template <scheduler Sndr>
 using schedule_result_t = decltype(schedule(std::declval<Sndr>()));
-
-// [exec.adapt], sender adaptors
-//   template<class-type D>
-//     struct sender_adaptor_closure { };
 
 struct starts_on_t;
 struct continues_on_t;
@@ -468,30 +454,6 @@ extern const when_all_with_variant_t when_all_with_variant;
 extern const into_variant_t into_variant;
 extern const stopped_as_optional_t stopped_as_optional;
 extern const stopped_as_error_t stopped_as_error;
-
-// [exec.utils.tfxcmplsigs]
-//   template<
-//     valid-completion-signatures InputSignatures,
-//     valid-completion-signatures AdditionalSignatures =
-//     completion_signatures<>, template<class...> class SetValue = see below,
-//     template<class> class SetError = see below,
-//     valid-completion-signatures SetStopped =
-//     completion_signatures<set_stopped_t()>>
-//   using transform_completion_signatures = completion_signatures<see below>;
-
-//   template<
-//     sender Sndr,
-//     class Env = empty_env,
-//     valid-completion-signatures AdditionalSignatures =
-//     completion_signatures<>, template<class...> class SetValue = see below,
-//     template<class> class SetError = see below,
-//     valid-completion-signatures SetStopped =
-//     completion_signatures<set_stopped_t()>>
-//       requires sender_in<Sndr, Env>
-//   using transform_completion_signatures_of =
-//     transform_completion_signatures<
-//       completion_signatures_of_t<Sndr, Env>,
-//       AdditionalSignatures, SetValue, SetError, SetStopped>;
 
 // [exec.ctx], execution resources
 // [exec.run.loop], run_loop

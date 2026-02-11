@@ -1,4 +1,6 @@
-#define ATOM_EXECUTION
+// #define ATOM_EXECUTION
+#include <chrono>
+#include <cstdint>
 #include <neutron/execution.hpp>
 #include <neutron/execution_resources.hpp>
 #include <neutron/print.hpp>
@@ -14,20 +16,22 @@ int main() {
         scheduler auto c4sch = at4.get_scheduler();
 
         auto job = then([](auto count) {
-            int64_t num{};
-            for (auto i = 0; i < count; ++i) {
-                for (auto j = 0; j < count; ++j) {
-                    num += (j & 0x1) == 0 ? j : -j;
-                }
-            }
+            using namespace std::chrono;
+            auto tp = high_resolution_clock::now();
+            while (high_resolution_clock::now() - tp < 3s) {}
             return count;
         });
 
-        sender auto sndr = just(1024 * 256) | continues_on(c2sch) | job
-            // | continues_on(c4sch) | job
-            // | then([](auto result) { println("result: {}", result); })
-            ;
-        this_thread::sync_wait(sndr);
+        auto run_on_c2 = continues_on(c2sch) | job;
+        auto run_on_c4 = continues_on(c4sch) | job;
+        auto output = then([](auto result) { println("result: {}", result); });
+        sender auto sndr             = just(42) | run_on_c2;
+        sender auto transfered       = sndr | run_on_c4;
+        sender auto transfered_again = transfered | run_on_c2;
+
+        this_thread::sync_wait(sndr | output);
+        this_thread::sync_wait(transfered | output);
+        this_thread ::sync_wait(transfered_again | output);
     }
 
     return 0;

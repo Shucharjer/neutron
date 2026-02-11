@@ -1,6 +1,5 @@
 #pragma once
 #include <concepts>
-#include <cstdio>
 #include <exception>
 #include <tuple>
 #include <type_traits>
@@ -14,7 +13,6 @@
 #include "neutron/detail/execution/query_with_default.hpp"
 #include "neutron/detail/execution/sched_attrs.hpp"
 #include "neutron/detail/macros.hpp"
-#include "neutron/detail/utility/fake_copy.hpp"
 #include "neutron/detail/utility/get.hpp"
 
 namespace neutron::execution {

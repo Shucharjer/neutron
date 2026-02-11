@@ -74,7 +74,6 @@ using ::stdexec::sync_wait;
     #include "neutron/detail/execution/queries.hpp"
     #include "neutron/detail/execution/query_with_default.hpp"
     #include "neutron/detail/execution/run_loop.hpp"
-    #include "neutron/detail/execution/schedule.hpp"
     #include "neutron/detail/execution/sender_adaptor.hpp"
     #include "neutron/detail/execution/sender_adaptor_closure.hpp"
     #include "neutron/detail/execution/set_error.hpp"
@@ -85,6 +84,9 @@ using ::stdexec::sync_wait;
 // sender factories
 
     #include "neutron/detail/execution/sender_factories/just.hpp"
+    #include "neutron/detail/execution/sender_factories/just_error.hpp"
+    #include "neutron/detail/execution/sender_factories/just_stopped.hpp"
+    #include "neutron/detail/execution/sender_factories/schedule.hpp"
 
 // sender consumers
 

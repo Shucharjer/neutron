@@ -1,7 +1,6 @@
 #pragma once
 #include <concepts>
 #include <cstddef>
-#include <cstdio>
 #include <tuple>
 #include <type_traits>
 #include <utility>
@@ -143,7 +142,10 @@ inline constexpr struct connect_all_t {
             noexcept(std::apply([op](auto&& tag, auto&& data, auto&&... child) {
                 return _product_type{ connect(
                     forward_like<Sndr>(child)...,
-                    _basic_receiver<Sndr, Rcvr, std::index_sequence<Is>>{ op })... };
+                    _basic_receiver<
+                        Sndr,
+                        Rcvr,
+                        std::integral_constant<std::size_t, Is>>{ op })... };
             },
             std::forward<decltype(sndr)>(sndr))))
         // clang-format on
@@ -152,7 +154,8 @@ inline constexpr struct connect_all_t {
             [op](auto&& tag, auto&& data, auto&&... child) {
                 return _product_type{ connect(
                     forward_like<Sndr>(child)...,
-                    _basic_receiver<Sndr, Rcvr, std::index_sequence<Is>>{
+                    _basic_receiver<
+                        Sndr, Rcvr, std::integral_constant<std::size_t, Is>>{
                         op })... };
             },
             std::forward<decltype(sndr)>(sndr));
