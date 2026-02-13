@@ -1,6 +1,5 @@
-// #define ATOM_EXECUTION
+#define ATOM_EXECUTION
 #include <chrono>
-#include <cstdint>
 #include <neutron/execution.hpp>
 #include <neutron/execution_resources.hpp>
 #include <neutron/print.hpp>

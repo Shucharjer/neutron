@@ -13,12 +13,20 @@ template <typename Tag, typename... Args>
 class _sender_adaptor :
     public sender_adaptor_closure<_sender_adaptor<Tag, Args...>> {
 public:
-    using sender_concept = sender_t;
     template <typename... Values>
     requires std::constructible_from<std::tuple<Args...>, Values...>
     constexpr _sender_adaptor(Tag, Values&&... values) noexcept(
         std::is_nothrow_constructible_v<std::tuple<Args...>, Values...>)
         : args_(std::forward<Values>(values)...) {}
+
+    template <sender Sndr>
+    constexpr decltype(auto) operator()(Sndr&& sndr) const {
+        return std::apply(
+            [&sndr](auto&... values) {
+                return Tag{}(std::forward<Sndr>(sndr), values...);
+            },
+            args_);
+    }
 
     template <sender Sndr>
     constexpr decltype(auto) operator()(Sndr&& sndr) {

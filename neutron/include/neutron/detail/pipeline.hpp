@@ -105,6 +105,14 @@ public:
         return (pair_.second())(pair_.first()(std::forward<Arg>(arg)));
     }
 
+    template <typename Arg>
+    requires std::is_invocable_v<First, Arg> &&
+             std::is_invocable_v<Second, std::invoke_result_t<First, Arg>>
+    ATOM_NODISCARD constexpr auto operator()(Arg&& arg) & noexcept(
+        noexcept((pair_.second())(pair_.first()(std::forward<Arg>(arg))))) {
+        return (pair_.second())(pair_.first()(std::forward<Arg>(arg)));
+    }
+
     /**
      * @brief Get out of the pipeline.
      *
@@ -116,6 +124,16 @@ public:
              std::is_invocable_v<Second, std::invoke_result_t<First, Arg>>
     ATOM_NODISCARD constexpr auto
         operator()(Arg&& arg) && noexcept(noexcept(std::move(pair_.second())(
+            std::move(pair_.first())(std::forward<Arg>(arg))))) {
+        return std::move(pair_.second())(
+            std::move(pair_.first())(std::forward<Arg>(arg)));
+    }
+
+    template <typename Arg>
+    requires std::is_invocable_v<First, Arg> &&
+             std::is_invocable_v<Second, std::invoke_result_t<First, Arg>>
+    ATOM_NODISCARD constexpr auto operator()(Arg&& arg) const&& noexcept(
+        noexcept(std::move(pair_.second())(
             std::move(pair_.first())(std::forward<Arg>(arg))))) {
         return std::move(pair_.second())(
             std::move(pair_.first())(std::forward<Arg>(arg)));

@@ -14,22 +14,6 @@
 
 namespace neutron::execution {
 
-template <typename Fn>
-struct _then_receiver {
-    Fn fn;
-    template <typename F>
-    requires std::constructible_from<Fn, F>
-    _then_receiver(F&& fn) : fn(std::forward<F>(fn)) {}
-};
-
-template <sender Sndr, typename Fn>
-struct _then_sender {
-    Fn fn;
-    template <typename F>
-    requires std::constructible_from<Fn, F>
-    _then_sender(F&& fn) : fn(std::forward<F>(fn)) {}
-};
-
 struct then_t {
     template <typename Fn>
     constexpr auto operator()(Fn&& fn) const {
@@ -49,21 +33,20 @@ inline constexpr then_t then;
 
 template <>
 struct _impls_for<then_t> : _default_impls {
-    static constexpr auto complete = []<typename Ignored, typename Tag,
-                                        typename State, typename Receiver,
-                                        typename... Args>(
-                                         Ignored, State& fn, Receiver& rcvr,
-                                         Tag, Args&&... args) noexcept {
+    static constexpr auto complete = []<typename Tag, typename State,
+                                        typename Receiver, typename... Args>(
+                                         auto&&, State& fn, Receiver& rcvr, Tag,
+                                         Args&&... args) noexcept {
         if constexpr (std::same_as<Tag, set_value_t>) {
             ATOM_TRY {
                 if constexpr (std::is_void_v<
                                   std::invoke_result_t<State&, Args...>>) {
-                    std::invoke(fn, std::forward<Args>(args)...);
+                    std::move(fn)(std::forward<Args>(args)...);
                     set_value(std::move(rcvr));
                 } else {
                     set_value(
                         std::move(rcvr),
-                        std::invoke(fn, std::forward<Args>(args)...));
+                        std::move(fn)(std::forward<Args>(args)...));
                 }
             }
             ATOM_CATCH(...) {

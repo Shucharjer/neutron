@@ -105,8 +105,8 @@ struct _impls_for<schedule_from_t> : _default_impls {
         []<typename Sndr, typename Rcvr>(Sndr&& sndr, Rcvr& rcvr)
     requires sender_in<_child_type<Sndr>, env_of_t<Rcvr>>
     {
-        auto sch               = get<1>(std::forward<Sndr>(sndr));
-        using sched_t          = decltype(sch);
+        auto& sch              = get<1>(sndr);
+        using sched_t          = std::remove_cvref_t<decltype(sch)>;
         using value_tuple_list = _gather_signatures<
             set_value_t,
             completion_signatures_of_t<_child_type<Sndr>, env_of_t<Rcvr>>,

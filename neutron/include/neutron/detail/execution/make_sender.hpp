@@ -12,6 +12,7 @@
 #include "neutron/detail/execution/set_error.hpp"
 #include "neutron/detail/execution/set_stopped.hpp"
 #include "neutron/detail/execution/set_value.hpp"
+#include "neutron/detail/metafn/size.hpp"
 #include "neutron/detail/utility/forward_like.hpp"
 #include "neutron/detail/utility/get.hpp"
 
@@ -87,8 +88,9 @@ struct _basic_state {
     using _tag_t = tag_of_t<Sndr>;
     constexpr _basic_state(Sndr&& sndr, Rcvr&& rcvr)
         : rcvr(std::move(rcvr)),
-          state(_impls_for<_tag_t>::get_state(std::forward<Sndr>(sndr), rcvr)) {
-    }
+          state(
+              _impls_for<_tag_t>::get_state(
+                  std::forward<Sndr>(sndr), this->rcvr)) {}
 
     Rcvr rcvr;
     _state_type<Sndr, Rcvr> state;
@@ -182,11 +184,10 @@ struct _basic_operation : public _basic_state<Sndr, Rcvr> {
               this, std::forward<Sndr>(sndr), _indices_for<Sndr>())) {}
 
     void start() & noexcept {
-        std::apply(
-            [this](auto&... ops) {
-                _impls_for<_tag_t>::start(this->state, this->rcvr, ops...);
-            },
-            inner_ops);
+        [this]<size_t... Is>(std::index_sequence<Is...>) {
+            _impls_for<_tag_t>::start(
+                this->state, this->rcvr, get<Is>(inner_ops)...);
+        }(std::make_index_sequence<type_list_size_v<_inner_ops_t>>());
     }
 };
 template <typename Sndr, typename Rcvr>
