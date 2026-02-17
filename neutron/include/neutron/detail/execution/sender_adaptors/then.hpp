@@ -1,6 +1,5 @@
 #pragma once
 #include <concepts>
-#include <cstdio>
 #include <exception>
 #include <functional>
 #include <type_traits>
@@ -11,6 +10,8 @@
 #include "neutron/detail/execution/get_domain.hpp"
 #include "neutron/detail/execution/make_sender.hpp"
 #include "neutron/detail/execution/sender_adaptor.hpp"
+#include "neutron/detail/execution/set_error.hpp"
+#include "neutron/detail/execution/set_value.hpp"
 
 namespace neutron::execution {
 
@@ -33,31 +34,39 @@ inline constexpr then_t then;
 
 template <>
 struct _impls_for<then_t> : _default_impls {
-    static constexpr auto complete = []<typename Tag, typename State,
-                                        typename Receiver, typename... Args>(
-                                         auto&&, State& fn, Receiver& rcvr, Tag,
-                                         Args&&... args) noexcept {
-        if constexpr (std::same_as<Tag, set_value_t>) {
-            ATOM_TRY {
-                if constexpr (std::is_void_v<
-                                  std::invoke_result_t<State&, Args...>>) {
-                    std::move(fn)(std::forward<Args>(args)...);
-                    set_value(std::move(rcvr));
-                } else {
-                    set_value(
-                        std::move(rcvr),
-                        std::move(fn)(std::forward<Args>(args)...));
+    static constexpr struct _complete_impl {
+        template <typename Tag, typename State, typename... Args>
+        requires(!std::same_as<Tag, set_value_t> ||
+                 std::invocable<State&, Args...>)
+        constexpr decltype(auto) operator()(
+            auto&&, State& fn, auto& rcvr, Tag, Args&&... args) const noexcept {
+            if constexpr (std::same_as<Tag, set_value_t>) {
+                ATOM_TRY {
+                    using _result_t =
+                        std::invoke_result_t<State&, Args...>;
+                    if constexpr (std::is_void_v<_result_t>) {
+                        std::invoke(
+                            std::move(fn), std::forward<Args>(args)...);
+                        set_value(std::move(rcvr));
+                    } else {
+                        set_value(
+                            std::move(rcvr),
+                            std::invoke(
+                                std::move(fn),
+                                std::forward<Args>(args)...));
+                    }
                 }
-            }
-            ATOM_CATCH(...) {
-                if constexpr (!std::is_nothrow_invocable_v<State&, Args...>) {
-                    set_error(std::move(rcvr), std::current_exception());
+                ATOM_CATCH(...) {
+                    if constexpr (!std::is_nothrow_invocable_v<
+                                      State&, Args...>) {
+                        set_error(std::move(rcvr), std::current_exception());
+                    }
                 }
+            } else {
+                Tag()(std::move(rcvr), std::forward<Args>(args)...);
             }
-        } else {
-            Tag()(std::move(rcvr), std::forward<Args>(args)...);
         }
-    };
+    } complete{};
 };
 
 // Completion signatures for then(sender, fn)

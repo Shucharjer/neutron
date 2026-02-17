@@ -1,11 +1,11 @@
 #pragma once
-#include <tuple>
+#include <cstddef>
+#include <type_traits>
 #include <utility>
 #include "neutron/detail/execution/fwd.hpp"
 #include "neutron/detail/execution/make_sender.hpp"
 #include "neutron/detail/execution/product_type.hpp"
 #include "neutron/detail/execution/set_value.hpp"
-
 
 namespace neutron::execution {
 
@@ -27,14 +27,15 @@ inline constexpr just_t just;
 
 template <>
 struct _impls_for<just_t> : _default_impls {
-    static constexpr auto start =
-        []<typename State>(State& state, auto& rcvr) noexcept -> void {
-        std::apply(
-            [&rcvr](auto&... vals) mutable {
-                set_value(std::move(rcvr), vals...);
-            },
-            state);
-    };
+    static constexpr struct _start_impl {
+        template <typename State>
+        constexpr void operator()(State& state, auto& rcvr) const noexcept {
+            [&state, &rcvr]<size_t... Is>(std::index_sequence<Is...>) {
+                set_value(std::move(rcvr), std::move(get<Is>(state))...);
+            }(std::make_index_sequence<
+                type_list_size_v<std::remove_cvref_t<State>>>());
+        }
+    } start{};
 };
 
 } // namespace neutron::execution

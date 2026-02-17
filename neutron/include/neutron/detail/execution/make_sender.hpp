@@ -25,44 +25,50 @@ template <template <typename...> typename T, typename... Args>
 concept _valid_specialization = requires { typename T<Args...>; };
 
 struct _default_impls {
-    static constexpr auto get_attrs =
-        [](const auto&, const auto&... child) noexcept -> decltype(auto) {
-        if constexpr (sizeof...(child) == 1) {
-            return (_fwd_env(::neutron::execution::get_env(child)), ...);
-        } else {
-            return empty_env{};
+    static constexpr struct _get_attrs_impl {
+        constexpr decltype(auto)
+            operator()(const auto&, const auto&... child) const noexcept {
+            if constexpr (sizeof...(child) == 1) {
+                return (_fwd_env(::neutron::execution::get_env(child)), ...);
+            } else {
+                return empty_env{};
+            }
         }
-    };
+    } get_attrs{};
 
-    static constexpr auto get_env =
-        [](auto, auto&, const auto& rcvr) noexcept -> decltype(auto) {
-        return _fwd_env(::neutron::execution::get_env(rcvr));
-    };
+    static constexpr struct _get_env_impl {
+        constexpr decltype(auto)
+            operator()(auto, auto&, const auto& rcvr) const noexcept {
+            return _fwd_env(::neutron::execution::get_env(rcvr));
+        }
+    } get_env{};
 
-    static constexpr auto get_state =
-        []<class Sndr, class Rcvr>(
-            Sndr&& sndr, Rcvr& rcvr) noexcept -> decltype(auto) {
-        return std::apply(
-            [](auto&&, auto&& data, auto&&...) {
-                return forward_like<Sndr>(data);
-            },
-            sndr);
-    };
+    static constexpr struct _get_state_impl {
+        template <typename Sndr, typename Rcvr>
+        constexpr decltype(auto)
+            operator()(Sndr&& sndr, Rcvr&& rcvr) const noexcept {
+            return std::apply(
+                [](auto&&, auto&& data, auto&&...) {
+                    return forward_like<Sndr>(data);
+                },
+                sndr);
+        }
+    } get_state{};
 
-    static constexpr auto start = [](auto&, auto&,
-                                     auto&... ops) noexcept -> void {
-        (execution::start(ops), ...);
-    };
+    static constexpr struct _start_impl {
+        constexpr void operator()(auto&, auto&, auto&... ops) const noexcept {
+            (::neutron::execution::start(ops), ...);
+        }
+    } start{};
 
-    static constexpr auto complete =
-        []<class Index, class Rcvr, class Tag, class... Args>(
-            Index, auto& state, Rcvr& rcvr, Tag,
-            Args&&... args) noexcept -> void
-    requires std::is_invocable_v<Tag, Rcvr, Args...>
-    {
-        static_assert(Index::value == 0);
-        Tag()(std::move(rcvr), std::forward<Args>(args)...);
-    };
+    static constexpr struct _complete_impl {
+        template <typename Index, typename Rcvr, typename Tag, typename... Args>
+        constexpr decltype(auto)
+            operator()(Index, auto& state, Rcvr& rcvr, Tag, Args&&... args) {
+            static_assert(Index::value == 0);
+            Tag()(std::move(rcvr), std::forward<Args>(args)...);
+        }
+    } complete{};
 };
 
 template <typename Tag>
@@ -137,31 +143,20 @@ struct _basic_receiver {
 };
 
 inline constexpr struct connect_all_t {
-    template <sender Sndr, receiver Rcvr, typename S, size_t... Is>
+    template <sender Sndr, receiver Rcvr, size_t... Is>
     constexpr auto operator()(
-        _basic_state<Sndr, Rcvr>* op, S&& sndr,
-        std::index_sequence<Is...>) const noexcept( // clang-format off
-            noexcept(std::apply([op](auto&& tag, auto&& data, auto&&... child) {
-                return _product_type{ connect(
-                    forward_like<Sndr>(child)...,
-                    _basic_receiver<
-                        Sndr,
-                        Rcvr,
-                        std::integral_constant<std::size_t, Is>>{ op })... };
-            },
-            std::forward<decltype(sndr)>(sndr))))
-        // clang-format on
-        -> decltype(auto) {
+        _basic_state<Sndr, Rcvr>* op, Sndr&& sndr,
+        std::index_sequence<Is...>) const -> decltype(auto) {
         return std::apply(
-            [op](auto&& tag, auto&& data, auto&&... child) {
+            [op](auto& tag, auto& data, auto&... child) {
                 return _product_type{ connect(
-                    forward_like<Sndr>(child)...,
+                    forward_like<Sndr>(child),
                     _basic_receiver<
-                        Sndr, Rcvr, std::integral_constant<std::size_t, Is>>{
+                        Sndr, Rcvr, std::integral_constant<size_t, Is>>{
                         op })... };
             },
-            std::forward<decltype(sndr)>(sndr));
-    };
+            sndr);
+    }
 } connect_all;
 
 template <typename Sndr, typename Rcvr>
@@ -242,12 +237,6 @@ struct _basic_sender : public _product_type<Tag, Data, Child...> {
         return { *this, std::move(rcvr) };
     }
 
-    template <receiver Rcvr>
-    auto connect(
-        Rcvr rcvr) const&& -> _basic_operation<const _basic_sender&&, Rcvr> {
-        return { std::move(*this), std::move(rcvr) };
-    }
-
     template <class Env>
     auto get_completion_signatures(Env&&) & noexcept
         -> _completion_signatures_for<_basic_sender, Env> {
@@ -297,5 +286,11 @@ struct tuple_element<
     Index, ::neutron::execution::_basic_sender<Tag, Data, Child...>> :
     std::tuple_element<
         Index, neutron::execution::_product_type<Tag, Data, Child...>> {};
+
+#if defined(__glibcxx_tuple_like)
+template <typename Tag, typename Data, typename... Child>
+inline constexpr bool __is_tuple_like_v<
+    ::neutron::execution::_basic_sender<Tag, Data, Child...>> = true;
+#endif
 
 } // namespace std
