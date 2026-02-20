@@ -38,3 +38,21 @@ template <typename Ty>
 void require_false(const Ty& expr, const std::source_location& loc) {
     require_false(static_cast<bool>(expr), loc);
 }
+
+#define require_or_return(expr, ret)                                           \
+    if (!static_cast<bool>((expr))) {                                                             \
+        const auto& loc = std::source_location::current();                     \
+        neutron::println(                                                      \
+            "expression '{}' in {} evaluted to false, {}: {}", #expr,            \
+            loc.function_name(), loc.file_name(), loc.line());                 \
+        return ret;                                                            \
+    }
+
+#define require_false_or_return(expr, ret)                                     \
+    if (static_cast<bool>((expr))) {                                                             \
+        const auto& loc = std::source_location::current();                     \
+        neutron::println(                                                      \
+            "expression '{}' in {} evaluted to true, {}: {}", #expr,            \
+            loc.function_name(), loc.file_name(), loc.line());                 \
+        return ret;                                                            \
+    }
