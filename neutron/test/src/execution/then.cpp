@@ -9,7 +9,10 @@ using namespace neutron::execution;
 int main() {
     {
         sender auto vsndr = just(32) | then([](auto val) { return val; });
-        this_thread::sync_wait(vsndr);
+        auto opt          = this_thread::sync_wait(vsndr);
+        require_or_return(opt.has_value(), 1);
+        auto [result] = opt.value();
+        require_or_return(result == 32, 1);
     }
 
     {
@@ -26,7 +29,10 @@ int main() {
                                 println("second then: {}", val);
                                 return val << 1;
                             });
-        this_thread::sync_wait(vsndr);
+        auto opt = this_thread::sync_wait(vsndr);
+        require_or_return(opt.has_value(), 1);
+        auto [result] = opt.value();
+        require_or_return(result == 42 << 2, 1);
     }
 
     {
