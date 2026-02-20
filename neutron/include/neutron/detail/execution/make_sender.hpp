@@ -1,6 +1,7 @@
 #pragma once
 #include <concepts>
 #include <cstddef>
+#include <initializer_list>
 #include <tuple>
 #include <type_traits>
 #include <utility>
@@ -178,11 +179,46 @@ struct _basic_operation : public _basic_state<Sndr, Rcvr> {
           inner_ops(connect_all(
               this, std::forward<Sndr>(sndr), _indices_for<Sndr>())) {}
 
+    constexpr _basic_operation(_basic_operation&& that) noexcept(
+        std::is_nothrow_move_constructible_v<_basic_state<Sndr, Rcvr>> &&
+        std::is_nothrow_move_constructible_v<_inner_ops_t>)
+        : _basic_state<Sndr, Rcvr>(std::move(that)),
+          inner_ops(std::move(that.inner_ops)) {
+        _rebind_child_receivers();
+    }
+
+    constexpr _basic_operation&
+        operator=(_basic_operation&& that) noexcept(
+            std::is_nothrow_move_assignable_v<_basic_state<Sndr, Rcvr>> &&
+            std::is_nothrow_move_assignable_v<_inner_ops_t>) {
+        if (this != &that) {
+            static_cast<_basic_state<Sndr, Rcvr>&>(*this) =
+                std::move(static_cast<_basic_state<Sndr, Rcvr>&>(that));
+            inner_ops = std::move(that.inner_ops);
+            _rebind_child_receivers();
+        }
+        return *this;
+    }
+
+    _basic_operation(const _basic_operation&)            = delete;
+    _basic_operation& operator=(const _basic_operation&) = delete;
+
     void start() & noexcept {
         [this]<size_t... Is>(std::index_sequence<Is...>) {
             _impls_for<_tag_t>::start(
                 this->state, this->rcvr, get<Is>(inner_ops)...);
         }(std::make_index_sequence<type_list_size_v<_inner_ops_t>>());
+    }
+
+private:
+    constexpr void _rebind_child_receivers() noexcept {
+        std::apply(
+            [this](auto&... ops) {
+                (void)std::initializer_list<int>{
+                    (ops.rcvr.op = this, 0)...
+                };
+            },
+            inner_ops);
     }
 };
 template <typename Sndr, typename Rcvr>
