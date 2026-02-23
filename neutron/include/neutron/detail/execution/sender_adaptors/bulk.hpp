@@ -1,5 +1,7 @@
 #pragma once
+#include <concepts>
 #include <exception>
+#include <type_traits>
 #include "neutron/detail/concepts/movable_value.hpp"
 #include "neutron/detail/execution/default_domain.hpp"
 #include "neutron/detail/execution/fwd.hpp"
@@ -7,6 +9,7 @@
 #include "neutron/detail/execution/make_sender.hpp"
 #include "neutron/detail/execution/product_type.hpp"
 #include "neutron/detail/execution/sender_adaptor.hpp"
+#include "neutron/detail/execution/set_error.hpp"
 #include "neutron/detail/execution/set_value.hpp"
 #include "neutron/detail/macros.hpp"
 
@@ -46,7 +49,7 @@ struct _impls_for<bulk_t> : _default_impls {
                     noexcept(fn(shape_t{ shape }, args...));
 
                 ATOM_TRY {
-                    [shape, &rcvr, &args...]() noexcept(nothrow) {
+                    [shape, &fn, &rcvr, &args...]() noexcept(nothrow) {
                         for (shape_t i = 0; i < shape; ++i) {
                             fn(i, args...);
                         }
@@ -66,9 +69,45 @@ struct _impls_for<bulk_t> : _default_impls {
     } complete{};
 };
 
+namespace _bulk {
+
+template <typename Shape, typename Fn, typename Cmplsigs>
+struct _cmplsigs_for_impl_helper;
+
+template <typename Shape, typename Fn, typename... Cmplsigs>
+struct _cmplsigs_for_impl_helper<
+    Shape, Fn, completion_signatures<Cmplsigs...>> {
+
+    template <typename>
+    struct _is_nothrow;
+
+    template <typename Tag, typename... Args>
+    struct _is_nothrow<Tag(Args...)> {
+        static constexpr bool value =
+            std::same_as<Tag, ::neutron::execution::set_value_t> &&
+            std::is_nothrow_invocable_v<Fn, Shape, Args...>;
+    };
+
+    template <typename... Sigs>
+    struct _is_nothrow<completion_signatures<Sigs...>> {
+        static constexpr bool value =
+            (false || ... || _is_nothrow<Sigs>::value);
+    };
+
+    using type = std::conditional_t<
+        _is_nothrow<Cmplsigs...>::value, completion_signatures<Cmplsigs...>,
+        completion_signatures<Cmplsigs..., set_error_t(std::exception_ptr)>>;
+};
+
+} // namespace _bulk
+
 template <typename Shape, typename Fn, typename Sndr, typename Env>
-struct _completion_signatures_for_impl<_basic_sender<bulk_t, _product_type<Shape, Fn>, Sndr>, Env> {
-    using type = /* TODO */;
+struct _completion_signatures_for_impl<
+    _basic_sender<bulk_t, _product_type<Shape, Fn>, Sndr>, Env> {
+    using cmplsigs = decltype(get_completion_signatures(
+        std::declval<Sndr>(), std::declval<Env>()));
+    using type =
+        typename _bulk::_cmplsigs_for_impl_helper<Shape, Fn, cmplsigs>::type;
 };
 
 } // namespace neutron::execution

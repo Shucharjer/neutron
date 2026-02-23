@@ -115,7 +115,7 @@ struct _basic_receiver {
     static constexpr const auto& complete = _impls_for<_tag_t>::complete;
 
     template <typename... Args>
-    requires std::is_invocable_v<
+    requires std::invocable<
         decltype(complete), Index, _state_t&, Rcvr&, set_value_t, Args...>
     void set_value(Args&&... args) && noexcept {
         complete(
@@ -124,7 +124,7 @@ struct _basic_receiver {
     }
 
     template <typename Error>
-    requires std::is_invocable_v<
+    requires std::invocable<
         decltype(complete), Index, _state_t&, Rcvr&, set_error_t, Error>
     void set_error(Error&& err) && noexcept {
         complete(
@@ -187,10 +187,9 @@ struct _basic_operation : public _basic_state<Sndr, Rcvr> {
         _rebind_child_receivers();
     }
 
-    constexpr _basic_operation&
-        operator=(_basic_operation&& that) noexcept(
-            std::is_nothrow_move_assignable_v<_basic_state<Sndr, Rcvr>> &&
-            std::is_nothrow_move_assignable_v<_inner_ops_t>) {
+    constexpr _basic_operation& operator=(_basic_operation&& that) noexcept(
+        std::is_nothrow_move_assignable_v<_basic_state<Sndr, Rcvr>> &&
+        std::is_nothrow_move_assignable_v<_inner_ops_t>) {
         if (this != &that) {
             static_cast<_basic_state<Sndr, Rcvr>&>(*this) =
                 std::move(static_cast<_basic_state<Sndr, Rcvr>&>(that));
@@ -214,9 +213,7 @@ private:
     constexpr void _rebind_child_receivers() noexcept {
         std::apply(
             [this](auto&... ops) {
-                (void)std::initializer_list<int>{
-                    (ops.rcvr.op = this, 0)...
-                };
+                (void)std::initializer_list<int>{ (ops.rcvr.op = this, 0)... };
             },
             inner_ops);
     }
@@ -302,7 +299,10 @@ private:
     static auto _connect_impl(Self&& self, Rcvr rcvr);
 };
 
-template <std::semiregular Tag, movable_value Data, typename... Child>
+struct _empty_sender {};
+
+template <
+    std::semiregular Tag, movable_value Data = _empty_sender, typename... Child>
 requires(sender<Child> && ...)
 constexpr decltype(auto) make_sender(Tag tag, Data&& data, Child&&... child) {
     return _basic_sender<Tag, std::decay_t<Data>, std::decay_t<Child>...>(

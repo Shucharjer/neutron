@@ -26,7 +26,7 @@ _compose(C1&&, C2&&) -> _compose<std::decay_t<C1>, std::decay_t<C2>>;
 template <typename Closure, typename Sender>
 concept _sender_adaptor_closure_for =
     _sender_adaptor_closure<Closure> && sender<Sender> &&
-    std::is_invocable_v<Closure, std::decay_t<Sender>> &&
+    std::invocable<Closure, std::decay_t<Sender>> &&
     sender<std::invoke_result_t<Closure, std::decay_t<Sender>>>;
 
 template <sender Sndr, _sender_adaptor_closure_for<Sndr> Closure>

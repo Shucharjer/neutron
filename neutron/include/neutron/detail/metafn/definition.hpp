@@ -10,7 +10,7 @@ struct type_list {};
 template <typename>
 struct is_type_list : std::false_type {};
 template <typename... Tparams>
-struct is_type_list<type_list<Tparams...>> : std::true_type{};
+struct is_type_list<type_list<Tparams...>> : std::true_type {};
 template <typename Ty>
 constexpr bool is_type_list_v = is_type_list<Ty>::value;
 
@@ -23,5 +23,8 @@ template <auto... Tparams>
 struct is_value_list<value_list<Tparams...>> : std::true_type {};
 template <typename Ty>
 constexpr bool is_value_list_v = is_value_list<Ty>::value;
+
+template <typename... Args>
+using decayed_type_list = type_list<std::decay_t<Args>...>;
 
 } // namespace neutron
