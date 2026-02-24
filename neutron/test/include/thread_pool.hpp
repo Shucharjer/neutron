@@ -6,9 +6,13 @@
 
 #include <condition_variable>
 #include <cstddef>
+#include <exception>
 #include <mutex>
 #include <queue>
+#include <stdexcept>
 #include <thread>
+#include <type_traits>
+#include <utility>
 #include <vector>
 #include "neutron/concepts.hpp"
 #include "neutron/detail/macros.hpp"
@@ -38,12 +42,9 @@ public:
     template <typename Sndr, typename... Env>
     constexpr sender auto
         transform_sender(Sndr&& sndr, const Env&... env) noexcept {
-        // TODO: return a available sender
         return default_domain::transform_sender(
             std::forward<Sndr>(sndr), env...);
     }
-
-private:
 };
 
 class _env {
@@ -52,9 +53,6 @@ public:
 
     template <typename CPO>
     auto query(get_completion_scheduler_t<CPO>) const noexcept;
-
-    template <typename Env>
-    constexpr auto get_completion_signatures(Env&&) const noexcept {}
 
 private:
     thread_pool* pool_;
@@ -79,10 +77,12 @@ private:
 template <typename Rcvr>
 class _opstate : public _task_base {
 public:
+    using operation_state_concept = operation_state_t;
+
     explicit _opstate(thread_pool* pool, Rcvr rcvr)
         : pool_(pool), rcvr_(std::move(rcvr)) {
         // NOLINTNEXTLINE
-        this->execute = [](_task_base* base) {
+        this->execute = [](_task_base* base) noexcept {
             auto& self  = *static_cast<_opstate*>(base);
             auto stoken = get_stop_token(get_env(self.rcvr_));
 
@@ -96,32 +96,42 @@ public:
         };
     }
 
-    void start() & noexcept { _enqueue(this); }
+    void start() & noexcept {
+        ATOM_TRY { _enqueue(this); }
+        ATOM_CATCH(...) {
+            set_error(std::move(rcvr_), std::current_exception());
+        }
+    }
 
 private:
     void _enqueue(_task_base* task) const;
 
     thread_pool* pool_;
-    std::queue<_task_base*>* queue_;
-    Rcvr rcvr_;
+    ATOM_NO_UNIQUE_ADDR Rcvr rcvr_;
 };
 
 class _sender {
 public:
-    using sender_concept = neutron::execution::sender_t;
+    using sender_concept        = neutron::execution::sender_t;
+    using completion_signatures = neutron::execution::completion_signatures<
+        set_value_t(), set_error_t(std::exception_ptr), set_stopped_t()>;
+
+    explicit _sender(thread_pool* pool) noexcept : pool_(pool) {}
 
     auto get_env() const noexcept { return _env{ pool_ }; }
 
     template <receiver Rcvr>
-    auto connect(Rcvr& rcvr) {
-        return _opstate<Rcvr>{ pool_ };
+    auto connect(Rcvr&& rcvr) const
+        noexcept(std::is_nothrow_constructible_v<std::decay_t<Rcvr>, Rcvr>)
+            -> _opstate<std::decay_t<Rcvr>> {
+        return _opstate<std::decay_t<Rcvr>>{ pool_, std::forward<Rcvr>(rcvr) };
     }
 
 private:
     thread_pool* pool_;
 };
 
-_sender _scheduler::schedule() { return _sender{}; }
+inline _sender _scheduler::schedule() { return _sender{ pool_ }; }
 
 class thread_pool {
     template <typename>
@@ -130,7 +140,7 @@ class thread_pool {
 public:
     _scheduler get_scheduler() { return _scheduler{ this }; }
 
-    thread_pool(size_t n = std::thread::hardware_concurrency()) {
+    explicit thread_pool(size_t n = std::thread::hardware_concurrency()) {
         if (n == 0) [[unlikely]] {
             n = 1;
         }
@@ -150,10 +160,10 @@ public:
 
                         task = tasks_.front();
                         tasks_.pop();
-
-                        ATOM_TRY { task->execute(task); }
-                        ATOM_CATCH(...) {}
                     }
+
+                    ATOM_TRY { task->execute(task); }
+                    ATOM_CATCH(...) {}
                 }
             });
         }
@@ -175,7 +185,16 @@ public:
 
 private:
     void _enqueue(_task_base* task) {
-        // TODO: finish this
+        {
+            std::lock_guard lock{ mutex_ };
+            if (stop_) {
+                throw std::runtime_error("thread_pool is stopping");
+            }
+
+            tasks_.push(task);
+        }
+
+        cv_.notify_one();
     }
 
     std::vector<std::thread> threads_;
@@ -191,8 +210,8 @@ inline auto _env::query(get_completion_scheduler_t<CPO>) const noexcept {
 }
 
 template <typename Rcvr>
-void _opstate<Rcvr>::_enqueue(_task_base* self) const {
-    pool_->_enqueue(this);
+void _opstate<Rcvr>::_enqueue(_task_base* task) const {
+    pool_->_enqueue(task);
 }
 
 namespace _asserts {
