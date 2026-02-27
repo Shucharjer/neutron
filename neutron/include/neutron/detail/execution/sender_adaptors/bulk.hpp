@@ -94,9 +94,10 @@ struct _cmplsigs_for_impl_helper<
             (false || ... || _is_nothrow<Sigs>::value);
     };
 
-    using type = std::conditional_t<
-        _is_nothrow<Cmplsigs...>::value, completion_signatures<Cmplsigs...>,
-        completion_signatures<Cmplsigs..., set_error_t(std::exception_ptr)>>;
+    using cmplsigs_t = completion_signatures<Cmplsigs...>;
+    using type       = std::conditional_t<
+              _is_nothrow<cmplsigs_t>::value, cmplsigs_t,
+              completion_signatures<Cmplsigs..., set_error_t(std::exception_ptr)>>;
 };
 
 } // namespace _bulk
