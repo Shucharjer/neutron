@@ -2,6 +2,7 @@
 // IWYU pragma: begin_exports
 #include "neutron/detail/concepts/allocator.hpp"
 #include "neutron/detail/concepts/awaitable.hpp"
+#include "neutron/detail/concepts/instance_of.hpp"
 #include "neutron/detail/concepts/map_like.hpp"
 #include "neutron/detail/concepts/nothrow_conditional_movable.hpp"
 #include "neutron/detail/concepts/one_of.hpp"
