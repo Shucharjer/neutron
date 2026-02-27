@@ -1,10 +1,17 @@
+// IWYU pragma: private, include <neutron/ecs.hpp>
 #pragma once
 #include "neutron/detail/metafn/definition.hpp"
 #include "neutron/detail/pipeline.hpp"
 
 namespace neutron {
 
-template <typename SysInfo = type_list<>>
+struct individual {};
+template <size_t Index>
+struct group {};
+
+template <
+    typename SysInfo = type_list<>, typename Schedule = type_list<group<0>>,
+    typename Sync = type_list<>, typename...>
 struct world_descriptor_t;
 
 template <typename>

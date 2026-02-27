@@ -5,6 +5,7 @@
 #include <vector>
 #include <exec/static_thread_pool.hpp>
 #include <neutron/ecs.hpp>
+#include <neutron/metafn.hpp>
 
 using commands = neutron::basic_commands<std::pmr::polymorphic_allocator<>>;
 
@@ -63,3 +64,12 @@ public:
     }
 };
 
+class mmapp {
+public:
+    using config_type = std::tuple<>;
+
+    static mmapp create() { return {}; }
+
+    template <auto... Worlds>
+    void run() {}
+};
