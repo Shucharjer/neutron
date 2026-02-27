@@ -1,15 +1,20 @@
 #pragma once
+#include <concepts>
 #include <coroutine>
 #include <cstddef>
 #include <exception>
 #include <memory>
 #include <optional>
+#include <stdexcept>
 #include <type_traits>
 #include <utility>
 #include <variant>
+#include <neutron/concepts.hpp>
 #include "neutron/detail/execution/fwd.hpp"
+#include "neutron/detail/execution/inplace_stop_source.hpp"
 #include "neutron/detail/execution/set_stopped.hpp"
 #include "neutron/detail/execution/set_value.hpp"
+#include "neutron/detail/macros.hpp"
 
 namespace neutron::execution {
 
@@ -73,6 +78,40 @@ struct change_coroutine_scheduler {
 template <scheduler Sch>
 change_coroutine_scheduler(Sch) -> change_coroutine_scheduler<Sch>;
 
+namespace _task {
+
+template <typename Env>
+struct _env_allocator {
+    using type = std::allocator<std::byte>;
+};
+template <typename Env>
+requires requires { typename Env::allocator_type; }
+struct _env_allocator<Env> {
+    using type = Env::allocator_type;
+};
+
+template <typename Env>
+struct _env_scheduler {
+    using type = task_scheduler;
+};
+template <typename Env>
+requires requires { typename Env::scheduler_type; }
+struct _env_scheduler<Env> {
+    using type = Env::scheduler_type;
+};
+
+template <typename Env>
+struct _env_stop_source {
+    using type = inplace_stop_source;
+};
+template <typename Env>
+requires requires { typename Env::scheduler_type; }
+struct _env_stop_source<Env> {
+    using type = Env::stop_source_type;
+};
+
+} // namespace _task
+
 template <typename T = void, typename Env = empty_env>
 class task {
     template <receiver Rcvr>
@@ -80,9 +119,9 @@ class task {
 
 public:
     using sender_concept   = sender_t;
-    using allocator_type   = Env::allocator_type;
-    using scheduler_type   = Env::scheduler_type;
-    using stop_source_type = Env::stop_source_type;
+    using allocator_type   = typename _task::_env_allocator<Env>::type;
+    using scheduler_type   = typename _task::_env_scheduler<Env>::type;
+    using stop_source_type = typename _task::_env_stop_source<Env>::type;
     using stop_token_type =
         decltype(std::declval<stop_source_type>().get_token());
     using error_types = Env::error_types;
@@ -109,7 +148,23 @@ public:
             return {};
         }
 
-        auto final_suspend() noexcept {}
+        struct _final_awaitable {
+            constexpr bool await_ready() noexcept { return false; }
+
+            template <typename Promise>
+            constexpr auto
+                await_suspend(std::coroutine_handle<Promise> handle) noexcept {
+                return handle.promise().continuation;
+            }
+
+            unspecified<> await_resume() noexcept {
+                // TODO
+            }
+        };
+
+        constexpr auto final_suspend() noexcept -> _final_awaitable {
+            return {};
+        }
 
         void unhandled_exception() {
             errors_.template emplace<1>(std::current_exception());
@@ -168,6 +223,49 @@ public:
         return state<Rcvr>(
             std::exchange(handle_, {}), std::forward<Rcvr>(rcvr));
     }
+
+    struct _awaitable {
+        ATOM_NODISCARD constexpr bool await_ready() const noexcept {
+            return false;
+        }
+
+        template <typename Pro>
+        auto await_suspend(std::coroutine_handle<Pro> handle) noexcept
+            -> std::coroutine_handle<> {
+            _handle.promise().set_continuation(handle);
+            if constexpr (requires {
+                              {
+                                  _handle.stop_requested()
+                              } -> std::convertible_to<bool>;
+                          }) {
+                if (_handle.promise().stop_requested()) {
+                    handle.promise().unhandled_stopped();
+                }
+            }
+            return _handle;
+        }
+
+        T await_resume() {
+            if (!_handle) [[unlikely]] {
+                throw std::runtime_error{ "broken promise" };
+            }
+
+            return std::move(_handle.promise());
+        }
+
+        void set_continuation(std::coroutine_handle<> hanele) noexcept {
+            continuation = hanele;
+        }
+
+        std::coroutine_handle<promise_type> _handle;
+        std::coroutine_handle<> continuation;
+    };
+    template <typename Promise>
+    auto operator co_await() && noexcept {
+        return _awaitable{ std::exchange(handle_, {}) };
+    }
+
+    operator bool() const noexcept { return handle_ && !handle_.done(); }
 
 private:
     template <receiver Rcvr>
