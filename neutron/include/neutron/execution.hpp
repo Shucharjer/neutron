@@ -31,22 +31,6 @@ using namespace stdexec;
 
 struct scheduler_t {};
 
-inline constexpr struct continues_on_t {
-    template <typename Sch>
-    constexpr decltype(auto) operator()(Sch&& sch) const
-        noexcept(noexcept(::stdexec::continue_on(std::forward<Sch>(sch)))) {
-        return ::stdexec::continue_on(std::forward<Sch>(sch));
-    }
-
-    template <typename Sndr, typename Sch>
-    constexpr decltype(auto) operator()(Sndr&& sndr, Sch&& sch) const
-        noexcept(noexcept(::stdexec::continue_on(
-            std::forward<Sndr>(sndr), std::forward<Sch>(sch)))) {
-        return ::stdexec::continue_on(
-            std::forward<Sndr>(sndr), std::forward<Sch>(sch));
-    }
-} continues_on;
-
 } // namespace execution
 
 namespace this_thread {

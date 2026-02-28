@@ -10,13 +10,45 @@
 #include <utility>
 #include <variant>
 #include <neutron/concepts.hpp>
+#include "as_awaitable.hpp"
 #include "neutron/detail/execution/fwd.hpp"
 #include "neutron/detail/execution/inplace_stop_source.hpp"
+#include "neutron/detail/execution/set_error.hpp"
 #include "neutron/detail/execution/set_stopped.hpp"
 #include "neutron/detail/execution/set_value.hpp"
 #include "neutron/detail/macros.hpp"
+#include "sender_adaptors/affine_on.hpp"
 
 namespace neutron::execution {
+
+template <_class_type Promise>
+struct with_awaitable_senders {
+    template <class OtherPromise>
+    requires(!std::same_as<OtherPromise, void>)
+    void set_continuation(std::coroutine_handle<OtherPromise> h) noexcept;
+
+    std::coroutine_handle<> continuation() const noexcept {
+        return continuation;
+    }
+
+    std::coroutine_handle<> unhandled_stopped() noexcept {
+        return _stopped_handler(continuation.address());
+    }
+
+    template <typename Value>
+    auto await_transform(Value&& value);
+
+private:
+    [[noreturn]] static std::coroutine_handle<>
+        _default_unhandled_stopped(void*) noexcept { // exposition only
+        std::terminate();
+    }
+
+    std::coroutine_handle<> continuation{}; // exposition only
+    std::coroutine_handle<> (*_stopped_handler)(
+        void*) noexcept =                   // exposition only
+        &_default_unhandled_stopped;
+};
 
 class inline_scheduler {
     class _inline_sender;
@@ -35,6 +67,8 @@ class task_scheduler {
 
     template <receiver Rcvr>
     class _state;
+
+    friend struct _sched_helper;
 
 public:
     using scheduler_concept = scheduler_t;
@@ -58,6 +92,11 @@ public:
 private:
     std::shared_ptr<void> sch_;
 };
+
+struct _sched_helper {
+    static auto& get(task_scheduler& s) { return s.sch_; }
+};
+auto _sched(task_scheduler& s) noexcept { return _sched_helper::get(s); }
 
 template <typename T = void>
 using unspecified = T;
@@ -110,6 +149,16 @@ struct _env_stop_source<Env> {
     using type = Env::stop_source_type;
 };
 
+template <typename Env>
+struct _env_errors {
+    using type = completion_signatures<set_error_t(std::exception_ptr)>;
+};
+template <typename Env>
+requires requires { typename Env::error_types; }
+struct _env_errors<Env> {
+    using type = typename Env::error_types;
+};
+
 } // namespace _task
 
 template <typename T = void, typename Env = empty_env>
@@ -124,7 +173,7 @@ public:
     using stop_source_type = typename _task::_env_stop_source<Env>::type;
     using stop_token_type =
         decltype(std::declval<stop_source_type>().get_token());
-    using error_types = Env::error_types;
+    using error_types = _task::_env_errors<Env>::type;
 
     using completion_signatures = ::neutron::execution::completion_signatures<
         std::conditional_t<
@@ -154,7 +203,7 @@ public:
             template <typename Promise>
             constexpr auto
                 await_suspend(std::coroutine_handle<Promise> handle) noexcept {
-                return handle.promise().continuation;
+                return handle.promise().continuation();
             }
 
             unspecified<> await_resume() noexcept {
@@ -186,10 +235,23 @@ public:
         template <class E>
         unspecified<> yield_value(with_error<E> error);
 
-        template <class A>
-        auto await_transform(A&& a);
+        template <sender Sndr>
+        auto await_transform(Sndr&& sndr) noexcept {
+            if constexpr (std::same_as<inline_scheduler, scheduler_type>) {
+                return as_awaitable(std::forward<Sndr>(sndr), *this);
+            } else {
+                return as_awaitable(
+                    affine_on(std::forward<Sndr>(sndr), _sched(*this)), *this);
+            }
+        }
         template <class Sch>
-        auto await_transform(change_coroutine_scheduler<Sch> sch);
+        auto await_transform(change_coroutine_scheduler<Sch> sch) noexcept {
+            return await_transform(
+                just(
+                    std::exchange(
+                        _sched(*this), scheduler_type(sch.scheduler))),
+                *this);
+        }
 
         unspecified<> get_env() const noexcept;
 
@@ -199,9 +261,16 @@ public:
         void operator delete(void* pointer, size_t size) noexcept;
 
     private:
+        template <typename>
+        struct _error_convert;
+        template <typename E>
+        struct _error_convert<set_error_t(E)> {
+            using type = std::remove_cvref_t<E>;
+        };
         using _error_variant = type_list_cat_t<
             std::variant<std::monostate>,
-            type_list_rebind_t<std::variant, std::remove_cvref_t<error_types>>>;
+            type_list_convert_t<
+                _error_convert, type_list_rebind_t<std::variant, error_types>>>;
 
         allocator_type alloc_;
         stop_source_type source_;

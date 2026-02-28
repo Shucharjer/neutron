@@ -5,7 +5,7 @@
 #include <tuple>
 #include <type_traits>
 #include <variant>
-#include <neutron/concepts.hpp>
+#include "neutron/detail/concepts/awaitable.hpp"
 #include "neutron/detail/execution/fwd.hpp"
 #include "neutron/detail/execution/fwd_env.hpp"
 #include "neutron/detail/macros.hpp"
@@ -131,9 +131,32 @@ concept _awaitable_sender =
     };
 
 inline constexpr struct as_awaitable_t {
-    template <typename T, typename Promise>
-    auto operator()(T&& t, Promise& promise) const {
+    static constexpr auto adapted_expr(auto&& expr) {
+        return get_await_completion_adaptor(get_env(expr))(expr);
+    }
 
+    template <typename Expr, typename Promise>
+    auto operator()(Expr&& expr, Promise& promise) const {
+        if constexpr (requires {
+                          { expr.as_awaitable(promise) } -> awaitable<Promise>;
+                      }) {
+            return std::forward<Expr>(expr).as_awaitable(promise);
+        } else if constexpr (requires {
+                                 {
+                                     _awaitable::_get_awaiter(expr)
+                                 } -> awaiter<Promise>;
+                             }) {
+            return (void(promise), expr);
+        } else if constexpr (
+            requires { adapted_expr(expr); } &&
+            _has_queryable_await_completion_adaptor<Expr> &&
+            _awaitable_sender<decltype(adapted_expr(expr)), Promise>) {
+            return _sender_awaitable{ adapted_expr(expr), promise };
+        } else if constexpr (_awaitable_sender<Expr, Promise>) {
+            return _sender_awaitable(expr, promise);
+        } else {
+            return (void(promise), expr);
+        }
     }
 } as_awaitable{};
 

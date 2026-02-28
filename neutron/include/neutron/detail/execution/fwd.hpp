@@ -116,6 +116,7 @@ struct get_delegation_scheduler_t;
 struct get_forward_progress_guarantee_t;
 template <class CPO>
 struct get_completion_scheduler_t;
+struct get_await_completion_adaptor_t;
 
 extern const get_domain_t get_domain;
 extern const get_scheduler_t get_scheduler;
@@ -123,6 +124,7 @@ extern const get_delegation_scheduler_t get_delegation_scheduler;
 extern const get_forward_progress_guarantee_t get_forward_progress_guarantee;
 template <class CPO>
 extern const get_completion_scheduler_t<CPO> get_completion_scheduler;
+extern const get_await_completion_adaptor_t get_await_completion_adaptor;;
 
 struct empty_env {};
 struct get_env_t {
