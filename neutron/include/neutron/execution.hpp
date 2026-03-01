@@ -81,7 +81,7 @@ using ::stdexec::sync_wait;
     #include "neutron/detail/execution/sender_adaptors/bulk.hpp"
     #include "neutron/detail/execution/sender_adaptors/continues_on.hpp"
     #include "neutron/detail/execution/sender_adaptors/then.hpp"
-    // TODO: finish when_all
-    // #include "neutron/detail/execution/sender_adaptors/when_all.hpp"
+// TODO: finish when_all
+// #include "neutron/detail/execution/sender_adaptors/when_all.hpp"
 
 #endif

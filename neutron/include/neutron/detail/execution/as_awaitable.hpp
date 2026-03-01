@@ -8,6 +8,7 @@
 #include "neutron/detail/concepts/awaitable.hpp"
 #include "neutron/detail/execution/fwd.hpp"
 #include "neutron/detail/execution/fwd_env.hpp"
+#include "neutron/detail/execution/get_await_completion_adaptor.hpp"
 #include "neutron/detail/macros.hpp"
 #include "neutron/detail/utility/as_except_ptr.hpp"
 #include "neutron/detail/utility/get.hpp"
@@ -130,10 +131,11 @@ concept _awaitable_sender =
         } -> std::convertible_to<std::coroutine_handle<>>;
     };
 
+static constexpr auto _adapted_expr(auto&& expr) {
+    return get_await_completion_adaptor(get_env(expr))(expr);
+}
+
 inline constexpr struct as_awaitable_t {
-    static constexpr auto adapted_expr(auto&& expr) {
-        return get_await_completion_adaptor(get_env(expr))(expr);
-    }
 
     template <typename Expr, typename Promise>
     auto operator()(Expr&& expr, Promise& promise) const {
@@ -145,13 +147,16 @@ inline constexpr struct as_awaitable_t {
                                  {
                                      _awaitable::_get_awaiter(expr)
                                  } -> awaiter<Promise>;
-                             }) {
+                             }) { // NOLINT
             return (void(promise), expr);
         } else if constexpr (
-            requires { adapted_expr(expr); } &&
-            _has_queryable_await_completion_adaptor<Expr> &&
-            _awaitable_sender<decltype(adapted_expr(expr)), Promise>) {
-            return _sender_awaitable{ adapted_expr(expr), promise };
+            requires {
+                get_await_completion_adaptor(get_env(expr))(expr); // adapted-expr
+                requires _has_queryable_await_completion_adaptor<Expr>;
+                requires _awaitable_sender<
+                    decltype(_adapted_expr(expr)), Promise>;
+            }) {
+            return _sender_awaitable{ _adapted_expr(expr), promise };
         } else if constexpr (_awaitable_sender<Expr, Promise>) {
             return _sender_awaitable(expr, promise);
         } else {

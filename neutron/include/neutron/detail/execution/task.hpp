@@ -11,92 +11,19 @@
 #include <variant>
 #include <neutron/concepts.hpp>
 #include "as_awaitable.hpp"
+#include "get_scheduler.hpp"
 #include "neutron/detail/execution/fwd.hpp"
+#include "neutron/detail/execution/inline_scheduler.hpp"
 #include "neutron/detail/execution/inplace_stop_source.hpp"
+#include "neutron/detail/execution/queries.hpp"
 #include "neutron/detail/execution/set_error.hpp"
 #include "neutron/detail/execution/set_stopped.hpp"
 #include "neutron/detail/execution/set_value.hpp"
+#include "neutron/detail/execution/task_scheduler.hpp"
 #include "neutron/detail/macros.hpp"
 #include "sender_adaptors/affine_on.hpp"
 
 namespace neutron::execution {
-
-template <_class_type Promise>
-struct with_awaitable_senders {
-    template <class OtherPromise>
-    requires(!std::same_as<OtherPromise, void>)
-    void set_continuation(std::coroutine_handle<OtherPromise> h) noexcept;
-
-    std::coroutine_handle<> continuation() const noexcept {
-        return continuation;
-    }
-
-    std::coroutine_handle<> unhandled_stopped() noexcept {
-        return _stopped_handler(continuation.address());
-    }
-
-    template <typename Value>
-    auto await_transform(Value&& value);
-
-private:
-    [[noreturn]] static std::coroutine_handle<>
-        _default_unhandled_stopped(void*) noexcept { // exposition only
-        std::terminate();
-    }
-
-    std::coroutine_handle<> continuation{}; // exposition only
-    std::coroutine_handle<> (*_stopped_handler)(
-        void*) noexcept =                   // exposition only
-        &_default_unhandled_stopped;
-};
-
-class inline_scheduler {
-    class _inline_sender;
-
-    template <receiver Rcvr>
-    class _inline_state;
-
-public:
-    using scheduler_concept = scheduler_t;
-    constexpr _inline_sender schedule() noexcept;
-    constexpr bool operator==(const inline_scheduler&) const noexcept = default;
-};
-
-class task_scheduler {
-    class _sender;
-
-    template <receiver Rcvr>
-    class _state;
-
-    friend struct _sched_helper;
-
-public:
-    using scheduler_concept = scheduler_t;
-
-    template <class Sch, class Allocator = std::allocator<void>>
-    requires(!std::same_as<task_scheduler, std::remove_cvref_t<Sch>>) &&
-            scheduler<Sch>
-    explicit task_scheduler(Sch&& sch, Allocator alloc = {});
-
-    task_scheduler(const task_scheduler&)            = default;
-    task_scheduler& operator=(const task_scheduler&) = default;
-
-    _sender schedule();
-
-    friend bool operator==(
-        const task_scheduler& lhs, const task_scheduler& rhs) noexcept;
-    template <class Sch>
-    requires(!std::same_as<task_scheduler, Sch>) && scheduler<Sch>
-    friend bool operator==(const task_scheduler& lhs, const Sch& rhs) noexcept;
-
-private:
-    std::shared_ptr<void> sch_;
-};
-
-struct _sched_helper {
-    static auto& get(task_scheduler& s) { return s.sch_; }
-};
-auto _sched(task_scheduler& s) noexcept { return _sched_helper::get(s); }
 
 template <typename T = void>
 using unspecified = T;
@@ -159,12 +86,76 @@ struct _env_errors<Env> {
     using type = typename Env::error_types;
 };
 
+template <typename T>
+struct _set_value_type {
+    using type = set_value_t(T);
+};
+template <>
+struct _set_value_type<void> {
+    using type = set_value_t();
+};
+
+template <typename T>
+struct _final_awaitable {
+    constexpr bool await_ready() noexcept { return false; } // NOLINT
+
+    template <typename Promise>
+    constexpr void
+        await_suspend(std::coroutine_handle<Promise> handle) noexcept {
+        /*
+        if err then set_error
+        else set_value
+        endif
+        handle.resume
+        */
+    }
+
+    unspecified<void> await_resume() noexcept {}
+};
+
+template <typename T>
+class _promise_base {
+public:
+    template <typename Val>
+    constexpr void result_value(Val&& val) noexcept(
+        std::is_nothrow_constructible_v<T, Val>) {
+        result_.emplace(std::forward<Val>(val));
+    }
+
+private:
+    std::optional<T> result_;
+};
+template <>
+class _promise_base<void> {
+public:
+    void return_void() {}
+};
+
+template <typename Env, typename Rcvr>
+struct _own_env {
+    using type = empty_env;
+};
+template <typename Env, typename Rcvr>
+requires requires {
+    typename Env::template env_type<decltype(get_env(std::declval<Rcvr>()))>;
+}
+struct _own_env<Env, Rcvr> {
+    using type = typename Env::template env_type<decltype(get_env(
+        std::declval<Rcvr>()))>;
+};
+
 } // namespace _task
 
 template <typename T = void, typename Env = empty_env>
-class task {
+class ATOM_NODISCARD task {
     template <receiver Rcvr>
-    class state;
+    class _state;
+
+    static_assert(
+        std::is_void_v<T> || std::is_reference_v<T> || !std::is_array_v<T>,
+        "T must be void, reference type or cv-unqualified non-array object type");
+
+    static_assert(std::is_class_v<Env>);
 
 public:
     using sender_concept   = sender_t;
@@ -176,20 +167,25 @@ public:
     using error_types = _task::_env_errors<Env>::type;
 
     using completion_signatures = ::neutron::execution::completion_signatures<
-        std::conditional_t<
-            std::same_as<T, void>, set_value_t(), set_value_t(T)>,
+        typename _task::_set_value_type<T>::type,
         /* set errors for err in error_types */
         set_stopped_t()>;
 
     class promise_type;
     using handle_type = std::coroutine_handle<promise_type>;
 
-    class promise_type {
+    struct _opstate_base {
+        constexpr _opstate_base(scheduler_type sched) noexcept
+            : sched_(sched) {}
+        scheduler_type sched_;
+    };
+
+    class promise_type : public _task::_promise_base<T> {
     public:
         template <typename... Args>
         promise_type(const Args&... args);
 
-        task get_return_object() noexcept {
+        ATOM_NODISCARD task get_return_object() noexcept {
             return task{ handle_type::from_promise(*this) };
         }
 
@@ -197,21 +193,7 @@ public:
             return {};
         }
 
-        struct _final_awaitable {
-            constexpr bool await_ready() noexcept { return false; }
-
-            template <typename Promise>
-            constexpr auto
-                await_suspend(std::coroutine_handle<Promise> handle) noexcept {
-                return handle.promise().continuation();
-            }
-
-            unspecified<> await_resume() noexcept {
-                // TODO
-            }
-        };
-
-        constexpr auto final_suspend() noexcept -> _final_awaitable {
+        constexpr auto final_suspend() noexcept -> _task::_final_awaitable<T> {
             return {};
         }
 
@@ -219,18 +201,7 @@ public:
             errors_.template emplace<1>(std::current_exception());
         }
 
-        std::coroutine_handle<> unhandled_stopped() noexcept {}
-
-        void return_void()
-        requires std::is_void_v<T> /* present only if is_void_v<T> is true */ {}
-
-        template <class V = T>
-        requires std::negation_v<std::is_void<T>>
-        void return_value(V&& value)
-        // present only if is_void_v<T> is false
-        {
-            result_.emplace(std::forward<V>(value));
-        }
+        ATOM_NODISCARD std::coroutine_handle<> unhandled_stopped() noexcept {}
 
         template <class E>
         unspecified<> yield_value(with_error<E> error);
@@ -240,8 +211,7 @@ public:
             if constexpr (std::same_as<inline_scheduler, scheduler_type>) {
                 return as_awaitable(std::forward<Sndr>(sndr), *this);
             } else {
-                return as_awaitable(
-                    affine_on(std::forward<Sndr>(sndr), _sched(*this)), *this);
+                return as_awaitable(affine_on(std::forward<Sndr>(sndr)), *this);
             }
         }
         template <class Sch>
@@ -253,7 +223,32 @@ public:
                 *this);
         }
 
-        unspecified<> get_env() const noexcept;
+        struct _env {
+            const promise_type* promise;
+
+            constexpr auto query(get_scheduler_t) const noexcept {
+                return promise->state_->sched_;
+            }
+
+            constexpr auto query(get_allocator_t) const noexcept {
+                return promise->alloc_;
+            }
+
+            constexpr auto query(get_stop_token_t) const noexcept {
+                return promise->token_;
+            }
+
+            // template <typename Query, typename... Args>
+            // constexpr auto query(Query qry, Args... args) const noexcept
+            // requires requires { forwarding_query(qry); }
+            // {
+            //     return STATE(*this).environment.query(qry, args...);
+            // }
+        };
+
+        ATOM_NODISCARD constexpr _env get_env() const noexcept {
+            return _env{ this };
+        }
 
         template <class... Args>
         void* operator new(size_t size, Args&&... args);
@@ -277,19 +272,23 @@ public:
         stop_token_type token_;
         std::optional<T> result_;
         _error_variant errors_;
+        _opstate_base* state_;
     };
 
-    task(task&& that) noexcept : handle_(std::exchange(that.handle_, {})) {}
+    constexpr task(task&& that) noexcept
+        : handle_(std::exchange(that.handle_, {})) {}
 
-    ~task() {
+    constexpr task(handle_type handle) noexcept : handle_(handle) {}
+
+    constexpr ~task() {
         if (handle_) {
             handle_.destroy();
         }
     }
 
     template <receiver Rcvr>
-    state<Rcvr> connect(Rcvr&& rcvr) && {
-        return state<Rcvr>(
+    constexpr _state<Rcvr> connect(Rcvr&& rcvr) && {
+        return _state<Rcvr>(
             std::exchange(handle_, {}), std::forward<Rcvr>(rcvr));
     }
 
@@ -338,34 +337,46 @@ public:
 
 private:
     template <receiver Rcvr>
-    class state {
-        using _own_env_t = typename Env::template env_type<decltype(get_env(
-            std::declval<Rcvr>()))>;
-
+    class _state : _opstate_base {
     public:
         using operation_state_concept = operation_state_t;
 
         template <typename R>
-        state(std::coroutine_handle<promise_type> handle, R&& rcvr)
+        _state(std::coroutine_handle<promise_type> handle, R&& rcvr)
         requires requires { _own_env_t(get_env(rcvr)); }
             : handle_(std::move(handle)), rcvr_(std::forward<R>(rcvr)),
               own_env_(get_env(rcvr)) {}
 
         template <typename R>
-        state(std::coroutine_handle<promise_type> handle, R&& rcvr)
+        _state(std::coroutine_handle<promise_type> handle, R&& rcvr)
         requires(!requires { _own_env_t(get_env(rcvr)); })
-            : handle_(std::move(handle)), rcvr_(std::forward<R>(rcvr)),
-              own_env_() {}
+            : _opstate_base(_make_sched(rcvr)), handle_(std::move(handle)),
+              rcvr_(std::forward<R>(rcvr)), own_env_() {}
 
-        ~state() {
+        ~_state() {
             if (handle_) {
                 handle_.destroy();
             }
         }
 
-        void start() & noexcept;
+        void start() & noexcept {
+            //
+        }
 
     private:
+        constexpr auto _make_sched(const Rcvr& rcvr) {
+            if constexpr (requires {
+                              scheduler_type(get_scheduler(
+                                  ::neutron::execution::get_env(rcvr)));
+                          }) {
+                return scheduler_type(
+                    get_scheduler(::neutron::execution::get_env(rcvr)));
+            } else {
+                return scheduler_type{};
+            }
+        }
+
+        using _own_env_t = typename _task::_own_env<Env, Rcvr>::type;
         std::coroutine_handle<promise_type> handle_;
         std::remove_cvref_t<Rcvr> rcvr_;
         _own_env_t own_env_;
@@ -374,5 +385,8 @@ private:
 
     std::coroutine_handle<promise_type> handle_;
 };
+
+static_assert(sender<task<void>>);
+static_assert(sender<task<int>>);
 
 } // namespace neutron::execution
