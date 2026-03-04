@@ -117,7 +117,7 @@ template <typename T>
 class _promise_base {
 public:
     template <typename Val>
-    constexpr void result_value(Val&& val) noexcept(
+    constexpr void return_value(Val&& val) noexcept(
         std::is_nothrow_constructible_v<T, Val>) {
         result_.emplace(std::forward<Val>(val));
     }
