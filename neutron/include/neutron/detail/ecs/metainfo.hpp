@@ -2,7 +2,6 @@
 #include <type_traits>
 #include <neutron/metafn.hpp>
 #include "neutron/detail/ecs/stage.hpp"
-#include "neutron/detail/ecs/world_descriptor.hpp"
 #include "neutron/detail/ecs/world_descriptor/fwd.hpp"
 #include "neutron/detail/metafn/definition.hpp"
 #include "neutron/detail/metafn/filt.hpp"

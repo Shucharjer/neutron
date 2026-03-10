@@ -88,6 +88,8 @@ private:
     #endif
 };
 
+}
+
 #endif
 
 #if defined(__cpp_lib_atomic_wait) && __cpp_lib_atomic_wait >= 201907L

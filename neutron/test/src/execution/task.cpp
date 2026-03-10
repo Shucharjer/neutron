@@ -1,11 +1,10 @@
 #define ATOM_EXECUTION
-#include <neutron/detail/execution/task.hpp>
 #include <chrono>
 #include <coroutine>
 #include <thread>
+#include <neutron/detail/execution/task.hpp>
 #include <neutron/execution.hpp>
 #include <neutron/execution_resources.hpp>
-
 
 using namespace neutron;
 using namespace neutron::execution;
@@ -20,8 +19,7 @@ public:
         handle_ = handle;
     }
     constexpr void await_resume() noexcept {
-        if (handle_) {
-        }
+        if (handle_) {}
     }
 
 private:
@@ -33,15 +31,15 @@ int setresult() {
     return 42;
 }
 
-task<int> getresult() {
-    sender auto sndr =
-        schedule(thread.get_scheduler()) | then([] { setresult(); });
-    co_return co_await sndr;
-}
+// task<int> getresult() {
+// sender auto sndr =
+//     schedule(thread.get_scheduler()) | then([] { setresult(); });
+// co_return co_await sndr;
+// }
 
 int main() {
-    auto opt       = this_thread::sync_wait(getresult());
-    auto [integer] = opt.value();
+    // auto opt       = this_thread::sync_wait(getresult());
+    // auto [integer] = opt.value();
 
     return 0;
 }

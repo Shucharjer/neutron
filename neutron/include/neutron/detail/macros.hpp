@@ -229,3 +229,13 @@
     #define ATOM_CATCH(...) if (false)
     #define ATOM_RETHROE
 #endif
+
+#ifndef ATOM_RESTRICT
+    #if defined(__GNUC__) || defined(__clang__) || defined(__INTEL_COMPILER)
+        #define ATOM_RESTRICT __restrict__
+    #elif defined(_MSC_VER)
+        #define ATOM_RESTRICT __restrict
+    #else
+        #define ATOM_RESTRICT
+    #endif
+#endif

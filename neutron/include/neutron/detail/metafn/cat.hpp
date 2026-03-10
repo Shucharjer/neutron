@@ -81,4 +81,26 @@ template <typename TypeList>
 using type_list_value_list_cat_t =
     typename type_list_value_list_cat<TypeList>::type;
 
+template <typename...>
+struct tagged_type_list_cat;
+template <
+    template <typename, typename...> typename Template, typename Tag,
+    typename... Tys>
+struct tagged_type_list_cat<Template<Tag, Tys...>> {
+    using type = Template<Tag, Tys...>;
+};
+template <
+    template <typename, typename...> typename Template, typename Tag,
+    typename... Tys1, typename... Tys2>
+struct tagged_type_list_cat<Template<Tag, Tys1...>, Template<Tag, Tys2...>> {
+    using type = Template<Tag, Tys1..., Tys2...>;
+};
+template <typename Tl1, typename Tl2, typename... Tls>
+struct tagged_type_list_cat<Tl1, Tl2, Tls...> {
+    using type = typename tagged_type_list_cat<
+        typename tagged_type_list_cat<Tl1, Tl2>::type, Tls...>::type;
+};
+template <typename... Tls>
+using tagged_type_list_cat_t = typename tagged_type_list_cat<Tls...>::type;
+
 } // namespace neutron

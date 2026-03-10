@@ -188,7 +188,10 @@ public:
     requires(sizeof...(Components) != 0)
     ATOM_CONSTEXPR_SINCE_CXX23
         archetype(immediately_t, type_list<Components...>, const Al& alloc = {})
-        : hash_list_(
+        : relocate_fn_([](archetype* self, size_type capacity) {
+              self->_relocate<Components...>(capacity);
+          }),
+          hash_list_(
               std::initializer_list<uint32_t>{ hash_of<Components>()... },
               alloc),
           basic_info_({ basic_info::make<Components>()... }, alloc),
@@ -752,6 +755,10 @@ private:
     }
 
     auto _relocate(size_type capacity) {
+        if (relocate_fn_ != nullptr) {
+            relocate_fn_(this, capacity);
+            return;
+        }
         const auto kinds = hash_list_.size();
         _vector_t<_buffer_ptr> buffers{ kinds, entity2index_.get_allocator() };
         _prepare_for_relocation(kinds, buffers, capacity);
@@ -1160,6 +1167,7 @@ private:
         }(std::index_sequence_for<Components...>());
     }
 
+    void (*relocate_fn_)(archetype*, size_type) = nullptr;
     _vector_t<_hash_type> hash_list_;
     _vector_t<basic_info> basic_info_;
     _vector_t<_ctor_fn> constructors_;

@@ -1,4 +1,4 @@
-// #define ATOM_EXECUTION
+#define ATOM_EXECUTION
 #include <chrono>
 #include <thread>
 #include <neutron/execution.hpp>

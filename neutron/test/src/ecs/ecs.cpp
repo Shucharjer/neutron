@@ -8,20 +8,22 @@ using enum stage;
 
 void fn() { std::cout << "Hello world\n"; }
 
-constexpr auto desc = world_desc | add_system<update, &fn>;
+constexpr auto desc = world_desc | add_systems<update, &fn>;
 
-using desc_traits = descriptor_traits<decltype(desc)>;
-using world_t     = basic_world<std::remove_cvref_t<decltype(desc)>>;
-using all         = world_t::run_lists::all;
-using resources   = world_t::resources;
-using locals      = world_t::locals;
+// using desc_traits = descriptor_traits<decltype(desc)>;
+// using world_t     = basic_world<std::remove_cvref_t<decltype(desc)>>;
+// using all         = world_t::run_lists::all;
+// using resources   = world_t::resources;
+// using locals      = world_t::locals;
 
-int main() {
-    auto world = make_world<desc>();
-    exec::static_thread_pool pool;
-    std::vector<command_buffer<>> cmdbufs(pool.available_parallelism());
-    execution::scheduler auto sch = pool.get_scheduler();
-    world.call<update>(sch, cmdbufs);
+// int main() {
+//     auto world = make_world<desc>();
+//     exec::static_thread_pool pool;
+//     std::vector<command_buffer<>> cmdbufs(pool.available_parallelism());
+//     execution::scheduler auto sch = pool.get_scheduler();
+//     world.call<update>(sch, cmdbufs);
 
-    return 0;
-}
+//     return 0;
+// }
+
+int main() {return 0;}

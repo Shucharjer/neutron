@@ -27,4 +27,16 @@ constexpr bool is_value_list_v = is_value_list<Ty>::value;
 template <typename... Args>
 using decayed_type_list = type_list<std::decay_t<Args>...>;
 
+template <typename Tag, typename... Args>
+struct tagged_type_list {
+    using tag       = Tag;
+    using type_list = ::neutron::type_list<Args...>;
+};
+
+template <typename Tag, auto... Args>
+struct tagged_value_list {
+    using tag        = Tag;
+    using value_list = ::neutron::value_list<Args...>;
+};
+
 } // namespace neutron

@@ -1,10 +1,14 @@
 #pragma once
+#ifdef ATOM_EXECUTION
+    #undef ATOM_EXECUTION
+#endif
 #include <cstddef>
 #include <memory_resource>
 #include <tuple>
 #include <vector>
 #include <exec/static_thread_pool.hpp>
 #include <neutron/ecs.hpp>
+#include <neutron/execution.hpp>
 #include <neutron/metafn.hpp>
 
 using commands = neutron::basic_commands<std::pmr::polymorphic_allocator<>>;

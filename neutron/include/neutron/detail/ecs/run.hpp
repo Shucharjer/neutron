@@ -1,7 +1,7 @@
 #pragma once
 #include <tuple>
 #include <type_traits>
-#include "neutron/detail/ecs/world_descriptor/definition.hpp"
+#include "neutron/detail/ecs/world_descriptor/fwd.hpp"
 
 namespace neutron {
 

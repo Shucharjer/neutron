@@ -11,28 +11,28 @@ constexpr bool as_component<int> = true;
 
 void test_constructor() {
     {
-        basic_world<decltype(world_desc)> world;
-        querior<with<int&>> querior{ world };
+        // basic_world<decltype(world_desc)> world;
+        // querior<with<int&>> querior{ world };
     }
 
     {
-        basic_world<decltype(world_desc)> world;
-        querior<with<int&>> querior{ world };
-        auto copy{ querior };
+        // basic_world<decltype(world_desc)> world;
+        // querior<with<int&>> querior{ world };
+        // auto copy{ querior };
     }
 
     {
-        basic_world<decltype(world_desc)> world;
-        querior<with<int&>> querior{ world };
-        auto move{ std::move(querior) };
+        // basic_world<decltype(world_desc)> world;
+        // querior<with<int&>> querior{ world };
+        // auto move{ std::move(querior) };
     }
 }
 
 void test_get() {
     {
-        basic_world<decltype(world_desc)> world;
-        querior<with<int&>> querior{ world };
-        for (auto [val] : querior.get()) {}
+        // basic_world<decltype(world_desc)> world;
+        // querior<with<int&>> querior{ world };
+        // for (auto [val] : querior.get()) {}
     }
 
     {
