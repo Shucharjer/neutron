@@ -8,20 +8,23 @@
 #include <cstdint>
 #include <iterator>
 #include <memory>
-#include <memory_resource>
+#include <memory_resource> // IWYU pragma: keep, for std::pmr::polymorphic_allocator
 #include <new>
-#include <span>
+#include <ranges>
 #include <tuple>
 #include <type_traits>
 #include <utility>
 #include <vector>
-#include "neutron/concepts.hpp"
+#include <version>
+#include <neutron/memory.hpp>
+#include <neutron/utility.hpp>
 #include "neutron/detail/ecs/component.hpp"
 #include "neutron/detail/ecs/entity.hpp"
 #include "neutron/detail/ecs/fwd.hpp"
 #include "neutron/detail/macros.hpp"
 #include "neutron/detail/memory/uninitialized_move_if_noexcept.hpp"
-#include "neutron/detail/metafn/make.hpp"
+#include "neutron/detail/ranges/concepts.hpp"
+#include "neutron/detail/ranges/to.hpp"
 #include "neutron/detail/reflection/hash.hpp"
 #include "neutron/detail/reflection/legacy/hash_of.hpp"
 #include "neutron/detail/tuple/rmcvref_first.hpp"
@@ -462,6 +465,18 @@ public:
     }
 
     template <component... Components>
+    ATOM_NODISCARD auto emplace(auto&& range)
+    requires compatible_range<decltype(range), entity_t>
+    {
+        using type_list                  = type_list<Components...>;
+        using hash_list                  = hash_list_t<type_list>;
+        constexpr uint64_t combined_hash = make_array_hash<type_list>();
+        assert(combined_hash == hash_);
+
+        _emplace(std::forward<decltype(range)>(range), hash_list{});
+    }
+
+    template <component... Components>
     ATOM_NODISCARD constexpr auto
         emplace(entity_t entity, Components&&... components) {
         constexpr uint64_t combined_hash =
@@ -469,6 +484,20 @@ public:
         assert(combined_hash == hash_);
 
         _emplace(entity, std::forward<Components>(components)...);
+    }
+
+    template <component... Components>
+    ATOM_NODISCARD constexpr auto
+        emplace(auto&& range, Components&&... components)
+    requires compatible_range<decltype(range), entity_t>
+    {
+        constexpr uint64_t combined_hash =
+            make_array_hash<type_list<std::remove_cvref_t<Components>...>>();
+        assert(combined_hash == hash_);
+
+        _emplace(
+            std::forward<decltype(range)>(range),
+            std::forward<Components>(components)...);
     }
 
     constexpr void erase(entity_t entity) {
@@ -920,6 +949,61 @@ private:
         ++size_;
     }
 
+    // emplace<...>(range);
+
+    template <
+        size_t Index, typename TypeList, compatible_range<entity_t> Rng,
+        typename Ty = type_list_element_t<Index, TypeList>>
+    auto _emplace_n_noexcept(size_type size) noexcept {
+        if constexpr (std::is_empty_v<Ty>) {
+            return;
+        }
+
+        _buffer_ptr& data = storage_[Index];
+        auto* const ptr   = data.get();
+        auto* const addr  = reinterpret_cast<Ty*>(ptr + (sizeof(Ty) * size_));
+        std::uninitialized_value_construct_n(addr, size);
+    }
+
+    template <compatible_range<entity_t> Rng, component... Components>
+    requires(std::is_nothrow_default_constructible_v<Components> && ...)
+    auto _emplace_n(
+        Rng&& range, size_type append,
+        [[maybe_unused]] const type_list<Components...> tl) {
+
+        const auto currsize = size_;
+        auto guard          = make_exception_guard([this, currsize]() noexcept {
+            // TODO: clean
+        });
+        // TODO: emplace
+
+        guard.mark_complete();
+
+        // noexcept part
+        [this, append]<size_t... Is>(std::index_sequence<Is...>) {
+            _emplace_n_noexcept(append);
+        }(std::index_sequence_for<Components...>());
+    }
+
+    template <compatible_range<entity_t> Rng, component... Components>
+    auto _emplace(
+        Rng&& range, [[maybe_unused]] const type_list<Components...> tl) {
+        if constexpr (std::ranges::sized_range<Rng>) {
+            auto append     = std::ranges::size(range);
+            auto final_size = size_ + append;
+            entity2index_.reserve(final_size);
+            index2entity_.reserve(final_size);
+            if (final_size > capacity_) {
+                _relocate<Components...>(std::max(final_size, capacity_));
+            }
+            _emplace_n(std::forward<Rng>(range), append, tl);
+        } else {
+            std::ranges::for_each(range, [this](entity_t entity) {
+                _emplace(entity, type_list<Components...>{});
+            });
+        }
+    }
+
     // emplace(...);
 
     template <
@@ -1029,6 +1113,13 @@ private:
         _emplace(
             entity, sorted{},
             std::forward_as_tuple(std::forward<Components>(components)...));
+    }
+
+    // emplace(range, ...)
+
+    template <compatible_range<entity_t> Rng, component... Components>
+    constexpr void _emplace(Rng&& range, Components&&... components) {
+        // TODO:
     }
 
     // vw
