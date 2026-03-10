@@ -34,18 +34,18 @@ struct _task_base {
     void (*execute)(_task_base*) noexcept = nullptr;
 };
 
-class _domain : default_domain {
-public:
-    using default_domain::transform_env;
-    using default_domain::apply_sender;
+// class _domain : default_domain {
+// public:
+//     using default_domain::transform_env;
+//     using default_domain::apply_sender;
 
-    template <typename Sndr, typename... Env>
-    constexpr sender auto
-        transform_sender(Sndr&& sndr, const Env&... env) noexcept {
-        return default_domain::transform_sender(
-            std::forward<Sndr>(sndr), env...);
-    }
-};
+//     template <typename Sndr, typename... Env>
+//     constexpr sender auto
+//         transform_sender(Sndr&& sndr, const Env&... env) noexcept {
+//         return default_domain::transform_sender(
+//             std::forward<Sndr>(sndr), env...);
+//     }
+// };
 
 class _env {
 public:

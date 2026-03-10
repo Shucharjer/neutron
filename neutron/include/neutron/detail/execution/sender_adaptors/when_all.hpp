@@ -14,6 +14,8 @@
 #include "neutron/detail/execution/default_domain.hpp"
 #include "neutron/detail/execution/fwd.hpp"
 #include "neutron/detail/execution/get_domain.hpp"
+#include "neutron/detail/execution/inplace_stop_callback.hpp"
+#include "neutron/detail/execution/inplace_stop_source.hpp"
 #include "neutron/detail/execution/join_env.hpp"
 #include "neutron/detail/execution/make_env.hpp"
 #include "neutron/detail/execution/make_sender.hpp"
@@ -98,7 +100,7 @@ struct _impls_for<when_all_t> : _default_impls {
                     type_list_cat_t<error_types_of_t<
                         Sndrs, env_of_t<Rcvr>, decayed_type_list>...>>>;
 
-            using stop_callback = stop_callback_of_t<
+            using stop_callback = stop_callback_for_t<
                 stop_token_of_t<env_of_t<Rcvr>>, _on_stop_request>;
 
             struct _state_type {
@@ -115,7 +117,7 @@ struct _impls_for<when_all_t> : _default_impls {
                 std::atomic<_disposition> disp{ _disposition::started };
                 errors_variant errors{};
                 values_tuple values{};
-                std::optional<stop_callback> on_stop{ nullopt };
+                std::optional<stop_callback> on_stop{ std::nullopt };
             };
             return _state_type{};
         }

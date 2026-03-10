@@ -1,6 +1,7 @@
 #pragma once
 #include <concepts>
 #include <exception>
+#include <execution>
 #include <type_traits>
 #include "neutron/detail/concepts/movable_value.hpp"
 #include "neutron/detail/execution/default_domain.hpp"
@@ -17,13 +18,32 @@ namespace neutron::execution {
 
 inline constexpr struct bulk_t {
     template <typename Shape, typename Fn>
-    constexpr decltype(auto) operator()(Shape&& shape, Fn&& fn) const {
+    [[deprecated("bulk should be used with policy")]] constexpr decltype(auto)
+        operator()(Shape&& shape, Fn&& fn) const {
         return _sender_adaptor(*this, shape, std::forward<Fn>(fn));
     }
 
     template <sender Sndr, std::integral Shape, movable_value Fn>
-    constexpr decltype(auto)
+    [[deprecated("bulk should be used with policy")]] constexpr decltype(auto)
         operator()(Sndr&& sndr, Shape&& shape, Fn&& fn) const {
+        auto domain = _get_domain_early(sndr);
+        return ::neutron::execution::transform_sender(
+            domain, make_sender(
+                        *this, _product_type<Shape, Fn>{ shape, fn },
+                        std::forward<Sndr>(sndr)));
+    }
+
+    template <typename Policy, typename Shape, typename Fn>
+    requires std::is_execution_policy_v<Policy>
+    constexpr decltype(auto) operator()(Policy, Shape&& shape, Fn&& fn) const {
+        return _sender_adaptor(*this, shape, std::forward<Fn>(fn));
+    }
+
+    template <
+        sender Sndr, typename Policy, std::integral Shape, movable_value Fn>
+    requires std::is_execution_policy_v<Policy>
+    constexpr decltype(auto)
+        operator()(Sndr&& sndr, Policy, Shape&& shape, Fn&& fn) const {
         auto domain = _get_domain_early(sndr);
         return ::neutron::execution::transform_sender(
             domain, make_sender(
