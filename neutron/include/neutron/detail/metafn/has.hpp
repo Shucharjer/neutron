@@ -60,6 +60,15 @@ template <typename Tag, typename TaggedList>
 constexpr bool tagged_value_list_has_tag_v =
     tagged_value_list_has_tag<Tag, TaggedList>::value;
 
+template <typename Tag, typename TaggedList>
+struct tagged_list_has_tag {
+    static constexpr bool value = tagged_type_list_has_tag_v<Tag, TaggedList> ||
+                                  tagged_value_list_has_tag_v<Tag, TaggedList>;
+};
+template <typename Tag, typename TaggedList>
+constexpr bool tagged_list_has_tag_v =
+    tagged_list_has_tag<Tag, TaggedList>::value;
+
 template <typename Tag, typename TypeList>
 struct type_list_has_tag : std::false_type {};
 template <
