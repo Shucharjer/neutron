@@ -5,9 +5,9 @@ using namespace neutron;
 
 using enum stage;
 
-void foo();
-void bar();
-void nop();
+void foo() {}
+void bar() {}
+void nop() {}
 
 int main() {
     constexpr auto desc1 =
