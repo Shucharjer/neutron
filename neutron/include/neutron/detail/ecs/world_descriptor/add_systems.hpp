@@ -11,23 +11,6 @@ namespace neutron {
 
 namespace _add_system {
 
-template <auto Fn, typename = decltype(Fn)>
-struct _fn_traits;
-template <auto Fn, typename Ret, typename... Args>
-struct _fn_traits<Fn, Ret (*)(Args...)> {
-    using arg_list = type_list<Args...>;
-
-    using resource = type_list_first_t<
-        type_list_filt_nempty_t<internal::_is_res, arg_list, type_list<res<>>>>;
-
-    template <typename... Tys>
-    using _systuple = systuple<Fn, Tys...>;
-    using local     = type_list_rebind_t<
-            _systuple,
-            type_list_first_t<type_list_filt_nempty_t<
-                internal::_is_local, arg_list, type_list<::neutron::local<>>>>>;
-};
-
 // e.g. { &foo, after<&bar> }
 
 template <typename Sys, auto... Requires>
@@ -40,7 +23,7 @@ template <typename Fn, typename... Requires>
 sysdesc(Fn, Requires...) -> sysdesc<Fn, Requires{}...>;
 
 template <stage Stage>
-struct _sys_tag_t {};
+struct sys_tag_t {};
 
 template <stage Stage, sysdesc... Systems>
 struct _add_systems_t :
@@ -48,7 +31,7 @@ struct _add_systems_t :
     template <world_descriptor Descriptor>
     consteval auto operator()(Descriptor descriptor) const noexcept {
         return insert_range_tagged_value_list_inplace_t<
-            _sys_tag_t<Stage>, Descriptor, tagged_value_list, Systems...>{};
+            sys_tag_t<Stage>, Descriptor, tagged_value_list, Systems...>{};
     }
 };
 
@@ -61,6 +44,8 @@ struct _after_t {};
 } // namespace _add_system
 
 using _add_system::sysdesc;
+
+using _add_system::sys_tag_t;
 
 template <stage Stage, sysdesc... Systems>
 inline constexpr _add_system::_add_systems_t<Stage, Systems...> add_systems;
