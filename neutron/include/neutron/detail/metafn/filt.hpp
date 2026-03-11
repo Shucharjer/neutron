@@ -2,6 +2,7 @@
 #pragma once
 #include <type_traits>
 #include "neutron/detail/metafn/empty.hpp"
+#include "neutron/detail/metafn/has.hpp"
 
 namespace neutron {
 
@@ -78,5 +79,28 @@ template <
     typename TyIfEmpty>
 using type_list_filt_nempty_t =
     type_list_filt_nempty<Predicate, TypeList, TyIfEmpty>::type;
+
+template <typename Tag, typename TypeList>
+struct type_list_filt_tagged {
+    template <typename T>
+    using predicate_type = tagged_list_has_tag<Tag, T>;
+    using type           = type_list_filt_t<predicate_type, TypeList>;
+};
+template <typename Tag, typename TypeList>
+using type_list_filt_tagged_t =
+    typename type_list_filt_tagged<Tag, TypeList>::type;
+
+template <typename Tag, typename TypeList, typename TyIfEmpty>
+struct type_list_filt_tagged_nempty {
+    using type = type_list_filt_tagged_t<Tag, TypeList>;
+};
+template <typename Tag, typename TypeList, typename TyIfEmpty>
+requires std::negation_v<type_list_has_tag<Tag, TypeList>>
+struct type_list_filt_tagged_nempty<Tag, TypeList, TyIfEmpty> {
+    using type = TyIfEmpty;
+};
+template <typename Tag, typename TypeList, typename TyIfEmpty>
+using type_list_filt_tagged_nempty_t =
+    typename type_list_filt_tagged_nempty<Tag, TypeList, TyIfEmpty>::type;
 
 } // namespace neutron
