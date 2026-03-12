@@ -17,7 +17,8 @@ class basic_querior;
 template <std_simple_allocator Alloc = std::allocator<std::byte>>
 class command_buffer;
 
-template <std_simple_allocator Alloc = std::allocator<std::byte>>
+template <
+    std_simple_allocator Alloc = std::allocator<std::byte>, bool Direct = false>
 class basic_commands;
 
 template <
