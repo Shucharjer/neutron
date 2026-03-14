@@ -2,24 +2,42 @@
 #pragma once
 #include <neutron/detail/metafn/empty.hpp>
 #include <neutron/metafn.hpp>
-#include "neutron/detail/ecs/local.hpp"
-#include "neutron/detail/ecs/res.hpp"
 #include "neutron/detail/ecs/stage.hpp"
 #include "neutron/detail/ecs/world_descriptor/fwd.hpp"
 
 namespace neutron {
 
+template <typename Ty>
+constexpr bool as_system_requirement = false;
+
 namespace _add_system {
 
-// e.g. { &foo, after<&bar> }
+template <typename Ty>
+concept system_requirement = (requires {
+    typename std::remove_cvref_t<Ty>::system_requirement_concept;
+    requires std::derived_from<
+        typename std::remove_cvref_t<Ty>::system_requirement_concept,
+        system_requirement_t>;
+} || as_system_requirement<std::remove_cvref_t<Ty>>);
 
+template <auto Sys>
+struct _before_t {
+    using system_requirement_concept = system_requirement_t;
+};
+
+template <auto Sys>
+struct _after_t {
+    using system_requirement_concept = system_requirement_t;
+};
+
+// e.g. { &foo, after<&bar> }
 template <typename Sys, auto... Requires>
 struct sysdesc {
     Sys fn;
     constexpr sysdesc(Sys fn, decltype(Requires)...) noexcept : fn(fn) {}
 };
 
-template <typename Fn, typename... Requires>
+template <typename Fn, system_requirement... Requires>
 sysdesc(Fn, Requires...) -> sysdesc<Fn, Requires{}...>;
 
 template <stage Stage>
@@ -35,16 +53,9 @@ struct _add_systems_t :
     }
 };
 
-template <auto Sys>
-struct _before_t {};
-
-template <auto Sys>
-struct _after_t {};
-
 } // namespace _add_system
 
 using _add_system::sysdesc;
-
 using _add_system::sys_tag_t;
 
 template <stage Stage, sysdesc... Systems>
@@ -55,134 +66,5 @@ inline constexpr _add_system::_before_t<Sys> before;
 
 template <auto Sys>
 inline constexpr _add_system::_after_t<Sys> after;
-
-// template <stage Stage, auto Fn, typename... Requires>
-// struct _add_system_t :
-//     public descriptor_adaptor_closure<_add_system_t<Stage, Fn, Requires...>>
-//     {
-
-//     template <world_descriptor Descriptor>
-//     consteval auto operator()(Descriptor descriptor) const noexcept {
-//         return typename Descriptor::template add_system_t<
-//             Stage, Fn, Requires...>{};
-//     }
-// };
-
-namespace _add_system {
-
-// template <stage Stage, auto Fn, typename... Requires>
-// struct sysinfo {
-//     static constexpr auto stage = Stage;
-//     static constexpr auto fn    = Fn;
-//     using fn_traits             = _fn_traits<Fn>;
-//     using requirements          = type_list<Requires...>;
-// };
-
-// template <typename, typename>
-// struct sysinfo_cmp_less;
-// template <
-//     stage LStage, auto LFn, typename... LRequires, stage RStage, auto RFn,
-//     typename... RRequires>
-// struct sysinfo_cmp_less<
-//     sysinfo<LStage, LFn, LRequires...>, sysinfo<RStage, RFn, RRequires...>> {
-//     static constexpr bool value = LStage < RStage;
-//     constexpr bool operator()() const noexcept { return LStage < RStage; }
-// };
-
-// template <typename SysInfo, typename InfoOrList>
-// struct _has_before;
-// template <
-//     stage Stage, auto LFn, typename... LRequires, auto RFn,
-//     typename... RRequires>
-// struct _has_before<
-//     sysinfo<Stage, LFn, LRequires...>, sysinfo<Stage, RFn, RRequires...>> {
-//     static_assert(
-//         !std::same_as<value_list<LFn>, value_list<RFn>>,
-//         "Cannot compare with same system");
-
-//     template <typename Require>
-//     using _predicate_type       = is_specific_value_list<before, Require>;
-//     static constexpr bool value = [] {
-//         using result =
-//             type_list_filt_t<_predicate_type, type_list<LRequires...>>;
-//         if constexpr (is_empty_template_v<result>) {
-//             return false;
-//         } else {
-//             using before_list = type_list_first_t<result>;
-//             return value_list_has_v<RFn, before_list>;
-//         }
-//     }();
-// };
-// template <
-//     stage Stage, auto Fn, typename... Requires,
-//     template <typename...> typename Template, typename... Info>
-// struct _has_before<sysinfo<Stage, Fn, Requires...>, Template<Info...>> {
-//     static constexpr bool value =
-//         (_has_before<sysinfo<Stage, Fn, Requires...>, Info>::value || ...);
-// };
-// template <typename SysInfo, typename InfoOrList>
-// constexpr bool _has_before_v = _has_before<SysInfo, InfoOrList>::value;
-
-// template <typename SysInfo, typename InfoOrList>
-// struct _has_after;
-// template <
-//     stage Stage, auto LFn, typename... LRequires, auto RFn,
-//     typename... RRequires>
-// struct _has_after<
-//     sysinfo<Stage, LFn, LRequires...>, sysinfo<Stage, RFn, RRequires...>> {
-//     static_assert(
-//         !std::same_as<value_list<LFn>, value_list<RFn>>,
-//         "Cannot compare with same system");
-
-//     template <typename Require>
-//     using _predicate_type       = is_specific_value_list<after, Require>;
-//     static constexpr bool value = [] {
-//         using result =
-//             type_list_filt_t<_predicate_type, type_list<LRequires...>>;
-//         if constexpr (is_empty_template_v<result>) {
-//             return false;
-//         } else {
-//             using after_list = type_list_first_t<result>;
-//             return value_list_has_v<RFn, after_list>;
-//         }
-//     }();
-// };
-// template <
-//     stage Stage, auto Fn, typename... Requires,
-//     template <typename...> typename Template, typename... Info>
-// struct _has_after<sysinfo<Stage, Fn, Requires...>, Template<Info...>> {
-//     static constexpr bool value =
-//         (_has_after<sysinfo<Stage, Fn, Requires...>, Info>::value || ...);
-// };
-// template <typename SysInfo, typename InfoOrList>
-// constexpr bool _has_after_v = _has_after<SysInfo, InfoOrList>::value;
-
-// template <typename SysInfo, typename InfoList>
-// struct _is_before;
-// template <
-//     typename SysInfo, template <typename...> typename Template,
-//     typename... Info>
-// struct _is_before<SysInfo, Template<Info...>> {
-//     using type_list             = Template<Info...>;
-//     static constexpr bool value = !_has_after_v<SysInfo, type_list> &&
-//                                   !(_has_before_v<Info, SysInfo> || ...);
-// };
-// template <typename SysInfo, typename InfoList>
-// constexpr auto _is_before_v = _is_before<SysInfo, InfoList>::value;
-
-// template <typename SysInfo, typename InfoList>
-// struct _is_after;
-// template <
-//     typename SysInfo, template <typename...> typename Template,
-//     typename... Info>
-// struct _is_after<SysInfo, Template<Info...>> {
-//     static constexpr bool value =
-//         ((_has_after_v<SysInfo, Info> || _has_before_v<Info, SysInfo>) &&
-//         ...);
-// };
-// template <typename SysInfo, typename InfoList>
-// constexpr auto _is_after_v = _is_after<SysInfo, InfoList>::value;
-
-} // namespace _add_system
 
 } // namespace neutron

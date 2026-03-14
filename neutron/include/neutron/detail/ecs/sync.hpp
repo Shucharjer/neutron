@@ -62,10 +62,4 @@ template <_sync_scope Scope, strategy Strategy, _sync_access... Access>
 requires(sizeof...(Access) != 0)
 struct sync;
 
-void sndr(sync<single, strategy::event_queue, input<int>>);
-void rcvr(sync<single, strategy::event_queue, output<int>>);
-
-void master_fn(sync<single, strategy::event_queue, master<int>>);
-void slave_fn(sync<single, strategy::event_queue, slave<int>>);
-
 } // namespace neutron

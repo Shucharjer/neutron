@@ -1,6 +1,8 @@
 // IWYU pragma: private, include <neutron/ecs.hpp>
 #pragma once
+#include <concepts>
 #include <cstddef>
+#include <type_traits>
 #include "neutron/detail/pipeline.hpp"
 
 namespace neutron {
@@ -41,35 +43,49 @@ descriptor_closure_compose(C1&&, C2&&) -> descriptor_closure_compose<
     std::remove_cvref_t<C1>, std::remove_cvref_t<C2>>;
 
 template <world_descriptor Descriptor, descriptor_closure Closure>
-constexpr decltype(auto)
+consteval decltype(auto)
     operator|(Descriptor&& descriptor, Closure&& closure) noexcept {
     return std::forward<Closure>(closure)(std::forward<Descriptor>(descriptor));
 }
 
 template <descriptor_closure Closure1, descriptor_closure Closure2>
-constexpr decltype(auto)
+consteval decltype(auto)
     operator|(Closure1&& closure1, Closure2&& closure2) noexcept {
     return descriptor_closure_compose(
         std::forward<Closure1>(closure1), std::forward<Closure2>(closure2));
 }
 
-struct _individual_t {};
+struct system_requirement_t {};
+
+struct _individual_t {
+    using system_requirement_concept = system_requirement_t;
+};
 
 inline constexpr _individual_t individual;
 
+struct _always_t {
+    using system_requirement_concept = system_requirement_t;
+};
+
+inline constexpr _always_t always;
+
 template <size_t Index>
-struct _group_t {};
+struct _group_t {
+    using system_requirement_concept = system_requirement_t;
+};
 
 // default: group 0
 template <size_t Index>
 inline constexpr _group_t<Index> group;
 
 template <double Freq>
-struct _frequency_t {};
+struct _frequency_t {
+    using system_requirement_concept = system_requirement_t;
+};
 
 /**
  * @brief Frequency of calling or scheduling.
- * 
+ *
  * @tparam Freq A floating-point value indicating a time interval.
  */
 template <double Freq>

@@ -1,20 +1,30 @@
 #pragma once
-#include "neutron/detail/metafn/definition.hpp"
-#include "neutron/detail/metafn/filt.hpp"
-#include "neutron/detail/tuple/shared_tuple.hpp"
+#include <cstddef>
+#include <tuple>
+#include <type_traits>
 
 namespace neutron {
 
-/**
- * @brief The data could be accessed in every world.
- *
- * @tparam The requested global data.
- */
 template <typename... Args>
-struct global : std::tuple<Args&...> {
-public:
-    using const_list = type_list_filt_t<std::is_const, type_list<Args...>>;
-    using const_list
-};
+struct global : public std::tuple<Args...> {};
+
+namespace internal {
+
+template <typename>
+struct _is_global : std::false_type {};
+
+template <typename... Args>
+struct _is_global<global<Args...>> : std::true_type {};
+
+} // namespace internal
 
 } // namespace neutron
+
+template <typename... Args>
+struct std::tuple_size<neutron::global<Args...>> :
+    std::integral_constant<size_t, sizeof...(Args)> {};
+
+template <size_t Index, typename... Args>
+struct std::tuple_element<Index, neutron::global<Args...>> {
+    using type = std::tuple_element_t<Index, std::tuple<Args...>>;
+};
