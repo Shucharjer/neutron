@@ -7,13 +7,14 @@
 #include <chrono>
 #include <cstddef>
 #include <cstdint>
-#include <future>
+#include <exception>
+#include <latch>
 #include <memory>
+#include <mutex>
 #include <type_traits>
 #include <utility>
 #include <vector>
 #include "neutron/detail/ecs/archetype.hpp"
-#include "neutron/detail/ecs/basic_commands.hpp"
 #include "neutron/detail/ecs/command_buffer.hpp"
 #include "neutron/detail/ecs/metainfo.hpp"
 #include "neutron/detail/ecs/task_graph.hpp"
@@ -35,8 +36,7 @@ struct _descriptor_validator;
 template <typename Descriptor>
 struct _descriptor_validator<Descriptor, true> {
     static_assert(
-        descriptor_traits<Descriptor>::value,
-        "Invalid ECS world descriptor");
+        descriptor_traits<Descriptor>::value, "Invalid ECS world descriptor");
 };
 
 template <typename Descriptor>
@@ -96,7 +96,9 @@ private:
 };
 
 template <typename Descriptor, std_simple_allocator Alloc>
-class basic_world : private _basic_world::_descriptor_validator<Descriptor>, public world_base<Alloc> {
+class basic_world :
+    private _basic_world::_descriptor_validator<Descriptor>,
+    public world_base<Alloc> {
     template <auto, typename, size_t>
     friend struct construct_from_world_t;
     friend struct world_accessor;
@@ -266,14 +268,14 @@ private:
         using invoker_t = void (*)(basic_world*);
 
         template <size_t Index>
-        static void _invoke(basic_world* world) {
+        static void invoke(basic_world* world) {
             using sysinfo_t = typename StaticGraph::template node_t<Index>;
             _call_sys<Index, sysinfo_t::fn>{}(world);
         }
 
         static constexpr auto value = []<size_t... Is>(
                                           std::index_sequence<Is...>) {
-            return std::array<invoker_t, StaticGraph::size>{ &_invoke<Is>... };
+            return std::array<invoker_t, StaticGraph::size>{ &invoke<Is>... };
         }(std::make_index_sequence<StaticGraph::size>{});
     };
 
@@ -414,48 +416,65 @@ template <typename... Worlds>
 inline constexpr size_t _individual_world_count_v =
     (0U + ... + (_individual_world_v<Worlds> ? 1U : 0U));
 
+struct _completion_state {
+    explicit _completion_state(size_t count) noexcept
+        : pending(static_cast<std::ptrdiff_t>(count)) {}
+
+    void capture_exception(std::exception_ptr ex) noexcept {
+        std::scoped_lock lock(mutex);
+        if (!error) {
+            error = std::move(ex);
+        }
+    }
+
+    void wait() {
+        pending.wait();
+        if (error) {
+            std::rethrow_exception(error);
+        }
+    }
+
+    std::latch pending;
+    std::mutex mutex;
+    std::exception_ptr error{};
+};
+
 template <stage Stage, size_t Index, typename WorldsTuple, typename ThreadTuple>
-auto _launch_individual_world(WorldsTuple& worlds, ThreadTuple& threads) {
-    auto promise = std::make_shared<std::promise<void>>();
-    auto future  = promise->get_future();
-    auto& world  = std::get<Index>(worlds);
+void _launch_individual_world(
+    WorldsTuple& worlds, ThreadTuple& threads, _completion_state& state) {
+    auto& world = std::get<Index>(worlds);
 
     execution::start_detached(
         execution::schedule(std::get<Index>(threads).get_scheduler()) |
-        execution::then([&world, promise = std::move(promise)]() mutable {
+        execution::then([&world, &state]() noexcept {
             try {
                 world.template call<Stage>();
-                promise->set_value();
             } catch (...) {
-                promise->set_exception(std::current_exception());
+                state.capture_exception(std::current_exception());
             }
+            state.pending.count_down();
         }));
-
-    return future;
 }
 
 template <size_t Index, typename WorldsTuple, typename ThreadTuple>
-auto _launch_individual_update(WorldsTuple& worlds, ThreadTuple& threads) {
-    auto promise = std::make_shared<std::promise<void>>();
-    auto future  = promise->get_future();
-    auto& world  = std::get<Index>(worlds);
+void _launch_individual_update(
+    WorldsTuple& worlds, ThreadTuple& threads, _completion_state& state) {
+    auto& world = std::get<Index>(worlds);
 
     execution::start_detached(
         execution::schedule(std::get<Index>(threads).get_scheduler()) |
-        execution::then([&world, promise = std::move(promise)]() mutable {
+        execution::then([&world, &state]() noexcept {
             try {
                 if (world.should_call_update()) {
                     world.template call<stage::pre_update>();
                     world.template call<stage::update>();
                     world.template call<stage::post_update>();
                 }
-                promise->set_value();
             } catch (...) {
-                promise->set_exception(std::current_exception());
+                state.capture_exception(std::current_exception());
             }
+            state.pending.count_down();
         }));
-
-    return future;
 }
 
 template <
@@ -529,33 +548,41 @@ void call(
     if constexpr (sizeof...(Worlds) == 0) {
         return;
     } else {
-        std::vector<std::future<void>> futures;
-        futures.reserve(_basic_world::_individual_world_count_v<Worlds...>);
-
         auto threads = std::tuple<_basic_world::_thread_slot_t<Worlds>...>{};
-        [&]<size_t... Is>(std::index_sequence<Is...>) {
-            (void)std::initializer_list<int>{ (
-                [&] {
-                    if constexpr (_basic_world::_individual_world_v<
-                                      std::tuple_element_t<
-                                          Is, std::tuple<Worlds...>>>) {
-                        futures.emplace_back(
+
+        if constexpr (_basic_world::_individual_world_count_v<Worlds...> != 0) {
+            _basic_world::_completion_state completion{
+                _basic_world::_individual_world_count_v<Worlds...>
+            };
+
+            [&]<size_t... Is>(std::index_sequence<Is...>) {
+                (void)std::initializer_list<int>{ (
+                    [&] {
+                        if constexpr (_basic_world::_individual_world_v<
+                                          std::tuple_element_t<
+                                              Is, std::tuple<Worlds...>>>) {
                             _basic_world::_launch_individual_world<Stage, Is>(
-                                worlds, threads));
-                    }
-                }(),
-                0)... };
-        }(std::index_sequence_for<Worlds...>{});
+                                worlds, threads, completion);
+                        }
+                    }(),
+                    0)... };
+            }(std::index_sequence_for<Worlds...>{});
 
-        [&]<size_t... Groups>(std::index_sequence<Groups...>) {
-            (_basic_world::_call_group_stage<Stage, Groups>(
-                 sch, cmdbufs, worlds),
-             ...);
-        }(std::make_index_sequence<
-            _basic_world::_max_group_index_v<Worlds...> + 1>{});
+            [&]<size_t... Groups>(std::index_sequence<Groups...>) {
+                (_basic_world::_call_group_stage<Stage, Groups>(
+                     sch, cmdbufs, worlds),
+                 ...);
+            }(std::make_index_sequence<
+                _basic_world::_max_group_index_v<Worlds...> + 1>{});
 
-        for (auto& future : futures) {
-            future.get();
+            completion.wait();
+        } else {
+            [&]<size_t... Groups>(std::index_sequence<Groups...>) {
+                (_basic_world::_call_group_stage<Stage, Groups>(
+                     sch, cmdbufs, worlds),
+                 ...);
+            }(std::make_index_sequence<
+                _basic_world::_max_group_index_v<Worlds...> + 1>{});
         }
     }
 }
@@ -623,31 +650,39 @@ void call_update(
         return;
     }
 
-    std::vector<std::future<void>> futures;
-    futures.reserve(_basic_world::_individual_world_count_v<Worlds...>);
-
     auto threads = std::tuple<_basic_world::_thread_slot_t<Worlds>...>{};
-    [&]<size_t... Is>(std::index_sequence<Is...>) {
-        (void)std::initializer_list<int>{ (
-            [&] {
-                if constexpr (_basic_world::_individual_world_v<
-                                  std::tuple_element_t<
-                                      Is, std::tuple<Worlds...>>>) {
-                    futures.emplace_back(
+
+    if constexpr (_basic_world::_individual_world_count_v<Worlds...> != 0) {
+        _basic_world::_completion_state completion{
+            _basic_world::_individual_world_count_v<Worlds...>
+        };
+
+        [&]<size_t... Is>(std::index_sequence<Is...>) {
+            (void)std::initializer_list<int>{ (
+                [&] {
+                    if constexpr (_basic_world::_individual_world_v<
+                                      std::tuple_element_t<
+                                          Is, std::tuple<Worlds...>>>) {
                         _basic_world::_launch_individual_update<Is>(
-                            worlds, threads));
-                }
-            }(),
-            0)... };
-    }(std::index_sequence_for<Worlds...>{});
+                            worlds, threads, completion);
+                    }
+                }(),
+                0)... };
+        }(std::index_sequence_for<Worlds...>{});
 
-    [&]<size_t... Groups>(std::index_sequence<Groups...>) {
-        (_basic_world::_call_group_update<Groups>(sch, cmdbufs, worlds), ...);
-    }(std::make_index_sequence<
-        _basic_world::_max_group_index_v<Worlds...> + 1>{});
+        [&]<size_t... Groups>(std::index_sequence<Groups...>) {
+            (_basic_world::_call_group_update<Groups>(sch, cmdbufs, worlds),
+             ...);
+        }(std::make_index_sequence<
+            _basic_world::_max_group_index_v<Worlds...> + 1>{});
 
-    for (auto& future : futures) {
-        future.get();
+        completion.wait();
+    } else {
+        [&]<size_t... Groups>(std::index_sequence<Groups...>) {
+            (_basic_world::_call_group_update<Groups>(sch, cmdbufs, worlds),
+             ...);
+        }(std::make_index_sequence<
+            _basic_world::_max_group_index_v<Worlds...> + 1>{});
     }
 }
 

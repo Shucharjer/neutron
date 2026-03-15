@@ -6,6 +6,7 @@
 
 #include "neutron/detail/ecs/metainfo/execute.hpp"
 #include "neutron/detail/ecs/metainfo/graph.hpp"
+#include "neutron/detail/ecs/metainfo/render.hpp"
 #include "neutron/detail/ecs/metainfo/sysinfo.hpp"
 
 // IWYU pragma: end_exports

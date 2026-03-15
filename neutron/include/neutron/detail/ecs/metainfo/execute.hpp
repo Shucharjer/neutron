@@ -158,59 +158,40 @@ public:
         !(group_count != 0 && individual_count != 0);
 
 private:
-    static consteval auto _update_policy() noexcept {
-        if constexpr (!is_empty_template_v<dynamic_frequency_policies>) {
-            return value_list_element_v<0, dynamic_frequency_policies>;
-        } else if constexpr (!is_empty_template_v<frequency_policies>) {
-            return value_list_element_v<0, frequency_policies>;
-        } else if constexpr (!is_empty_template_v<always_policies>) {
-            return value_list_element_v<0, always_policies>;
-        } else if constexpr (DefaultAlways) {
-            return always;
-        } else {
-            return static_cast<void*>(nullptr);
-        }
-    }
-
-public:
-    using type = std::remove_pointer_t<decltype([] {
+    using domain_policy_list = std::remove_pointer_t<decltype([] {
         if constexpr (!is_empty_template_v<individual_policies>) {
-            if constexpr (
-                DefaultAlways || !is_empty_template_v<always_policies> ||
-                !is_empty_template_v<frequency_policies> ||
-                !is_empty_template_v<dynamic_frequency_policies>) {
-                return static_cast<tagged_value_list<
-                    _execute::exec_tag_t,
-                    value_list_element_v<0, individual_policies>,
-                    _update_policy()>*>(nullptr);
-            } else {
-                return static_cast<tagged_value_list<
-                    _execute::exec_tag_t,
-                    value_list_element_v<0, individual_policies>>*>(nullptr);
-            }
+            return static_cast<
+                value_list<value_list_element_v<0, individual_policies>>*>(
+                nullptr);
         } else if constexpr (
             !is_empty_template_v<group_policies> || DefaultGroup) {
-            if constexpr (
-                DefaultAlways || !is_empty_template_v<always_policies> ||
-                !is_empty_template_v<frequency_policies> ||
-                !is_empty_template_v<dynamic_frequency_policies>) {
-                return static_cast<tagged_value_list<
-                    _execute::exec_tag_t, _group_policy(), _update_policy()>*>(
-                    nullptr);
-            } else {
-                return static_cast<
-                    tagged_value_list<_execute::exec_tag_t, _group_policy()>*>(
-                    nullptr);
-            }
-        } else if constexpr (!std::same_as<decltype(_update_policy()), void*>) {
-            return static_cast<
-                tagged_value_list<_execute::exec_tag_t, _update_policy()>*>(
-                nullptr);
+            return static_cast<value_list<_group_policy()>*>(nullptr);
         } else {
-            return static_cast<tagged_value_list<_execute::exec_tag_t>*>(
-                nullptr);
+            return static_cast<value_list<>*>(nullptr);
         }
     }())>;
+
+    using update_policy_list = std::remove_pointer_t<decltype([] {
+        if constexpr (!is_empty_template_v<dynamic_frequency_policies>) {
+            return static_cast<value_list<
+                value_list_element_v<0, dynamic_frequency_policies>>*>(nullptr);
+        } else if constexpr (!is_empty_template_v<frequency_policies>) {
+            return static_cast<
+                value_list<value_list_element_v<0, frequency_policies>>*>(
+                nullptr);
+        } else if constexpr (!is_empty_template_v<always_policies>) {
+            return static_cast<
+                value_list<value_list_element_v<0, always_policies>>*>(nullptr);
+        } else if constexpr (DefaultAlways) {
+            return static_cast<value_list<always>*>(nullptr);
+        } else {
+            return static_cast<value_list<>*>(nullptr);
+        }
+    }())>;
+
+public:
+    using type = _execinfo_from_value_list_t<
+        value_list_cat_t<domain_policy_list, update_policy_list>>;
 };
 
 template <typename ExecInfo>
@@ -346,46 +327,37 @@ private:
         }
     }
 
-public:
-    using type = std::remove_pointer_t<decltype([] {
+    using domain_policy_list = value_list<_domain_policy()>;
+
+    using update_policy_list = std::remove_pointer_t<decltype([] {
         if constexpr (child_traits::has_dynamic_frequency) {
-            return static_cast<tagged_value_list<
-                _execute::exec_tag_t, _domain_policy(),
-                value_list_element_v<
-                    0, typename child_traits::dynamic_frequency_policies>>*>(
+            return static_cast<value_list<value_list_element_v<
+                0, typename child_traits::dynamic_frequency_policies>>*>(
                 nullptr);
         } else if constexpr (child_traits::has_frequency) {
-            return static_cast<tagged_value_list<
-                _execute::exec_tag_t, _domain_policy(),
-                value_list_element_v<
-                    0, typename child_traits::frequency_policies>>*>(nullptr);
+            return static_cast<value_list<value_list_element_v<
+                0, typename child_traits::frequency_policies>>*>(nullptr);
         } else if constexpr (child_traits::is_always) {
-            return static_cast<tagged_value_list<
-                _execute::exec_tag_t, _domain_policy(),
-                value_list_element_v<
-                    0, typename child_traits::always_policies>>*>(nullptr);
+            return static_cast<value_list<value_list_element_v<
+                0, typename child_traits::always_policies>>*>(nullptr);
         } else if constexpr (parent_traits::has_dynamic_frequency) {
-            return static_cast<tagged_value_list<
-                _execute::exec_tag_t, _domain_policy(),
-                value_list_element_v<
-                    0, typename parent_traits::dynamic_frequency_policies>>*>(
+            return static_cast<value_list<value_list_element_v<
+                0, typename parent_traits::dynamic_frequency_policies>>*>(
                 nullptr);
         } else if constexpr (parent_traits::has_frequency) {
-            return static_cast<tagged_value_list<
-                _execute::exec_tag_t, _domain_policy(),
-                value_list_element_v<
-                    0, typename parent_traits::frequency_policies>>*>(nullptr);
+            return static_cast<value_list<value_list_element_v<
+                0, typename parent_traits::frequency_policies>>*>(nullptr);
         } else if constexpr (parent_traits::is_always) {
-            return static_cast<tagged_value_list<
-                _execute::exec_tag_t, _domain_policy(),
-                value_list_element_v<
-                    0, typename parent_traits::always_policies>>*>(nullptr);
+            return static_cast<value_list<value_list_element_v<
+                0, typename parent_traits::always_policies>>*>(nullptr);
         } else {
-            return static_cast<
-                tagged_value_list<_execute::exec_tag_t, _domain_policy()>*>(
-                nullptr);
+            return static_cast<value_list<>*>(nullptr);
         }
     }())>;
+
+public:
+    using type = _execinfo_from_value_list_t<
+        value_list_cat_t<domain_policy_list, update_policy_list>>;
 };
 
 template <typename ParentExecInfo, typename ChildExecInfo>

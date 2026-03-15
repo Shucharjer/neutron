@@ -10,6 +10,7 @@
 #include "neutron/detail/ecs/component.hpp"
 #include "neutron/detail/ecs/construct_from_world.hpp"
 #include "neutron/detail/ecs/entity.hpp"
+#include "neutron/detail/ecs/global.hpp"
 #include "neutron/detail/ecs/local.hpp"
 #include "neutron/detail/ecs/metainfo.hpp"
 #include "neutron/detail/ecs/res.hpp"
@@ -17,6 +18,7 @@
 #include "neutron/detail/ecs/run.hpp"
 #include "neutron/detail/ecs/stage.hpp"
 #include "neutron/detail/ecs/world.hpp"
+#include "neutron/detail/ecs/world_schedule.hpp"
 #include "neutron/detail/ecs/world_base.hpp"
 #include "neutron/detail/ecs/world_descriptor.hpp"
 // IWYU pragma: end_exports
