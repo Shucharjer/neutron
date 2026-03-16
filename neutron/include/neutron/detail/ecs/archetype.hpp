@@ -16,7 +16,9 @@
 #include <utility>
 #include <vector>
 #include <version>
+#include <neutron/concepts.hpp>
 #include <neutron/memory.hpp>
+#include <neutron/metafn.hpp>
 #include <neutron/utility.hpp>
 #include "neutron/detail/ecs/component.hpp"
 #include "neutron/detail/ecs/entity.hpp"
@@ -972,6 +974,70 @@ private:
         std::uninitialized_value_construct_n(addr, size);
     }
 
+    // basic grantee
+    template <
+        size_t Index, typename TypeList, compatible_range<entity_t> Rng,
+        typename Ty = type_list_element_t<Index, TypeList>>
+    requires std::is_nothrow_default_constructible_v<Ty> &&
+             nothrow_conditional_movable<Ty>
+    auto _emplace_n_noexcept_fast(
+        size_type& finished, size_type size, bool relocate,
+        size_type capacity) {
+        if constexpr (std::is_empty_v<Ty>) {
+            return;
+        }
+
+        _buffer_ptr& data = storage_[Index];
+        auto* ptr         = data.get();
+        if (relocate) {
+            constexpr auto align = _get_align(alignof(Ty));
+            constexpr auto alg   = static_cast<size_t>(align);
+
+            _buffer_ptr& data = storage_[Index];
+            auto* const dst =
+                reinterpret_cast<Ty*>(_get_ptr(sizeof(Ty), capacity, align));
+            uninitialized_move_if_noexcept_n(
+                std::assume_aligned<alg>(ptr), size_,
+                std::assume_aligned<alg>(dst));
+            ptr = dst;
+        }
+        auto* const addr = reinterpret_cast<Ty*>(ptr + (sizeof(Ty) * size_));
+        std::uninitialized_value_construct_n(addr, size);
+
+        ++finished;
+    }
+
+    template <
+        size_t Index, typename TypeList, compatible_range<entity_t> Rng,
+        typename Ty = type_list_element_t<Index, TypeList>>
+    auto _clean_n(
+        // NOLINTNEXTLINE
+        size_type finished, size_type original, size_type count) noexcept {
+        if (Index < finished) {
+            constexpr auto align = _get_align(alignof(Ty));
+            auto* const ptr      = static_cast<Ty*>(storage_[Index].get());
+            auto* const addr =
+                std::assume_aligned<align>(ptr + (sizeof(Ty) * original));
+            std::destroy_n(addr, count);
+        }
+    }
+
+    template <typename... Components>
+    auto _emplace_n() {
+        using clist        = type_list<Components...>;
+        using isequence    = std::index_sequence_for<Components...>;
+        const auto ori     = size_;
+        size_type finished = 0;
+        auto guard         = make_exception_guard([this, &finished, ori] {
+            [this, &finished, ori]<size_t... Is>(std::index_sequence<Is...>) {
+                (_clean_n<Is, clist>(finished, ori), ...);
+            }(isequence());
+        });
+        [this, &finished]<size_t... Is>(std::index_sequence<Is...>) {
+            (_emplace_n_noexcept_fast<Is, clist>(finished), ...);
+        }(std::index_sequence_for<Components...>());
+    }
+
     template <compatible_range<entity_t> Rng, component... Components>
     requires(std::is_nothrow_default_constructible_v<Components> && ...)
     auto _emplace_n(
@@ -979,17 +1045,85 @@ private:
         [[maybe_unused]] const type_list<Components...> tl) {
 
         const auto currsize = size_;
-        auto guard          = make_exception_guard([this, currsize]() noexcept {
-            // TODO: clean
+        auto index          = currsize;
+        index2entity_.reserve(currsize + append);
+        entity2index_.reserve(currsize + append);
+        auto guard = make_exception_guard([this, currsize]() noexcept {
+            while (entity2index_.size() > currsize) {
+                entity2index_.erase(entity2index_.end() - 1);
+            }
+            index2entity_.resize(currsize);
         });
-        // TODO: emplace
-
+        for (entity_t entity : range) {
+            entity2index_.try_emplace(entity, index++);
+            index2entity_.push_back(entity);
+        }
         guard.mark_complete();
 
         // noexcept part
         [this, append]<size_t... Is>(std::index_sequence<Is...>) {
-            _emplace_n_noexcept(append);
+            (_emplace_n_noexcept<Is, type_list<Components...>>(append), ...);
         }(std::index_sequence_for<Components...>());
+    }
+
+    template <
+        size_t Index, typename TypeList,
+        typename Ty = type_list_element_t<Index, TypeList>>
+    void _clean_for_emplace_n(size_type finished, size_type size) {
+        if (finished < Index) {
+            // do clean
+        }
+    }
+
+    template <
+        size_t Index, typename TypeList,
+        typename Ty = type_list_element_t<Index, TypeList>>
+    void _emplace_n(size_type& finished, size_type size_appending) {
+        _buffer_ptr& data = storage_[Index];
+        auto* const ptr   = data.get();
+        auto* const addr  = reinterpret_cast<Ty*>(ptr + (sizeof(Ty) * size_));
+        std::uninitialized_value_construct_n(addr, size_appending);
+
+        ++finished;
+    }
+
+    template <compatible_range<entity_t> Rng, component... Components>
+    requires(!(std::is_nothrow_default_constructible_v<Components> && ...))
+    auto _emplace_n(
+        Rng&& range, size_type append,
+        [[maybe_unused]] const type_list<Components...> tl) {
+
+        const auto currsize = size_;
+        auto index          = currsize;
+        index2entity_.reserve(currsize + append);
+        entity2index_.reserve(currsize + append);
+        auto guard = make_exception_guard([this, currsize]() noexcept {
+            while (entity2index_.size() > currsize) {
+                entity2index_.erase(entity2index_.end() - 1);
+            }
+            index2entity_.resize(currsize);
+        });
+        for (entity_t entity : range) {
+            entity2index_.try_emplace(entity, index++);
+            index2entity_.push_back(entity);
+        }
+
+        using clist        = type_list<Components...>;
+        using isequence    = std::index_sequence_for<Components...>;
+        size_type finished = 0;
+        auto clean         = [this, &finished, currsize]() noexcept {
+            [this, &finished,
+             currsize]<size_t... Is>(std::index_sequence<Is...>) {
+                (_clean_for_emplace_n<Is, clist>(finished, currsize), ...);
+            }(isequence());
+        };
+        auto emplace_guard = make_exception_guard(clean);
+        [this, &finished, append]<size_t... Is>(std::index_sequence<Is...>) {
+            (_emplace_n<Is, clist>(finished, append), ...);
+        }(isequence());
+        emplace_guard.mark_complete();
+
+        guard.mark_complete();
     }
 
     template <compatible_range<entity_t> Rng, component... Components>
@@ -1004,6 +1138,7 @@ private:
                 _relocate<Components...>(std::max(final_size, capacity_));
             }
             _emplace_n(std::forward<Rng>(range), append, tl);
+            size_ += append;
         } else {
             std::ranges::for_each(range, [this](entity_t entity) {
                 _emplace(entity, type_list<Components...>{});
