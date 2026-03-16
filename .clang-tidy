@@ -1,0 +1,104 @@
+Checks: >
+  -*,
+  bugprone-*,
+  concurrency-*,
+  cppcoreguidelines-*,
+  -cppcoreguidelines-avoid-do-while,
+  -cppcoreguidelines-owning-memory,
+  -cppcoreguidelines-pro-type-reinterpret-cast,
+  -cppcoreguidelines-pro-type-union-access,
+  modernize-*,
+  -modernize-use-trailing-return-type,
+  performance-*,
+  portability-*,
+  readability-*,
+  -readability-named-parameter
+
+HeaderFilterRegex: '.*'
+FormatStyle: file
+CheckOptions:
+  - key: cppcoreguidelines-avoid-magic-numbers.IgnorePowersOf2IntegerValues
+    value: true
+  - key: cppcoreguidelines-rvalue-reference-param-not-moved.AllowPartialMove
+    value: true
+  - key: cppcoreguidelines-rvalue-reference-param-not-moved.IgnoreUnnamedParams
+    value: true
+  - key: modernize-avoid-c-arrays.AllowStringArrays
+    value: true
+  - key:    modernize-use-using.CheckBaseAliases
+    value:  '1'
+  - key: readability-identifier-length.MinimumParameterNameLength
+    value: 2
+  - key: readability-identifier-length.MinimumVariableNameLength
+    value: 2
+  - key: readability-magic-numbers.IgnorePowersOf2IntegerValues
+    value: true
+
+  - key:    readability-identifier-naming.ClassCase
+    value:  lower_case
+  - key:    readability-identifier-naming.ClassIgnoredRegexp
+    value:  '^_[a-z0-9][a-z0-9_]+$'
+  - key:    readability-identifier-naming.ConceptCase
+    value:  lower_case
+  - key:    readability-identifier-naming.ConceptIgnoredRegexp
+    value:  '^_[a-z0-9][a-z0-9_]+$'
+  - key:    readability-identifier-naming.ConstantCase
+    value:  lower_case
+  - key:    readability-identifier-naming.ConstantIgnoredRegexp
+    value:  '^_[a-z0-9][a-z0-9_]+'
+  - key:    readability-identifier-naming.EnumCase
+    value:  lower_case
+  - key:    readability-identifier-naming.EnumIgnoredRegexp
+    value:  '^_[a-z0-9][a-z0-9_]+$'
+  - key:    readability-identifier-naming.FunctionCase
+    value:  lower_case
+  - key:    readability-identifier-naming.FunctionIgnoredRegexp
+    value:  '^_[a-z0-9][a-z0-9_]+$'
+  - key:    readability-identifier-naming.LocalConstantCase
+    value:  lower_case
+  - key:    readability-identifier-naming.LocalVariableIgnoredRegexp
+    value:  '_[a-zA-Z0-9_]*'
+  - key:    readability-identifier-naming.MacroDefinitionCase
+    value:  UPPER_CASE
+  - key:    readability-identifier-naming.MacroDefinitionIgnoredRegexp
+    value:  '^[A-Z][A-Z0-9_]+$'
+  - key:    readability-identifier-naming.MemberCase
+    value:  lower_case
+  - key:    readability-identifier-naming.MemberIgnoredRegexp
+    value:  '_[a-zA-Z0-9_]*'
+  - key:    readability-identifier-naming.MethodCase
+    value:  lower_case
+  - key:    readability-identifier-naming.NamespaceCase
+    value:  lower_case
+  - key:    readability-identifier-naming.NamespaceIgnoredRegexp
+    value:  '_[a-zA-Z0-9_]*'
+  - key:    readability-identifier-naming.ParameterCase
+    value:  lower_case
+  - key:    readability-identifier-naming.ParameterIgnoredRegexp
+    value:  '_'
+  - key:    readability-identifier-naming.ParameterPackCase
+    value:  lower_case
+  - key:    readability-identifier-naming.PrivateMemberSuffix
+    value:  '_'
+  - key:    readability-identifier-naming.PrivateMethodPrefix
+    value:  '_'
+  - key:    readability-identifier-naming.ScopedEnumConstantCase
+    value:  lower_case
+  - key:    readability-identifier-naming.StructCase
+    value:  lower_case
+  - key:    readability-identifier-naming.StructIgnoredRegexp
+    value:  '^_[a-z0-9][a-z0-9_]+$'
+  - key:    readability-identifier-naming.TemplateParameterCase
+    value:  CamelCase
+  - key:    readability-identifier-naming.TypeAliasCase
+    value:  lower_case
+  - key:    readability-identifier-naming.TypeAliasIgnoredRegexp
+    value:  '^_[a-z0-9][a-z0-9_]+$'
+  - key:    readability-identifier-naming.TypedefCase
+    value:  lower_case
+  - key:    readability-identifier-naming.UnionCase
+    value:  lower_case
+  - key:    readability-identifier-naming.UnionIgnoredRegexp
+    value:  '^_[a-z0-9][a-z0-9_]+$'
+  - key:    readability-identifier-naming.VariableCase
+    value:  lower_case
