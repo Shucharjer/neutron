@@ -12,6 +12,8 @@
 #include <type_traits>
 #include <utility>
 #include <vector>
+#include <neutron/concepts.hpp>
+#include <neutron/reflection.hpp>
 #include "neutron/detail/ecs/archetype.hpp"
 #include "neutron/detail/ecs/component.hpp"
 #include "neutron/flat_hash_map.hpp"
@@ -116,6 +118,8 @@ private:
     constexpr void _emplace_new_entity(entity_t entity);
     template <component... Components>
     constexpr void _emplace_new_entity(entity_t entity, Components&&...);
+    template <component... Components>
+    uint64_t _dst_hash_add(archetype* archetype, uint64_t delta);
 
     /// @brief A container stores archetypes with combined hash.
     archetype_map archetypes_;
@@ -238,20 +242,10 @@ constexpr entity_t world_base<Alloc>::spawn(Components&&... components) {
 
 template <std_simple_allocator Alloc>
 template <component... Components>
-constexpr void world_base<Alloc>::add_components(entity_t entity) {
-    using namespace neutron;
-    using tlist             = type_list<std::remove_cvref_t<Components>...>;
-    constexpr uint64_t hash = make_array_hash<tlist>();
-
-    const auto index           = _get_index(entity);
-    archetype* const archetype = entities_[index].second;
-    if (archetype == nullptr) {
-        _emplace_new_entity<Components...>(entity);
-        return;
-    }
-
-    // get dst hash
-    _hash_transition cond{ .from = archetype->hash(), .delta = hash };
+uint64_t
+    world_base<Alloc>::_dst_hash_add(archetype* archetype, uint64_t delta) {
+    using tlist = type_list<std::remove_cvref_t<Components>...>;
+    _hash_transition cond{ .from = archetype->hash(), .delta = delta };
     uint64_t to = 0;
     if (auto trans = transitions_.find(cond); trans != transitions_.end())
         [[likely]] {
@@ -266,8 +260,28 @@ constexpr void world_base<Alloc>::add_components(entity_t entity) {
         to = hash_combine(hash_list);
         transitions_.emplace_hint(trans, cond, to);
         transitions_.emplace(
-            _hash_transition{ .from = to, .delta = hash }, archetype->hash());
+            _hash_transition{ .from = to, .delta = delta }, archetype->hash());
     }
+    return to;
+}
+
+template <std_simple_allocator Alloc>
+template <component... Components>
+constexpr void world_base<Alloc>::add_components(entity_t entity) {
+    using namespace neutron;
+    using tlist             = type_list<std::remove_cvref_t<Components>...>;
+    constexpr uint64_t hash = make_array_hash<tlist>();
+
+    const auto index           = _get_index(entity);
+    archetype* const archetype = entities_[index].second;
+    if (archetype == nullptr) {
+        _emplace_new_entity<Components...>(entity);
+        return;
+    }
+
+    // get dst hash
+    auto to = _dst_hash_add<std::remove_cvref_t<Components>...>(
+        archetype->hash(), hash);
 
     // get target archetype by given dst hash
     auto iter = archetypes_.find(to);
@@ -284,6 +298,7 @@ template <std_simple_allocator Alloc>
 template <component... Components>
 constexpr void world_base<Alloc>::add_components(
     entity_t entity, Components&&... components) {
+    using tlist = type_list<std::remove_cvref_t<Components>...>;
     constexpr uint64_t hash =
         neutron::make_array_hash<neutron::type_list<Components...>>();
     const auto index      = _get_index(entity);
@@ -294,7 +309,17 @@ constexpr void world_base<Alloc>::add_components(
         return;
     }
 
-    // move a entity from an archetype to another
+    auto to =
+        _dst_hash_add<std::remove_cvref_t<Components>...>(archetype, hash);
+
+    auto iter = archetypes_.find(to);
+    if (iter == archetypes_.end()) [[unlikely]] {
+        auto [it, _] = archetypes_.try_emplace(
+            to, *archetype, add_components_t<Components...>{});
+        iter = it;
+    }
+
+    // TODO: get data in previous archetype, then move it
 }
 
 template <std_simple_allocator Alloc>
@@ -331,11 +356,11 @@ constexpr void world_base<Alloc>::remove_components(entity_t entity) {
     auto iter = archetypes_.find(to);
     if (iter == archetypes_.end()) [[unlikely]] {
         auto [it, _] = archetypes_.try_emplace(
-            to, *archetype, add_components_t<Components...>{});
+            to, *archetype, remove_components_t<Components...>{});
         iter = it;
     }
 
-    // do move
+    // TODO: get data in previous archetype, then move it
 }
 
 template <std_simple_allocator Alloc>
