@@ -36,9 +36,9 @@ struct _is_execute_frequency_policy<_frequency_t<Freq>> : std::true_type {};
 template <typename>
 struct _is_execute_dynamic_frequency_policy : std::false_type {};
 
-template <>
-struct _is_execute_dynamic_frequency_policy<_execute::_dynamic_frequency_t> :
-    std::true_type {};
+template <double DefaultFreq>
+struct _is_execute_dynamic_frequency_policy<
+    _execute::_dynamic_frequency_t<DefaultFreq>> : std::true_type {};
 
 template <typename Policy>
 constexpr bool _is_execute_policy_v =
