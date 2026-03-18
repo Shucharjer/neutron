@@ -39,4 +39,6 @@ constexpr bool _is_basic_world<basic_world<Args...>> = true;
 template <typename Ty>
 concept world = internal::_is_basic_world<Ty>;
 
+class insertion_context;
+
 } // namespace neutron

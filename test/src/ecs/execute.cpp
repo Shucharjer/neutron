@@ -102,7 +102,8 @@ int main() {
                       decltype(value_list_element_v<1, desc4_policies>)>,
                   _always_t>);
 
-    // Render metadata is tracked independently from execute policies.
+    // Event and render metadata are tracked independently from execute
+    // policies.
     constexpr auto desc5 = world_desc | enable_render;
     using desc5_render   = fetch_renderinfo_t<decltype(desc5)>;
     using desc5_markers  = typename desc5_render::type_list;
@@ -110,6 +111,14 @@ int main() {
     static_assert(render_info<decltype(desc5)>::is_enabled);
     static_assert(execute_info<decltype(desc5)>::is_grouped);
     static_assert(execute_info<decltype(desc5)>::is_always);
+
+    constexpr auto desc6 = world_desc | enable_events;
+    using desc6_events   = fetch_eventsinfo_t<decltype(desc6)>;
+    using desc6_markers  = typename desc6_events::type_list;
+    static_assert(type_list_size_v<desc6_markers> == 1);
+    static_assert(events_info<decltype(desc6)>::is_enabled);
+    static_assert(execute_info<decltype(desc6)>::is_grouped);
+    static_assert(execute_info<decltype(desc6)>::is_always);
 
     // `sysdesc` accepts the standardized requirement markers.
     using namespace ::neutron::_add_system;

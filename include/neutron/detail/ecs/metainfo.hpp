@@ -4,6 +4,7 @@
 
 #include "neutron/detail/ecs/metainfo/common.hpp"
 
+#include "neutron/detail/ecs/metainfo/events.hpp"
 #include "neutron/detail/ecs/metainfo/execute.hpp"
 #include "neutron/detail/ecs/metainfo/graph.hpp"
 #include "neutron/detail/ecs/metainfo/render.hpp"

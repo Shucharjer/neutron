@@ -25,6 +25,7 @@ struct _descriptor_sys_traits {
         typename stage_sysinfo<post_startup, Descriptor>::traits_list;
 
     using firsts = typename stage_sysinfo<first, Descriptor>::traits_list;
+    using eventss = typename stage_sysinfo<events, Descriptor>::traits_list;
 
     using preupdates =
         typename stage_sysinfo<pre_update, Descriptor>::traits_list;
@@ -38,7 +39,7 @@ struct _descriptor_sys_traits {
     using shutdowns = typename stage_sysinfo<shutdown, Descriptor>::traits_list;
 
     using all = type_list_cat_t<
-        prestartups, startups, poststartups, firsts, preupdates, updates,
+        prestartups, startups, poststartups, firsts, eventss, preupdates, updates,
         postupdates, renders, lasts, shutdowns>;
 };
 
@@ -384,6 +385,7 @@ struct descriptor_graph {
     using poststartups = stage_graph_t<post_startup, Descriptor>;
 
     using firsts = stage_graph_t<first, Descriptor>;
+    using eventss = stage_graph_t<events, Descriptor>;
 
     using preupdates  = stage_graph_t<pre_update, Descriptor>;
     using updates     = stage_graph_t<update, Descriptor>;
@@ -395,7 +397,7 @@ struct descriptor_graph {
     using shutdowns = stage_graph_t<shutdown, Descriptor>;
 
     using all = type_list<
-        prestartups, startups, poststartups, firsts, preupdates, updates,
+        prestartups, startups, poststartups, firsts, eventss, preupdates, updates,
         postupdates, renders, lasts, shutdowns>;
 
     static constexpr bool value =
@@ -403,6 +405,7 @@ struct descriptor_graph {
         stage_graph<startup, Descriptor>::value &&
         stage_graph<post_startup, Descriptor>::value &&
         stage_graph<first, Descriptor>::value &&
+        stage_graph<events, Descriptor>::value &&
         stage_graph<pre_update, Descriptor>::value &&
         stage_graph<update, Descriptor>::value &&
         stage_graph<post_update, Descriptor>::value &&
@@ -459,6 +462,7 @@ struct descriptor_traits {
     using sysinfo    = sysinfo_holder<Descriptor>;
     using sys_traits = typename _descriptor_sys_traits<Descriptor>::all;
     using graph      = descriptor_graph<Descriptor>;
+    using events     = events_info<Descriptor>;
     using render     = render_info<Descriptor>;
     using grouped    = graph;
     using runlists   = graph;
@@ -466,7 +470,7 @@ struct descriptor_traits {
     using resources  = typename _descriptor_resources<sys_traits>::type;
     using globals    = typename _descriptor_globals<sys_traits>::type;
 
-    static constexpr bool value = graph::value && render::value;
+    static constexpr bool value = graph::value && events::value && render::value;
 };
 
 } // namespace _metainfo

@@ -12,6 +12,7 @@ enum class stage : uint8_t {
     startup,
     post_startup,
     first,
+    events,
     pre_update,
     update,
     post_update,

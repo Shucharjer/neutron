@@ -24,6 +24,10 @@ struct world_accessor {
     static auto& resources(World& world) noexcept {
         return world.resources_;
     }
+    template <world World>
+    static auto& insertion_context(World& world) noexcept {
+        return world.insertion_context_;
+    }
 };
 
 } // namespace neutron
