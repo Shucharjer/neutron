@@ -280,7 +280,8 @@ public:
     {
         using hash_list =
             hash_list_t<type_list<std::remove_cvref_t<Components>...>>;
-        constexpr auto hash_array = make_hash_array<type_list<Components...>>();
+        constexpr auto hash_array =
+            make_hash_array<type_list<std::remove_cvref_t<Components>...>>();
         constexpr auto metainfo   = _get_metainfo(hash_list{});
         constexpr auto newinfo    = std::get<0>(metainfo);
 
@@ -300,7 +301,7 @@ public:
                 auto* const ptr  = _get_ptr(info.size, initial_capacity, align);
                 storage_.emplace_back(ptr, _buffer_deletor{ align });
                 ++i;
-            } else {
+            } else if (hash_array[j] < archetype.hash_list_[i]) {
                 hash_list_.push_back(hash_array[j]);
                 const basic_info info = newinfo[j];
                 basic_info_.push_back(info);
@@ -312,11 +313,24 @@ public:
                 auto* const ptr  = _get_ptr(info.size, initial_capacity, align);
                 storage_.emplace_back(ptr, _buffer_deletor{ align });
                 ++j;
+            } else {
+                hash_list_.push_back(archetype.hash_list_[i]);
+                const basic_info info = archetype.basic_info_[i];
+                basic_info_.push_back(info);
+                constructors_.push_back(archetype.constructors_[i]);
+                move_constructors_.push_back(archetype.move_constructors_[i]);
+                move_assignments_.push_back(archetype.move_assignments_[i]);
+                destructors_.push_back(archetype.destructors_[i]);
+                const auto align = _get_align(info.align);
+                auto* const ptr  = _get_ptr(info.size, initial_capacity, align);
+                storage_.emplace_back(ptr, _buffer_deletor{ align });
+                ++i;
+                ++j;
             }
         }
         for (; i < size; ++i) {
             hash_list_.push_back(archetype.hash_list_[i]);
-            const basic_info info = basic_info_[i];
+            const basic_info info = archetype.basic_info_[i];
             basic_info_.push_back(info);
             constructors_.push_back(archetype.constructors_[i]);
             move_constructors_.push_back(archetype.move_constructors_[i]);
@@ -410,6 +424,7 @@ public:
           basic_info_(std::move(that.basic_info_)),
           constructors_(std::move(that.constructors_)),
           move_constructors_(std::move(that.move_constructors_)),
+          move_assignments_(std::move(that.move_assignments_)),
           destructors_(std::move(that.destructors_)),
           storage_(std::move(that.storage_)),
           size_(std::exchange(that.size_, 0)),
@@ -603,6 +618,36 @@ public:
         return hash_list_.get_allocator();
     }
 
+    constexpr void transfer(entity_t entity, archetype& target) {
+        _transfer(entity, target, [](size_type, size_type, uint32_t) {
+            assert(false && "target archetype unexpectedly requires new components");
+        });
+    }
+
+    template <component... Components>
+    constexpr void transfer(
+        entity_t entity, archetype& target,
+        [[maybe_unused]] add_components_t<Components...>) {
+        _transfer(entity, target, [&target](size_type kind, size_type index, uint32_t) {
+            target._default_construct(kind, index);
+        });
+    }
+
+    template <component... Added, component... Components>
+    constexpr void transfer(
+        entity_t entity, archetype& target,
+        [[maybe_unused]] add_components_t<Added...>,
+        Components&&... components) {
+        auto tuple = std::forward_as_tuple(std::forward<Components>(components)...);
+        _transfer(
+            entity, target,
+            [&target, &tuple](size_type kind, size_type index, uint32_t hash) {
+                target.template _construct_added_from_tuple<
+                    std::remove_cvref_t<Added>...>(
+                    kind, index, hash, tuple);
+            });
+    }
+
 private:
     constexpr static std::align_val_t _get_align(size_t align) noexcept {
         return std::align_val_t{ (std::max<size_t>)(default_alignment, align) };
@@ -617,6 +662,126 @@ private:
         _get_buffer(size_t size, size_type n, std::align_val_t align) {
         return _buffer_ptr{ _get_ptr(size, n, align),
                             _buffer_deletor{ align } };
+    }
+
+    constexpr void _ensure_capacity_for_one() {
+        const auto next_size = size_ + 1;
+        if (next_size > capacity_) [[unlikely]] {
+            const auto grow_to = (std::max)(
+                next_size,
+                capacity_ == 0 ? initial_capacity : capacity_ << 1);
+            _relocate(grow_to);
+        }
+        entity2index_.reserve(next_size);
+        index2entity_.reserve(next_size);
+    }
+
+    ATOM_NODISCARD constexpr auto _slot_ptr(size_type kind, size_type index) noexcept
+        -> std::byte* {
+        const auto size = basic_info_[kind].size;
+        if (size == 0) {
+            return nullptr;
+        }
+        return storage_[kind].get() + (size * index);
+    }
+
+    ATOM_NODISCARD constexpr auto
+        _slot_ptr(size_type kind, size_type index) const noexcept
+        -> const std::byte* {
+        const auto size = basic_info_[kind].size;
+        if (size == 0) {
+            return nullptr;
+        }
+        return storage_[kind].get() + (size * index);
+    }
+
+    constexpr void _default_construct(size_type kind, size_type index) {
+        constructors_[kind](_slot_ptr(kind, index), 1);
+    }
+
+    constexpr void _destroy_at(size_type kind, size_type index) noexcept {
+        destructors_[kind](_slot_ptr(kind, index), 1);
+    }
+
+    constexpr void _destroy_prefix(size_type count, size_type index) noexcept {
+        for (size_type kind = 0; kind < count; ++kind) {
+            _destroy_at(kind, index);
+        }
+    }
+
+    constexpr void _move_construct_from(
+        const archetype& source, size_type source_kind, size_type source_index,
+        size_type target_kind, size_type target_index) {
+        move_constructors_[target_kind](
+            const_cast<std::byte*>(source._slot_ptr(source_kind, source_index)),
+            1, _slot_ptr(target_kind, target_index));
+    }
+
+    template <typename Ty, typename Tup>
+    constexpr static void _construct_from_tuple(void* ptr, Tup&& tuple) {
+        if constexpr (!std::is_empty_v<Ty>) {
+            ::new (ptr) Ty(rmcvref_first<Ty>(std::forward<Tup>(tuple)));
+        }
+    }
+
+    template <component... Components, typename Tup>
+    constexpr void _construct_added_from_tuple(
+        size_type kind, size_type index, uint32_t hash, Tup&& tuple) {
+        auto* const ptr = _slot_ptr(kind, index);
+        const bool matched =
+            ((hash == hash_of<std::remove_cvref_t<Components>>()
+                  ? (_construct_from_tuple<std::remove_cvref_t<Components>>(
+                         ptr, std::forward<Tup>(tuple)),
+                     true)
+                  : false) ||
+             ...);
+        assert(matched && "missing constructor for added component");
+        (void)matched;
+    }
+
+    template <typename MissingCtor>
+    constexpr void
+        _transfer(entity_t entity, archetype& target, MissingCtor&& missing_ctor) {
+        const auto source_index = entity2index_.at(entity);
+        const auto target_index = target.size_;
+        target._ensure_capacity_for_one();
+
+        size_type source_kind = 0;
+        size_type target_kind = 0;
+        size_type constructed = 0;
+
+        auto guard = make_exception_guard(
+            [&target, target_index, &constructed]() noexcept {
+                target._destroy_prefix(constructed, target_index);
+            });
+
+        while (target_kind < target.hash_list_.size()) {
+            if (source_kind < hash_list_.size() &&
+                hash_list_[source_kind] < target.hash_list_[target_kind]) {
+                ++source_kind;
+                continue;
+            }
+
+            if (source_kind < hash_list_.size() &&
+                hash_list_[source_kind] == target.hash_list_[target_kind]) {
+                target._move_construct_from(
+                    *this, source_kind, source_index, target_kind,
+                    target_index);
+                ++source_kind;
+            } else {
+                missing_ctor(target_kind, target_index, target.hash_list_[target_kind]);
+            }
+
+            ++target_kind;
+            ++constructed;
+        }
+
+        target.entity2index_.try_emplace(entity, target_index);
+        target.index2entity_.push_back(entity);
+        ++target.size_;
+
+        guard.mark_complete();
+        erase(entity);
     }
 
     template <size_t Index, component... SortedComponents>
@@ -634,9 +799,9 @@ private:
     }
 
     template <component... SortedComponents>
-    consteval auto _get_metainfo(type_list<SortedComponents...>) noexcept {
-        constexpr std::array basic_info   = make_info<SortedComponents...>();
-        constexpr std::array constructors = {
+    consteval static auto _get_metainfo(type_list<SortedComponents...>) noexcept {
+        constexpr auto basic_info = make_info<SortedComponents...>();
+        constexpr std::array<_ctor_fn, sizeof...(SortedComponents)> constructors = {
             [](void* ptr, size_type n) noexcept(
                 std::is_nothrow_default_constructible_v<SortedComponents>) {
                 if constexpr (!std::is_empty_v<SortedComponents>) {
@@ -645,7 +810,8 @@ private:
                 }
             }...
         };
-        constexpr std::array move_constructors = {
+        constexpr std::array<_mov_ctor_fn, sizeof...(SortedComponents)>
+            move_constructors = {
             [](void* src, size_type n, void* dst) noexcept(
                 std::is_nothrow_move_constructible_v<SortedComponents> ||
                 std::is_nothrow_copy_constructible_v<SortedComponents>) {
@@ -656,7 +822,8 @@ private:
                 }
             }...
         };
-        constexpr std::array move_assignments = {
+        constexpr std::array<_mov_assign_fn, sizeof...(SortedComponents)>
+            move_assignments = {
             [](void* dst, void* src) noexcept(
                 std::is_nothrow_move_assignable_v<SortedComponents>) {
                 if constexpr (!std::is_empty_v<SortedComponents>) {
@@ -665,13 +832,14 @@ private:
                 }
             }...
         };
-        constexpr std::array destructors = { [](void* ptr,
-                                                size_type n) noexcept {
-            if constexpr (!std::is_empty_v<SortedComponents>) {
-                auto* const first = static_cast<SortedComponents*>(ptr);
-                std::destroy_n(first, n);
-            }
-        }... };
+        constexpr std::array<_dtor_fn, sizeof...(SortedComponents)> destructors = {
+            [](void* ptr, size_type n) noexcept {
+                if constexpr (!std::is_empty_v<SortedComponents>) {
+                    auto* const first = static_cast<SortedComponents*>(ptr);
+                    std::destroy_n(first, n);
+                }
+            }...
+        };
         return std::make_tuple(
             basic_info, constructors, move_constructors, move_assignments,
             destructors);

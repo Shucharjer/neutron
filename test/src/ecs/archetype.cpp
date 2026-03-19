@@ -124,6 +124,72 @@ void test_pmr_archetype() {
     require(arche.size() == 1);
 }
 
+void test_transfer_between_archetypes() {
+    using archetype_t = archetype<std::allocator<std::byte>>;
+
+    {
+        archetype_t source{ type_spreader<Position>{} };
+        archetype_t target{ source, add_components_t<Velocity>{} };
+
+        source.emplace(entity_t{ 1 }, Position{ 1, 2 });
+        source.transfer(
+            entity_t{ 1 }, target, add_components_t<Velocity>{},
+            Velocity{ 3, 4 });
+
+        require(source.empty());
+        require(target.size() == 1);
+
+        size_t count = 0;
+        for (auto [p, v] : view_of<Position, Velocity>(target)) {
+            require(p.x == 1 && p.y == 2);
+            require(v.vx == 3 && v.vy == 4);
+            ++count;
+        }
+        require(count == 1);
+    }
+
+    {
+        archetype_t source{ type_spreader<Position>{} };
+        archetype_t target{ source, add_components_t<Velocity, TagEmpty>{} };
+
+        source.emplace(entity_t{ 2 }, Position{ 5, 6 });
+        source.transfer(
+            entity_t{ 2 }, target, add_components_t<Velocity, TagEmpty>{});
+
+        require(source.empty());
+        require(target.size() == 1);
+        require(target.has<Position, Velocity, TagEmpty>());
+
+        size_t count = 0;
+        for (auto [p, v] : view_of<Position, Velocity>(target)) {
+            require(p.x == 5 && p.y == 6);
+            require(v.vx == 0 && v.vy == 0);
+            ++count;
+        }
+        require(count == 1);
+    }
+
+    {
+        archetype_t source{ type_spreader<Position, Velocity>{} };
+        archetype_t target{ source, remove_components_t<Velocity>{} };
+
+        source.emplace(entity_t{ 3 }, Position{ 7, 8 }, Velocity{ 9, 10 });
+        source.transfer(entity_t{ 3 }, target);
+
+        require(source.empty());
+        require(target.size() == 1);
+        require(target.has<Position>());
+        require_false(target.has<Velocity>());
+
+        size_t count = 0;
+        for (auto [p] : view_of<Position>(target)) {
+            require(p.x == 7 && p.y == 8);
+            ++count;
+        }
+        require(count == 1);
+    }
+}
+
 int main() {
     test_basics();
     neutron::println("archetype test: basics ok");
@@ -135,5 +201,7 @@ int main() {
     neutron::println("archetype test: reserve/relocate ok");
     test_pmr_archetype();
     neutron::println("archetype test: pmr ok");
+    test_transfer_between_archetypes();
+    neutron::println("archetype test: transfer ok");
     return 0;
 }

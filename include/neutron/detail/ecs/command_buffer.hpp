@@ -145,7 +145,7 @@ public:
     constexpr _add_comps_for_fut(future_entity_t fut) : fut_(fut) {}
 
     void invoke(world_base<Alloc>& world, future_map_t& future_map) {
-        const auto entity = fut_.get();
+        const auto entity = future_map[fut_.get()];
         world.template add_components<Components...>(entity);
     }
 
@@ -181,7 +181,7 @@ public:
         : fut_(fut), comps_(std::forward<Comps>(components)...) {}
 
     void invoke(world_base<Alloc>& world, future_map_t& future_map) {
-        const auto entity = fut_.get();
+        const auto entity = future_map[fut_.get()];
         std::apply(
             [entity, &world](auto&&... comps) {
                 world.add_components(

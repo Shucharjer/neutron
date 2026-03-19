@@ -1,11 +1,10 @@
-#if false
-    #include <array>
-    #include <thread>
-    #include <tuple>
-    #include <vector>
-    #include <exec/static_thread_pool.hpp>
-    #include <neutron/ecs.hpp>
-    #include "neutron/detail/ecs/world.hpp"
+#include <array>
+#include <thread>
+#include <tuple>
+#include <vector>
+#include <neutron/ecs.hpp>
+#include "neutron/detail/ecs/world.hpp"
+#include "thread_pool.hpp"
 
 using namespace neutron;
 using enum stage;
@@ -80,7 +79,7 @@ constexpr auto always_update_desc =
 constexpr auto static_update_desc = world_desc | execute<frequency<1000.0>> |
                                     add_systems<update, &static_update_system>;
 constexpr auto dynamic_update_desc =
-    world_desc | execute<dynamic_frequency> |
+    world_desc | execute<dynamic_frequency<>> |
     add_systems<update, &dynamic_update_system>;
 
 // Grouped worlds used to validate scheduling order.
@@ -105,7 +104,8 @@ int main() {
         call<update>(worlds);
     }
 
-    exec::static_thread_pool pool(1);
+    using namespace thread_pool_for_test;
+    thread_pool pool(1);
     auto sch = pool.get_scheduler();
     std::vector<command_buffer<>> cmdbufs(1);
 
@@ -235,9 +235,3 @@ int main() {
 
     return 0;
 }
-
-#else
-
-int main() { return 0; }
-
-#endif

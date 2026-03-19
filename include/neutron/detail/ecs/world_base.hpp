@@ -1,6 +1,7 @@
 // IWYU pragma: private, include <neutron/ecs.hpp>
 #pragma once
 #include <algorithm>
+#include <array>
 #include <cassert>
 #include <cstddef>
 #include <cstdint>
@@ -255,12 +256,10 @@ uint64_t
         size_t size        = archetype->hash_list().size() + arr.size();
         _vector_t<uint32_t> hash_list(archetypes_.get_allocator());
         hash_list.reserve(size);
-        std::ranges::merge(
+        std::ranges::set_union(
             archetype->hash_list(), arr, std::back_inserter(hash_list));
         to = hash_combine(hash_list);
         transitions_.emplace_hint(trans, cond, to);
-        transitions_.emplace(
-            _hash_transition{ .from = to, .delta = delta }, archetype->hash());
     }
     return to;
 }
@@ -280,18 +279,26 @@ constexpr void world_base<Alloc>::add_components(entity_t entity) {
     }
 
     // get dst hash
-    auto to = _dst_hash_add<std::remove_cvref_t<Components>...>(
-        archetype->hash(), hash);
+    auto to =
+        _dst_hash_add<std::remove_cvref_t<Components>...>(archetype, hash);
+    if (to == archetype->hash()) [[unlikely]] {
+        return;
+    }
 
     // get target archetype by given dst hash
     auto iter = archetypes_.find(to);
     if (iter == archetypes_.end()) [[unlikely]] {
         auto [it, _] = archetypes_.try_emplace(
-            to, *archetype, add_components_t<Components...>());
+            to, *archetype,
+            add_components_t<std::remove_cvref_t<Components>...>{});
         iter = it;
     }
 
     // do move
+    archetype->transfer(
+        entity, iter->second,
+        add_components_t<std::remove_cvref_t<Components>...>{});
+    entities_[index].second = &iter->second;
 }
 
 template <std_simple_allocator Alloc>
@@ -300,7 +307,8 @@ constexpr void world_base<Alloc>::add_components(
     entity_t entity, Components&&... components) {
     using tlist = type_list<std::remove_cvref_t<Components>...>;
     constexpr uint64_t hash =
-        neutron::make_array_hash<neutron::type_list<Components...>>();
+        neutron::make_array_hash<neutron::type_list<
+            std::remove_cvref_t<Components>...>>();
     const auto index      = _get_index(entity);
     auto* const archetype = entities_[index].second;
     if (archetype == nullptr) {
@@ -311,15 +319,23 @@ constexpr void world_base<Alloc>::add_components(
 
     auto to =
         _dst_hash_add<std::remove_cvref_t<Components>...>(archetype, hash);
+    if (to == archetype->hash()) [[unlikely]] {
+        return;
+    }
 
     auto iter = archetypes_.find(to);
     if (iter == archetypes_.end()) [[unlikely]] {
         auto [it, _] = archetypes_.try_emplace(
-            to, *archetype, add_components_t<Components...>{});
+            to, *archetype,
+            add_components_t<std::remove_cvref_t<Components>...>{});
         iter = it;
     }
 
-    // TODO: get data in previous archetype, then move it
+    archetype->transfer(
+        entity, iter->second,
+        add_components_t<std::remove_cvref_t<Components>...>{},
+        std::forward<Components>(components)...);
+    entities_[index].second = &iter->second;
 }
 
 template <std_simple_allocator Alloc>
@@ -337,20 +353,30 @@ constexpr void world_base<Alloc>::remove_components(entity_t entity) {
 
     _hash_transition cond{ .from = archetype->hash(), .delta = hash };
     uint64_t to = 0;
+    bool remove_all = false;
     if (auto trans = transitions_.find(cond); trans != transitions_.end())
         [[likely]] {
         to = trans->second;
+        remove_all = to == neutron::hash_combine(std::array<uint32_t, 0>{});
     } else [[unlikely]] {
         constexpr auto arr = make_hash_array<tlist>();
-        size_t size        = archetype->hash_list().size() - arr.size();
         _vector_t<uint32_t> hash_list(archetypes_.get_allocator());
-        hash_list.reserve(size);
+        hash_list.reserve(archetype->hash_list().size());
         std::ranges::set_difference(
             archetype->hash_list(), arr, std::back_inserter(hash_list));
+        remove_all = hash_list.empty();
         to = hash_combine(hash_list);
         transitions_.emplace_hint(trans, cond, to);
-        transitions_.emplace(
-            _hash_transition{ .from = to, .delta = hash }, archetype->hash());
+    }
+
+    if (to == archetype->hash()) [[unlikely]] {
+        return;
+    }
+
+    if (remove_all) {
+        archetype->erase(entity);
+        entities_[index].second = nullptr;
+        return;
     }
 
     auto iter = archetypes_.find(to);
@@ -360,7 +386,8 @@ constexpr void world_base<Alloc>::remove_components(entity_t entity) {
         iter = it;
     }
 
-    // TODO: get data in previous archetype, then move it
+    archetype->transfer(entity, iter->second);
+    entities_[index].second = &iter->second;
 }
 
 template <std_simple_allocator Alloc>
