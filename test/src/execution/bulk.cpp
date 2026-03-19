@@ -1,3 +1,4 @@
+#include <execution>
 #define ATOM_EXECUTION
 #include <atomic>
 #include <cmath>
@@ -24,7 +25,8 @@ int main() {
         constexpr auto count      = 1024;
         std::atomic<uint32_t> num = 0;
         sender auto sndr =
-            just() | bulk(count, [&num](uint32_t size) { ++num; });
+            just() |
+            bulk(std::execution::par, count, [&num](uint32_t size) { ++num; });
         this_thread::sync_wait(sndr);
         require_or_return(num == count, 1);
     }
@@ -36,7 +38,8 @@ int main() {
         thread_pool pool{ 4 };
         scheduler auto sch = pool.get_scheduler();
         sender auto sndr =
-            schedule(sch) | bulk(count, [&num](uint32_t size) { ++num; });
+            schedule(sch) |
+            bulk(std::execution::par, count, [&num](uint32_t size) { ++num; });
         this_thread::sync_wait(sndr);
         require_or_return(num == count, 1);
     }
@@ -49,7 +52,7 @@ int main() {
         constexpr uint64_t chunk_size = count / blocks;
         double num                    = 0;
         sender auto sndr =
-            just() | bulk(blocks, [&num](uint32_t idx) {
+            just() | bulk(std::execution::par, blocks, [&num](uint32_t idx) {
                 const auto start = chunk_size * idx;
                 for (auto j = start; j < start + chunk_size; ++j) {
                     num += std::sin(static_cast<double>(j));
@@ -70,7 +73,8 @@ int main() {
         thread_pool pool{ parallelism };
         scheduler auto sch = pool.get_scheduler();
         sender auto sndr =
-            schedule(sch) | bulk(parallelism, [&num](uint32_t idx) {
+            schedule(sch) |
+            bulk(std::execution::par, parallelism, [&num](uint32_t idx) {
                 const auto start = idx * chunk_size;
                 double local     = 0;
                 for (auto j = start; j < start + chunk_size; ++j) {

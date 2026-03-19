@@ -41,6 +41,12 @@ set_target_properties(
   PROPERTIES EXPORT_NAME "neutron"
              LINKER_LANGUAGE CXX)
 
+if(CMAKE_CXX_COMPILER_ID MATCHES "Clang")
+  # Enable libc++ experimental facilities such as std::execution policies.
+  target_compile_options(neutron INTERFACE -fexperimental-library)
+  target_link_options(neutron INTERFACE -fexperimental-library)
+endif()
+
 # options support
 
 if (false)
