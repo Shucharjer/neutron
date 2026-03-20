@@ -1,5 +1,5 @@
-#include <benchmark/benchmark.h>
 #include <vector>
+#include <benchmark/benchmark.h>
 #include <neutron/ecs.hpp>
 
 using namespace neutron;
@@ -20,7 +20,15 @@ struct Tag {
     using component_concept = neutron::component_t;
 };
 
-static void BM_world_base_spawn(benchmark::State& state) {
+static void BM_world_base_construct(benchmark::State& state) {
+    for (auto _ : state) {
+        world_base<> world;
+        benchmark::DoNotOptimize(world);
+        benchmark::ClobberMemory();
+    }
+}
+
+static void BM_world_base_construct_and_spawn(benchmark::State& state) {
     for (auto _ : state) {
         world_base<> world;
         for (size_t i = 0; i < state.range(); ++i) {
@@ -56,9 +64,8 @@ static void BM_world_base_add_components_default(benchmark::State& state) {
         world.template reserve<Position>(count);
         world.template reserve<Position, Velocity, Tag>(count);
         for (size_t i = 0; i < count; ++i) {
-            entities.push_back(
-                world.spawn(Position{ static_cast<float>(i),
-                                      static_cast<float>(i + 1) }));
+            entities.push_back(world.spawn(
+                Position{ static_cast<float>(i), static_cast<float>(i + 1) }));
         }
         state.ResumeTiming();
 
@@ -82,17 +89,15 @@ static void BM_world_base_add_components_value(benchmark::State& state) {
         world.template reserve<Position>(count);
         world.template reserve<Position, Velocity>(count);
         for (size_t i = 0; i < count; ++i) {
-            entities.push_back(
-                world.spawn(Position{ static_cast<float>(i),
-                                      static_cast<float>(i + 1) }));
+            entities.push_back(world.spawn(
+                Position{ static_cast<float>(i), static_cast<float>(i + 1) }));
         }
         state.ResumeTiming();
 
         for (size_t i = 0; i < count; ++i) {
             world.add_components(
-                entities[i],
-                Velocity{ static_cast<float>(2 * i),
-                          static_cast<float>(2 * i + 1) });
+                entities[i], Velocity{ static_cast<float>(2 * i),
+                                       static_cast<float>(2 * i + 1) });
         }
 
         benchmark::DoNotOptimize(world);
@@ -128,7 +133,9 @@ static void BM_world_base_remove_components(benchmark::State& state) {
     }
 }
 
-BENCHMARK(BM_world_base_spawn)
+BENCHMARK(BM_world_base_construct)->Unit(benchmark::kMicrosecond);
+
+BENCHMARK(BM_world_base_construct_and_spawn)
     ->Unit(benchmark::kMicrosecond)
     ->RangeMultiplier(2)
     ->Range(1, 1 << 20);

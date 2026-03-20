@@ -709,6 +709,23 @@ private:
         }
     }
 
+    constexpr void _rollback_appended(size_type original_size) noexcept {
+        const auto appended = size_ - original_size;
+        if (appended == 0) {
+            return;
+        }
+
+        for (size_type kind = 0; kind < hash_list_.size(); ++kind) {
+            destructors_[kind](_slot_ptr(kind, original_size), appended);
+        }
+
+        while (size_ > original_size) {
+            entity2index_.erase(index2entity_.back());
+            index2entity_.pop_back();
+            --size_;
+        }
+    }
+
     constexpr void _move_construct_from(
         const archetype& source, size_type source_kind, size_type source_index,
         size_type target_kind, size_type target_index) {
@@ -1075,6 +1092,7 @@ private:
     constexpr void _emplace_one_normally(size_t& succ) noexcept(
         std::is_nothrow_default_constructible_v<Ty>) {
         if constexpr (std::is_empty_v<Ty>) {
+            ++succ;
             return;
         }
 
@@ -1088,6 +1106,10 @@ private:
         size_t Index, typename TypeList,
         typename Ty = type_list_element_t<Index, TypeList>>
     void _clean_for_emplace_one(size_t succ) noexcept {
+        if constexpr (std::is_empty_v<Ty>) {
+            return;
+        }
+
         if (Index < succ) {
             _buffer_ptr& data = storage_[Index];
             auto* const ptr   = data.get();
@@ -1142,39 +1164,6 @@ private:
         std::uninitialized_value_construct_n(addr, size);
     }
 
-    // basic grantee
-    template <
-        size_t Index, typename TypeList, compatible_range<entity_t> Rng,
-        typename Ty = type_list_element_t<Index, TypeList>>
-    requires std::is_nothrow_default_constructible_v<Ty> &&
-             nothrow_conditional_movable<Ty>
-    auto _emplace_n_noexcept_fast(
-        size_type& finished, size_type size, bool relocate,
-        size_type capacity) {
-        if constexpr (std::is_empty_v<Ty>) {
-            return;
-        }
-
-        _buffer_ptr& data = storage_[Index];
-        auto* ptr         = data.get();
-        if (relocate) {
-            constexpr auto align = _get_align(alignof(Ty));
-            constexpr auto alg   = static_cast<size_t>(align);
-
-            _buffer_ptr& data = storage_[Index];
-            auto* const dst =
-                reinterpret_cast<Ty*>(_get_ptr(sizeof(Ty), capacity, align));
-            uninitialized_move_if_noexcept_n(
-                std::assume_aligned<alg>(ptr), size_,
-                std::assume_aligned<alg>(dst));
-            ptr = dst;
-        }
-        auto* const addr = reinterpret_cast<Ty*>(ptr + (sizeof(Ty) * size_));
-        std::uninitialized_value_construct_n(addr, size);
-
-        ++finished;
-    }
-
     template <
         size_t Index, typename TypeList, compatible_range<entity_t> Rng,
         typename Ty = type_list_element_t<Index, TypeList>>
@@ -1190,22 +1179,6 @@ private:
         }
     }
 
-    template <typename... Components>
-    auto _emplace_n() {
-        using clist        = type_list<Components...>;
-        using isequence    = std::index_sequence_for<Components...>;
-        const auto ori     = size_;
-        size_type finished = 0;
-        auto guard         = make_exception_guard([this, &finished, ori] {
-            [this, &finished, ori]<size_t... Is>(std::index_sequence<Is...>) {
-                (_clean_n<Is, clist>(finished, ori), ...);
-            }(isequence());
-        });
-        [this, &finished]<size_t... Is>(std::index_sequence<Is...>) {
-            (_emplace_n_noexcept_fast<Is, clist>(finished), ...);
-        }(std::index_sequence_for<Components...>());
-    }
-
     template <compatible_range<entity_t> Rng, component... Components>
     requires(std::is_nothrow_default_constructible_v<Components> && ...)
     auto _emplace_n(
@@ -1217,10 +1190,10 @@ private:
         index2entity_.reserve(currsize + append);
         entity2index_.reserve(currsize + append);
         auto guard = make_exception_guard([this, currsize]() noexcept {
-            while (entity2index_.size() > currsize) {
-                entity2index_.erase(entity2index_.end() - 1);
+            while (index2entity_.size() > currsize) {
+                entity2index_.erase(index2entity_.back());
+                index2entity_.pop_back();
             }
-            index2entity_.resize(currsize);
         });
         for (entity_t entity : range) {
             entity2index_.try_emplace(entity, index++);
@@ -1230,16 +1203,25 @@ private:
 
         // noexcept part
         [this, append]<size_t... Is>(std::index_sequence<Is...>) {
-            (_emplace_n_noexcept<Is, type_list<Components...>>(append), ...);
+            (_emplace_n_noexcept<Is, type_list<Components...>, Rng>(append),
+             ...);
         }(std::index_sequence_for<Components...>());
     }
 
     template <
         size_t Index, typename TypeList,
         typename Ty = type_list_element_t<Index, TypeList>>
-    void _clean_for_emplace_n(size_type finished, size_type size) {
-        if (finished < Index) {
-            // do clean
+    void _clean_for_emplace_n(
+        size_type finished, size_type original_size, size_type count) noexcept {
+        if constexpr (std::is_empty_v<Ty>) {
+            return;
+        }
+
+        if (Index < finished) {
+            _buffer_ptr& data = storage_[Index];
+            auto* const ptr =
+                reinterpret_cast<Ty*>(data.get()) + original_size;
+            std::destroy_n(ptr, count);
         }
     }
 
@@ -1247,6 +1229,11 @@ private:
         size_t Index, typename TypeList,
         typename Ty = type_list_element_t<Index, TypeList>>
     void _emplace_n(size_type& finished, size_type size_appending) {
+        if constexpr (std::is_empty_v<Ty>) {
+            ++finished;
+            return;
+        }
+
         _buffer_ptr& data = storage_[Index];
         auto* const ptr   = data.get();
         auto* const addr  = reinterpret_cast<Ty*>(ptr + (sizeof(Ty) * size_));
@@ -1266,10 +1253,10 @@ private:
         index2entity_.reserve(currsize + append);
         entity2index_.reserve(currsize + append);
         auto guard = make_exception_guard([this, currsize]() noexcept {
-            while (entity2index_.size() > currsize) {
-                entity2index_.erase(entity2index_.end() - 1);
+            while (index2entity_.size() > currsize) {
+                entity2index_.erase(index2entity_.back());
+                index2entity_.pop_back();
             }
-            index2entity_.resize(currsize);
         });
         for (entity_t entity : range) {
             entity2index_.try_emplace(entity, index++);
@@ -1279,10 +1266,11 @@ private:
         using clist        = type_list<Components...>;
         using isequence    = std::index_sequence_for<Components...>;
         size_type finished = 0;
-        auto clean         = [this, &finished, currsize]() noexcept {
+        auto clean         = [this, &finished, currsize, append]() noexcept {
             [this, &finished,
-             currsize]<size_t... Is>(std::index_sequence<Is...>) {
-                (_clean_for_emplace_n<Is, clist>(finished, currsize), ...);
+             currsize, append]<size_t... Is>(std::index_sequence<Is...>) {
+                (_clean_for_emplace_n<Is, clist>(finished, currsize, append),
+                 ...);
             }(isequence());
         };
         auto emplace_guard = make_exception_guard(clean);
@@ -1309,6 +1297,7 @@ private:
             size_ += append;
         } else {
             std::ranges::for_each(range, [this](entity_t entity) {
+                _ensure_capacity_for_one();
                 _emplace(entity, type_list<Components...>{});
             });
         }
@@ -1320,7 +1309,10 @@ private:
         size_t Index, typename TypeList, typename Tup,
         typename Ty = type_list_element_t<Index, TypeList>>
     requires std::is_nothrow_constructible_v<
-        Ty, type_list_element_t<_rmcvref_first<Ty, Tup>, Tup>>
+        Ty,
+        type_list_element_t<
+            _rmcvref_first<Ty, std::remove_cvref_t<Tup>>,
+            std::remove_cvref_t<Tup>>>
     constexpr void _emplace_one_val_normally_noexcept(Tup&& tup) noexcept {
         if constexpr (std::is_empty_v<Ty>) {
             return;
@@ -1335,7 +1327,9 @@ private:
     requires(
         std::is_nothrow_constructible_v<
             SortedComponents,
-            type_list_element_t<_rmcvref_first<SortedComponents, Tup>, Tup>> &&
+            type_list_element_t<
+                _rmcvref_first<SortedComponents, std::remove_cvref_t<Tup>>,
+                std::remove_cvref_t<Tup>>> &&
         ...)
     constexpr void _emplace_vals_normally(
         [[maybe_unused]] type_list<SortedComponents...>, Tup&& tup) noexcept {
@@ -1351,10 +1345,14 @@ private:
         size_t Index, typename TypeList, typename Tup,
         typename Ty = type_list_element_t<Index, TypeList>>
     requires std::is_nothrow_constructible_v<
-        Ty, type_list_element_t<_rmcvref_first<Ty, Tup>, Tup>>
+        Ty,
+        type_list_element_t<
+            _rmcvref_first<Ty, std::remove_cvref_t<Tup>>,
+            std::remove_cvref_t<Tup>>>
     constexpr void
         _emplace_one_val_normally(Tup&& tup, size_type& succ) noexcept {
         if constexpr (std::is_empty_v<Ty>) {
+            ++succ;
             return;
         }
 
@@ -1368,9 +1366,13 @@ private:
         size_t Index, typename TypeList, typename Tup,
         typename Ty = type_list_element_t<Index, TypeList>>
     requires(!std::is_nothrow_constructible_v<
-             Ty, type_list_element_t<_rmcvref_first<Ty, Tup>, Tup>>)
+             Ty,
+             type_list_element_t<
+                 _rmcvref_first<Ty, std::remove_cvref_t<Tup>>,
+                 std::remove_cvref_t<Tup>>>)
     constexpr void _emplace_one_val_normally(Tup&& tup, size_type& succ) {
         if constexpr (std::is_empty_v<Ty>) {
+            ++succ;
             return;
         }
 
@@ -1386,7 +1388,9 @@ private:
     requires(!(
         std::is_nothrow_constructible_v<
             SortedComponents,
-            type_list_element_t<_rmcvref_first<SortedComponents, Tup>, Tup>> &&
+            type_list_element_t<
+                _rmcvref_first<SortedComponents, std::remove_cvref_t<Tup>>,
+                std::remove_cvref_t<Tup>>> &&
         ...))
     {
         using tlist = type_list<SortedComponents...>;
@@ -1395,10 +1399,13 @@ private:
             size_type succ = 0;
             auto guard     = make_exception_guard([this, &succ] {
                 if (succ != sizeof...(SortedComponents)) {
-                    (_clean_for_emplace_one<Is, tlist>(), ...);
+                    (_clean_for_emplace_one<Is, tlist>(succ), ...);
                 }
             });
-            (_emplace_one_val_normally<Is, tlist>(std::forward<Tup>(tup)), ...);
+            (_emplace_one_val_normally<Is, tlist>(
+                 std::forward<Tup>(tup), succ),
+             ...);
+            guard.mark_complete();
         }(std::index_sequence_for<SortedComponents...>());
     }
 
@@ -1429,7 +1436,35 @@ private:
 
     template <compatible_range<entity_t> Rng, component... Components>
     constexpr void _emplace(Rng&& range, Components&&... components) {
-        // TODO:
+        using sorted =
+            hash_list_t<type_list<std::remove_cvref_t<Components>...>>;
+
+        if constexpr (std::ranges::sized_range<Rng>) {
+            const auto append     = std::ranges::size(range);
+            const auto final_size = size_ + append;
+            entity2index_.reserve(final_size);
+            index2entity_.reserve(final_size);
+            if (final_size > capacity_) {
+                _relocate<std::remove_cvref_t<Components>...>(final_size);
+            }
+        }
+
+        auto tuple               = std::forward_as_tuple(
+            std::forward<Components>(components)...);
+        const auto original_size = size_;
+        auto guard               = make_exception_guard(
+            [this, original_size]() noexcept {
+                _rollback_appended(original_size);
+            });
+
+        for (entity_t entity : range) {
+            if constexpr (!std::ranges::sized_range<Rng>) {
+                _ensure_capacity_for_one();
+            }
+            _emplace(entity, sorted{}, tuple);
+        }
+
+        guard.mark_complete();
     }
 
     // vw

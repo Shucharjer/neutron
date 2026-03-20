@@ -305,10 +305,9 @@ template <std_simple_allocator Alloc>
 template <component... Components>
 constexpr void world_base<Alloc>::add_components(
     entity_t entity, Components&&... components) {
-    using tlist = type_list<std::remove_cvref_t<Components>...>;
-    constexpr uint64_t hash =
-        neutron::make_array_hash<neutron::type_list<
-            std::remove_cvref_t<Components>...>>();
+    using tlist             = type_list<std::remove_cvref_t<Components>...>;
+    constexpr uint64_t hash = neutron::make_array_hash<
+        neutron::type_list<std::remove_cvref_t<Components>...>>();
     const auto index      = _get_index(entity);
     auto* const archetype = entities_[index].second;
     if (archetype == nullptr) {
@@ -352,11 +351,11 @@ constexpr void world_base<Alloc>::remove_components(entity_t entity) {
     }
 
     _hash_transition cond{ .from = archetype->hash(), .delta = hash };
-    uint64_t to = 0;
+    uint64_t to     = 0;
     bool remove_all = false;
     if (auto trans = transitions_.find(cond); trans != transitions_.end())
         [[likely]] {
-        to = trans->second;
+        to         = trans->second;
         remove_all = to == neutron::hash_combine(std::array<uint32_t, 0>{});
     } else [[unlikely]] {
         constexpr auto arr = make_hash_array<tlist>();
@@ -365,7 +364,7 @@ constexpr void world_base<Alloc>::remove_components(entity_t entity) {
         std::ranges::set_difference(
             archetype->hash_list(), arr, std::back_inserter(hash_list));
         remove_all = hash_list.empty();
-        to = hash_combine(hash_list);
+        to         = hash_combine(hash_list);
         transitions_.emplace_hint(trans, cond, to);
     }
 
