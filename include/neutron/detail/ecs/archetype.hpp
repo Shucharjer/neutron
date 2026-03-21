@@ -282,8 +282,8 @@ public:
             hash_list_t<type_list<std::remove_cvref_t<Components>...>>;
         constexpr auto hash_array =
             make_hash_array<type_list<std::remove_cvref_t<Components>...>>();
-        constexpr auto metainfo   = _get_metainfo(hash_list{});
-        constexpr auto newinfo    = std::get<0>(metainfo);
+        constexpr auto metainfo = _get_metainfo(hash_list{});
+        constexpr auto newinfo  = std::get<0>(metainfo);
 
         const auto size = archetype.hash_list_.size();
         size_type i     = 0;
@@ -565,6 +565,19 @@ public:
         --size_;
     }
 
+    template <component... Components>
+    requires(!std::is_empty_v<std::remove_cvref_t<Components>> && ...)
+    ATOM_NODISCARD constexpr auto at(entity_t entity)
+        -> std::tuple<Components...> {
+        const auto index = entity2index_.at(entity);
+        auto storage     = _get<Components...>();
+        return std::apply(
+            [index](auto*... ptrs) -> std::tuple<Components...> {
+                return std::tuple<Components...>(ptrs[index]...);
+            },
+            storage);
+    }
+
     ATOM_NODISCARD constexpr size_type kinds() const noexcept {
         return hash_list_.size();
     }
@@ -620,7 +633,9 @@ public:
 
     constexpr void transfer(entity_t entity, archetype& target) {
         _transfer(entity, target, [](size_type, size_type, uint32_t) {
-            assert(false && "target archetype unexpectedly requires new components");
+            assert(
+                false &&
+                "target archetype unexpectedly requires new components");
         });
     }
 
@@ -628,9 +643,11 @@ public:
     constexpr void transfer(
         entity_t entity, archetype& target,
         [[maybe_unused]] add_components_t<Components...>) {
-        _transfer(entity, target, [&target](size_type kind, size_type index, uint32_t) {
-            target._default_construct(kind, index);
-        });
+        _transfer(
+            entity, target,
+            [&target](size_type kind, size_type index, uint32_t) {
+                target._default_construct(kind, index);
+            });
     }
 
     template <component... Added, component... Components>
@@ -638,13 +655,13 @@ public:
         entity_t entity, archetype& target,
         [[maybe_unused]] add_components_t<Added...>,
         Components&&... components) {
-        auto tuple = std::forward_as_tuple(std::forward<Components>(components)...);
+        auto tuple =
+            std::forward_as_tuple(std::forward<Components>(components)...);
         _transfer(
             entity, target,
             [&target, &tuple](size_type kind, size_type index, uint32_t hash) {
                 target.template _construct_added_from_tuple<
-                    std::remove_cvref_t<Added>...>(
-                    kind, index, hash, tuple);
+                    std::remove_cvref_t<Added>...>(kind, index, hash, tuple);
             });
     }
 
@@ -667,17 +684,17 @@ private:
     constexpr void _ensure_capacity_for_one() {
         const auto next_size = size_ + 1;
         if (next_size > capacity_) [[unlikely]] {
-            const auto grow_to = (std::max)(
-                next_size,
-                capacity_ == 0 ? initial_capacity : capacity_ << 1);
+            const auto grow_to =
+                (std::max)(next_size,
+                           capacity_ == 0 ? initial_capacity : capacity_ << 1);
             _relocate(grow_to);
         }
         entity2index_.reserve(next_size);
         index2entity_.reserve(next_size);
     }
 
-    ATOM_NODISCARD constexpr auto _slot_ptr(size_type kind, size_type index) noexcept
-        -> std::byte* {
+    ATOM_NODISCARD constexpr auto
+        _slot_ptr(size_type kind, size_type index) noexcept -> std::byte* {
         const auto size = basic_info_[kind].size;
         if (size == 0) {
             return nullptr;
@@ -757,8 +774,8 @@ private:
     }
 
     template <typename MissingCtor>
-    constexpr void
-        _transfer(entity_t entity, archetype& target, MissingCtor&& missing_ctor) {
+    constexpr void _transfer(
+        entity_t entity, archetype& target, MissingCtor&& missing_ctor) {
         const auto source_index = entity2index_.at(entity);
         const auto target_index = target.size_;
         target._ensure_capacity_for_one();
@@ -786,7 +803,8 @@ private:
                     target_index);
                 ++source_kind;
             } else {
-                missing_ctor(target_kind, target_index, target.hash_list_[target_kind]);
+                missing_ctor(
+                    target_kind, target_index, target.hash_list_[target_kind]);
             }
 
             ++target_kind;
@@ -816,47 +834,50 @@ private:
     }
 
     template <component... SortedComponents>
-    consteval static auto _get_metainfo(type_list<SortedComponents...>) noexcept {
+    consteval static auto
+        _get_metainfo(type_list<SortedComponents...>) noexcept {
         constexpr auto basic_info = make_info<SortedComponents...>();
-        constexpr std::array<_ctor_fn, sizeof...(SortedComponents)> constructors = {
-            [](void* ptr, size_type n) noexcept(
-                std::is_nothrow_default_constructible_v<SortedComponents>) {
-                if constexpr (!std::is_empty_v<SortedComponents>) {
-                    std::uninitialized_default_construct_n(
-                        static_cast<SortedComponents*>(ptr), n);
-                }
-            }...
-        };
+        constexpr std::array<_ctor_fn, sizeof...(SortedComponents)>
+            constructors = {
+                [](void* ptr, size_type n) noexcept(
+                    std::is_nothrow_default_constructible_v<SortedComponents>) {
+                    if constexpr (!std::is_empty_v<SortedComponents>) {
+                        std::uninitialized_default_construct_n(
+                            static_cast<SortedComponents*>(ptr), n);
+                    }
+                }...
+            };
         constexpr std::array<_mov_ctor_fn, sizeof...(SortedComponents)>
             move_constructors = {
-            [](void* src, size_type n, void* dst) noexcept(
-                std::is_nothrow_move_constructible_v<SortedComponents> ||
-                std::is_nothrow_copy_constructible_v<SortedComponents>) {
-                if constexpr (!std::is_empty_v<SortedComponents>) {
-                    auto* const ifirst = static_cast<SortedComponents*>(src);
-                    auto* const ofirst = static_cast<SortedComponents*>(dst);
-                    uninitialized_move_if_noexcept_n(ifirst, n, ofirst);
-                }
-            }...
-        };
+                [](void* src, size_type n, void* dst) noexcept(
+                    std::is_nothrow_move_constructible_v<SortedComponents> ||
+                    std::is_nothrow_copy_constructible_v<SortedComponents>) {
+                    if constexpr (!std::is_empty_v<SortedComponents>) {
+                        auto* const ifirst =
+                            static_cast<SortedComponents*>(src);
+                        auto* const ofirst =
+                            static_cast<SortedComponents*>(dst);
+                        uninitialized_move_if_noexcept_n(ifirst, n, ofirst);
+                    }
+                }...
+            };
         constexpr std::array<_mov_assign_fn, sizeof...(SortedComponents)>
             move_assignments = {
-            [](void* dst, void* src) noexcept(
-                std::is_nothrow_move_assignable_v<SortedComponents>) {
-                if constexpr (!std::is_empty_v<SortedComponents>) {
-                    *static_cast<SortedComponents*>(dst) =
-                        std::move(*static_cast<SortedComponents*>(src));
-                }
-            }...
-        };
-        constexpr std::array<_dtor_fn, sizeof...(SortedComponents)> destructors = {
-            [](void* ptr, size_type n) noexcept {
+                [](void* dst, void* src) noexcept(
+                    std::is_nothrow_move_assignable_v<SortedComponents>) {
+                    if constexpr (!std::is_empty_v<SortedComponents>) {
+                        *static_cast<SortedComponents*>(dst) =
+                            std::move(*static_cast<SortedComponents*>(src));
+                    }
+                }...
+            };
+        constexpr std::array<_dtor_fn, sizeof...(SortedComponents)>
+            destructors = { [](void* ptr, size_type n) noexcept {
                 if constexpr (!std::is_empty_v<SortedComponents>) {
                     auto* const first = static_cast<SortedComponents*>(ptr);
                     std::destroy_n(first, n);
                 }
-            }...
-        };
+            }... };
         return std::make_tuple(
             basic_info, constructors, move_constructors, move_assignments,
             destructors);
@@ -1219,8 +1240,7 @@ private:
 
         if (Index < finished) {
             _buffer_ptr& data = storage_[Index];
-            auto* const ptr =
-                reinterpret_cast<Ty*>(data.get()) + original_size;
+            auto* const ptr = reinterpret_cast<Ty*>(data.get()) + original_size;
             std::destroy_n(ptr, count);
         }
     }
@@ -1267,8 +1287,8 @@ private:
         using isequence    = std::index_sequence_for<Components...>;
         size_type finished = 0;
         auto clean         = [this, &finished, currsize, append]() noexcept {
-            [this, &finished,
-             currsize, append]<size_t... Is>(std::index_sequence<Is...>) {
+            [this, &finished, currsize,
+             append]<size_t... Is>(std::index_sequence<Is...>) {
                 (_clean_for_emplace_n<Is, clist>(finished, currsize, append),
                  ...);
             }(isequence());
@@ -1309,10 +1329,9 @@ private:
         size_t Index, typename TypeList, typename Tup,
         typename Ty = type_list_element_t<Index, TypeList>>
     requires std::is_nothrow_constructible_v<
-        Ty,
-        type_list_element_t<
-            _rmcvref_first<Ty, std::remove_cvref_t<Tup>>,
-            std::remove_cvref_t<Tup>>>
+        Ty, type_list_element_t<
+                _rmcvref_first<Ty, std::remove_cvref_t<Tup>>,
+                std::remove_cvref_t<Tup>>>
     constexpr void _emplace_one_val_normally_noexcept(Tup&& tup) noexcept {
         if constexpr (std::is_empty_v<Ty>) {
             return;
@@ -1345,10 +1364,9 @@ private:
         size_t Index, typename TypeList, typename Tup,
         typename Ty = type_list_element_t<Index, TypeList>>
     requires std::is_nothrow_constructible_v<
-        Ty,
-        type_list_element_t<
-            _rmcvref_first<Ty, std::remove_cvref_t<Tup>>,
-            std::remove_cvref_t<Tup>>>
+        Ty, type_list_element_t<
+                _rmcvref_first<Ty, std::remove_cvref_t<Tup>>,
+                std::remove_cvref_t<Tup>>>
     constexpr void
         _emplace_one_val_normally(Tup&& tup, size_type& succ) noexcept {
         if constexpr (std::is_empty_v<Ty>) {
@@ -1366,10 +1384,9 @@ private:
         size_t Index, typename TypeList, typename Tup,
         typename Ty = type_list_element_t<Index, TypeList>>
     requires(!std::is_nothrow_constructible_v<
-             Ty,
-             type_list_element_t<
-                 _rmcvref_first<Ty, std::remove_cvref_t<Tup>>,
-                 std::remove_cvref_t<Tup>>>)
+             Ty, type_list_element_t<
+                     _rmcvref_first<Ty, std::remove_cvref_t<Tup>>,
+                     std::remove_cvref_t<Tup>>>)
     constexpr void _emplace_one_val_normally(Tup&& tup, size_type& succ) {
         if constexpr (std::is_empty_v<Ty>) {
             ++succ;
@@ -1385,13 +1402,13 @@ private:
     template <component... SortedComponents, typename Tup>
     constexpr void _emplace_vals_normally(
         [[maybe_unused]] type_list<SortedComponents...>, Tup&& tup)
-    requires(!(
-        std::is_nothrow_constructible_v<
-            SortedComponents,
-            type_list_element_t<
-                _rmcvref_first<SortedComponents, std::remove_cvref_t<Tup>>,
-                std::remove_cvref_t<Tup>>> &&
-        ...))
+    requires(
+        !(std::is_nothrow_constructible_v<
+              SortedComponents,
+              type_list_element_t<
+                  _rmcvref_first<SortedComponents, std::remove_cvref_t<Tup>>,
+                  std::remove_cvref_t<Tup>>> &&
+          ...))
     {
         using tlist = type_list<SortedComponents...>;
 
@@ -1402,8 +1419,7 @@ private:
                     (_clean_for_emplace_one<Is, tlist>(succ), ...);
                 }
             });
-            (_emplace_one_val_normally<Is, tlist>(
-                 std::forward<Tup>(tup), succ),
+            (_emplace_one_val_normally<Is, tlist>(std::forward<Tup>(tup), succ),
              ...);
             guard.mark_complete();
         }(std::index_sequence_for<SortedComponents...>());
@@ -1449,13 +1465,12 @@ private:
             }
         }
 
-        auto tuple               = std::forward_as_tuple(
-            std::forward<Components>(components)...);
+        auto tuple =
+            std::forward_as_tuple(std::forward<Components>(components)...);
         const auto original_size = size_;
-        auto guard               = make_exception_guard(
-            [this, original_size]() noexcept {
-                _rollback_appended(original_size);
-            });
+        auto guard = make_exception_guard([this, original_size]() noexcept {
+            _rollback_appended(original_size);
+        });
 
         for (entity_t entity : range) {
             if constexpr (!std::ranges::sized_range<Rng>) {

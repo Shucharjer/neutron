@@ -49,22 +49,8 @@ public:
 
         auto worlds = make_worlds<World>(alloc);
 
-        // startup
-        call<pre_startup>(sch, command_buffers, worlds);
-        call<startup>(sch, command_buffers, worlds);
-        call<post_startup>(sch, command_buffers, worlds);
-
-        // update
-
-        constexpr auto total_frames = 4;
-        for (auto frame = 0; frame < total_frames; ++frame) {
-            call<pre_update>(sch, command_buffers, worlds);
-            call<update>(sch, command_buffers, worlds);
-            call<post_update>(sch, command_buffers, worlds);
-        }
-
-        // shutdown
-        call<shutdown>(sch, command_buffers, worlds);
+        auto rt = make_runtime(sch, command_buffers, worlds);
+        rt.run();
     }
 };
 

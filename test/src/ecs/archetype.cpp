@@ -130,6 +130,34 @@ int test_emplace_accepts_arbitrary_component_order() {
     return 0;
 }
 
+int test_at_accepts_arbitrary_component_order_and_references() {
+    archetype_t arche{ type_spreader<Position, Velocity>{} };
+
+    arche.emplace(entity_t{ 3 }, Velocity{ 7, 8 }, Position{ 5, 6 });
+
+    auto ordered   = arche.at<Position&, Velocity&>(entity_t{ 3 });
+    auto reordered = arche.at<Velocity&, Position&>(entity_t{ 3 });
+
+    auto& position = std::get<0>(ordered);
+    auto& velocity = std::get<1>(ordered);
+    auto& velocity2 = std::get<0>(reordered);
+    auto& position2 = std::get<1>(reordered);
+
+    require_or_return((&position == &position2), 1);
+    require_or_return((&velocity == &velocity2), 1);
+    require_or_return((position.x == 5 && position.y == 6), 1);
+    require_or_return((velocity.vx == 7 && velocity.vy == 8), 1);
+
+    position2.x = 9;
+    velocity2.vy = 10;
+
+    if (const auto ret = require_position_velocity(arche, 9, 6, 7, 10);
+        ret != 0) {
+        return ret;
+    }
+    return 0;
+}
+
 int test_view_iterates_inserted_entities() {
     archetype_t arche{ type_spreader<Position, Velocity>{} };
 
@@ -354,6 +382,10 @@ int main() {
         return ret;
     }
     if (const auto ret = test_emplace_accepts_arbitrary_component_order();
+        ret != 0) {
+        return ret;
+    }
+    if (const auto ret = test_at_accepts_arbitrary_component_order_and_references();
         ret != 0) {
         return ret;
     }
