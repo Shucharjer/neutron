@@ -53,13 +53,3 @@ public:
         rt.run();
     }
 };
-
-class mmapp {
-public:
-    using config_type = std::tuple<>;
-
-    static mmapp create() { return {}; }
-
-    template <auto... Worlds>
-    void run() {}
-};
