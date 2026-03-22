@@ -76,10 +76,11 @@ void integrate(query<neutron::with<Position&, Velocity&>> movers) {
         position.x += velocity.x;
         position.y += velocity.y;
     }
-    constexpr auto game_world =
-        neutron::world_desc |
-        neutron::add_systems<neutron::stage::update, &integrate>;
 }
+
+constexpr auto game_world =
+    neutron::world_desc |
+    neutron::add_systems<neutron::stage::update, &integrate>;
 
 int main() {
     auto world = neutron::make_world<game_world>();
