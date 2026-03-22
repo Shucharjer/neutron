@@ -9,7 +9,7 @@
 #include <iterator>
 #include <limits>
 #include <memory>
-#include <queue>
+#include <ranges>
 #include <type_traits>
 #include <utility>
 #include <vector>
@@ -17,6 +17,7 @@
 #include <neutron/reflection.hpp>
 #include "neutron/detail/ecs/archetype.hpp"
 #include "neutron/detail/ecs/component.hpp"
+#include "neutron/detail/ranges/concepts.hpp"
 #include "neutron/flat_hash_map.hpp"
 #include "neutron/memory.hpp"
 #include "neutron/metafn.hpp"
@@ -35,110 +36,6 @@ struct _hash_transition {
     constexpr bool operator==(const _hash_transition& that) const noexcept {
         return from == that.from && delta == that.delta;
     }
-};
-
-/**
- * @class world_base
- * @brief A container stores entities and their component data.
- *
- * The index of an entity starts from 1.
- * @tparam Alloc Allocator satisfy the contrains of allocator by the standard
- * library. Default is `std::allocator<std::byte>`. The container would rebind
- * allocator automatically.
- */
-template <std_simple_allocator Alloc = std::allocator<std::byte>>
-class world_base {
-    template <typename, std_simple_allocator>
-    friend class basic_world;
-
-    friend struct ::neutron::world_accessor;
-
-    template <typename Ty>
-    using _allocator_t = neutron::rebind_alloc_t<Alloc, Ty>;
-
-    template <typename Ty>
-    using _vector_t = std::vector<Ty, _allocator_t<Ty>>;
-
-    using archetype = ::neutron::archetype<Alloc>;
-
-    template <
-        typename Kty, typename Ty, typename Hasher = std::hash<Kty>,
-        typename Equal = std::equal_to<Kty>>
-    using _flat_hash_map = neutron::flat_hash_map<
-        Kty, Ty, Hasher, Equal, _allocator_t<std::pair<Kty, Ty>>>;
-
-    template <
-        typename Kty, typename Ty, typename Hasher = std::hash<Kty>,
-        typename Equal = std::equal_to<Kty>>
-    using _unordered_map = std::unordered_map<
-        Kty, Ty, Hasher, Equal, _allocator_t<std::pair<const Kty, Ty>>>;
-
-    using archetype_map = _unordered_map<uint64_t, archetype>;
-
-    template <typename Ty>
-    using _priority_queue = std::priority_queue<Ty, _vector_t<Ty>>;
-
-public:
-    using size_type = size_t;
-
-    template <typename Al = Alloc>
-    explicit world_base(const Al& alloc = Alloc{})
-        : archetypes_(alloc), entities_(1, alloc), transitions_(alloc) {}
-
-    constexpr entity_t spawn();
-
-    template <component... Components>
-    constexpr entity_t spawn();
-
-    template <component... Components>
-    constexpr entity_t spawn(Components&&... components);
-
-    template <component... Components>
-    constexpr void add_components(entity_t entity);
-
-    template <component... Components>
-    constexpr void add_components(entity_t entity, Components&&... components);
-
-    template <component... Components>
-    constexpr void remove_components(entity_t entity);
-
-    constexpr void kill(entity_t entity);
-
-    constexpr void reserve(size_type n);
-
-    template <component... Components>
-    constexpr void reserve(size_type n);
-
-    constexpr bool is_alive(entity_t entity) noexcept;
-
-    void clear();
-
-private:
-    constexpr entity_t _get_new_entity();
-    template <component... Components>
-    constexpr void _emplace_new_entity(entity_t entity);
-    template <component... Components>
-    constexpr void _emplace_new_entity(entity_t entity, Components&&...);
-    template <component... Components>
-    uint64_t _dst_hash_add(archetype* archetype, uint64_t delta);
-
-    /// @brief A container stores archetypes with combined hash.
-    archetype_map archetypes_;
-    /// @brief A stroage mapping index to entity and its archetype.
-    /// We do never pop or erase: when killing a entity, we set index zero
-    /// and its archetype pointer null.
-    /// Summary: for an entity ((gen, index), p_archetype),
-    /// ((gen, non-zero), nullptr) -> created, but has no component
-    /// ((gen, 0), 0) -> killed entity
-    _vector_t<std::pair<entity_t, archetype*>> entities_;
-    /// @brief A priority queue stores free indices.
-    /// It makes us have the ability to get the smallest index all the time.
-    /// A smaller index means we could access `sparse_map` or `shift_map` with
-    /// lower frequency of cache missing.
-    _priority_queue<uint32_t> free_indices_;
-
-    /// @brief Cache for O(1) entity movement.
-    _flat_hash_map<_hash_transition, uint64_t> transitions_;
 };
 
 ATOM_FORCE_INLINE static constexpr generation_t
@@ -162,22 +59,392 @@ ATOM_NODISCARD ATOM_FORCE_INLINE constexpr static entity_t
 }
 
 template <std_simple_allocator Alloc>
-constexpr entity_t world_base<Alloc>::_get_new_entity() {
-    if (free_indices_.empty()) {
-        const auto index = entities_.size();
-        entities_.emplace_back(index, nullptr); // _make_entity(0, index)
-        return index;
+class _spawn_n_result {
+    template <std_simple_allocator>
+    friend class _entity_slots_base;
+
+    using allocator_type   = neutron::rebind_alloc_t<Alloc, entity_t>;
+    using allocator_traits = std::allocator_traits<allocator_type>;
+
+public:
+    using value_type      = entity_t;
+    using size_type       = size_t;
+    using difference_type = ptrdiff_t;
+
+    class _iterator {
+    public:
+        using iterator_category = std::forward_iterator_tag;
+        using iterator_concept  = std::forward_iterator_tag;
+        using value_type        = entity_t;
+        using difference_type   = ptrdiff_t;
+        using reference         = entity_t;
+
+        constexpr _iterator() noexcept = default;
+
+        constexpr _iterator(
+            const _spawn_n_result* range, size_type index) noexcept
+            : range_(range), index_(index) {}
+
+        ATOM_NODISCARD constexpr entity_t operator*() const noexcept {
+            return (*range_)[index_];
+        }
+
+        constexpr _iterator& operator++() noexcept {
+            ++index_;
+            return *this;
+        }
+
+        constexpr _iterator operator++(int) noexcept {
+            auto copy = *this;
+            ++(*this);
+            return copy;
+        }
+
+        constexpr bool operator==(const _iterator& that) const noexcept {
+            return range_ == that.range_ && index_ == that.index_;
+        }
+
+    private:
+        const _spawn_n_result* range_{};
+        size_type index_{};
+    };
+
+    constexpr _spawn_n_result() noexcept = default;
+
+    constexpr _spawn_n_result(const _spawn_n_result&)            = delete;
+    constexpr _spawn_n_result& operator=(const _spawn_n_result&) = delete;
+
+    constexpr _spawn_n_result(_spawn_n_result&& that) noexcept
+        : recycled_(std::exchange(that.recycled_, nullptr)),
+          recycled_count_(std::exchange(that.recycled_count_, 0)),
+          fresh_begin_(std::exchange(that.fresh_begin_, 0)),
+          fresh_count_(std::exchange(that.fresh_count_, 0)),
+          allocator_(std::move(that.allocator_)) {}
+
+    constexpr _spawn_n_result& operator=(_spawn_n_result&& that) noexcept {
+        if (this != &that) {
+            _destroy();
+            recycled_       = std::exchange(that.recycled_, nullptr);
+            recycled_count_ = std::exchange(that.recycled_count_, 0);
+            fresh_begin_    = std::exchange(that.fresh_begin_, 0);
+            fresh_count_    = std::exchange(that.fresh_count_, 0);
+            allocator_      = std::move(that.allocator_);
+        }
+        return *this;
     }
-    const index_t index = free_indices_.top();
-    free_indices_.pop();
-    const generation_t gen = _get_gen(entities_[index].first) + 1;
-    entities_[index].first = _make_entity(gen, index);
-    return entities_[index].first;
-}
+
+    constexpr ~_spawn_n_result() noexcept { _destroy(); }
+
+    ATOM_NODISCARD constexpr auto begin() const noexcept {
+        return _iterator(this, 0);
+    }
+
+    ATOM_NODISCARD constexpr auto end() const noexcept {
+        return _iterator(this, size());
+    }
+
+    ATOM_NODISCARD constexpr size_type size() const noexcept {
+        return recycled_count_ + fresh_count_;
+    }
+
+    ATOM_NODISCARD constexpr bool empty() const noexcept { return size() == 0; }
+
+    ATOM_NODISCARD constexpr entity_t
+        operator[](size_type index) const noexcept {
+        if (index < recycled_count_) {
+            return recycled_[index]; // NOLINT, perf
+        }
+
+        const auto offset = static_cast<index_t>(index - recycled_count_);
+        return _make_entity(0, fresh_begin_ + offset);
+    }
+
+private:
+    constexpr _spawn_n_result(
+        size_type recycled_count, index_t fresh_begin, size_type fresh_count,
+        const allocator_type& alloc)
+        : recycled_count_(recycled_count), fresh_begin_(fresh_begin),
+          fresh_count_(fresh_count), allocator_(alloc) {
+        if (recycled_count_ != 0) {
+            recycled_ = allocator_traits::allocate(allocator_, recycled_count_);
+        }
+    }
+
+    constexpr void _destroy() noexcept {
+        if (recycled_ != nullptr) {
+            allocator_traits::deallocate(
+                allocator_, recycled_, recycled_count_);
+            recycled_ = nullptr;
+        }
+        recycled_count_ = 0;
+        fresh_begin_    = 0;
+        fresh_count_    = 0;
+    }
+
+    entity_t* recycled_{};
+    size_type recycled_count_{};
+    index_t fresh_begin_{};
+    size_type fresh_count_{};
+    [[no_unique_address]] allocator_type allocator_{};
+};
+
+template <std_simple_allocator Alloc>
+class _entity_slots_base {
+    friend struct ::neutron::world_accessor;
+
+public:
+    using size_type = size_t;
+    using archetype = ::neutron::archetype<Alloc>;
+
+    struct entity_slot {
+        entity_t first{};
+        union {
+            archetype* second;
+            index_t next_free;
+        };
+
+        constexpr entity_slot() noexcept : second(nullptr) {}
+
+        constexpr explicit entity_slot(
+            entity_t entity, archetype* archetype = nullptr) noexcept
+            : first(entity), second(archetype) {}
+    };
+
+protected:
+    template <typename Ty>
+    using _allocator_t = neutron::rebind_alloc_t<Alloc, Ty>;
+
+    template <typename Ty>
+    using _vector_t      = std::vector<Ty, _allocator_t<Ty>>;
+    using _spawned_range = _spawn_n_result<Alloc>;
+
+    template <typename Al = Alloc>
+    explicit _entity_slots_base(const Al& alloc = Alloc{})
+        : entities_(1, alloc) {}
+
+    constexpr entity_t _get_new_entity() {
+        if (free_head_ == 0) {
+            const auto index = static_cast<index_t>(entities_.size());
+            entities_.emplace_back(_make_entity(0, index));
+            return entities_.back().first;
+        }
+
+        const index_t index = free_head_;
+        auto& slot          = entities_[index];
+        free_head_          = slot.next_free;
+        slot.next_free      = 0;
+        slot.second         = nullptr;
+        slot.first          = _make_entity(_get_gen(slot.first) + 1, index);
+        return slot.first;
+    }
+
+    constexpr auto _get_new_entities(size_type n) -> _spawned_range {
+        using entity_alloc = typename _spawned_range::allocator_type;
+
+        if (n == 0) {
+            return _spawned_range{};
+        }
+
+        const auto recycled_count = _count_reusable_entities(n);
+        const auto fresh_count    = n - recycled_count;
+        auto range =
+            _spawned_range{ recycled_count,
+                            static_cast<index_t>(entities_.size()), fresh_count,
+                            entity_alloc{ entities_.get_allocator() } };
+
+        if (fresh_count != 0) {
+            entities_.reserve(entities_.size() + fresh_count);
+        }
+
+        for (size_type i = 0; i < recycled_count; ++i) {
+            const index_t index = free_head_;
+            auto& slot          = entities_[index];
+            free_head_          = slot.next_free;
+            slot.next_free      = 0;
+            slot.second         = nullptr;
+            slot.first          = _make_entity(_get_gen(slot.first) + 1, index);
+            range.recycled_[i]  = slot.first;
+        }
+
+        for (size_type i = 0; i < fresh_count; ++i) {
+            const auto index = static_cast<index_t>(entities_.size());
+            entities_.emplace_back(_make_entity(0, index));
+        }
+
+        return range;
+    }
+
+    constexpr auto _entity_slot(index_t index) noexcept -> entity_slot& {
+        return entities_[index];
+    }
+
+    constexpr auto _entity_slot(index_t index) const noexcept
+        -> const entity_slot& {
+        return entities_[index];
+    }
+
+    constexpr void _release_entity(index_t index) noexcept {
+        auto& slot = entities_[index];
+        _reset_index(slot.first);
+        if (_get_gen(slot.first) != (std::numeric_limits<uint32_t>::max)()) {
+            slot.next_free = free_head_;
+            free_head_     = index;
+        } else {
+            slot.next_free = 0;
+        }
+    }
+
+    constexpr void _reserve_entities(size_type n) { entities_.reserve(n + 1); }
+
+    constexpr bool _is_alive(entity_t entity) const noexcept {
+        const auto index = _get_index(entity);
+        return index != 0 && index < entities_.size() &&
+               entities_[index].first == entity &&
+               _get_index(entities_[index].first) != 0;
+    }
+
+    void _clear_entities() {
+        free_head_ = 0;
+        entities_.clear();
+        entities_.emplace_back();
+    }
+
+    ATOM_NODISCARD constexpr size_type
+        _count_reusable_entities(size_type max_count) const noexcept {
+        size_type count = 0;
+        for (index_t index = free_head_; index != 0 && count < max_count;
+             index         = entities_[index].next_free) {
+            ++count;
+        }
+        return count;
+    }
+
+    _vector_t<entity_slot> entities_;
+    index_t free_head_{};
+};
+
+/**
+ * @class world_base
+ * @brief A container stores entities and their component data.
+ *
+ * The index of an entity starts from 1.
+ * @tparam Alloc Allocator satisfy the contrains of allocator by the standard
+ * library. Default is `std::allocator<std::byte>`. The container would rebind
+ * allocator automatically.
+ */
+template <std_simple_allocator Alloc = std::allocator<std::byte>>
+class world_base : private _entity_slots_base<Alloc> {
+    template <typename, std_simple_allocator>
+    friend class basic_world;
+
+    friend struct ::neutron::world_accessor;
+
+    template <typename Ty>
+    using _allocator_t = neutron::rebind_alloc_t<Alloc, Ty>;
+
+    template <typename Ty>
+    using _vector_t = std::vector<Ty, _allocator_t<Ty>>;
+
+    using _entity_slots = _entity_slots_base<Alloc>;
+    using archetype     = ::neutron::archetype<Alloc>;
+
+    template <
+        typename Kty, typename Ty, typename Hasher = std::hash<Kty>,
+        typename Equal = std::equal_to<Kty>>
+    using _flat_hash_map = neutron::flat_hash_map<
+        Kty, Ty, Hasher, Equal, _allocator_t<std::pair<Kty, Ty>>>;
+
+    template <
+        typename Kty, typename Ty, typename Hasher = std::hash<Kty>,
+        typename Equal = std::equal_to<Kty>>
+    using _unordered_map = std::unordered_map<
+        Kty, Ty, Hasher, Equal, _allocator_t<std::pair<const Kty, Ty>>>;
+
+    using archetype_map = _unordered_map<uint64_t, archetype>;
+    using typename _entity_slots::entity_slot;
+    using _entity_slots::_clear_entities;
+    using _entity_slots::_entity_slot;
+    using _entity_slots::_get_new_entity;
+    using _entity_slots::_is_alive;
+    using _entity_slots::_release_entity;
+    using _entity_slots::_reserve_entities;
+    using _entity_slots::entities_;
+
+public:
+    using size_type = typename _entity_slots::size_type;
+
+    template <typename Al = Alloc>
+    explicit world_base(const Al& alloc = Alloc{})
+        : _entity_slots(alloc), archetypes_(alloc), transitions_(alloc) {}
+
+    constexpr entity_t spawn();
+
+    template <component... Components>
+    constexpr entity_t spawn();
+
+    template <component... Components>
+    constexpr entity_t spawn(Components&&... components);
+
+    constexpr auto spawn_n(size_type n);
+
+    template <component... Components>
+    constexpr auto spawn_n(size_type n);
+
+    template <component... Components>
+    constexpr auto spawn_n(size_type n, Components&&... components);
+
+    template <component... Components>
+    constexpr void add_components(entity_t entity);
+
+    template <component... Components>
+    constexpr void add_components(entity_t entity, Components&&... components);
+
+    template <component... Components>
+    constexpr void remove_components(entity_t entity);
+
+    constexpr void kill(entity_t entity);
+
+    template <compatible_range<entity_t> Rng>
+    constexpr void kill(Rng&& range);
+
+    constexpr void reserve(size_type n);
+
+    template <component... Components>
+    constexpr void reserve(size_type n);
+
+    constexpr bool is_alive(entity_t entity) noexcept;
+
+    void clear();
+
+private:
+    template <component... Components>
+    constexpr void _emplace_new_entity(entity_t entity);
+    template <component... Components>
+    constexpr void _emplace_new_entity(entity_t entity, Components&&...);
+    template <component... Components, compatible_range<entity_t> Rng>
+    constexpr void _emplace_new_entities(Rng& range);
+    template <component... Components, compatible_range<entity_t> Rng>
+    constexpr void _emplace_new_entities(Rng& range, Components&&...);
+    template <compatible_range<entity_t> Rng>
+    constexpr void _set_archetype(Rng& range, archetype* archetype);
+    template <component... Components>
+    uint64_t _dst_hash_add(archetype* archetype, uint64_t delta);
+
+    /// @brief A container stores archetypes with combined hash.
+    archetype_map archetypes_;
+
+    /// @brief Cache for O(1) entity movement.
+    _flat_hash_map<_hash_transition, uint64_t> transitions_;
+};
 
 template <std_simple_allocator Alloc>
 constexpr entity_t world_base<Alloc>::spawn() {
     return _get_new_entity();
+}
+
+template <std_simple_allocator Alloc>
+constexpr auto world_base<Alloc>::spawn_n(size_type n) {
+    return _entity_slots::_get_new_entities(n);
 }
 
 template <std_simple_allocator Alloc>
@@ -188,26 +455,56 @@ constexpr void world_base<Alloc>::_emplace_new_entity(entity_t entity) {
     constexpr uint64_t hash = make_array_hash<list>();
 
     const auto index = _get_index(entity);
+    auto& slot       = _entity_slot(index);
     auto iter        = archetypes_.find(hash);
     if (iter != archetypes_.end()) {
         iter->second.template emplace<Components...>(entity);
-        entities_[index].second = &iter->second;
+        slot.second = &iter->second;
     } else {
         auto [iter, _] = archetypes_.try_emplace(
             hash, archetype{ spread_type<Components...> });
         iter->second.template emplace<Components...>(entity);
-        entities_[index].second = &iter->second;
+        slot.second = &iter->second;
+    }
+}
+
+template <std_simple_allocator Alloc>
+template <component... Components, compatible_range<entity_t> Rng>
+constexpr void world_base<Alloc>::_emplace_new_entities(Rng& range) {
+    using namespace neutron;
+    using list              = type_list<Components...>;
+    constexpr uint64_t hash = make_array_hash<list>();
+
+    auto iter = archetypes_.find(hash);
+    if (iter != archetypes_.end()) {
+        iter->second.template emplace<Components...>(range);
+        _set_archetype(range, &iter->second);
+    } else {
+        auto [created, _] = archetypes_.try_emplace(
+            hash, archetype{ spread_type<Components...> });
+        created->second.template emplace<Components...>(range);
+        _set_archetype(range, &created->second);
     }
 }
 
 template <std_simple_allocator Alloc>
 template <component... Components>
 constexpr entity_t world_base<Alloc>::spawn() {
-    constexpr uint64_t hash =
-        neutron::make_array_hash<neutron::type_list<Components...>>();
     const auto entity = _get_new_entity();
     _emplace_new_entity<Components...>(entity);
     return entity;
+}
+
+template <std_simple_allocator Alloc>
+template <component... Components>
+constexpr auto world_base<Alloc>::spawn_n(size_type n) {
+    auto range = _entity_slots::_get_new_entities(n);
+    if (range.empty()) {
+        return range;
+    }
+
+    _emplace_new_entities<Components...>(range);
+    return range;
 }
 
 template <std_simple_allocator Alloc>
@@ -219,26 +516,67 @@ constexpr void world_base<Alloc>::_emplace_new_entity(
     constexpr uint64_t hash = make_array_hash<list>();
 
     const auto index = _get_index(entity);
+    auto& slot       = _entity_slot(index);
     auto iter        = archetypes_.find(hash);
     if (iter != archetypes_.end()) [[likely]] {
         iter->second.emplace(entity, std::forward<Components>(components)...);
-        entities_[index].second = &iter->second;
+        slot.second = &iter->second;
     } else [[unlikely]] {
         auto [iter, _] = archetypes_.try_emplace(
             hash, archetype{ spread_type<std::remove_cvref_t<Components>...> });
         iter->second.emplace(entity, std::forward<Components>(components)...);
-        entities_[index].second = &iter->second;
+        slot.second = &iter->second;
+    }
+}
+
+template <std_simple_allocator Alloc>
+template <component... Components, compatible_range<entity_t> Rng>
+constexpr void world_base<Alloc>::_emplace_new_entities(
+    Rng& range, Components&&... components) {
+    using namespace neutron;
+    using list              = type_list<std::remove_cvref_t<Components>...>;
+    constexpr uint64_t hash = make_array_hash<list>();
+
+    auto iter = archetypes_.find(hash);
+    if (iter != archetypes_.end()) [[likely]] {
+        iter->second.emplace(range, std::forward<Components>(components)...);
+        _set_archetype(range, &iter->second);
+    } else [[unlikely]] {
+        auto [created, _] = archetypes_.try_emplace(
+            hash, archetype{ spread_type<std::remove_cvref_t<Components>...> });
+        created->second.emplace(range, std::forward<Components>(components)...);
+        _set_archetype(range, &created->second);
+    }
+}
+
+template <std_simple_allocator Alloc>
+template <compatible_range<entity_t> Rng>
+constexpr void
+    world_base<Alloc>::_set_archetype(Rng& range, archetype* archetype) {
+    for (entity_t entity : range) {
+        _entity_slot(_get_index(entity)).second = archetype;
     }
 }
 
 template <std_simple_allocator Alloc>
 template <component... Components>
 constexpr entity_t world_base<Alloc>::spawn(Components&&... components) {
-    constexpr uint64_t hash = neutron::make_array_hash<
-        neutron::type_list<std::remove_cvref_t<Components>...>>();
     const auto entity = _get_new_entity();
     _emplace_new_entity(entity, std::forward<Components>(components)...);
     return entity;
+}
+
+template <std_simple_allocator Alloc>
+template <component... Components>
+constexpr auto
+    world_base<Alloc>::spawn_n(size_type n, Components&&... components) {
+    auto range = _entity_slots::_get_new_entities(n);
+    if (range.empty()) {
+        return range;
+    }
+
+    _emplace_new_entities(range, std::forward<Components>(components)...);
+    return range;
 }
 
 template <std_simple_allocator Alloc>
@@ -272,7 +610,8 @@ constexpr void world_base<Alloc>::add_components(entity_t entity) {
     constexpr uint64_t hash = make_array_hash<tlist>();
 
     const auto index           = _get_index(entity);
-    archetype* const archetype = entities_[index].second;
+    auto& slot                 = _entity_slot(index);
+    archetype* const archetype = slot.second;
     if (archetype == nullptr) {
         _emplace_new_entity<Components...>(entity);
         return;
@@ -298,18 +637,18 @@ constexpr void world_base<Alloc>::add_components(entity_t entity) {
     archetype->transfer(
         entity, iter->second,
         add_components_t<std::remove_cvref_t<Components>...>{});
-    entities_[index].second = &iter->second;
+    slot.second = &iter->second;
 }
 
 template <std_simple_allocator Alloc>
 template <component... Components>
 constexpr void world_base<Alloc>::add_components(
     entity_t entity, Components&&... components) {
-    using tlist             = type_list<std::remove_cvref_t<Components>...>;
     constexpr uint64_t hash = neutron::make_array_hash<
         neutron::type_list<std::remove_cvref_t<Components>...>>();
     const auto index      = _get_index(entity);
-    auto* const archetype = entities_[index].second;
+    auto& slot            = _entity_slot(index);
+    auto* const archetype = slot.second;
     if (archetype == nullptr) {
         _emplace_new_entity<Components...>(
             entity, std::forward<Components>(components)...);
@@ -334,7 +673,7 @@ constexpr void world_base<Alloc>::add_components(
         entity, iter->second,
         add_components_t<std::remove_cvref_t<Components>...>{},
         std::forward<Components>(components)...);
-    entities_[index].second = &iter->second;
+    slot.second = &iter->second;
 }
 
 template <std_simple_allocator Alloc>
@@ -345,7 +684,8 @@ constexpr void world_base<Alloc>::remove_components(entity_t entity) {
     constexpr uint64_t hash = make_array_hash<tlist>();
 
     const auto index           = _get_index(entity);
-    archetype* const archetype = entities_[index].second;
+    auto& slot                 = _entity_slot(index);
+    archetype* const archetype = slot.second;
     if (archetype == nullptr) [[unlikely]] {
         return;
     }
@@ -374,7 +714,7 @@ constexpr void world_base<Alloc>::remove_components(entity_t entity) {
 
     if (remove_all) {
         archetype->erase(entity);
-        entities_[index].second = nullptr;
+        slot.second = nullptr;
         return;
     }
 
@@ -386,29 +726,34 @@ constexpr void world_base<Alloc>::remove_components(entity_t entity) {
     }
 
     archetype->transfer(entity, iter->second);
-    entities_[index].second = &iter->second;
+    slot.second = &iter->second;
 }
 
 template <std_simple_allocator Alloc>
 constexpr void world_base<Alloc>::kill(entity_t entity) {
     const auto index = _get_index(entity);
-    const auto gen   = _get_gen(entity);
-    assert(entity == entities_[index].first);
+    auto& slot       = _entity_slot(index);
+    assert(entity == slot.first);
 
-    auto*& arche = entities_[index].second;
+    auto*& arche = slot.second;
     if (arche != nullptr) {
         arche->erase(entity);
         arche = nullptr;
     }
-    _reset_index(entities_[index].first);
-    if (gen != (std::numeric_limits<uint32_t>::max)()) [[likely]] {
-        free_indices_.push(index);
+    _release_entity(index);
+}
+
+template <std_simple_allocator Alloc>
+template <compatible_range<entity_t> Rng>
+constexpr void world_base<Alloc>::kill(Rng&& range) {
+    for (entity_t entity : range) {
+        kill(entity);
     }
 }
 
 template <std_simple_allocator Alloc>
 constexpr void world_base<Alloc>::reserve(size_type n) {
-    entities_.reserve(n);
+    _reserve_entities(n);
 }
 
 template <std_simple_allocator Alloc>
@@ -426,13 +771,12 @@ constexpr void world_base<Alloc>::reserve(size_type n) {
         it->second.reserve(n);
     }
 
-    entities_.reserve(n);
+    _reserve_entities(n);
 }
 
 template <std_simple_allocator Alloc>
 constexpr bool world_base<Alloc>::is_alive(entity_t entity) noexcept {
-    const auto index = _get_index(entity);
-    return index != 0 && entities_.size() > index;
+    return _is_alive(entity);
 }
 
 template <std_simple_allocator Alloc>
@@ -440,9 +784,7 @@ void world_base<Alloc>::clear() {
     for (auto& [_, archetype] : archetypes_) {
         archetype.clear();
     }
-    free_indices_ = _priority_queue<index_t>{ entities_.get_allocator() };
-    entities_.clear();
-    entities_.emplace_back();
+    _clear_entities();
 }
 
 } // namespace _world_base

@@ -1,3 +1,4 @@
+#include <array>
 #include <cstddef>
 #include <neutron/ecs.hpp>
 #include "neutron/detail/ecs/world_accessor.hpp"
@@ -173,6 +174,122 @@ void test_command_buffer_future_remove_components() {
     require_position_only(archetype, 20, 21);
 }
 
+void test_spawn_n_without_components() {
+    basic_world<world_descriptor_t<>> world;
+    auto entities = world.spawn_n(4);
+
+    require(entities.size() == 4);
+
+    entity_t expected = 1;
+    size_t count      = 0;
+    for (entity_t entity : entities) {
+        require(entity == expected++);
+        require(world.is_alive(entity));
+        require_entity_has_no_archetype(world, entity);
+        ++count;
+    }
+    require(count == 4);
+}
+
+void test_spawn_n_with_default_components() {
+    basic_world<world_descriptor_t<>> world;
+    auto entities = world.template spawn_n<Position, Velocity, Tag>(3);
+
+    require(entities.size() == 3);
+
+    auto iter             = entities.begin();
+    auto* const archetype = entity_archetype(world, *iter);
+    require(archetype->template has<Position, Velocity, Tag>());
+
+    size_t count = 0;
+    for (entity_t entity : entities) {
+        require(entity_archetype(world, entity) == archetype);
+        require(world.is_alive(entity));
+        ++count;
+    }
+    require(count == 3);
+    require_position_velocity(archetype, 0, 0, 0, 0, 3);
+}
+
+void test_spawn_n_with_component_values() {
+    basic_world<world_descriptor_t<>> world;
+    auto entities = world.spawn_n(2, Position{ 7, 8 }, Velocity{ 9, 10 }, Tag{});
+
+    require(entities.size() == 2);
+
+    auto iter             = entities.begin();
+    auto* const archetype = entity_archetype(world, *iter);
+    require(archetype->template has<Position, Velocity, Tag>());
+
+    size_t count = 0;
+    for (entity_t entity : entities) {
+        require(entity_archetype(world, entity) == archetype);
+        require(world.is_alive(entity));
+        ++count;
+    }
+    require(count == 2);
+    require_position_velocity(archetype, 7, 8, 9, 10, 2);
+}
+
+void test_kill_range() {
+    basic_world<world_descriptor_t<>> world;
+    auto entities = world.spawn_n(3, Position{ 1, 2 }, Velocity{ 3, 4 }, Tag{});
+
+    world.kill(entities);
+
+    for (entity_t entity : entities) {
+        require_false(world.is_alive(entity));
+    }
+}
+
+void test_spawn_n_mixed_reuse_and_append() {
+    basic_world<world_descriptor_t<>> world;
+    auto initial = world.spawn_n(4);
+
+    std::array<entity_t, 2> released{};
+    auto initial_iter = initial.begin();
+    released[0]       = *initial_iter++;
+    released[1]       = *initial_iter++;
+
+    world.kill(released);
+    require_false(world.is_alive(released[0]));
+    require_false(world.is_alive(released[1]));
+
+    auto next = world.spawn_n(4);
+    require(next.size() == 4);
+
+    auto iter = next.begin();
+    const auto reused_first  = *iter++;
+    const auto reused_second = *iter++;
+    const auto fresh_first   = *iter++;
+    const auto fresh_second  = *iter++;
+
+    require(static_cast<index_t>(reused_first) ==
+            static_cast<index_t>(released[1]));
+    require(static_cast<index_t>(reused_second) ==
+            static_cast<index_t>(released[0]));
+    require(reused_first != released[1]);
+    require(reused_second != released[0]);
+    require(fresh_first == 5);
+    require(fresh_second == 6);
+}
+
+void test_is_alive_tracks_generation() {
+    basic_world<world_descriptor_t<>> world;
+
+    const auto entity = world.spawn(Position{ 1, 2 });
+    require(world.is_alive(entity));
+
+    world.kill(entity);
+    require_false(world.is_alive(entity));
+
+    const auto recycled = world.spawn();
+    require(world.is_alive(recycled));
+    require_false(world.is_alive(entity));
+    require(static_cast<index_t>(recycled) == static_cast<index_t>(entity));
+    require(recycled != entity);
+}
+
 int main() {
     test_add_components_with_values();
     neutron::println("world_base test: add values ok");
@@ -188,5 +305,17 @@ int main() {
     neutron::println("world_base test: command buffer add ok");
     test_command_buffer_future_remove_components();
     neutron::println("world_base test: command buffer remove ok");
+    test_spawn_n_without_components();
+    neutron::println("world_base test: spawn_n empty ok");
+    test_spawn_n_with_default_components();
+    neutron::println("world_base test: spawn_n default ok");
+    test_spawn_n_with_component_values();
+    neutron::println("world_base test: spawn_n values ok");
+    test_kill_range();
+    neutron::println("world_base test: kill range ok");
+    test_spawn_n_mixed_reuse_and_append();
+    neutron::println("world_base test: spawn_n mixed ok");
+    test_is_alive_tracks_generation();
+    neutron::println("world_base test: is_alive ok");
     return 0;
 }
