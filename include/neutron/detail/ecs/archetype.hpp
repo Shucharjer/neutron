@@ -136,6 +136,8 @@ class archetype<Alloc> {
     friend class _view::_view_base;
     template <std_simple_allocator, component...>
     friend class _view::_eview_base;
+    template <std_simple_allocator>
+    friend class _world_base::world_base;
 
     template <typename Ty>
     using _allocator_t = rebind_alloc_t<Alloc, Ty>;
@@ -743,6 +745,33 @@ private:
         }
     }
 
+    template <typename OnRollback>
+    constexpr void _rollback_appended(
+        size_type original_size, OnRollback&& on_rollback) noexcept {
+        static_assert(
+            std::is_nothrow_invocable_v<OnRollback&, entity_t>,
+            "rollback hooks must be noexcept");
+
+        for (size_type index = size_; index != original_size; --index) {
+            on_rollback(index2entity_[index - 1]);
+        }
+        _rollback_appended(original_size);
+    }
+
+    template <typename OnRollback>
+    constexpr void _rollback_staged_entities(
+        size_type original_size, OnRollback&& on_rollback) noexcept {
+        static_assert(
+            std::is_nothrow_invocable_v<OnRollback&, entity_t>,
+            "rollback hooks must be noexcept");
+
+        while (index2entity_.size() > original_size) {
+            on_rollback(index2entity_.back());
+            entity2index_.erase(index2entity_.back());
+            index2entity_.pop_back();
+        }
+    }
+
     constexpr void _move_construct_from(
         const archetype& source, size_type source_kind, size_type source_index,
         size_type target_kind, size_type target_index) {
@@ -1200,33 +1229,133 @@ private:
         }
     }
 
-    template <compatible_range<entity_t> Rng, component... Components>
+    template <
+        compatible_range<entity_t> Rng, component... Components,
+        typename BindEntity, typename UnbindEntity>
     requires(std::is_nothrow_default_constructible_v<Components> && ...)
-    auto _emplace_n(
+    auto _emplace_with_entity_binding(
         Rng&& range, size_type append,
-        [[maybe_unused]] const type_list<Components...> tl) {
+        [[maybe_unused]] const type_list<Components...> tl,
+        BindEntity&& bind_entity, UnbindEntity&& unbind_entity) {
 
         const auto currsize = size_;
         auto index          = currsize;
         index2entity_.reserve(currsize + append);
         entity2index_.reserve(currsize + append);
-        auto guard = make_exception_guard([this, currsize]() noexcept {
-            while (index2entity_.size() > currsize) {
-                entity2index_.erase(index2entity_.back());
-                index2entity_.pop_back();
-            }
-        });
+        auto guard = make_exception_guard(
+            [this, currsize, &unbind_entity]() noexcept {
+                _rollback_staged_entities(currsize, unbind_entity);
+            });
         for (entity_t entity : range) {
             entity2index_.try_emplace(entity, index++);
             index2entity_.push_back(entity);
+            bind_entity(entity);
         }
-        guard.mark_complete();
 
         // noexcept part
         [this, append]<size_t... Is>(std::index_sequence<Is...>) {
             (_emplace_n_noexcept<Is, type_list<Components...>, Rng>(append),
              ...);
         }(std::index_sequence_for<Components...>());
+        guard.mark_complete();
+    }
+
+    template <
+        compatible_range<entity_t> Rng, component... Components,
+        typename BindEntity, typename UnbindEntity>
+    requires(!(std::is_nothrow_default_constructible_v<Components> && ...))
+    auto _emplace_with_entity_binding(
+        Rng&& range, size_type append,
+        [[maybe_unused]] const type_list<Components...> tl,
+        BindEntity&& bind_entity, UnbindEntity&& unbind_entity) {
+
+        const auto currsize = size_;
+        auto index          = currsize;
+        index2entity_.reserve(currsize + append);
+        entity2index_.reserve(currsize + append);
+        auto guard = make_exception_guard(
+            [this, currsize, &unbind_entity]() noexcept {
+                _rollback_staged_entities(currsize, unbind_entity);
+            });
+        for (entity_t entity : range) {
+            entity2index_.try_emplace(entity, index++);
+            index2entity_.push_back(entity);
+            bind_entity(entity);
+        }
+
+        using clist        = type_list<Components...>;
+        using isequence    = std::index_sequence_for<Components...>;
+        size_type finished = 0;
+        auto clean         = [this, &finished, currsize, append]() noexcept {
+            [this, &finished, currsize,
+             append]<size_t... Is>(std::index_sequence<Is...>) {
+                (_clean_for_emplace_n<Is, clist>(finished, currsize, append),
+                 ...);
+            }(isequence());
+        };
+        auto emplace_guard = make_exception_guard(clean);
+        [this, &finished, append]<size_t... Is>(std::index_sequence<Is...>) {
+            (_emplace_n<Is, clist>(finished, append), ...);
+        }(isequence());
+        emplace_guard.mark_complete();
+
+        guard.mark_complete();
+    }
+
+    template <
+        compatible_range<entity_t> Rng, component... Components,
+        typename BindEntity, typename UnbindEntity>
+    auto _emplace_with_entity_binding(
+        Rng&& range, [[maybe_unused]] const type_list<Components...> tl,
+        BindEntity&& bind_entity, UnbindEntity&& unbind_entity) {
+        if constexpr (std::ranges::sized_range<Rng>) {
+            auto append     = std::ranges::size(range);
+            auto final_size = size_ + append;
+            entity2index_.reserve(final_size);
+            index2entity_.reserve(final_size);
+            if (final_size > capacity_) {
+                _relocate<Components...>(std::max(final_size, capacity_));
+            }
+            _emplace_with_entity_binding(
+                std::forward<Rng>(range), append, tl,
+                std::forward<BindEntity>(bind_entity),
+                std::forward<UnbindEntity>(unbind_entity));
+            size_ += append;
+        } else {
+            const auto original_size = size_;
+            auto guard = make_exception_guard(
+                [this, original_size, &unbind_entity]() noexcept {
+                    _rollback_appended(original_size, unbind_entity);
+                });
+            std::ranges::for_each(
+                range, [this, &bind_entity](entity_t entity) {
+                    _ensure_capacity_for_one();
+                    _emplace(entity, type_list<Components...>{});
+                    bind_entity(entity);
+                });
+            guard.mark_complete();
+        }
+    }
+
+    template <
+        component... Components, compatible_range<entity_t> Rng,
+        typename BindEntity, typename UnbindEntity>
+    auto _emplace_with_entity_binding(
+        Rng&& range, BindEntity&& bind_entity, UnbindEntity&& unbind_entity) {
+        using type_list = type_list<Components...>;
+        using hash_list = hash_list_t<type_list>;
+        _emplace_with_entity_binding(
+            std::forward<Rng>(range), hash_list{},
+            std::forward<BindEntity>(bind_entity),
+            std::forward<UnbindEntity>(unbind_entity));
+    }
+
+    template <compatible_range<entity_t> Rng, component... Components>
+    auto _emplace(
+        Rng&& range, [[maybe_unused]] const type_list<Components...> tl) {
+        auto ignore_entity = [](entity_t) noexcept {};
+        _emplace_with_entity_binding(
+            std::forward<Rng>(range), tl, ignore_entity, ignore_entity);
     }
 
     template <
@@ -1260,67 +1389,6 @@ private:
         std::uninitialized_value_construct_n(addr, size_appending);
 
         ++finished;
-    }
-
-    template <compatible_range<entity_t> Rng, component... Components>
-    requires(!(std::is_nothrow_default_constructible_v<Components> && ...))
-    auto _emplace_n(
-        Rng&& range, size_type append,
-        [[maybe_unused]] const type_list<Components...> tl) {
-
-        const auto currsize = size_;
-        auto index          = currsize;
-        index2entity_.reserve(currsize + append);
-        entity2index_.reserve(currsize + append);
-        auto guard = make_exception_guard([this, currsize]() noexcept {
-            while (index2entity_.size() > currsize) {
-                entity2index_.erase(index2entity_.back());
-                index2entity_.pop_back();
-            }
-        });
-        for (entity_t entity : range) {
-            entity2index_.try_emplace(entity, index++);
-            index2entity_.push_back(entity);
-        }
-
-        using clist        = type_list<Components...>;
-        using isequence    = std::index_sequence_for<Components...>;
-        size_type finished = 0;
-        auto clean         = [this, &finished, currsize, append]() noexcept {
-            [this, &finished, currsize,
-             append]<size_t... Is>(std::index_sequence<Is...>) {
-                (_clean_for_emplace_n<Is, clist>(finished, currsize, append),
-                 ...);
-            }(isequence());
-        };
-        auto emplace_guard = make_exception_guard(clean);
-        [this, &finished, append]<size_t... Is>(std::index_sequence<Is...>) {
-            (_emplace_n<Is, clist>(finished, append), ...);
-        }(isequence());
-        emplace_guard.mark_complete();
-
-        guard.mark_complete();
-    }
-
-    template <compatible_range<entity_t> Rng, component... Components>
-    auto _emplace(
-        Rng&& range, [[maybe_unused]] const type_list<Components...> tl) {
-        if constexpr (std::ranges::sized_range<Rng>) {
-            auto append     = std::ranges::size(range);
-            auto final_size = size_ + append;
-            entity2index_.reserve(final_size);
-            index2entity_.reserve(final_size);
-            if (final_size > capacity_) {
-                _relocate<Components...>(std::max(final_size, capacity_));
-            }
-            _emplace_n(std::forward<Rng>(range), append, tl);
-            size_ += append;
-        } else {
-            std::ranges::for_each(range, [this](entity_t entity) {
-                _ensure_capacity_for_one();
-                _emplace(entity, type_list<Components...>{});
-            });
-        }
     }
 
     // emplace(...);
@@ -1450,8 +1518,12 @@ private:
 
     // emplace(range, ...)
 
-    template <compatible_range<entity_t> Rng, component... Components>
-    constexpr void _emplace(Rng&& range, Components&&... components) {
+    template <
+        compatible_range<entity_t> Rng, typename BindEntity,
+        typename UnbindEntity, component... Components>
+    constexpr void _emplace_with_entity_binding(
+        Rng&& range, BindEntity&& bind_entity, UnbindEntity&& unbind_entity,
+        Components&&... components) {
         using sorted =
             hash_list_t<type_list<std::remove_cvref_t<Components>...>>;
 
@@ -1468,18 +1540,28 @@ private:
         auto tuple =
             std::forward_as_tuple(std::forward<Components>(components)...);
         const auto original_size = size_;
-        auto guard = make_exception_guard([this, original_size]() noexcept {
-            _rollback_appended(original_size);
-        });
+        auto guard = make_exception_guard(
+            [this, original_size, &unbind_entity]() noexcept {
+                _rollback_appended(original_size, unbind_entity);
+            });
 
         for (entity_t entity : range) {
             if constexpr (!std::ranges::sized_range<Rng>) {
                 _ensure_capacity_for_one();
             }
             _emplace(entity, sorted{}, tuple);
+            bind_entity(entity);
         }
 
         guard.mark_complete();
+    }
+
+    template <compatible_range<entity_t> Rng, component... Components>
+    constexpr void _emplace(Rng&& range, Components&&... components) {
+        auto ignore_entity = [](entity_t) noexcept {};
+        _emplace_with_entity_binding(
+            std::forward<Rng>(range), ignore_entity, ignore_entity,
+            std::forward<Components>(components)...);
     }
 
     // vw

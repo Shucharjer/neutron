@@ -332,7 +332,7 @@ protected:
  * library. Default is `std::allocator<std::byte>`. The container would rebind
  * allocator automatically.
  */
-template <std_simple_allocator Alloc = std::allocator<std::byte>>
+template <std_simple_allocator Alloc>
 class world_base : private _entity_slots_base<Alloc> {
     template <typename, std_simple_allocator>
     friend class basic_world;
@@ -425,8 +425,6 @@ private:
     constexpr void _emplace_new_entities(Rng& range);
     template <component... Components, compatible_range<entity_t> Rng>
     constexpr void _emplace_new_entities(Rng& range, Components&&...);
-    template <compatible_range<entity_t> Rng>
-    constexpr void _set_archetype(Rng& range, archetype* archetype);
     template <component... Components>
     uint64_t _dst_hash_add(archetype* archetype, uint64_t delta);
 
@@ -475,15 +473,26 @@ constexpr void world_base<Alloc>::_emplace_new_entities(Rng& range) {
     using list              = type_list<Components...>;
     constexpr uint64_t hash = make_array_hash<list>();
 
+    auto bind_archetype = [this](archetype* target_archetype) noexcept {
+        return [this, target_archetype](entity_t entity) noexcept {
+            _entity_slot(_get_index(entity)).second = target_archetype;
+        };
+    };
+    auto reset_archetype = [this](entity_t entity) noexcept {
+        _entity_slot(_get_index(entity)).second = nullptr;
+    };
+
     auto iter = archetypes_.find(hash);
     if (iter != archetypes_.end()) {
-        iter->second.template emplace<Components...>(range);
-        _set_archetype(range, &iter->second);
+        auto on_append = bind_archetype(&iter->second);
+        iter->second.template _emplace_with_entity_binding<Components...>(
+            range, on_append, reset_archetype);
     } else {
         auto [created, _] = archetypes_.try_emplace(
             hash, archetype{ spread_type<Components...> });
-        created->second.template emplace<Components...>(range);
-        _set_archetype(range, &created->second);
+        auto on_append = bind_archetype(&created->second);
+        created->second.template _emplace_with_entity_binding<Components...>(
+            range, on_append, reset_archetype);
     }
 }
 
@@ -537,24 +546,28 @@ constexpr void world_base<Alloc>::_emplace_new_entities(
     using list              = type_list<std::remove_cvref_t<Components>...>;
     constexpr uint64_t hash = make_array_hash<list>();
 
+    auto bind_archetype = [this](archetype* target_archetype) noexcept {
+        return [this, target_archetype](entity_t entity) noexcept {
+            _entity_slot(_get_index(entity)).second = target_archetype;
+        };
+    };
+    auto reset_archetype = [this](entity_t entity) noexcept {
+        _entity_slot(_get_index(entity)).second = nullptr;
+    };
+
     auto iter = archetypes_.find(hash);
     if (iter != archetypes_.end()) [[likely]] {
-        iter->second.emplace(range, std::forward<Components>(components)...);
-        _set_archetype(range, &iter->second);
+        auto on_append = bind_archetype(&iter->second);
+        iter->second._emplace_with_entity_binding(
+            range, on_append, reset_archetype,
+            std::forward<Components>(components)...);
     } else [[unlikely]] {
         auto [created, _] = archetypes_.try_emplace(
             hash, archetype{ spread_type<std::remove_cvref_t<Components>...> });
-        created->second.emplace(range, std::forward<Components>(components)...);
-        _set_archetype(range, &created->second);
-    }
-}
-
-template <std_simple_allocator Alloc>
-template <compatible_range<entity_t> Rng>
-constexpr void
-    world_base<Alloc>::_set_archetype(Rng& range, archetype* archetype) {
-    for (entity_t entity : range) {
-        _entity_slot(_get_index(entity)).second = archetype;
+        auto on_append = bind_archetype(&created->second);
+        created->second._emplace_with_entity_binding(
+            range, on_append, reset_archetype,
+            std::forward<Components>(components)...);
     }
 }
 

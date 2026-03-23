@@ -41,4 +41,11 @@ concept world = internal::_is_basic_world<Ty>;
 
 class insertion_context;
 
+namespace _world_base {
+
+template <std_simple_allocator Alloc = std::allocator<std::byte>>
+class world_base;
+
+} // namespace _world_base
+
 } // namespace neutron

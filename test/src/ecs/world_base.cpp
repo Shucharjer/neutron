@@ -1,5 +1,6 @@
 #include <array>
 #include <cstddef>
+#include <stdexcept>
 #include <neutron/ecs.hpp>
 #include "neutron/detail/ecs/world_accessor.hpp"
 #include "require.hpp"
@@ -24,6 +25,18 @@ struct Velocity {
 
 struct Tag {
     using component_concept = neutron::component_t;
+};
+
+struct ThrowOnDefault {
+    using component_concept = neutron::component_t;
+
+    int value{ 0 };
+
+    ThrowOnDefault() { throw std::runtime_error("default failed"); }
+    ThrowOnDefault(const ThrowOnDefault&) = default;
+    ThrowOnDefault(ThrowOnDefault&&) noexcept = default;
+    auto operator=(const ThrowOnDefault&) -> ThrowOnDefault& = default;
+    auto operator=(ThrowOnDefault&&) noexcept -> ThrowOnDefault& = default;
 };
 
 void require_position_only(
@@ -231,6 +244,29 @@ void test_spawn_n_with_component_values() {
     require_position_velocity(archetype, 7, 8, 9, 10, 2);
 }
 
+void test_spawn_n_rolls_back_archetype_slots_on_exception() {
+    basic_world<world_descriptor_t<>> world;
+    auto entities = world.spawn_n(3);
+
+    bool threw = false;
+    try {
+        world.template spawn_n<ThrowOnDefault>(3);
+    } catch (const std::runtime_error&) {
+        threw = true;
+    }
+
+    require(threw);
+
+    for (entity_t entity : entities) {
+        require_entity_has_no_archetype(world, entity);
+    }
+
+    auto& slots = world_accessor::entities(world);
+    for (size_t index = 1; index < slots.size(); ++index) {
+        require(slots[index].second == nullptr);
+    }
+}
+
 void test_kill_range() {
     basic_world<world_descriptor_t<>> world;
     auto entities = world.spawn_n(3, Position{ 1, 2 }, Velocity{ 3, 4 }, Tag{});
@@ -311,6 +347,8 @@ int main() {
     neutron::println("world_base test: spawn_n default ok");
     test_spawn_n_with_component_values();
     neutron::println("world_base test: spawn_n values ok");
+    test_spawn_n_rolls_back_archetype_slots_on_exception();
+    neutron::println("world_base test: spawn_n rollback ok");
     test_kill_range();
     neutron::println("world_base test: kill range ok");
     test_spawn_n_mixed_reuse_and_append();

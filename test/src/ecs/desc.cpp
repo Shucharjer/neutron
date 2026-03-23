@@ -9,6 +9,12 @@ void foo() {}
 void bar() {}
 void nop() {}
 
+struct empty_application {
+    static empty_application create() { return {}; }
+    template <auto... Worlds>
+    auto run() {}
+};
+
 int main() {
     // Render-stage systems may carry per-system ordering and execution tags.
     constexpr auto desc1 =
@@ -37,7 +43,8 @@ int main() {
                            add_systems<update, { &foo }>;
 
     // This file is a descriptor-syntax smoke test.
-    mmapp::create() | run_worlds<desc1, desc2, desc3, desc4, desc5>();
+    empty_application::create() |
+        run_worlds<desc1, desc2, desc3, desc4, desc5>();
 
     return 0;
 }
