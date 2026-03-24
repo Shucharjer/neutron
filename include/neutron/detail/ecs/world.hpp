@@ -13,6 +13,7 @@
 #include <memory>
 #include <mutex>
 #include <optional>
+#include <span>
 #include <type_traits>
 #include <utility>
 #include <vector>
@@ -79,7 +80,7 @@ public:
     void call() noexcept {}
 
     template <stage Stage, neutron::execution::scheduler Sch>
-    void call(Sch&, _vector_t<command_buffer>&) noexcept {}
+    void call(Sch&, std::span<command_buffer>) noexcept {}
 
     void set_dynamic_update_interval(double) noexcept {}
 
@@ -94,7 +95,7 @@ public:
     [[nodiscard]] constexpr bool should_call_update() noexcept { return true; }
 
 private:
-    _vector_t<command_buffer>* command_buffers_;
+    std::span<command_buffer> command_buffers_{};
     const insertion_context* insertion_context_ = nullptr;
 };
 
@@ -188,6 +189,11 @@ public:
             return;
         } else {
             _vector_t<command_buffer> cmdbufs(1);
+            if constexpr (static_graph::command_node_count != 0) {
+                if (cmdbufs.size() < static_graph::size) {
+                    cmdbufs.resize(static_graph::size);
+                }
+            }
             _drive_stage_graph<static_graph>(
                 cmdbufs, [this](auto& ready, size_t ready_count) {
                     for (size_t index = 0; index < ready_count; ++index) {
@@ -199,13 +205,16 @@ public:
     }
 
     template <stage Stage, neutron::execution::scheduler Sch>
-    void call(Sch& sch, _vector_t<command_buffer>& cmdbufs) {
+    void call(Sch& sch, std::span<command_buffer> cmdbufs) {
         using static_graph = stage_graph<Stage, Descriptor>;
         static_assert(static_graph::value, "Invalid ECS stage graph");
 
         if constexpr (static_graph::size == 0) {
             return;
         } else {
+            if constexpr (static_graph::command_node_count != 0) {
+                assert(cmdbufs.size() >= static_graph::size);
+            }
             _drive_stage_graph<static_graph>(
                 cmdbufs, [this, &sch](auto& ready, size_t ready_count) {
                     auto batch = execution::schedule(sch) |
@@ -219,6 +228,25 @@ public:
                     neutron::this_thread::sync_wait(std::move(batch));
                 });
         }
+    }
+
+    template <stage Stage, neutron::execution::scheduler Sch, typename CmdBufs>
+    void call(Sch& sch, CmdBufs& cmdbufs)
+    requires requires(CmdBufs& buffers) {
+        std::span<command_buffer>{ buffers };
+        buffers.resize(size_t{});
+    }
+    {
+        using static_graph = stage_graph<Stage, Descriptor>;
+        static_assert(static_graph::value, "Invalid ECS stage graph");
+
+        if constexpr (static_graph::command_node_count != 0) {
+            if (cmdbufs.size() < static_graph::size) {
+                cmdbufs.resize(static_graph::size);
+            }
+        }
+
+        call<Stage>(sch, std::span<command_buffer>{ cmdbufs });
     }
 
 private:
@@ -284,19 +312,17 @@ private:
     };
 
     template <typename StaticGraph>
-    void _prepare_command_buffers(_vector_t<command_buffer>& cmdbufs) {
-        command_buffers_ = &cmdbufs;
+    void _prepare_command_buffers(std::span<command_buffer> cmdbufs) {
+        command_buffers_ = cmdbufs;
         if constexpr (StaticGraph::command_node_count != 0) {
-            if (command_buffers_->size() < StaticGraph::size) {
-                command_buffers_->resize(StaticGraph::size);
-            }
+            assert(command_buffers_.size() >= StaticGraph::size);
         }
         _reset_command_buffers();
     }
 
     template <typename StaticGraph, typename ReadyExecutor>
     void _drive_stage_graph(
-        _vector_t<command_buffer>& cmdbufs, ReadyExecutor&& execute_ready) {
+        std::span<command_buffer> cmdbufs, ReadyExecutor&& execute_ready) {
         _prepare_command_buffers<StaticGraph>(cmdbufs);
 
         stage_task_graph<StaticGraph> runtime_graph;
@@ -325,13 +351,13 @@ private:
     }
 
     void _reset_command_buffers() noexcept {
-        for (auto& cmdbuf : *command_buffers_) {
+        for (auto& cmdbuf : command_buffers_) {
             cmdbuf.reset();
         }
     }
 
     void _flush_command_buffers() noexcept {
-        for (auto& cmdbuf : *command_buffers_) {
+        for (auto& cmdbuf : command_buffers_) {
             cmdbuf.apply(_base());
             cmdbuf.reset();
         }
@@ -357,7 +383,7 @@ private:
     //  variables could be pass between each systems
     type_list_rebind_t<neutron::shared_tuple, resources> resources_;
 
-    _vector_t<command_buffer>* command_buffers_;
+    std::span<command_buffer> command_buffers_{};
     const insertion_context* insertion_context_ = nullptr;
     typename clock_type::time_point last_update_{};
     double dynamic_update_interval_   = 0.0;
@@ -722,13 +748,9 @@ void call(Sch& sch, CmdBufs& cmdbufs, World& world) {
 }
 
 template <
-    stage Stage, neutron::execution::scheduler Sch, typename Alloc,
-    world... Worlds,
-    typename VectorAlloc =
-        neutron::rebind_alloc_t<Alloc, command_buffer<Alloc>>>
-void call(
-    Sch& sch, std::vector<command_buffer<Alloc>, VectorAlloc>& cmdbufs,
-    std::tuple<Worlds...>& worlds) {
+    stage Stage, neutron::execution::scheduler Sch, typename CmdBufs,
+    world... Worlds>
+void call(Sch& sch, CmdBufs& cmdbufs, std::tuple<Worlds...>& worlds) {
     if constexpr (sizeof...(Worlds) == 0) {
         return;
     } else {

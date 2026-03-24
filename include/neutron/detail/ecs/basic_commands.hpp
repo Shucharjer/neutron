@@ -118,9 +118,8 @@ template <auto Sys, std_simple_allocator Alloc, size_t Index>
 struct construct_from_world_t<Sys, basic_commands<Alloc>, Index> {
     template <world World>
     basic_commands<Alloc> operator()(World& world) const noexcept {
-        const auto cmdbuf_index = Index % world.command_buffers_->size();
-        return basic_commands<Alloc>{ world.command_buffers_->at(
-            cmdbuf_index) };
+        const auto cmdbuf_index = Index % world.command_buffers_.size();
+        return basic_commands<Alloc>{ world.command_buffers_[cmdbuf_index] };
     }
 };
 
