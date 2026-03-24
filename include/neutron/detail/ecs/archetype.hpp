@@ -523,48 +523,7 @@ public:
     }
 
     constexpr void erase(entity_t entity) {
-        const auto index      = entity2index_.at(entity);
-        const auto last_index = size_ - 1;
-
-        if (index != last_index) {
-            for (uint32_t i = 0; i < hash_list_.size(); ++i) {
-                const basic_info info = basic_info_[i];
-                if (info.size == 0) {
-                    continue;
-                }
-
-                auto* const data = storage_[i].get();
-                auto* dst        = data + (info.size * index);
-                auto* src        = data + (info.size * last_index);
-
-                if (info.trivially_move_assignable) {
-                    std::memcpy(dst, src, info.size);
-                } else {
-                    // requires component move assignable
-                    move_assignments_[i](dst, src);
-                    // requires component destructible
-                    destructors_[i](src, 1);
-                }
-            }
-
-            const auto last_entity     = index2entity_[last_index];
-            index2entity_[index]       = last_entity;
-            entity2index_[last_entity] = index;
-        } else {
-            for (uint32_t i = 0; i < hash_list_.size(); ++i) {
-                const basic_info info = basic_info_[i];
-                if (info.size == 0) {
-                    continue;
-                }
-
-                auto* const data = storage_[i].get();
-                destructors_[i](data + (info.size * index), 1);
-            }
-        }
-
-        entity2index_.erase(entity);
-        index2entity_.pop_back();
-        --size_;
+        _erase_known_index(entity, entity2index_.at(entity));
     }
 
     template <component... Components>
@@ -668,6 +627,50 @@ public:
     }
 
 private:
+    constexpr void _erase_known_index(entity_t entity, size_type index) {
+        const auto last_index = size_ - 1;
+
+        if (index != last_index) {
+            for (uint32_t i = 0; i < hash_list_.size(); ++i) {
+                const basic_info info = basic_info_[i];
+                if (info.size == 0) {
+                    continue;
+                }
+
+                auto* const data = storage_[i].get();
+                auto* dst        = data + (info.size * index);
+                auto* src        = data + (info.size * last_index);
+
+                if (info.trivially_move_assignable) {
+                    std::memcpy(dst, src, info.size);
+                } else {
+                    // requires component move assignable
+                    move_assignments_[i](dst, src);
+                    // requires component destructible
+                    destructors_[i](src, 1);
+                }
+            }
+
+            const auto last_entity     = index2entity_[last_index];
+            index2entity_[index]       = last_entity;
+            entity2index_[last_entity] = index;
+        } else {
+            for (uint32_t i = 0; i < hash_list_.size(); ++i) {
+                const basic_info info = basic_info_[i];
+                if (info.size == 0) {
+                    continue;
+                }
+
+                auto* const data = storage_[i].get();
+                destructors_[i](data + (info.size * index), 1);
+            }
+        }
+
+        entity2index_.erase(entity);
+        index2entity_.pop_back();
+        --size_;
+    }
+
     constexpr static std::align_val_t _get_align(size_t align) noexcept {
         return std::align_val_t{ (std::max<size_t>)(default_alignment, align) };
     }
@@ -685,14 +688,23 @@ private:
 
     constexpr void _ensure_capacity_for_one() {
         const auto next_size = size_ + 1;
+        size_type reserve_to = capacity_;
         if (next_size > capacity_) [[unlikely]] {
             const auto grow_to =
                 (std::max)(next_size,
                            capacity_ == 0 ? initial_capacity : capacity_ << 1);
             _relocate(grow_to);
+            reserve_to = grow_to;
+        } else if (reserve_to < next_size) {
+            reserve_to = next_size;
         }
-        entity2index_.reserve(next_size);
-        index2entity_.reserve(next_size);
+
+        if (entity2index_.capacity() < reserve_to) {
+            entity2index_.reserve(reserve_to);
+        }
+        if (index2entity_.capacity() < reserve_to) {
+            index2entity_.reserve(reserve_to);
+        }
     }
 
     ATOM_NODISCARD constexpr auto
@@ -845,7 +857,7 @@ private:
         ++target.size_;
 
         guard.mark_complete();
-        erase(entity);
+        _erase_known_index(entity, source_index);
     }
 
     template <size_t Index, component... SortedComponents>

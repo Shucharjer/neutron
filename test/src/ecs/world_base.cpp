@@ -157,6 +157,31 @@ void test_remove_missing_components_is_noop() {
     require_position_velocity(archetype, 5, 6, 7, 8);
 }
 
+void test_remove_after_add_noop_uses_distinct_transition_cache() {
+    basic_world<world_descriptor_t<>> world;
+    const auto entity = world.spawn(Position{ 1, 2 }, Tag{});
+
+    world.add_components<Tag>(entity);
+    world.remove_components<Tag>(entity);
+
+    auto* archetype = entity_archetype(world, entity);
+    require(archetype->template has<Position>());
+    require_false(archetype->template has<Tag>());
+    require_position_only(archetype, 1, 2);
+}
+
+void test_add_after_remove_noop_uses_distinct_transition_cache() {
+    basic_world<world_descriptor_t<>> world;
+    const auto entity = world.spawn(Position{ 3, 4 });
+
+    world.remove_components<Tag>(entity);
+    world.add_components<Tag>(entity);
+
+    auto* archetype = entity_archetype(world, entity);
+    require(archetype->template has<Position, Tag>());
+    require_position_only(archetype, 3, 4);
+}
+
 void test_command_buffer_future_add_components() {
     basic_world<world_descriptor_t<>> world;
     command_buffer<> buffer;
@@ -337,6 +362,10 @@ int main() {
     neutron::println("world_base test: add overlap ok");
     test_remove_missing_components_is_noop();
     neutron::println("world_base test: remove noop ok");
+    test_remove_after_add_noop_uses_distinct_transition_cache();
+    neutron::println("world_base test: add/remove cache split ok");
+    test_add_after_remove_noop_uses_distinct_transition_cache();
+    neutron::println("world_base test: remove/add cache split ok");
     test_command_buffer_future_add_components();
     neutron::println("world_base test: command buffer add ok");
     test_command_buffer_future_remove_components();

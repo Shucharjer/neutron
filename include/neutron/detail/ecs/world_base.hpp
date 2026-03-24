@@ -29,12 +29,18 @@ struct world_accessor;
 
 namespace _world_base {
 
+enum class _transition_op : uint8_t {
+    add,
+    remove,
+};
+
 struct _hash_transition {
     uint64_t from;
     uint64_t delta;
+    _transition_op op;
 
     constexpr bool operator==(const _hash_transition& that) const noexcept {
-        return from == that.from && delta == that.delta;
+        return from == that.from && delta == that.delta && op == that.op;
     }
 };
 
@@ -348,6 +354,11 @@ class world_base : private _entity_slots_base<Alloc> {
     using _entity_slots = _entity_slots_base<Alloc>;
     using archetype     = ::neutron::archetype<Alloc>;
 
+    struct _transition_target {
+        uint64_t hash{};
+        archetype* target{};
+    };
+
     template <
         typename Kty, typename Ty, typename Hasher = std::hash<Kty>,
         typename Equal = std::equal_to<Kty>>
@@ -361,6 +372,8 @@ class world_base : private _entity_slots_base<Alloc> {
         Kty, Ty, Hasher, Equal, _allocator_t<std::pair<const Kty, Ty>>>;
 
     using archetype_map = _unordered_map<uint64_t, archetype>;
+    static constexpr uint64_t empty_archetype_hash =
+        neutron::hash_combine(std::array<uint32_t, 0>{});
     using typename _entity_slots::entity_slot;
     using _entity_slots::_clear_entities;
     using _entity_slots::_entity_slot;
@@ -426,13 +439,17 @@ private:
     template <component... Components, compatible_range<entity_t> Rng>
     constexpr void _emplace_new_entities(Rng& range, Components&&...);
     template <component... Components>
-    uint64_t _dst_hash_add(archetype* archetype, uint64_t delta);
+    auto _dst_transition_add(archetype* archetype, uint64_t delta)
+        -> _transition_target&;
+    template <component... Components>
+    auto _dst_transition_remove(archetype* archetype, uint64_t delta)
+        -> _transition_target&;
 
     /// @brief A container stores archetypes with combined hash.
     archetype_map archetypes_;
 
     /// @brief Cache for O(1) entity movement.
-    _flat_hash_map<_hash_transition, uint64_t> transitions_;
+    _flat_hash_map<_hash_transition, _transition_target> transitions_;
 };
 
 template <std_simple_allocator Alloc>
@@ -594,25 +611,57 @@ constexpr auto
 
 template <std_simple_allocator Alloc>
 template <component... Components>
-uint64_t
-    world_base<Alloc>::_dst_hash_add(archetype* archetype, uint64_t delta) {
+auto world_base<Alloc>::_dst_transition_add(archetype* archetype, uint64_t delta)
+    -> _transition_target& {
     using tlist = type_list<std::remove_cvref_t<Components>...>;
-    _hash_transition cond{ .from = archetype->hash(), .delta = delta };
-    uint64_t to = 0;
+    _hash_transition cond{
+        .from = archetype->hash(),
+        .delta = delta,
+        .op = _transition_op::add,
+    };
     if (auto trans = transitions_.find(cond); trans != transitions_.end())
         [[likely]] {
-        to = trans->second;
-    } else [[unlikely]] {
-        constexpr auto arr = make_hash_array<tlist>();
-        size_t size        = archetype->hash_list().size() + arr.size();
-        _vector_t<uint32_t> hash_list(archetypes_.get_allocator());
-        hash_list.reserve(size);
-        std::ranges::set_union(
-            archetype->hash_list(), arr, std::back_inserter(hash_list));
-        to = hash_combine(hash_list);
-        transitions_.emplace_hint(trans, cond, to);
+        return trans->second;
     }
-    return to;
+
+    constexpr auto arr = make_hash_array<tlist>();
+    size_t size        = archetype->hash_list().size() + arr.size();
+    _vector_t<uint32_t> hash_list(archetypes_.get_allocator());
+    hash_list.reserve(size);
+    std::ranges::set_union(
+        archetype->hash_list(), arr, std::back_inserter(hash_list));
+
+    const auto hash = hash_combine(hash_list);
+    auto* target    = hash == archetype->hash() ? archetype : nullptr;
+    auto [trans, _] = transitions_.emplace(cond, _transition_target{ hash, target });
+    return trans->second;
+}
+
+template <std_simple_allocator Alloc>
+template <component... Components>
+auto world_base<Alloc>::_dst_transition_remove(
+    archetype* archetype, uint64_t delta) -> _transition_target& {
+    using tlist = type_list<std::remove_cvref_t<Components>...>;
+    _hash_transition cond{
+        .from = archetype->hash(),
+        .delta = delta,
+        .op = _transition_op::remove,
+    };
+    if (auto trans = transitions_.find(cond); trans != transitions_.end())
+        [[likely]] {
+        return trans->second;
+    }
+
+    constexpr auto arr = make_hash_array<tlist>();
+    _vector_t<uint32_t> hash_list(archetypes_.get_allocator());
+    hash_list.reserve(archetype->hash_list().size());
+    std::ranges::set_difference(
+        archetype->hash_list(), arr, std::back_inserter(hash_list));
+
+    const auto hash = hash_combine(hash_list);
+    auto* target    = hash == archetype->hash() ? archetype : nullptr;
+    auto [trans, _] = transitions_.emplace(cond, _transition_target{ hash, target });
+    return trans->second;
 }
 
 template <std_simple_allocator Alloc>
@@ -631,26 +680,30 @@ constexpr void world_base<Alloc>::add_components(entity_t entity) {
     }
 
     // get dst hash
-    auto to =
-        _dst_hash_add<std::remove_cvref_t<Components>...>(archetype, hash);
-    if (to == archetype->hash()) [[unlikely]] {
+    auto& transition =
+        _dst_transition_add<std::remove_cvref_t<Components>...>(archetype, hash);
+    if (transition.target == archetype) [[unlikely]] {
         return;
     }
 
-    // get target archetype by given dst hash
-    auto iter = archetypes_.find(to);
-    if (iter == archetypes_.end()) [[unlikely]] {
-        auto [it, _] = archetypes_.try_emplace(
-            to, *archetype,
-            add_components_t<std::remove_cvref_t<Components>...>{});
-        iter = it;
+    auto* target = transition.target;
+    if (target == nullptr) [[unlikely]] {
+        auto iter = archetypes_.find(transition.hash);
+        if (iter == archetypes_.end()) [[unlikely]] {
+            auto [it, _] = archetypes_.try_emplace(
+                transition.hash, *archetype,
+                add_components_t<std::remove_cvref_t<Components>...>{});
+            iter = it;
+        }
+        target            = &iter->second;
+        transition.target = target;
     }
 
     // do move
     archetype->transfer(
-        entity, iter->second,
+        entity, *target,
         add_components_t<std::remove_cvref_t<Components>...>{});
-    slot.second = &iter->second;
+    slot.second = target;
 }
 
 template <std_simple_allocator Alloc>
@@ -668,25 +721,30 @@ constexpr void world_base<Alloc>::add_components(
         return;
     }
 
-    auto to =
-        _dst_hash_add<std::remove_cvref_t<Components>...>(archetype, hash);
-    if (to == archetype->hash()) [[unlikely]] {
+    auto& transition =
+        _dst_transition_add<std::remove_cvref_t<Components>...>(archetype, hash);
+    if (transition.target == archetype) [[unlikely]] {
         return;
     }
 
-    auto iter = archetypes_.find(to);
-    if (iter == archetypes_.end()) [[unlikely]] {
-        auto [it, _] = archetypes_.try_emplace(
-            to, *archetype,
-            add_components_t<std::remove_cvref_t<Components>...>{});
-        iter = it;
+    auto* target = transition.target;
+    if (target == nullptr) [[unlikely]] {
+        auto iter = archetypes_.find(transition.hash);
+        if (iter == archetypes_.end()) [[unlikely]] {
+            auto [it, _] = archetypes_.try_emplace(
+                transition.hash, *archetype,
+                add_components_t<std::remove_cvref_t<Components>...>{});
+            iter = it;
+        }
+        target            = &iter->second;
+        transition.target = target;
     }
 
     archetype->transfer(
-        entity, iter->second,
+        entity, *target,
         add_components_t<std::remove_cvref_t<Components>...>{},
         std::forward<Components>(components)...);
-    slot.second = &iter->second;
+    slot.second = target;
 }
 
 template <std_simple_allocator Alloc>
@@ -703,43 +761,31 @@ constexpr void world_base<Alloc>::remove_components(entity_t entity) {
         return;
     }
 
-    _hash_transition cond{ .from = archetype->hash(), .delta = hash };
-    uint64_t to     = 0;
-    bool remove_all = false;
-    if (auto trans = transitions_.find(cond); trans != transitions_.end())
-        [[likely]] {
-        to         = trans->second;
-        remove_all = to == neutron::hash_combine(std::array<uint32_t, 0>{});
-    } else [[unlikely]] {
-        constexpr auto arr = make_hash_array<tlist>();
-        _vector_t<uint32_t> hash_list(archetypes_.get_allocator());
-        hash_list.reserve(archetype->hash_list().size());
-        std::ranges::set_difference(
-            archetype->hash_list(), arr, std::back_inserter(hash_list));
-        remove_all = hash_list.empty();
-        to         = hash_combine(hash_list);
-        transitions_.emplace_hint(trans, cond, to);
-    }
-
-    if (to == archetype->hash()) [[unlikely]] {
+    auto& transition = _dst_transition_remove<Components...>(archetype, hash);
+    if (transition.target == archetype) [[unlikely]] {
         return;
     }
 
-    if (remove_all) {
+    if (transition.hash == empty_archetype_hash) {
         archetype->erase(entity);
         slot.second = nullptr;
         return;
     }
 
-    auto iter = archetypes_.find(to);
-    if (iter == archetypes_.end()) [[unlikely]] {
-        auto [it, _] = archetypes_.try_emplace(
-            to, *archetype, remove_components_t<Components...>{});
-        iter = it;
+    auto* target = transition.target;
+    if (target == nullptr) [[unlikely]] {
+        auto iter = archetypes_.find(transition.hash);
+        if (iter == archetypes_.end()) [[unlikely]] {
+            auto [it, _] = archetypes_.try_emplace(
+                transition.hash, *archetype, remove_components_t<Components...>{});
+            iter = it;
+        }
+        target            = &iter->second;
+        transition.target = target;
     }
 
-    archetype->transfer(entity, iter->second);
-    slot.second = &iter->second;
+    archetype->transfer(entity, *target);
+    slot.second = target;
 }
 
 template <std_simple_allocator Alloc>
@@ -814,7 +860,8 @@ struct hash<neutron::_world_base::_hash_transition> {
     size_t operator()(const neutron::_world_base::_hash_transition& transition)
         const noexcept {
         return hash<uint64_t>{}(transition.from) ^
-               (hash<uint64_t>{}(transition.delta) << 1);
+               (hash<uint64_t>{}(transition.delta) << 1) ^
+               (hash<uint8_t>{}(static_cast<uint8_t>(transition.op)) << 2);
     }
 };
 
