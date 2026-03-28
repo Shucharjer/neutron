@@ -29,22 +29,22 @@ template <typename Ty>
 constexpr size_t half_bits = sizeof(Ty) * 4UL;
 
 /**
- * @brief A sparse-dense map optimized for ECS entity-component lookup with
- * generation-aware identities. This container provides O(1) average loopup and
- * fast iteration by splitting keys into high-order "generation" and low-order
- * "real key".
+ * @brief Sparse-dense associative container for shifted integral keys.
+ *
+ * @details This container is intended for ECS-style identifiers where the key
+ * packs stable index bits together with higher-order metadata such as a
+ * generation counter. The dense storage keeps values contiguous for iteration,
+ * while the sparse pages index the retained low bits for average O(1) lookup.
  *
  * Memory layout:
- *   - dense_:  contiguous vector of (key, value) pairs
- *   - sparse_: vector of unique_storage arrays (pages), each holding compated
- * key halves
+ * - `dense_`: contiguous vector of key-value pairs.
+ * - `sparse_`: paged sparse index storing retained key fragments.
  *
- * @tparam Kty      Unsigned integral type for keys (e.g. uint64_t)
- * @tparam Ty       Value type stored
- * @tparam Alloc    Allocator type for internal container (default:
- * std::allocator).
- * @tparam PageSize Number of entries per sparse page (must be power of two).
- * @tparam Shift    The shift size.
+ * @tparam Kty Unsigned integral key type.
+ * @tparam Ty Value type.
+ * @tparam PageSize Number of sparse entries per page. Must be a power of two.
+ * @tparam Shift Number of high bits ignored by the sparse index.
+ * @tparam Alloc Allocator used for internal storage.
  */
 template <
     std::unsigned_integral Kty, typename Ty, size_t PageSize = 32UL,
@@ -104,15 +104,32 @@ public:
 
     // clang-format on
 
+    /**
+     * @brief Construct an empty map.
+     */
     constexpr shift_map() = default;
 
+    /**
+     * @brief Construct an empty map with the specified allocator.
+     * @param alloc Allocator used for internal storage.
+     */
     constexpr shift_map(const allocator_type& alloc)
         : dense_(alloc), sparse_(alloc) {}
 
+    /**
+     * @brief Construct an empty map with the specified allocator.
+     * @param alloc Allocator used for internal storage.
+     */
     constexpr shift_map(
         [[maybe_unused]] std::allocator_arg_t, const allocator_type& alloc)
         : dense_(alloc), sparse_(alloc) {}
 
+    /**
+     * @brief Construct a map from an iterator-sentinel range.
+     * @param first Iterator to the first element.
+     * @param last Sentinel marking the end of the range.
+     * @param alloc Allocator used for internal storage.
+     */
     template <std::input_iterator Iter, typename Sentinel>
     constexpr shift_map(
         Iter first, Sentinel last,
@@ -201,10 +218,22 @@ public:
 
     constexpr ~shift_map() noexcept = default;
 
+    /**
+     * @brief Insert a key-value pair if the key is absent.
+     * @param val Value to insert.
+     * @return Iterator to the inserted element on success, otherwise `end()`
+     * together with `false`.
+     */
     constexpr std::pair<iterator, bool> insert(const value_type& val) {
         return try_emplace(val.first, val.second);
     }
 
+    /**
+     * @brief Insert a key-value pair if the key is absent.
+     * @param val Value to insert.
+     * @return Iterator to the inserted element on success, otherwise `end()`
+     * together with `false`.
+     */
     constexpr std::pair<iterator, bool> insert(value_type&& val) {
         return try_emplace(val.first, std::move(val.second));
     }
@@ -221,12 +250,25 @@ public:
     }
 #endif
 
+    /**
+     * @brief Construct and insert a value if the key is absent.
+     * @param args Arguments forwarded to construct a temporary pair.
+     * @return Iterator to the inserted element on success, otherwise `end()`
+     * together with `false`.
+     */
     template <typename... Args>
     constexpr std::pair<iterator, bool> emplace(Args&&... args) {
         value_type pair(std::forward<Args>(args)...);
         return try_emplace(pair.first, std::move(pair.second));
     }
 
+    /**
+     * @brief Insert a value in-place when the key is not already present.
+     * @param key Key to insert.
+     * @param args Arguments forwarded to the mapped value constructor.
+     * @return Iterator to the inserted element on success, otherwise `end()`
+     * together with `false`.
+     */
     template <typename... Args>
     constexpr std::pair<iterator, bool>
         try_emplace(key_type key, Args&&... args) {
@@ -242,6 +284,12 @@ public:
             key, kept, page, offset, std::forward<Args>(args)...);
     }
 
+    /**
+     * @brief Erase the element referenced by an iterator.
+     * @param where Iterator designating the element to erase.
+     * @return Iterator following the removed element, or `end()` when `where`
+     * equals `end()`.
+     */
     constexpr iterator erase(const_iterator where) noexcept {
         if (where == dense_.end()) [[unlikely]] {
             return where;
@@ -249,6 +297,12 @@ public:
         return erase(where->first);
     }
 
+    /**
+     * @brief Erase the element with the specified key.
+     * @param key Key to erase.
+     * @return Iterator following the removed element, or `end()` if the key is
+     * not present.
+     */
     constexpr iterator erase(key_type key) noexcept {
         const auto kept   = _kept(key);
         const auto page   = _page_of(kept);
@@ -259,11 +313,20 @@ public:
         return dense_.end();
     }
 
+    /**
+     * @brief Reserve storage for at least the specified number of elements.
+     * @param size Desired minimum capacity.
+     */
     constexpr void reserve(size_type size) {
         dense_.reserve(size);
         _check_page(_page_of(_kept(size)));
     }
 
+    /**
+     * @brief Find an element by key.
+     * @param key Key to search for.
+     * @return Iterator to the matching element, or `end()` if not found.
+     */
     ATOM_NODISCARD constexpr iterator find(key_type key) noexcept {
         const auto kept   = _kept(key);
         const auto page   = _page_of(kept);
@@ -274,6 +337,11 @@ public:
         return dense_.end();
     }
 
+    /**
+     * @brief Find an element by key.
+     * @param key Key to search for.
+     * @return Iterator to the matching element, or `end()` if not found.
+     */
     ATOM_NODISCARD constexpr const_iterator find(key_type key) const noexcept {
         const auto kept   = _kept(key);
         const auto page   = _page_of(kept);
@@ -284,6 +352,12 @@ public:
         return dense_.end();
     }
 
+    /**
+     * @brief Access the mapped value associated with a key.
+     * @param key Key to look up.
+     * @return Reference to the mapped value.
+     * @throws std::out_of_range The key is not present.
+     */
     ATOM_NODISCARD constexpr mapped_type& at(key_type key) {
         const auto kept   = _kept(key);
         const auto page   = _page_of(kept);
@@ -294,6 +368,12 @@ public:
         return dense_[sparse_[page]->at(offset)].second;
     }
 
+    /**
+     * @brief Access the mapped value associated with a key.
+     * @param key Key to look up.
+     * @return Reference to the mapped value.
+     * @throws std::out_of_range The key is not present.
+     */
     ATOM_NODISCARD constexpr const mapped_type& at(key_type key) const {
         const auto kept   = _kept(key);
         const auto page   = _page_of(kept);
@@ -304,6 +384,12 @@ public:
         return dense_[sparse_[page]->at(offset)].second;
     }
 
+    /**
+     * @brief Access the mapped value for a key, inserting a default-constructed
+     * value when absent.
+     * @param key Key to look up.
+     * @return Reference to the mapped value.
+     */
     constexpr mapped_type& operator[](key_type key) {
         const auto kept   = _kept(key);
         const auto page   = _page_of(kept);
@@ -315,6 +401,11 @@ public:
         return dense_[sparse_[page]->at(offset)].second;
     }
 
+    /**
+     * @brief Check whether a key exists in the map.
+     * @param key Key to test.
+     * @return `true` if the key is present, otherwise `false`.
+     */
     ATOM_NODISCARD constexpr bool contains(key_type key) const noexcept {
         const auto kept   = _kept(key);
         const auto page   = _page_of(kept);
@@ -360,18 +451,34 @@ public:
         return dense_.crend();
     }
 
+    /**
+     * @brief Check whether the map contains no elements.
+     * @return `true` if the map is empty, otherwise `false`.
+     */
     ATOM_NODISCARD constexpr bool empty() const noexcept {
         return dense_.empty();
     }
 
+    /**
+     * @brief Get the number of stored elements.
+     * @return Current element count.
+     */
     ATOM_NODISCARD constexpr size_t size() const noexcept {
         return dense_.size();
     }
 
+    /**
+     * @brief Get the current dense storage capacity.
+     * @return Number of elements that can be stored without reallocating the
+     * dense array.
+     */
     ATOM_NODISCARD constexpr size_t capacity() const noexcept {
         return dense_.capacity();
     }
 
+    /**
+     * @brief Remove all elements from the map.
+     */
     constexpr void
         clear() noexcept(std::is_nothrow_destructible_v<value_type>) {
         dense_.clear();
@@ -382,6 +489,10 @@ public:
         }
     }
 
+    /**
+     * @brief Get the allocator used by the dense storage.
+     * @return Allocator instance associated with this container.
+     */
     ATOM_NODISCARD constexpr allocator_type get_allocator() const noexcept {
         return dense_.get_allocator();
     }
@@ -491,6 +602,14 @@ private:
 
 namespace pmr {
 
+/**
+ * @brief PMR alias of @ref neutron::shift_map.
+ *
+ * @tparam Kty Unsigned integral key type.
+ * @tparam Ty Value type.
+ * @tparam PageSize Number of sparse entries per page.
+ * @tparam Shift Number of high bits ignored by the sparse index.
+ */
 template <
     std::unsigned_integral Kty, typename Ty, size_t PageSize = 32,
     size_t Shift = sizeof(Kty) * 4UL>
