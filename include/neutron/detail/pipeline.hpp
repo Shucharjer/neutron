@@ -57,8 +57,8 @@
 #include <concepts>
 #include <type_traits>
 #include <utility>
+#include "neutron/detail/macros.hpp"
 #include "neutron/detail/utility/compressed_pair.hpp"
-#include "./macros.hpp"
 
 namespace neutron {
 
@@ -84,6 +84,13 @@ template <
     template <typename> typename AdaptorClosure, typename First,
     typename Second>
 class _closure_compose : public AdaptorClosure<Derived<First, Second>> {
+    using self_type = _closure_compose;
+
+    template <typename Self, typename Arg>
+    using _invoke_result_t = std::invoke_result_t<
+        same_cvref_t<Second, Self>,
+        std::invoke_result_t<same_cvref_t<First, Self>, Arg>>;
+
 public:
     template <typename Clousre1, typename Closure2>
     constexpr _closure_compose(Clousre1&& closure1, Closure2&& closure2)
@@ -98,18 +105,25 @@ public:
      * It depends on the closure.
      */
     template <typename Arg>
-    requires std::is_invocable_v<First, Arg> &&
-             std::is_invocable_v<Second, std::invoke_result_t<First, Arg>>
+    requires std::is_invocable_v<same_cvref_t<First, const self_type&>, Arg> &&
+             std::is_invocable_v<
+                 same_cvref_t<Second, const self_type&>,
+                 std::invoke_result_t<
+                     same_cvref_t<First, const self_type&>, Arg>>
     ATOM_NODISCARD constexpr auto operator()(Arg&& arg) const& noexcept(
-        noexcept((pair_.second())(pair_.first()(std::forward<Arg>(arg))))) {
+        noexcept((pair_.second())(pair_.first()(std::forward<Arg>(arg)))))
+        -> _invoke_result_t<const self_type&, Arg> {
         return (pair_.second())(pair_.first()(std::forward<Arg>(arg)));
     }
 
     template <typename Arg>
-    requires std::is_invocable_v<First, Arg> &&
-             std::is_invocable_v<Second, std::invoke_result_t<First, Arg>>
+    requires std::is_invocable_v<same_cvref_t<First, self_type&>, Arg> &&
+             std::is_invocable_v<
+                 same_cvref_t<Second, self_type&>,
+                 std::invoke_result_t<same_cvref_t<First, self_type&>, Arg>>
     ATOM_NODISCARD constexpr auto operator()(Arg&& arg) & noexcept(
-        noexcept((pair_.second())(pair_.first()(std::forward<Arg>(arg))))) {
+        noexcept((pair_.second())(pair_.first()(std::forward<Arg>(arg)))))
+        -> _invoke_result_t<self_type&, Arg> {
         return (pair_.second())(pair_.first()(std::forward<Arg>(arg)));
     }
 
@@ -120,21 +134,29 @@ public:
      * It depends on the closure.
      */
     template <typename Arg>
-    requires std::is_invocable_v<First, Arg> &&
-             std::is_invocable_v<Second, std::invoke_result_t<First, Arg>>
+    requires std::is_invocable_v<same_cvref_t<First, self_type&&>, Arg> &&
+             std::is_invocable_v<
+                 same_cvref_t<Second, self_type&&>,
+                 std::invoke_result_t<same_cvref_t<First, self_type&&>, Arg>>
     ATOM_NODISCARD constexpr auto
         operator()(Arg&& arg) && noexcept(noexcept(std::move(pair_.second())(
-            std::move(pair_.first())(std::forward<Arg>(arg))))) {
+            std::move(pair_.first())(std::forward<Arg>(arg)))))
+        -> _invoke_result_t<self_type&&, Arg> {
         return std::move(pair_.second())(
             std::move(pair_.first())(std::forward<Arg>(arg)));
     }
 
     template <typename Arg>
-    requires std::is_invocable_v<First, Arg> &&
-             std::is_invocable_v<Second, std::invoke_result_t<First, Arg>>
+    requires std::is_invocable_v<
+                 same_cvref_t<First, const self_type&&>, Arg> &&
+             std::is_invocable_v<
+                 same_cvref_t<Second, const self_type&&>,
+                 std::invoke_result_t<
+                     same_cvref_t<First, const self_type&&>, Arg>>
     ATOM_NODISCARD constexpr auto operator()(Arg&& arg) const&& noexcept(
         noexcept(std::move(pair_.second())(
-            std::move(pair_.first())(std::forward<Arg>(arg))))) {
+            std::move(pair_.first())(std::forward<Arg>(arg)))))
+        -> _invoke_result_t<const self_type&&, Arg> {
         return std::move(pair_.second())(
             std::move(pair_.first())(std::forward<Arg>(arg)));
     }

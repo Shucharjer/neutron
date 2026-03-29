@@ -1,6 +1,5 @@
-// IWYU pragma: private, include <neutron/ecs.hpp>
+// IWYU pragma: private, include "neutron/detail/ecs/world_descriptor.hpp"
 #pragma once
-#include <concepts>
 #include <cstddef>
 #include <type_traits>
 #include "neutron/detail/pipeline.hpp"
@@ -29,13 +28,74 @@ concept descriptor_closure =
     neutron::_adaptor_closure<Closure, descriptor_adaptor_closure>;
 
 template <typename First, typename Second>
-struct descriptor_closure_compose :
-    neutron::_closure_compose<
-        descriptor_closure_compose, descriptor_adaptor_closure, First, Second> {
-    using _compose_base = neutron::_closure_compose<
-        descriptor_closure_compose, descriptor_adaptor_closure, First, Second>;
-    using _compose_base::_compose_base;
-    using _compose_base::operator();
+struct descriptor_closure_compose
+    : descriptor_adaptor_closure<descriptor_closure_compose<First, Second>> {
+    using self_type = descriptor_closure_compose;
+
+    template <typename Self, typename Arg>
+    using _invoke_result_t = std::invoke_result_t<
+        same_cvref_t<Second, Self>,
+        std::invoke_result_t<same_cvref_t<First, Self>, Arg>>;
+
+    template <typename C1, typename C2>
+    constexpr descriptor_closure_compose(C1&& closure1, C2&& closure2)
+        : pair_(
+              std::forward<C1>(closure1),
+              std::forward<C2>(closure2)) {}
+
+    template <typename Arg>
+    requires std::is_invocable_v<same_cvref_t<First, const self_type&>, Arg> &&
+             std::is_invocable_v<
+                 same_cvref_t<Second, const self_type&>,
+                 std::invoke_result_t<
+                     same_cvref_t<First, const self_type&>, Arg>>
+    consteval auto operator()(Arg&& arg) const&
+        noexcept(noexcept((pair_.second())(pair_.first()(std::forward<Arg>(arg)))))
+            -> _invoke_result_t<const self_type&, Arg> {
+        return (pair_.second())(pair_.first()(std::forward<Arg>(arg)));
+    }
+
+    template <typename Arg>
+    requires std::is_invocable_v<same_cvref_t<First, self_type&>, Arg> &&
+             std::is_invocable_v<
+                 same_cvref_t<Second, self_type&>,
+                 std::invoke_result_t<same_cvref_t<First, self_type&>, Arg>>
+    consteval auto operator()(Arg&& arg) &
+        noexcept(noexcept((pair_.second())(pair_.first()(std::forward<Arg>(arg)))))
+            -> _invoke_result_t<self_type&, Arg> {
+        return (pair_.second())(pair_.first()(std::forward<Arg>(arg)));
+    }
+
+    template <typename Arg>
+    requires std::is_invocable_v<same_cvref_t<First, self_type&&>, Arg> &&
+             std::is_invocable_v<
+                 same_cvref_t<Second, self_type&&>,
+                 std::invoke_result_t<same_cvref_t<First, self_type&&>, Arg>>
+    consteval auto operator()(Arg&& arg) &&
+        noexcept(noexcept(std::move(pair_.second())(
+            std::move(pair_.first())(std::forward<Arg>(arg)))))
+            -> _invoke_result_t<self_type&&, Arg> {
+        return std::move(pair_.second())(
+            std::move(pair_.first())(std::forward<Arg>(arg)));
+    }
+
+    template <typename Arg>
+    requires std::is_invocable_v<
+                 same_cvref_t<First, const self_type&&>, Arg> &&
+             std::is_invocable_v<
+                 same_cvref_t<Second, const self_type&&>,
+                 std::invoke_result_t<
+                     same_cvref_t<First, const self_type&&>, Arg>>
+    consteval auto operator()(Arg&& arg) const&&
+        noexcept(noexcept(std::move(pair_.second())(
+            std::move(pair_.first())(std::forward<Arg>(arg)))))
+            -> _invoke_result_t<const self_type&&, Arg> {
+        return std::move(pair_.second())(
+            std::move(pair_.first())(std::forward<Arg>(arg)));
+    }
+
+private:
+    compressed_pair<First, Second> pair_;
 };
 
 template <typename C1, typename C2>
