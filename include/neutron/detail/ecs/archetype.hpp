@@ -549,11 +549,6 @@ public:
     ATOM_NODISCARD _buffer_ptr* data() noexcept { return storage_.data(); }
 
     template <component... Components>
-    ATOM_NODISCARD auto view_storage() noexcept {
-        return _get<Components...>();
-    }
-
-    template <component... Components>
     ATOM_NODISCARD auto view_buffers() noexcept {
         return _get_buffers<Components...>();
     }
