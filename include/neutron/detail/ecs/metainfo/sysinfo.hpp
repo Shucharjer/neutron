@@ -1,10 +1,11 @@
+// IWYU pragma: private, include "neutron/detail/ecs/metainfo.hpp"
 #pragma once
-#include "neutron/detail/ecs/basic_querior.hpp"
 #include "neutron/detail/ecs/global.hpp"
 #include "neutron/detail/ecs/insertion.hpp"
 #include "neutron/detail/ecs/local.hpp"
 #include "neutron/detail/ecs/metainfo/common.hpp"
 #include "neutron/detail/ecs/metainfo/execute.hpp"
+#include "neutron/detail/ecs/query.hpp"
 #include "neutron/detail/ecs/res.hpp"
 #include "neutron/detail/ecs/systuple.hpp"
 #include "neutron/detail/ecs/world_descriptor/add_systems.hpp"
@@ -70,6 +71,7 @@ struct _validate_sysinfo;
 template <>
 struct _validate_sysinfo<type_list<>> {
     using arg_lists       = type_list<>;
+    using query_list      = type_list<>;
     using querior_list    = type_list<>;
     using component_lists = type_list<>;
     using resource_lists  = type_list<>;
@@ -84,6 +86,11 @@ struct _validate_sysinfo<type_list<>> {
 template <typename T>
 struct to_component_list {
     using type = typename T::component_list;
+};
+
+template <typename T>
+struct to_cached_querior {
+    using type = typename T::cached_querior_type;
 };
 
 template <typename T>
@@ -205,10 +212,15 @@ struct _sys_traits<WorldExecInfo, Desc, sysdesc<Sys, Requires...>> {
     static constexpr bool has_commands =
         !is_empty_template_v<type_list_filt_t<_is_commands_arg, arg_list>>;
 
-    using querior_list = type_list_filt_t<internal::is_querior, arg_list>;
+    using query_list   = type_list_filt_t<internal::is_query, arg_list>;
+    using querior_list = query_list;
+    template <typename... Tys>
+    using _query_tuple = _query::query_tuple<fn, Tys...>;
+    using query_cache  = type_list_rebind_t<
+         _query_tuple, type_list_convert_t<to_cached_querior, query_list>>;
 
-    using component_list = _extract_access_list_t<
-        internal::is_querior, to_component_list, arg_list>;
+    using component_list =
+        _extract_access_list_t<internal::is_query, to_component_list, arg_list>;
     using resource_list =
         _extract_access_list_t<internal::_is_res, to_resource_list, arg_list>;
     using global_list =
@@ -387,11 +399,11 @@ using _sysinfo_traits_list_for_t = typename _sysinfo_traits_list_for<
 template <auto... Fn>
 struct _validate_sysinfo<type_list<_fn_traits<Fn>...>> {
     using arg_lists    = type_list_cat_t<typename _fn_traits<Fn>::arg_list...>;
-    using querior_list = type_list_filt_t<internal::is_querior, arg_lists>;
+    using query_list   = type_list_filt_t<internal::is_query, arg_lists>;
     using component_lists = type_list_first_t<type_list_filt_nempty_t<
         always_true,
         type_list_list_cat_t<
-            type_list_convert_t<to_component_list, querior_list>>,
+            type_list_convert_t<to_component_list, query_list>>,
         type_list<type_list<>>>>;
     using resource_lists  = type_list<>;
     using global_lists    = type_list<>;
@@ -408,11 +420,12 @@ struct _validate_sysinfo<type_list<_sys_traits<WorldExecInfo, Desc>...>> {
 
     using arg_lists =
         type_list_cat_t<typename _sys_traits<WorldExecInfo, Desc>::arg_list...>;
-    using querior_list    = type_list_filt_t<internal::is_querior, arg_lists>;
+    using query_list      = type_list_filt_t<internal::is_query, arg_lists>;
+    using querior_list    = query_list;
     using component_lists = type_list_first_t<type_list_filt_nempty_t<
         always_true,
         type_list_list_cat_t<
-            type_list_convert_t<to_component_list, querior_list>>,
+            type_list_convert_t<to_component_list, query_list>>,
         type_list<type_list<>>>>;
     using resource_lists  = type_list_cat_t<
          typename _sys_traits<WorldExecInfo, Desc>::resource_list...>;
@@ -445,6 +458,7 @@ struct stage_sysinfo {
     using validator     = _validate_sysinfo<traits_list>;
 
     using arg_lists       = typename validator::arg_lists;
+    using query_list      = typename validator::query_list;
     using querior_list    = typename validator::querior_list;
     using component_lists = typename validator::component_lists;
     using resource_lists  = typename validator::resource_lists;

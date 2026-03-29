@@ -11,6 +11,9 @@ auto entity_archetype(auto& world, entity_t entity) {
     return world_accessor::entities(world)[static_cast<size_t>(entity)].second;
 }
 
+template <typename... Filters>
+using manual_querior = basic_querior<std::allocator<std::byte>, Filters...>;
+
 struct Position {
     using component_concept = neutron::component_t;
     float x{ 0 };
@@ -33,18 +36,19 @@ struct ThrowOnDefault {
     int value{ 0 };
 
     ThrowOnDefault() { throw std::runtime_error("default failed"); }
-    ThrowOnDefault(const ThrowOnDefault&) = default;
-    ThrowOnDefault(ThrowOnDefault&&) noexcept = default;
-    auto operator=(const ThrowOnDefault&) -> ThrowOnDefault& = default;
+    ThrowOnDefault(const ThrowOnDefault&)                        = default;
+    ThrowOnDefault(ThrowOnDefault&&) noexcept                    = default;
+    auto operator=(const ThrowOnDefault&) -> ThrowOnDefault&     = default;
     auto operator=(ThrowOnDefault&&) noexcept -> ThrowOnDefault& = default;
 };
 
 void require_position_only(
-    auto* archetype, float x, float y, size_t expected_count = 1) {
-    require(archetype != nullptr);
+    auto& world, float x, float y, size_t expected_count = 1) {
+    manual_querior<with<Position&>> querior{ world };
+    query<with<Position&>> qry{ querior };
 
     size_t count = 0;
-    for (auto [position] : view_of<Position&>(*archetype)) {
+    for (auto [position] : qry.get()) {
         require(position.x == x && position.y == y);
         ++count;
     }
@@ -52,13 +56,13 @@ void require_position_only(
 }
 
 void require_position_velocity(
-    auto* archetype, float px, float py, float vx, float vy,
+    auto& world, float px, float py, float vx, float vy,
     size_t expected_count = 1) {
-    require(archetype != nullptr);
+    manual_querior<with<Position&, Velocity&>> querior{ world };
+    query<with<Position&, Velocity&>> qry{ querior };
 
     size_t count = 0;
-    for (auto [position, velocity] :
-         view_of<Position&, Velocity&>(*archetype)) {
+    for (auto [position, velocity] : qry.get()) {
         require(position.x == px && position.y == py);
         require(velocity.x == vx && velocity.y == vy);
         ++count;
@@ -82,7 +86,7 @@ void test_add_components_with_values() {
 
     auto* archetype = entity_archetype(world, entity);
     require(archetype->template has<Position, Velocity, Tag>());
-    require_position_velocity(archetype, 1, 2, 3, 4);
+    require_position_velocity(world, 1, 2, 3, 4);
 }
 
 void test_remove_components() {
@@ -95,15 +99,17 @@ void test_remove_components() {
     require(archetype->template has<Position>());
     require(archetype->template has<Velocity>());
     require_false(archetype->template has<Tag>());
-    require_position_velocity(archetype, 1, 2, 3, 4);
+    require_position_velocity(world, 1, 2, 3, 4);
 
     world.remove_components<Position>(entity);
 
     archetype = entity_archetype(world, entity);
     require_false(archetype->template has<Position>());
     require(archetype->template has<Velocity>());
+    manual_querior<with<Velocity&>> querior{ world };
+    query<with<Velocity&>> qry{ querior };
     size_t count = 0;
-    for (auto [velocity] : view_of<Velocity&>(*archetype)) {
+    for (auto [velocity] : qry.get()) {
         require(velocity.x == 3 && velocity.y == 4);
         ++count;
     }
@@ -121,7 +127,7 @@ void test_add_components_without_values() {
 
     auto* archetype = entity_archetype(world, entity);
     require(archetype->template has<Position, Velocity, Tag>());
-    require_position_velocity(archetype, 2, 3, 0, 0);
+    require_position_velocity(world, 2, 3, 0, 0);
 
     world.remove_components<Velocity, Tag>(entity);
 
@@ -129,7 +135,7 @@ void test_add_components_without_values() {
     require(archetype->template has<Position>());
     require_false(archetype->template has<Velocity>());
     require_false(archetype->template has<Tag>());
-    require_position_only(archetype, 2, 3);
+    require_position_only(world, 2, 3);
 }
 
 void test_add_components_overlap_is_noop() {
@@ -141,7 +147,7 @@ void test_add_components_overlap_is_noop() {
 
     auto* archetype = entity_archetype(world, entity);
     require(archetype->template has<Position, Velocity, Tag>());
-    require_position_velocity(archetype, 5, 6, 7, 8);
+    require_position_velocity(world, 5, 6, 7, 8);
 }
 
 void test_remove_missing_components_is_noop() {
@@ -154,7 +160,7 @@ void test_remove_missing_components_is_noop() {
     auto* archetype = entity_archetype(world, entity);
     require(archetype->template has<Position, Velocity>());
     require_false(archetype->template has<Tag>());
-    require_position_velocity(archetype, 5, 6, 7, 8);
+    require_position_velocity(world, 5, 6, 7, 8);
 }
 
 void test_remove_after_add_noop_uses_distinct_transition_cache() {
@@ -167,7 +173,7 @@ void test_remove_after_add_noop_uses_distinct_transition_cache() {
     auto* archetype = entity_archetype(world, entity);
     require(archetype->template has<Position>());
     require_false(archetype->template has<Tag>());
-    require_position_only(archetype, 1, 2);
+    require_position_only(world, 1, 2);
 }
 
 void test_add_after_remove_noop_uses_distinct_transition_cache() {
@@ -179,7 +185,7 @@ void test_add_after_remove_noop_uses_distinct_transition_cache() {
 
     auto* archetype = entity_archetype(world, entity);
     require(archetype->template has<Position, Tag>());
-    require_position_only(archetype, 3, 4);
+    require_position_only(world, 3, 4);
 }
 
 void test_command_buffer_future_add_components() {
@@ -194,7 +200,7 @@ void test_command_buffer_future_add_components() {
     auto& entities        = world_accessor::entities(world);
     auto* const archetype = entities[1].second;
     require(archetype->template has<Position, Velocity, Tag>());
-    require_position_velocity(archetype, 10, 11, 12, 13);
+    require_position_velocity(world, 10, 11, 12, 13);
 }
 
 void test_command_buffer_future_remove_components() {
@@ -209,7 +215,7 @@ void test_command_buffer_future_remove_components() {
     auto* const archetype = entities[1].second;
     require(archetype->template has<Position>());
     require_false(archetype->template has<Velocity>());
-    require_position_only(archetype, 20, 21);
+    require_position_only(world, 20, 21);
 }
 
 void test_spawn_n_without_components() {
@@ -246,12 +252,13 @@ void test_spawn_n_with_default_components() {
         ++count;
     }
     require(count == 3);
-    require_position_velocity(archetype, 0, 0, 0, 0, 3);
+    require_position_velocity(world, 0, 0, 0, 0, 3);
 }
 
 void test_spawn_n_with_component_values() {
     basic_world<world_descriptor_t<>> world;
-    auto entities = world.spawn_n(2, Position{ 7, 8 }, Velocity{ 9, 10 }, Tag{});
+    auto entities =
+        world.spawn_n(2, Position{ 7, 8 }, Velocity{ 9, 10 }, Tag{});
 
     require(entities.size() == 2);
 
@@ -266,7 +273,7 @@ void test_spawn_n_with_component_values() {
         ++count;
     }
     require(count == 2);
-    require_position_velocity(archetype, 7, 8, 9, 10, 2);
+    require_position_velocity(world, 7, 8, 9, 10, 2);
 }
 
 void test_spawn_n_rolls_back_archetype_slots_on_exception() {
@@ -319,16 +326,18 @@ void test_spawn_n_mixed_reuse_and_append() {
     auto next = world.spawn_n(4);
     require(next.size() == 4);
 
-    auto iter = next.begin();
+    auto iter                = next.begin();
     const auto reused_first  = *iter++;
     const auto reused_second = *iter++;
     const auto fresh_first   = *iter++;
     const auto fresh_second  = *iter++;
 
-    require(static_cast<index_t>(reused_first) ==
-            static_cast<index_t>(released[1]));
-    require(static_cast<index_t>(reused_second) ==
-            static_cast<index_t>(released[0]));
+    require(
+        static_cast<index_t>(reused_first) ==
+        static_cast<index_t>(released[1]));
+    require(
+        static_cast<index_t>(reused_second) ==
+        static_cast<index_t>(released[0]));
     require(reused_first != released[1]);
     require(reused_second != released[0]);
     require(fresh_first == 5);

@@ -1,3 +1,4 @@
+// IWYU pragma: private, include <neutron/ecs.hpp>
 #pragma once
 #include "neutron/detail/ecs/fwd.hpp"
 
@@ -20,6 +21,7 @@
 #include "neutron/detail/ecs/archetype.hpp"
 #include "neutron/detail/ecs/command_buffer.hpp"
 #include "neutron/detail/ecs/metainfo.hpp"
+#include "neutron/detail/ecs/query.hpp"
 #include "neutron/detail/ecs/task_graph.hpp"
 #include "neutron/detail/ecs/world_base.hpp"
 #include "neutron/detail/ecs/world_descriptor.hpp"
@@ -67,9 +69,11 @@ public:
     using descriptor_type = world_descriptor_t<>;
     using allocator_type  = Alloc;
     using command_buffer  = ::neutron::command_buffer<Alloc>;
-    using query_type      = basic_querior<Alloc>;
-    using commands_type   = basic_commands<Alloc>;
-    using sysinfo         = sysinfo_holder<world_descriptor_t<>>;
+    template <typename... Filters>
+    using query_type    = query<Filters...>;
+    using commands_type = basic_commands<Alloc>;
+    using sysinfo       = sysinfo_holder<world_descriptor_t<>>;
+    using queries       = type_list<>;
     // using systems        = world_descriptor_t<>::systems;
 
     template <typename Al = Alloc>
@@ -95,6 +99,7 @@ public:
     [[nodiscard]] constexpr bool should_call_update() noexcept { return true; }
 
 private:
+    type_list_rebind_t<neutron::shared_tuple, queries> queries_{};
     std::span<command_buffer> command_buffers_{};
     const insertion_context* insertion_context_ = nullptr;
 };
@@ -134,6 +139,7 @@ public:
     using grouped        = typename desc_traits::grouped;
     using run_lists      = typename desc_traits::runlists;
     using locals         = typename desc_traits::locals;
+    using queries        = typename desc_traits::queries;
     using resources      = typename desc_traits::resources;
     using clock_type     = std::chrono::steady_clock;
 
@@ -187,13 +193,10 @@ public:
 
         if constexpr (static_graph::size == 0) {
             return;
+        } else if constexpr (static_graph::command_node_count == 0) {
+            _call_stage_layers<static_graph>();
         } else {
-            _vector_t<command_buffer> cmdbufs(1);
-            if constexpr (static_graph::command_node_count != 0) {
-                if (cmdbufs.size() < static_graph::size) {
-                    cmdbufs.resize(static_graph::size);
-                }
-            }
+            std::array<command_buffer, static_graph::size> cmdbufs{};
             _drive_stage_graph<static_graph>(
                 cmdbufs, [this](auto& ready, size_t ready_count) {
                     for (size_t index = 0; index < ready_count; ++index) {
@@ -311,6 +314,38 @@ private:
         }(std::make_index_sequence<StaticGraph::size>{});
     };
 
+    template <typename StaticGraph, typename Layer>
+    struct _layer_invokers;
+
+    template <
+        typename StaticGraph, template <typename...> typename Template,
+        typename... SysInfos>
+    struct _layer_invokers<StaticGraph, Template<SysInfos...>> {
+        static void call(basic_world* world) {
+            (_call_sys<
+                 tuple_first_v<SysInfos, typename StaticGraph::traits_list>,
+                 SysInfos::fn>{}(world),
+             ...);
+        }
+    };
+
+    template <typename StaticGraph, typename Layers>
+    struct _stage_layers;
+
+    template <
+        typename StaticGraph, template <typename...> typename Template,
+        typename... Layers>
+    struct _stage_layers<StaticGraph, Template<Layers...>> {
+        static void call(basic_world* world) {
+            (_layer_invokers<StaticGraph, Layers>::call(world), ...);
+        }
+    };
+
+    template <typename StaticGraph>
+    void _call_stage_layers() {
+        _stage_layers<StaticGraph, typename StaticGraph::layers>::call(this);
+    }
+
     template <typename StaticGraph>
     void _prepare_command_buffers(std::span<command_buffer> cmdbufs) {
         command_buffers_ = cmdbufs;
@@ -380,6 +415,7 @@ private:
     /// Locals are _sys_tuple, a tuple with system info, used to get the correct
     /// local for each sys
     type_list_rebind_t<neutron::shared_tuple, locals> locals_;
+    type_list_rebind_t<neutron::shared_tuple, queries> queries_;
     //  variables could be pass between each systems
     type_list_rebind_t<neutron::shared_tuple, resources> resources_;
 
@@ -479,8 +515,8 @@ struct _count_down_receiver {
 
     template <typename Error>
     void set_error(Error&& err) && noexcept {
-        if constexpr (
-            std::same_as<std::remove_cvref_t<Error>, std::exception_ptr>) {
+        if constexpr (std::same_as<
+                          std::remove_cvref_t<Error>, std::exception_ptr>) {
             state->capture_exception(std::forward<Error>(err));
         } else {
             state->capture_exception(
@@ -509,8 +545,9 @@ struct _connected_operation {
 
     template <typename Sndr>
     explicit _connected_operation(Sndr&& sndr, _completion_state& state)
-        : opstate(execution::connect(
-              std::forward<Sndr>(sndr), _count_down_receiver{ &state })) {}
+        : opstate(
+              execution::connect(
+                  std::forward<Sndr>(sndr), _count_down_receiver{ &state })) {}
 
     void start() noexcept { execution::start(opstate); }
 
@@ -537,12 +574,13 @@ struct _call_update_fn {
     }
 };
 
-template <stage Stage, typename World, typename Thread, bool = _individual_world_v<World>>
+template <
+    stage Stage, typename World, typename Thread,
+    bool = _individual_world_v<World>>
 struct _stage_op_slot {
     using scheduler_type = decltype(std::declval<Thread&>().get_scheduler());
-    using sender_type    = decltype(
-        execution::schedule(std::declval<scheduler_type>()) |
-        execution::then(std::declval<_call_stage_fn<Stage, World>>()));
+    using sender_type =
+        decltype(execution::schedule(std::declval<scheduler_type>()) | execution::then(std::declval<_call_stage_fn<Stage, World>>()));
     using type = std::optional<_connected_operation<sender_type>>;
 };
 
@@ -557,9 +595,8 @@ using _stage_op_slot_t = typename _stage_op_slot<Stage, World, Thread>::type;
 template <typename World, typename Thread, bool = _individual_world_v<World>>
 struct _update_op_slot {
     using scheduler_type = decltype(std::declval<Thread&>().get_scheduler());
-    using sender_type    = decltype(
-        execution::schedule(std::declval<scheduler_type>()) |
-        execution::then(std::declval<_call_update_fn<World>>()));
+    using sender_type =
+        decltype(execution::schedule(std::declval<scheduler_type>()) | execution::then(std::declval<_call_update_fn<World>>()));
     using type = std::optional<_connected_operation<sender_type>>;
 };
 
@@ -577,13 +614,14 @@ template <
 void _launch_individual_world(
     WorldsTuple& worlds, ThreadTuple& threads, OpTuple& ops,
     _completion_state& state) {
-    auto& world = std::get<Index>(worlds);
-    auto& op    = std::get<Index>(ops);
+    auto& world   = std::get<Index>(worlds);
+    auto& op      = std::get<Index>(ops);
     using world_t = std::remove_cvref_t<decltype(world)>;
 
     try {
-        auto sender = execution::schedule(std::get<Index>(threads).get_scheduler()) |
-                      execution::then(_call_stage_fn<Stage, world_t>{ &world });
+        auto sender =
+            execution::schedule(std::get<Index>(threads).get_scheduler()) |
+            execution::then(_call_stage_fn<Stage, world_t>{ &world });
         op.emplace(std::move(sender), state);
         op->start();
     } catch (...) {
@@ -592,17 +630,19 @@ void _launch_individual_world(
     }
 }
 
-template <size_t Index, typename WorldsTuple, typename ThreadTuple, typename OpTuple>
+template <
+    size_t Index, typename WorldsTuple, typename ThreadTuple, typename OpTuple>
 void _launch_individual_update(
     WorldsTuple& worlds, ThreadTuple& threads, OpTuple& ops,
     _completion_state& state) {
-    auto& world = std::get<Index>(worlds);
-    auto& op    = std::get<Index>(ops);
+    auto& world   = std::get<Index>(worlds);
+    auto& op      = std::get<Index>(ops);
     using world_t = std::remove_cvref_t<decltype(world)>;
 
     try {
-        auto sender = execution::schedule(std::get<Index>(threads).get_scheduler()) |
-                      execution::then(_call_update_fn<world_t>{ &world });
+        auto sender =
+            execution::schedule(std::get<Index>(threads).get_scheduler()) |
+            execution::then(_call_update_fn<world_t>{ &world });
         op.emplace(std::move(sender), state);
         op->start();
     } catch (...) {
@@ -660,15 +700,17 @@ void _call_stage_all(
         return;
     } else {
         if constexpr (_individual_world_count_v<Worlds...> != 0) {
-            auto ops = std::tuple<_stage_op_slot_t<Stage, Worlds, _thread_slot_t<Worlds>>...>{};
-            _completion_state completion{ _individual_world_count_v<Worlds...> };
+            auto ops = std::tuple<
+                _stage_op_slot_t<Stage, Worlds, _thread_slot_t<Worlds>>...>{};
+            _completion_state completion{
+                _individual_world_count_v<Worlds...>
+            };
 
             [&]<size_t... Is>(std::index_sequence<Is...>) {
                 (void)std::initializer_list<int>{ (
                     [&] {
-                        if constexpr (_individual_world_v<
-                                          std::tuple_element_t<
-                                              Is, std::tuple<Worlds...>>>) {
+                        if constexpr (_individual_world_v<std::tuple_element_t<
+                                          Is, std::tuple<Worlds...>>>) {
                             _launch_individual_world<Stage, Is>(
                                 worlds, threads, ops, completion);
                         }
@@ -689,7 +731,8 @@ void _call_stage_all(
     }
 }
 
-template <typename Sch, typename CmdBufs, typename ThreadTuple, typename... Worlds>
+template <
+    typename Sch, typename CmdBufs, typename ThreadTuple, typename... Worlds>
 void _call_update_all(
     Sch& sch, CmdBufs& cmdbufs, std::tuple<Worlds...>& worlds,
     ThreadTuple& threads) {
@@ -697,15 +740,17 @@ void _call_update_all(
         return;
     } else {
         if constexpr (_individual_world_count_v<Worlds...> != 0) {
-            auto ops = std::tuple<_update_op_slot_t<Worlds, _thread_slot_t<Worlds>>...>{};
-            _completion_state completion{ _individual_world_count_v<Worlds...> };
+            auto ops = std::tuple<
+                _update_op_slot_t<Worlds, _thread_slot_t<Worlds>>...>{};
+            _completion_state completion{
+                _individual_world_count_v<Worlds...>
+            };
 
             [&]<size_t... Is>(std::index_sequence<Is...>) {
                 (void)std::initializer_list<int>{ (
                     [&] {
-                        if constexpr (_individual_world_v<
-                                          std::tuple_element_t<
-                                              Is, std::tuple<Worlds...>>>) {
+                        if constexpr (_individual_world_v<std::tuple_element_t<
+                                          Is, std::tuple<Worlds...>>>) {
                             _launch_individual_update<Is>(
                                 worlds, threads, ops, completion);
                         }

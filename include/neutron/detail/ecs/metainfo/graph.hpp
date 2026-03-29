@@ -1,3 +1,4 @@
+// IWYU pragma: private, include "neutron/detail/ecs/metainfo.hpp"
 #pragma once
 #include <array>
 #include <cstddef>
@@ -430,6 +431,18 @@ struct _descriptor_locals<Template<SysTraits...>> {
 };
 
 template <typename SysTraitsList>
+struct _descriptor_queries;
+
+template <template <typename...> typename Template, typename... SysTraits>
+struct _descriptor_queries<Template<SysTraits...>> {
+    template <typename Ty>
+    using _has_query = std::negation<internal::_is_empty_query_tuple<Ty>>;
+
+    using type = type_list_filt_t<
+        _has_query, type_list<typename SysTraits::query_cache...>>;
+};
+
+template <typename SysTraitsList>
 struct _descriptor_resources;
 
 template <template <typename...> typename Template, typename... SysTraits>
@@ -467,6 +480,7 @@ struct descriptor_traits {
     using grouped    = graph;
     using runlists   = graph;
     using locals     = typename _descriptor_locals<sys_traits>::type;
+    using queries    = typename _descriptor_queries<sys_traits>::type;
     using resources  = typename _descriptor_resources<sys_traits>::type;
     using globals    = typename _descriptor_globals<sys_traits>::type;
 

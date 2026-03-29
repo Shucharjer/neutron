@@ -6,6 +6,7 @@
 #include <concepts>
 #include <cstddef>
 #include <cstdint>
+#include <initializer_list>
 #include <iterator>
 #include <memory>
 #include <memory_resource> // IWYU pragma: keep, for std::pmr::polymorphic_allocator
@@ -20,6 +21,7 @@
 #include <neutron/memory.hpp>
 #include <neutron/metafn.hpp>
 #include <neutron/utility.hpp>
+#include "neutron/detail/ecs/anchor.hpp"
 #include "neutron/detail/ecs/component.hpp"
 #include "neutron/detail/ecs/entity.hpp"
 #include "neutron/detail/ecs/fwd.hpp"
@@ -35,18 +37,8 @@
 
 namespace neutron {
 
-template <std_simple_allocator Alloc, component... Components>
-class view;
-
-namespace _view {
-
-template <std_simple_allocator Alloc, component... Components>
-class _eview_base;
-
-template <std_simple_allocator Alloc, component... Components>
-class _view_base;
-
-} // namespace _view
+template <component...>
+class slice;
 
 // NOLINTBEGIN(cppcoreguidelines-pro-bounds-pointer-arithmetic)
 // NOLINTBEGIN(cppcoreguidelines-avoid-c-arrays)
@@ -117,6 +109,25 @@ template <component... Comp>
 struct remove_components_t {};
 
 /**
+ * @brief Custom deleter for aligned memory allocated via `operator
+ * new(size, align_val_t)`.
+ */
+struct _buffer_deletor {
+    std::align_val_t align;
+
+    /**
+     * @brief Deallocates memory with the stored alignment.
+     * @param ptr Pointer to deallocate.
+     */
+    ATOM_CONSTEXPR_SINCE_CXX26 void operator()(std::byte* ptr) const noexcept {
+        ::operator delete(ptr, align);
+    }
+};
+
+/// Alias for a unique pointer managing aligned byte buffers.
+using _buffer_ptr = std::unique_ptr<std::byte[], _buffer_deletor>;
+
+/**
  * @brief Represents a homogeneous collection of entities sharing the same set
  * of components.
 
@@ -132,10 +143,8 @@ template <std_simple_allocator Alloc>
 requires std::same_as<typename Alloc::value_type, std::byte>
 class archetype<Alloc> {
 
-    template <std_simple_allocator, component...>
-    friend class _view::_view_base;
-    template <std_simple_allocator, component...>
-    friend class _view::_eview_base;
+    template <component...>
+    friend class slice;
     template <std_simple_allocator>
     friend class _world_base::world_base;
 
@@ -147,25 +156,6 @@ class archetype<Alloc> {
 
     static constexpr size_t default_alignment = 32;
     static constexpr size_t initial_capacity  = 64;
-
-    /**
-     * @brief Custom deleter for aligned memory allocated via `operator
-     * new(size, align_val_t)`.
-     */
-    struct _buffer_deletor {
-        std::align_val_t align;
-
-        /**
-         * @brief Deallocates memory with the stored alignment.
-         * @param ptr Pointer to deallocate.
-         */
-        constexpr void operator()(std::byte* ptr) const noexcept {
-            ::operator delete(ptr, align);
-        }
-    };
-
-    /// Alias for a unique pointer managing aligned byte buffers.
-    using _buffer_ptr = std::unique_ptr<std::byte[], _buffer_deletor>;
 
 public:
     using size_type        = size_t;
@@ -415,12 +405,6 @@ public:
     archetype(const archetype&)            = delete;
     archetype& operator=(const archetype&) = delete;
 
-    /**
-     * @brief Move constructor.
-     *
-     * Transfers ownership of all resources. Leaves the source in a valid but
-     * unspecified state.
-     */
     archetype(archetype&& that) noexcept
         : hash_list_(std::move(that.hash_list_)),
           basic_info_(std::move(that.basic_info_)),
@@ -543,7 +527,9 @@ public:
         return hash_list_.size();
     }
 
-    ATOM_NODISCARD constexpr size_type size() const noexcept { return size_; }
+    ATOM_NODISCARD constexpr auto size() const noexcept -> const size_type& {
+        return size_;
+    }
 
     ATOM_NODISCARD constexpr bool empty() const noexcept {
         return size_ == 0UL;
@@ -562,8 +548,18 @@ public:
 
     ATOM_NODISCARD _buffer_ptr* data() noexcept { return storage_.data(); }
 
-    ATOM_NODISCARD constexpr auto entities() noexcept {
-        return entity2index_ | std::views::keys;
+    template <component... Components>
+    ATOM_NODISCARD auto view_storage() noexcept {
+        return _get<Components...>();
+    }
+
+    template <component... Components>
+    ATOM_NODISCARD auto view_buffers() noexcept {
+        return _get_buffers<Components...>();
+    }
+
+    ATOM_NODISCARD constexpr auto entities() noexcept -> std::span<entity_t> {
+        return index2entity_;
     }
 
     constexpr void reserve(size_type n) {
@@ -680,7 +676,7 @@ private:
         return static_cast<std::byte*>(::operator new(size * n, align));
     }
 
-    constexpr static _buffer_ptr
+    static _buffer_ptr
         _get_buffer(size_t size, size_type n, std::align_val_t align) {
         return _buffer_ptr{ _get_ptr(size, n, align),
                             _buffer_deletor{ align } };
@@ -1000,7 +996,7 @@ private:
         for (size_type i = 0; i < kinds; ++i) {
             destructors_[i](storage_[i].get(), size_);
         }
-        storage_ = std::move(buffers);
+        _commit_relocation(buffers);
     }
 
     auto _relocate(size_type capacity) {
@@ -1095,7 +1091,7 @@ private:
             (..., _relocate_data<Is, tlist>(buffers, succ));
             (_apply_relocation<Is, tlist>(), ...);
         }(std::index_sequence_for<Components...>());
-        storage_  = std::move(buffers);
+        _commit_relocation(buffers);
         capacity_ = capacity;
     }
 
@@ -1117,7 +1113,7 @@ private:
             });
             (_relocate_data<Is, tlist>(buffers, succ), ...);
             (_apply_relocation<Is, tlist>(), ...);
-            storage_ = std::move(buffers);
+            _commit_relocation(buffers);
             guard.mark_complete();
         }(std::index_sequence_for<Components...>());
         capacity_ = capacity;
@@ -1254,8 +1250,8 @@ private:
         auto index          = currsize;
         index2entity_.reserve(currsize + append);
         entity2index_.reserve(currsize + append);
-        auto guard = make_exception_guard(
-            [this, currsize, &unbind_entity]() noexcept {
+        auto guard =
+            make_exception_guard([this, currsize, &unbind_entity]() noexcept {
                 _rollback_staged_entities(currsize, unbind_entity);
             });
         for (entity_t entity : range) {
@@ -1285,8 +1281,8 @@ private:
         auto index          = currsize;
         index2entity_.reserve(currsize + append);
         entity2index_.reserve(currsize + append);
-        auto guard = make_exception_guard(
-            [this, currsize, &unbind_entity]() noexcept {
+        auto guard =
+            make_exception_guard([this, currsize, &unbind_entity]() noexcept {
                 _rollback_staged_entities(currsize, unbind_entity);
             });
         for (entity_t entity : range) {
@@ -1335,16 +1331,15 @@ private:
             size_ += append;
         } else {
             const auto original_size = size_;
-            auto guard = make_exception_guard(
+            auto guard               = make_exception_guard(
                 [this, original_size, &unbind_entity]() noexcept {
                     _rollback_appended(original_size, unbind_entity);
                 });
-            std::ranges::for_each(
-                range, [this, &bind_entity](entity_t entity) {
-                    _ensure_capacity_for_one();
-                    _emplace(entity, type_list<Components...>{});
-                    bind_entity(entity);
-                });
+            std::ranges::for_each(range, [this, &bind_entity](entity_t entity) {
+                _ensure_capacity_for_one();
+                _emplace(entity, type_list<Components...>{});
+                bind_entity(entity);
+            });
             guard.mark_complete();
         }
     }
@@ -1552,7 +1547,7 @@ private:
         auto tuple =
             std::forward_as_tuple(std::forward<Components>(components)...);
         const auto original_size = size_;
-        auto guard = make_exception_guard(
+        auto guard               = make_exception_guard(
             [this, original_size, &unbind_entity]() noexcept {
                 _rollback_appended(original_size, unbind_entity);
             });
@@ -1614,6 +1609,50 @@ private:
         }(std::index_sequence_for<Components...>());
     }
 
+    void _commit_relocation(_vector_t<_buffer_ptr>& buffers) noexcept {
+        const auto kinds = this->kinds();
+        for (size_type index = 0; index < kinds; ++index) {
+            storage_[index] = std::move(buffers[index]);
+        }
+    }
+
+    template <size_t Index, typename TypeList>
+    constexpr void _get_buffer_sorted(auto& result, auto& hint) noexcept {
+        using type = type_list_element_t<Index, TypeList>;
+
+        hint = std::lower_bound(hint, hash_list_.end(), hash_of<type>());
+        const auto index = std::distance(hash_list_.begin(), hint);
+        result[Index]    = &storage_[index];
+    }
+
+    template <component... Components>
+    constexpr auto _get_buffer_sorted(type_list<Components...>) noexcept
+        -> std::array<_buffer_ptr*, sizeof...(Components)> {
+        using type_list = type_list<Components...>;
+        return [this]<size_t... Is>(std::index_sequence<Is...>) {
+            std::array<_buffer_ptr*, sizeof...(Components)> result;
+            auto hint = hash_list_.begin();
+            (_get_buffer_sorted<Is, type_list>(result, hint), ...);
+            return result;
+        }(std::index_sequence_for<Components...>());
+    }
+
+    template <component... Components>
+    ATOM_NODISCARD auto _get_buffers() {
+        using tlist     = type_list<std::remove_cvref_t<Components>...>;
+        using hash_list = hash_list_t<tlist>;
+        auto sorted     = _get_buffer_sorted(hash_list{});
+        using isequence = hash_sequence_t<tlist>;
+        using vlist     = value_list_from_t<isequence>;
+        return [&sorted]<size_t... Is>(std::index_sequence<Is...>) {
+            return std::make_tuple(sorted[value_list_element_v<Is, vlist>]...);
+        }(std::index_sequence_for<Components...>());
+    }
+
+    ATOM_NODISCARD auto _entities() const noexcept -> const entity_t* const& {
+        return index2entity_.data();
+    }
+
     void (*relocate_fn_)(archetype*, size_type) = nullptr;
     _vector_t<_hash_type> hash_list_;
     _vector_t<basic_info> basic_info_;
@@ -1628,7 +1667,7 @@ private:
     shift_map<entity_t, index_t, 256UL, half_bits<entity_t>, Alloc>
         entity2index_;
     // _vector_t<bool> created_;
-    _vector_t<entity_t> index2entity_;
+    anchor<entity_t, _allocator_t<entity_t>> index2entity_;
 };
 
 // NOLINTEND(modernize-avoid-c-arrays)
@@ -1639,447 +1678,7 @@ namespace pmr {
 
 using archetype = archetype<std::pmr::polymorphic_allocator<>>;
 
-}
-
-namespace _view {
-
-template <std_simple_allocator Alloc, component... Components>
-class _view_base;
-
-template <std_simple_allocator Alloc, component... Components>
-class _eview_base {
-    friend class _view_base<Alloc, Components...>;
-
-    using _allocator_t = rebind_alloc_t<Alloc, std::byte>;
-    using _archetype_t = archetype<_allocator_t>;
-
-public:
-    class iterator {
-        friend class _eview_base<Alloc, Components...>;
-
-        constexpr iterator(
-            entity_t* entity,
-            const std::tuple<std::remove_cvref_t<Components>*...>
-                storage) noexcept
-            : entity_(entity), storage_(storage) {}
-
-    public:
-        using value_type      = std::tuple<entity_t, Components...>;
-        using reference       = value_type; // As components could be reference.
-        using size_type       = size_t;
-        using difference_type = ptrdiff_t;
-        using iterator_concept = std::contiguous_iterator_tag;
-
-        constexpr iterator(const iterator& that) noexcept            = default;
-        constexpr iterator(iterator&& that) noexcept                 = default;
-        constexpr iterator& operator=(const iterator& that) noexcept = default;
-        constexpr iterator& operator=(iterator&& that) noexcept      = default;
-        constexpr ~iterator() noexcept                               = default;
-
-        constexpr auto operator*() const noexcept -> value_type {
-            return std::tuple_cat(
-                std::tuple(*entity_),
-                std::apply(
-                    [](auto*... ptrs) {
-                        return std::tuple<Components...>((*ptrs)...);
-                    },
-                    storage_));
-        }
-
-        // input_iterator
-
-        constexpr auto operator++() noexcept -> iterator& {
-            ++entity_;
-            [this]<size_t... Is>(std::index_sequence<Is...>) {
-                (++std::get<Is>(storage_), ...);
-            }(std::index_sequence_for<Components...>());
-            return *this;
-        }
-        constexpr auto operator++(int) noexcept -> iterator {
-            iterator temp = *this;
-            ++entity_;
-            [this]<size_t... Is>(std::index_sequence<Is...>) {
-                (++std::get<Is>(storage_), ...);
-            }(std::index_sequence_for<Components...>());
-            return temp;
-        }
-
-        constexpr std::strong_ordering
-            operator<=>(const iterator& that) const noexcept {
-            return storage_ <=> that.storage_;
-        }
-
-        constexpr bool operator==(const iterator& that) const noexcept {
-            return storage_ == that.storage_;
-        }
-
-        constexpr bool operator!=(const iterator& that) const noexcept {
-            return storage_ != that.storage_;
-        }
-
-        // bidirectional
-
-        constexpr auto operator--() noexcept -> iterator& {
-            --entity_;
-            [this]<size_t... Is>(std::index_sequence<Is...>) {
-                (--std::get<Is>(storage_), ...);
-            }(std::index_sequence_for<Components...>());
-            return *this;
-        }
-        constexpr auto operator--(int) noexcept -> iterator {
-            iterator temp = *this;
-            --entity_;
-            [this]<size_t... Is>(std::index_sequence<Is...>) {
-                (--std::get<Is>(storage_), ...);
-            }(std::index_sequence_for<Components...>());
-            return temp;
-        }
-
-        // random access
-
-        constexpr auto operator+=(ptrdiff_t diff) noexcept -> iterator& {
-            entity_ += diff;
-            [this, diff]<size_t... Is>(std::index_sequence<Is...>) {
-                ((std::get<Is>(storage_) += diff), ...);
-            }(std::index_sequence_for<Components...>());
-            return *this;
-        }
-        constexpr auto operator+(ptrdiff_t diff) const noexcept -> iterator {
-            iterator temp = *this;
-            temp += diff;
-            return temp;
-        }
-        constexpr auto operator-=(ptrdiff_t diff) noexcept -> iterator& {
-            entity_ -= diff;
-            [this, diff]<size_t... Is>(std::index_sequence<Is...>) {
-                ((std::get<Is>(storage_) -= diff), ...);
-            }(std::index_sequence_for<Components...>());
-            return *this;
-        }
-        constexpr auto operator-(ptrdiff_t diff) noexcept -> iterator {
-            iterator temp = *this;
-            temp -= diff;
-            return temp;
-        }
-
-        constexpr ptrdiff_t operator-(const iterator& that) const noexcept {
-            return entity_ - that.entity_;
-        }
-
-        // support range
-
-        // satisfy sentinel_for.semiregular
-        // satisfy semiregular.default_constructible
-        constexpr iterator() noexcept = default;
-
-        constexpr value_type operator[](difference_type diff) noexcept {
-            return std::tuple_cat(
-                std::tuple(entity_ + diff),
-                std::apply(
-                    [](auto*... ptrs) {
-                        return std::tuple<Components...>(*ptrs...);
-                    },
-                    storage_));
-        }
-
-    private:
-        entity_t* entity_{};
-        std::tuple<std::remove_cvref_t<Components>*...> storage_;
-    };
-    using value_type      = std::tuple<entity_t, Components...>;
-    using size_type       = size_t;
-    using difference_type = ptrdiff_t;
-
-    // using iterator        = _view::iterator<Components...>;
-    using _type_list = neutron::type_list<std::remove_cvref_t<Components>...>;
-    using _hash_list = hash_list_t<_type_list>;
-    using _hash_sequence = hash_sequence_t<_type_list>;
-
-    static_assert(
-        sizeof...(Components) > 0,
-        "the view of components should contains at least one component");
-
-    _eview_base(_archetype_t& archetype) noexcept : archetype_(archetype) {}
-
-    constexpr auto begin() const noexcept {
-        return iterator{ archetype_.template _get<Components...>() };
-    }
-    constexpr auto end() const noexcept { return begin() + archetype_.size_(); }
-    constexpr auto rbegin() const noexcept {
-        return std::make_reverse_iterator(begin());
-    }
-    constexpr auto rend() const noexcept {
-        return std::make_reverse_iterator(end());
-    }
-
-    ATOM_NODISCARD constexpr auto size() const noexcept {
-        return archetype_.size();
-    }
-
-    ATOM_NODISCARD constexpr auto empty() const noexcept {
-        return archetype_.empty();
-    }
-
-    ATOM_NODISCARD constexpr auto entities() const noexcept
-        -> std::span<entity_t> {
-        return archetype_.entities();
-    }
-
-private:
-    _archetype_t& archetype_; // NOLINT
-};
-
-template <std_simple_allocator Alloc, component... Components>
-class _view_base {
-    using _allocator_t = rebind_alloc_t<Alloc, std::byte>;
-    using _archetype_t = archetype<_allocator_t>;
-
-public:
-    class iterator {
-        friend class _view_base<Alloc, Components...>;
-
-        constexpr iterator(
-            const std::tuple<std::remove_cvref_t<Components>*...>&
-                storage) noexcept
-            : storage_(storage) {}
-
-    public:
-        using value_type      = std::tuple<Components...>;
-        using reference       = value_type; // As components could be reference.
-        using size_type       = size_t;
-        using difference_type = ptrdiff_t;
-        using iterator_concept = std::contiguous_iterator_tag;
-
-        constexpr iterator(const iterator& that) noexcept            = default;
-        constexpr iterator(iterator&& that) noexcept                 = default;
-        constexpr iterator& operator=(const iterator& that) noexcept = default;
-        constexpr iterator& operator=(iterator&& that) noexcept      = default;
-        constexpr ~iterator() noexcept                               = default;
-
-        constexpr auto operator*() const noexcept -> value_type {
-            return std::apply(
-                [](auto*... ptrs) {
-                    return std::tuple<Components...>((*ptrs)...);
-                },
-                storage_);
-        }
-
-        // input_iterator
-
-        constexpr auto operator++() noexcept -> iterator& {
-            [this]<size_t... Is>(std::index_sequence<Is...>) {
-                (++std::get<Is>(storage_), ...);
-            }(std::index_sequence_for<Components...>());
-            return *this;
-        }
-        constexpr auto operator++(int) noexcept -> iterator {
-            iterator temp = *this;
-            [this]<size_t... Is>(std::index_sequence<Is...>) {
-                (++std::get<Is>(storage_), ...);
-            }(std::index_sequence_for<Components...>());
-            return temp;
-        }
-
-        constexpr std::strong_ordering
-            operator<=>(const iterator& that) const noexcept {
-            return storage_ <=> that.storage_;
-        }
-
-        constexpr bool operator==(const iterator& that) const noexcept {
-            return storage_ == that.storage_;
-        }
-
-        constexpr bool operator!=(const iterator& that) const noexcept {
-            return storage_ != that.storage_;
-        }
-
-        // bidirectional
-
-        constexpr auto operator--() noexcept -> iterator& {
-            [this]<size_t... Is>(std::index_sequence<Is...>) {
-                (--std::get<Is>(storage_), ...);
-            }(std::index_sequence_for<Components...>());
-            return *this;
-        }
-        constexpr auto operator--(int) noexcept -> iterator {
-            iterator temp = *this;
-            [this]<size_t... Is>(std::index_sequence<Is...>) {
-                (--std::get<Is>(storage_), ...);
-            }(std::index_sequence_for<Components...>());
-            return temp;
-        }
-
-        // random access
-
-        constexpr auto operator+=(ptrdiff_t diff) noexcept -> iterator& {
-            [this, diff]<size_t... Is>(std::index_sequence<Is...>) {
-                ((std::get<Is>(storage_) += diff), ...);
-            }(std::index_sequence_for<Components...>());
-            return *this;
-        }
-        constexpr auto operator+(ptrdiff_t diff) const noexcept -> iterator {
-            iterator temp = *this;
-            temp += diff;
-            return temp;
-        }
-        constexpr auto operator-=(ptrdiff_t diff) noexcept -> iterator& {
-            [this, diff]<size_t... Is>(std::index_sequence<Is...>) {
-                ((std::get<Is>(storage_) -= diff), ...);
-            }(std::index_sequence_for<Components...>());
-            return *this;
-        }
-        constexpr auto operator-(ptrdiff_t diff) noexcept -> iterator {
-            iterator temp = *this;
-            temp -= diff;
-            return temp;
-        }
-
-        constexpr ptrdiff_t operator-(const iterator& that) const noexcept {
-            return std::get<0>(storage_) - std::get<0>(that.storage_);
-        }
-
-        // support range
-
-        // satisfy sentinel_for.semiregular
-        // satisfy semiregular.default_constructible
-        constexpr iterator() noexcept = default;
-
-    private:
-        std::tuple<std::remove_cvref_t<Components>*...> storage_;
-    };
-    using value_type      = std::tuple<Components...>;
-    using size_type       = size_t;
-    using difference_type = ptrdiff_t;
-
-    // using iterator        = _view::iterator<Components...>;
-    using _type_list     = type_list<std::remove_cvref_t<Components>...>;
-    using _hash_list     = hash_list_t<_type_list>;
-    using _hash_sequence = hash_sequence_t<_type_list>;
-
-    static_assert(
-        sizeof...(Components) > 0,
-        "the view of components should contains at least one component");
-
-    _view_base(_archetype_t& archetype) noexcept : archetype_(archetype) {}
-
-    _view_base(const _eview_base<_allocator_t, Components...>& ev) noexcept
-        : archetype_(ev.archetype_) {}
-
-    constexpr auto begin() const noexcept {
-        return iterator{ archetype_.template _get<Components...>() };
-    }
-
-    constexpr auto end() const noexcept {
-        return iterator{ archetype_.template _get<Components...>() } +
-               archetype_.size();
-    }
-
-    constexpr auto rbegin() const noexcept {
-        return std::make_reverse_iterator(begin());
-    }
-
-    constexpr auto rend() noexcept { return std::make_reverse_iterator(end()); }
-
-    ATOM_NODISCARD constexpr auto size() const noexcept {
-        return archetype_.size();
-    }
-
-    ATOM_NODISCARD constexpr auto empty() const noexcept {
-        return archetype_.empty();
-    }
-
-private:
-    _archetype_t& archetype_; // NOLINT
-};
-
-template <typename Alloc, component... Components>
-_view_base(const _eview_base<Alloc, Components...>&)
-    -> _view_base<Alloc, Components...>;
-
-template <typename>
-struct _removed_empty;
-template <
-    template <typename...> typename Vw, typename Alloc, component... Components>
-struct _removed_empty<Vw<Alloc, Components...>> {
-    template <typename Ty>
-    using predicate_type = std::negation<std::is_empty<Ty>>;
-    using components =
-        type_list_filt_t<predicate_type, type_list<Components...>>;
-    template <typename... Args>
-    using view_type = Vw<Alloc, Args...>;
-    using type      = type_list_rebind_t<view_type, components>;
-};
-
-} // namespace _view
-
-template <std_simple_allocator Alloc, component... Components>
-class eview :
-    public _view::_removed_empty<
-        _view::_eview_base<Alloc, Components...>>::type {
-public:
-    using _view_base =
-        _view::_removed_empty<_view::_eview_base<Alloc, Components...>>::type;
-    using value_type = typename _view_base::value_type;
-    using reference  = value_type;
-    using size_type  = typename _view_base::size_type;
-    using iterator   = typename _view_base::iterator;
-};
-
-template <std_simple_allocator Alloc, component... Components>
-class view :
-    public _view::_removed_empty<
-        _view::_view_base<Alloc, Components...>>::type {
-    template <template <typename...> typename Vw>
-    using _remove_empty = _view::_removed_empty<Vw<Alloc, Components...>>::type;
-
-public:
-    using _view_base  = _remove_empty<_view::_view_base>;
-    using _eview_base = _remove_empty<_view::_eview_base>;
-    using value_type  = typename _view_base::value_type;
-    using reference   = value_type;
-    using size_type   = typename _view_base::size_type;
-    using iterator    = typename _view_base::iterator;
-
-    using _view_base::_view_base;
-    view(const eview<Alloc, Components...>& ev) noexcept
-        : _view_base(static_cast<const _eview_base&>(ev)) {}
-    using _view_base::begin;
-    using _view_base::rbegin;
-    using _view_base::end;
-    using _view_base::rend;
-    using _view_base::size;
-    using _view_base::empty;
-};
-
-template <
-    component... Components,
-    std_simple_allocator Alloc = std::allocator<std::byte>>
-ATOM_NODISCARD auto view_of(archetype<Alloc>& archetype) noexcept {
-    return view<Alloc, Components...>(archetype);
-}
-
-template <
-    component... Components, template <typename...> typename Template,
-    std_simple_allocator Alloc = std::allocator<std::byte>>
-ATOM_NODISCARD auto
-    view_of(archetype<Alloc>& archetype, Template<Components...>) noexcept {
-    return view<Alloc, Components...>(archetype);
-}
-
-template <
-    component... Components,
-    std_simple_allocator Alloc = std::allocator<std::byte>>
-ATOM_NODISCARD auto eview_of(archetype<Alloc>& archetype) noexcept {
-    return eview<Alloc, Components...>(archetype);
-}
-
-template <
-    component... Components, template <typename...> typename Template,
-    std_simple_allocator Alloc = std::allocator<std::byte>>
-ATOM_NODISCARD auto
-    eview_of(archetype<Alloc>& archetype, Template<Components...>) noexcept {
-    return eview<Alloc, Components...>(archetype);
-}
+} // namespace pmr
 
 } // namespace neutron
 

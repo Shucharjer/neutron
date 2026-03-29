@@ -1,5 +1,7 @@
+// IWYU pragma: private, include <neutron/ecs.hpp>
 #pragma once
 #include "neutron/detail/ecs/fwd.hpp"
+#include "neutron/detail/macros.hpp"
 
 namespace neutron {
 
@@ -23,6 +25,14 @@ struct world_accessor {
     template <world World>
     static auto& resources(World& world) noexcept {
         return world.resources_;
+    }
+    template <world World>
+    static auto& queries(World& world) noexcept {
+        return world.queries_;
+    }
+    template <world World>
+    static auto version(World& world) noexcept {
+        return world.archetypes_.size();
     }
     template <world World>
     static auto& insertion_context(World& world) noexcept {

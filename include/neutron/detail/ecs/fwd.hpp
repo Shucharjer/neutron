@@ -9,10 +9,8 @@ namespace neutron {
 template <std_simple_allocator Alloc = std::allocator<std::byte>>
 class archetype;
 
-template <
-    std_simple_allocator Alloc = std::allocator<std::byte>, size_t Count = 8,
-    typename... Filters>
-class basic_querior;
+template <typename... Filters>
+class query;
 
 template <std_simple_allocator Alloc = std::allocator<std::byte>>
 class command_buffer;

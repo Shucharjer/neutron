@@ -1,6 +1,7 @@
 // Basic tests for neutron::archetype: creation, emplace/view, erase, reserve,
 // pmr
 #include <array>
+#include <cstdio>
 #include <memory_resource>
 #include <neutron/ecs.hpp>
 #include "require.hpp"
@@ -47,7 +48,7 @@ struct SlowDefault {
     SlowDefault() { ++alive; }
     SlowDefault(const SlowDefault&) { ++alive; }
     SlowDefault(SlowDefault&&) noexcept { ++alive; }
-    SlowDefault& operator=(const SlowDefault&) = default;
+    SlowDefault& operator=(const SlowDefault&)     = default;
     SlowDefault& operator=(SlowDefault&&) noexcept = default;
     ~SlowDefault() noexcept { --alive; }
 };
@@ -61,7 +62,7 @@ struct SlowCopy {
     explicit SlowCopy(int x) noexcept : value(x) { ++alive; }
     SlowCopy(const SlowCopy& that) : value(that.value) { ++alive; }
     SlowCopy(SlowCopy&& that) noexcept : value(that.value) { ++alive; }
-    SlowCopy& operator=(const SlowCopy&) = default;
+    SlowCopy& operator=(const SlowCopy&)     = default;
     SlowCopy& operator=(SlowCopy&&) noexcept = default;
     ~SlowCopy() noexcept { --alive; }
 };
@@ -70,8 +71,11 @@ using archetype_t = archetype<std::allocator<std::byte>>;
 
 int require_position(
     archetype_t& arche, float x, float y, size_t expected_count = 1) {
+    using position_query = query<with<Position&>>;
+
     size_t count = 0;
-    for (auto [position] : view_of<Position&>(arche)) {
+    auto slice = slice_of<Position>(arche);
+    for (auto [position] : typename position_query::view_t{ slice }) {
         require_or_return((position.x == x && position.y == y), 1);
         ++count;
     }
@@ -82,8 +86,12 @@ int require_position(
 int require_position_velocity(
     archetype_t& arche, float px, float py, float vx, float vy,
     size_t expected_count = 1) {
+    using position_velocity_query = query<with<Position&, Velocity&>>;
+
     size_t count = 0;
-    for (auto [position, velocity] : view_of<Position&, Velocity&>(arche)) {
+    auto slice = slice_of<Position, Velocity>(arche);
+    for (auto [position, velocity] :
+         typename position_velocity_query::view_t{ slice }) {
         require_or_return((position.x == px && position.y == py), 1);
         require_or_return((velocity.vx == vx && velocity.vy == vy), 1);
         ++count;
@@ -138,8 +146,8 @@ int test_at_accepts_arbitrary_component_order_and_references() {
     auto ordered   = arche.at<Position&, Velocity&>(entity_t{ 3 });
     auto reordered = arche.at<Velocity&, Position&>(entity_t{ 3 });
 
-    auto& position = std::get<0>(ordered);
-    auto& velocity = std::get<1>(ordered);
+    auto& position  = std::get<0>(ordered);
+    auto& velocity  = std::get<1>(ordered);
     auto& velocity2 = std::get<0>(reordered);
     auto& position2 = std::get<1>(reordered);
 
@@ -148,7 +156,7 @@ int test_at_accepts_arbitrary_component_order_and_references() {
     require_or_return((position.x == 5 && position.y == 6), 1);
     require_or_return((velocity.vx == 7 && velocity.vy == 8), 1);
 
-    position2.x = 9;
+    position2.x  = 9;
     velocity2.vy = 10;
 
     if (const auto ret = require_position_velocity(arche, 9, 6, 7, 10);
@@ -158,35 +166,10 @@ int test_at_accepts_arbitrary_component_order_and_references() {
     return 0;
 }
 
-int test_view_iterates_inserted_entities() {
-    archetype_t arche{ type_spreader<Position, Velocity>{} };
-
-    arche.emplace(entity_t{ 1 }, Position{ 1, 2 }, Velocity{ 3, 4 });
-    arche.emplace(entity_t{ 2 }, Velocity{ 7, 8 }, Position{ 5, 6 });
-
-    require_or_return((arche.size() == 2), 1);
-
-    auto view    = view_of<Position&, Velocity&>(arche);
-    size_t index = 0;
-    for (auto [position, velocity] : view) {
-        if (index == 0) {
-            require_or_return((position.x == 1 && position.y == 2), 1);
-            require_or_return((velocity.vx == 3 && velocity.vy == 4), 1);
-        } else if (index == 1) {
-            require_or_return((position.x == 5 && position.y == 6), 1);
-            require_or_return((velocity.vx == 7 && velocity.vy == 8), 1);
-        }
-        ++index;
-    }
-    require_or_return((index == 2), 1);
-    return 0;
-}
-
 int test_emplace_range_default_constructs_all_entities() {
     archetype_t arche{ type_spreader<Position, Velocity>{} };
-    const std::array entities{
-        entity_t{ 10 }, entity_t{ 11 }, entity_t{ 12 }, entity_t{ 13 }
-    };
+    const std::array entities{ entity_t{ 10 }, entity_t{ 11 }, entity_t{ 12 },
+                               entity_t{ 13 } };
 
     arche.template emplace<Position, Velocity>(entities);
 
@@ -215,6 +198,8 @@ int test_emplace_range_values_accept_arbitrary_component_order() {
 }
 
 int test_emplace_range_instantiates_throwing_paths() {
+    using position_copy_query = query<with<Position&, SlowCopy&>>;
+
     SlowDefault::alive = 0;
     {
         archetype<std::allocator<std::byte>> arche{
@@ -235,7 +220,8 @@ int test_emplace_range_instantiates_throwing_paths() {
         archetype<std::allocator<std::byte>> arche{
             type_spreader<Position, SlowCopy>{}
         };
-        const std::array entities{ entity_t{ 40 }, entity_t{ 41 }, entity_t{ 42 } };
+        const std::array entities{ entity_t{ 40 }, entity_t{ 41 },
+                                   entity_t{ 42 } };
         SlowCopy component{ 9 };
 
         arche.emplace(entities, component, Position{ 1, 2 });
@@ -244,8 +230,16 @@ int test_emplace_range_instantiates_throwing_paths() {
         require_or_return(
             (SlowCopy::alive == static_cast<int>(entities.size() + 1)), 1);
 
+        auto slice = slice_of<Position, SlowCopy>(arche);
+        require_or_return((slice.size() == entities.size()), 1);
+        require_or_return((slice.entities() != nullptr), 1);
+        const auto& buffers = slice.buffers();
+        require_or_return((std::get<0>(buffers) != nullptr), 1);
+        require_or_return((std::get<1>(buffers) != nullptr), 1);
+
         size_t count = 0;
-        for (auto [position, copy] : view_of<Position&, SlowCopy&>(arche)) {
+        for (auto [position, copy] :
+             typename position_copy_query::view_t{ slice }) {
             require_or_return((position.x == 1 && position.y == 2), 1);
             require_or_return((copy.value == 9), 1);
             ++count;
@@ -374,55 +368,68 @@ int test_transfer_removes_empty_tag() {
 }
 
 int main() {
+    std::puts("test_basics");
     if (const auto ret = test_basics(); ret != 0) {
         return ret;
     }
+    std::puts("test_emplace_accepts_declared_component_order");
     if (const auto ret = test_emplace_accepts_declared_component_order();
         ret != 0) {
         return ret;
     }
+    std::puts("test_emplace_accepts_arbitrary_component_order");
     if (const auto ret = test_emplace_accepts_arbitrary_component_order();
         ret != 0) {
         return ret;
     }
-    if (const auto ret = test_at_accepts_arbitrary_component_order_and_references();
+    std::puts("test_at_accepts_arbitrary_component_order_and_references");
+    if (const auto ret =
+            test_at_accepts_arbitrary_component_order_and_references();
         ret != 0) {
         return ret;
     }
-    if (const auto ret = test_view_iterates_inserted_entities(); ret != 0) {
-        return ret;
-    }
+    std::puts("test_emplace_range_default_constructs_all_entities");
     if (const auto ret = test_emplace_range_default_constructs_all_entities();
         ret != 0) {
         return ret;
     }
-    if (const auto ret = test_emplace_range_values_accept_arbitrary_component_order();
+    std::puts("test_emplace_range_values_accept_arbitrary_component_order");
+    if (const auto ret =
+            test_emplace_range_values_accept_arbitrary_component_order();
         ret != 0) {
         return ret;
     }
+    std::puts("test_emplace_range_instantiates_throwing_paths");
     if (const auto ret = test_emplace_range_instantiates_throwing_paths();
         ret != 0) {
         return ret;
     }
+    std::puts("test_erase_and_entities");
     if (const auto ret = test_erase_and_entities(); ret != 0) {
         return ret;
     }
+    std::puts("test_reserve_and_relocate");
     if (const auto ret = test_reserve_and_relocate(); ret != 0) {
         return ret;
     }
+    std::puts("test_pmr_archetype");
     if (const auto ret = test_pmr_archetype(); ret != 0) {
         return ret;
     }
+    std::puts("test_transfer_adds_component_with_value");
     if (const auto ret = test_transfer_adds_component_with_value(); ret != 0) {
         return ret;
     }
+    std::puts("test_transfer_adds_components_with_default_values");
     if (const auto ret = test_transfer_adds_components_with_default_values();
         ret != 0) {
         return ret;
     }
+    std::puts("test_transfer_removes_component");
     if (const auto ret = test_transfer_removes_component(); ret != 0) {
         return ret;
     }
+    std::puts("test_transfer_removes_empty_tag");
     if (const auto ret = test_transfer_removes_empty_tag(); ret != 0) {
         return ret;
     }

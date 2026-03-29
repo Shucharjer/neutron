@@ -2,6 +2,7 @@
 // IWYU pragma: begin_exports
 #include "neutron/detail/ecs/fwd.hpp"
 
+#include "neutron/detail/ecs/anchor.hpp"
 #include "neutron/detail/ecs/archetype.hpp"
 #include "neutron/detail/ecs/basic_commands.hpp"
 #include "neutron/detail/ecs/basic_querior.hpp"
@@ -14,12 +15,18 @@
 #include "neutron/detail/ecs/insertion.hpp"
 #include "neutron/detail/ecs/local.hpp"
 #include "neutron/detail/ecs/metainfo.hpp"
+#include "neutron/detail/ecs/query.hpp"
 #include "neutron/detail/ecs/res.hpp"
 #include "neutron/detail/ecs/resource.hpp"
 #include "neutron/detail/ecs/run.hpp"
+#include "neutron/detail/ecs/slice.hpp"
 #include "neutron/detail/ecs/stage.hpp"
+#include "neutron/detail/ecs/sync.hpp"
+#include "neutron/detail/ecs/systuple.hpp"
+#include "neutron/detail/ecs/task_graph.hpp"
 #include "neutron/detail/ecs/world.hpp"
-#include "neutron/detail/ecs/world_schedule.hpp"
+#include "neutron/detail/ecs/world_accessor.hpp"
 #include "neutron/detail/ecs/world_base.hpp"
 #include "neutron/detail/ecs/world_descriptor.hpp"
+#include "neutron/detail/ecs/world_schedule.hpp"
 // IWYU pragma: end_exports

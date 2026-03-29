@@ -2,7 +2,7 @@
 #include <cstddef>
 #include <memory>
 #include <string>
-#include "neutron/detail/ecs/basic_querior.hpp"
+#include "neutron/detail/ecs/query.hpp"
 #include "neutron/detail/ecs/global.hpp"
 #include "neutron/detail/ecs/world_descriptor/add_systems.hpp"
 #include "neutron/detail/ecs/world_descriptor/fwd.hpp"
@@ -10,9 +10,6 @@
 using namespace neutron;
 using namespace neutron::_metainfo;
 using enum stage;
-
-template <typename... Filters>
-using querior = basic_querior<std::allocator<std::byte>, 8, Filters...>;
 
 template <>
 constexpr bool neutron::as_component<std::string> = true;
@@ -28,10 +25,10 @@ struct test_global {
     int value = 0;
 };
 
-void component_write(querior<with<std::string&>>) {}
-void component_read(querior<with<const std::string&>>) {}
-void component_copy(querior<with<std::string>>) {}
-void component_write_2(querior<with<std::string&>>) {}
+void component_write(query<with<std::string&>>) {}
+void component_read(query<with<const std::string&>>) {}
+void component_copy(query<with<std::string>>) {}
+void component_write_2(query<with<std::string&>>) {}
 
 void resource_write(res<test_resource&>) {}
 void resource_read(res<const test_resource&>) {}
@@ -42,9 +39,9 @@ void global_read(global<const test_global&>) {}
 void global_write_2(global<test_global&>) {}
 
 void mixed_component_and_resource(
-    querior<with<const std::string&>>, res<test_resource&>) {}
+    query<with<const std::string&>>, res<test_resource&>) {}
 void mixed_global_and_component(
-    global<test_global&>, querior<with<std::string>>) {}
+    global<test_global&>, query<with<std::string>>) {}
 
 void exec_plain() {}
 void exec_plain_2() {}
@@ -64,7 +61,7 @@ consteval bool validate_update_desc() {
     using tagged_type     = typename validate_traits::tagged_type;
     using traits_list     = typename validate_traits::traits_list;
     using arg_lists       = typename validate_traits::arg_lists;
-    using querior_list    = typename validate_traits::querior_list;
+    using query_list      = typename validate_traits::query_list;
     using component_lists = typename validate_traits::component_lists;
     using resource_lists  = typename validate_traits::resource_lists;
     using global_lists    = typename validate_traits::global_lists;

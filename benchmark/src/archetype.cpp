@@ -74,10 +74,9 @@ static void BM_archetype_emplace_range(benchmark::State& st) {
     }
 }
 
-template <component... Components>
-using view_t = view<std::allocator<std::byte>, Components...>;
 static void BM_archetype_view_iter(benchmark::State& st) {
     const size_t N = static_cast<size_t>(st.range(0));
+    using position_velocity_query = query<with<Position&, Velocity&>>;
     for (auto _ : st) {
         archetype<std::allocator<std::byte>> a{
             type_spreader<Position, Velocity>{}
@@ -89,7 +88,8 @@ static void BM_archetype_view_iter(benchmark::State& st) {
                 Position{ float(i), float(i + 1) },
                 Velocity{ float(2 * i), float(2 * i + 1) });
         float acc = 0;
-        view_t<Position&, Velocity&> vw{ a };
+        auto slice = slice_of<Position, Velocity>(a);
+        typename position_velocity_query::view_t vw{ slice };
         for (auto [p, v] : vw) {
             acc += p.x + p.y + v.vx + v.vy;
         }
@@ -115,7 +115,8 @@ static void BM_archetype_erase(benchmark::State& st) {
         }
         for (auto it = ids.rbegin(); it != ids.rend(); ++it)
             a.erase(*it);
-        benchmark::DoNotOptimize(a.size());
+        auto size = a.size();
+        benchmark::DoNotOptimize(size);
     }
 }
 
