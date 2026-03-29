@@ -137,7 +137,7 @@ consteval auto traits_of() noexcept -> traits_bits {
 
 template <value Ty>
 constexpr bool authenticity_of(const traits_bits bits) noexcept {
-    constexpr auto description = static_cast<traits_base>(description_of<Ty>());
+    constexpr auto description = static_cast<traits_base>(traits_of<Ty>());
     const auto mask            = static_cast<traits_base>(bits);
     const auto result          = description & mask;
     return result == mask;
