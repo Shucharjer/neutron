@@ -286,8 +286,17 @@ private:
 
 } // namespace _command
 
+    #ifdef __clang__
+    #elif defined(__GNUC__)
+        #pragma GCC diagnostic push
+        #pragma GCC diagnostic ignored "-Winterference-size"
+    #endif
 template <std_simple_allocator Alloc>
 class alignas(std::hardware_destructive_interference_size) command_buffer {
+    #ifdef __clang__
+    #elif defined(__GNUC__)
+        #pragma GCC diagnostic pop
+    #endif
     template <typename Ty>
     using _allocator_t = neutron::rebind_alloc_t<Alloc, Ty>;
 

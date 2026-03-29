@@ -168,7 +168,16 @@ ATOM_CONSTEXPR_SINCE_CXX20 Pointer uninitialized_copy_using_allocator(
         for (; ofirst != it; ++ofirst) {
             traits_t::destroy(alloc, std::to_address(ofirst));
         }
+#if defined(__clang__)
+#elif defined(__GNUC__)
+    #pragma GCC diagnostic push
+    #pragma GCC diagnostic ignored "-Wterminate"
+#endif
         ATOM_RETHROW;
+#if defined(__clang__)
+#elif defined(__GNUC__)
+    #pragma GCC diagnostic pop
+#endif
     }
     return it;
 }
@@ -196,7 +205,16 @@ ATOM_CONSTEXPR_SINCE_CXX20 Pointer uninitialized_copy_n_using_allocator(
         for (SizeT i = curr; i-- > 0;) {
             traits_t::destroy(alloc, std::to_address(dst + i));
         }
+#if defined(__clang__)
+#elif defined(__GNUC__)
+    #pragma GCC diagnostic push
+    #pragma GCC diagnostic ignored "-Wterminate"
+#endif
         ATOM_RETHROW;
+#if defined(__clang__)
+#elif defined(__GNUC__)
+    #pragma GCC diagnostic pop
+#endif
     }
     return dst + n;
 }
@@ -226,7 +244,16 @@ ATOM_CONSTEXPR_SINCE_CXX20 Pointer uninitialized_move_n_using_allocator(
         for (SizeT i = curr; i-- > 0;) {
             traits_t::destroy(alloc, std::to_address(dst + i));
         }
+#if defined(__clang__)
+#elif defined(__GNUC__)
+    #pragma GCC diagnostic push
+    #pragma GCC diagnostic ignored "-Wterminate"
+#endif
         ATOM_RETHROW;
+#if defined(__clang__)
+#elif defined(__GNUC__)
+    #pragma GCC diagnostic pop
+#endif
     }
     return dst + n;
 }
