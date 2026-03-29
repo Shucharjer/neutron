@@ -1,7 +1,7 @@
 // IWYU pragma: private, include <neutron/reflection.hpp>
 #pragma once
 #include <string_view>
-#include "./tuple_view.hpp"
+#include "neutron/detail/reflection/legacy/tuple_view.hpp"
 
 namespace neutron {
 

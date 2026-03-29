@@ -2,8 +2,8 @@
 #pragma once
 #include <cstddef>
 #include <tuple>
-#include "./concepts.hpp"
-#include "./tuple_view.hpp"
+#include "neutron/detail/reflection/legacy/concepts.hpp"
+#include "neutron/detail/reflection/legacy/tuple_view.hpp"
 
 namespace neutron {
 

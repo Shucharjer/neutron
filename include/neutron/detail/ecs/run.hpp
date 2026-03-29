@@ -1,3 +1,4 @@
+// IWYU pragma: private, include <neutron/ecs.hpp>
 #pragma once
 #include <tuple>
 #include <type_traits>

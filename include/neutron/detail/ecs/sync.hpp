@@ -1,3 +1,4 @@
+// IWYU pragma: private, include <neutron/ecs.hpp>
 #pragma once
 #include <cstdint>
 #include "neutron/detail/concepts/one_of.hpp"

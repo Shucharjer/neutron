@@ -43,6 +43,15 @@ void group_zero_system() { group_order[group_order_count++] = 0; }
 
 void group_one_system() { group_order[group_order_count++] = 1; }
 
+std::array<int, 3> no_command_order{ -1, -1, -1 };
+int no_command_order_count = 0;
+
+void no_command_first() { no_command_order[no_command_order_count++] = 0; }
+
+void no_command_parallel() { no_command_order[no_command_order_count++] = 1; }
+
+void no_command_after() { no_command_order[no_command_order_count++] = 2; }
+
 struct shared_state {
     int value = 0;
 };
@@ -88,6 +97,11 @@ constexpr auto group_one_desc =
 constexpr auto group_zero_desc =
     world_desc | execute<group<0>> | add_systems<update, &group_zero_system>;
 
+constexpr auto no_command_desc =
+    world_desc | add_systems<
+                     update, { &no_command_first }, { &no_command_parallel },
+                     { &no_command_after, after<&no_command_first> }>;
+
 // Global access used to validate cross-world shared state wiring.
 constexpr auto global_writer_desc =
     world_desc | add_systems<update, &increment_global>;
@@ -102,6 +116,15 @@ int main() {
 
         auto worlds = make_worlds<desc>();
         call<update>(worlds);
+
+        auto no_command_world = make_world<no_command_desc>();
+        no_command_order      = { -1, -1, -1 };
+        no_command_order_count = 0;
+        call<update>(no_command_world);
+        if (no_command_order_count != 3 || no_command_order[0] != 0 ||
+            no_command_order[1] != 1 || no_command_order[2] != 2) {
+            return 14;
+        }
     }
 
     using namespace thread_pool_for_test;

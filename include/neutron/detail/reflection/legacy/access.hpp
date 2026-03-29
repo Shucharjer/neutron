@@ -1,10 +1,10 @@
 // IWYU pragma: private, include <neutron/reflection.hpp>
 #pragma once
+#include "neutron/detail/reflection/legacy/concepts.hpp"
+#include "neutron/detail/reflection/legacy/get.hpp"
+#include "neutron/detail/reflection/legacy/member_count.hpp"
+#include "neutron/detail/reflection/legacy/member_names.hpp"
 #include "neutron/tstring.hpp"
-#include "./concepts.hpp"
-#include "./member_count.hpp"
-#include "./member_names.hpp"
-#include "./get.hpp"
 
 namespace neutron {
 

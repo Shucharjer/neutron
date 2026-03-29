@@ -2,7 +2,7 @@
 #pragma once
 #include <concepts>
 #include <tuple>
-#include "./concepts.hpp"
+#include "neutron/detail/reflection/legacy/concepts.hpp"
 
 namespace neutron {
 

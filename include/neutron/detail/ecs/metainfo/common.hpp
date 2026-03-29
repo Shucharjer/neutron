@@ -1,3 +1,4 @@
+// IWYU pragma: private, include "neutron/detail/ecs/metainfo.hpp"
 #pragma once
 #include <concepts>
 #include <type_traits>

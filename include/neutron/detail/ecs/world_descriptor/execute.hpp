@@ -1,4 +1,4 @@
-// IWYU pragma: private, include <neutron/ecs.hpp>
+// IWYU pragma: private, include "neutron/detail/ecs/world_descriptor.hpp"
 #pragma once
 #include <cstddef>
 #include <neutron/metafn.hpp>

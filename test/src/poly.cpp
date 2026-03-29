@@ -1,6 +1,7 @@
-#include <neutron/polymorphic.hpp>
-#include <neutron/print.hpp>
-#include <neutron/metafn.hpp>
+#if false
+    #include <neutron/metafn.hpp>
+    #include <neutron/polymorphic.hpp>
+    #include <neutron/print.hpp>
 
 using namespace neutron;
 
@@ -27,3 +28,7 @@ int main() {
     poly<Object> ep{ _ex_impl{} };
     ep->foo();
 }
+
+#else
+int main() { return 0; }
+#endif

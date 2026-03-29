@@ -2,13 +2,13 @@
 #pragma once
 #include <string_view>
 #include <tuple>
+#include "neutron/detail/reflection/legacy/concepts.hpp"
+#include "neutron/detail/reflection/legacy/destroy.hpp"
+#include "neutron/detail/reflection/legacy/hash_of.hpp"
+#include "neutron/detail/reflection/legacy/member_traits.hpp"
+#include "neutron/detail/reflection/legacy/name_of.hpp"
+#include "neutron/detail/reflection/legacy/type_traits.hpp"
 #include "neutron/tstring.hpp"
-#include "./concepts.hpp"
-#include "./destroy.hpp"
-#include "./member_traits.hpp"
-#include "./name_of.hpp"
-#include "./hash_of.hpp"
-#include "./type_traits.hpp"
 
 namespace neutron {
 

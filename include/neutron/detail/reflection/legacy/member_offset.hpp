@@ -4,10 +4,10 @@
 #include <cstdint>
 #include "neutron/detail/concepts/value.hpp"
 #include "neutron/tstring.hpp"
-#include "../../macros.hpp"
-#include "./concepts.hpp"
-#include "./member_count.hpp"
-#include "./tuple_view.hpp"
+#include "neutron/detail/macros.hpp"
+#include "neutron/detail/reflection/legacy/concepts.hpp"
+#include "neutron/detail/reflection/legacy/member_count.hpp"
+#include "neutron/detail/reflection/legacy/tuple_view.hpp"
 
 namespace neutron {
 
