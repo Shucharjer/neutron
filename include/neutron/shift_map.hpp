@@ -497,6 +497,10 @@ public:
         return dense_.get_allocator();
     }
 
+    ATOM_NODISCARD constexpr const _dense_type& dense() const noexcept {
+        return dense_;
+    }
+
 private:
     constexpr static _kept_type _kept(key_type key) noexcept {
         return static_cast<_kept_type>(
@@ -616,7 +620,7 @@ template <
 using shift_map =
     shift_map<Kty, Ty, PageSize, Shift, std::pmr::polymorphic_allocator<>>;
 
-}
+} // namespace pmr
 
 } // namespace neutron
 
