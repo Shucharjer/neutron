@@ -39,30 +39,35 @@ public:
         return *this;
     }
     constexpr _iter_wrapper operator++(int) noexcept {
-        auto iter = iter_;
-        return _iter_wrapper{ ++iter };
+        auto current = *this;
+        ++(*this);
+        return current;
     }
     constexpr _iter_wrapper& operator--() noexcept {
         --iter_;
         return *this;
     }
     constexpr _iter_wrapper operator--(int) noexcept {
-        auto iter = iter_;
-        return _iter_wrapper{ --iter };
+        auto current = *this;
+        --(*this);
+        return current;
     }
-    constexpr _iter_wrapper operator+(difference_type n) noexcept {
+    constexpr _iter_wrapper operator+(difference_type n) const noexcept {
         return _iter_wrapper{ iter_ + n };
     }
     constexpr _iter_wrapper& operator+=(difference_type n) noexcept {
         iter_ += n;
         return *this;
     }
-    constexpr _iter_wrapper operator-(difference_type n) noexcept {
+    constexpr _iter_wrapper operator-(difference_type n) const noexcept {
         return _iter_wrapper{ iter_ - n };
     }
     constexpr _iter_wrapper& operator-=(difference_type n) noexcept {
         iter_ -= n;
         return *this;
+    }
+    constexpr reference operator[](difference_type n) const noexcept {
+        return iter_[n];
     }
 
     constexpr iterator_type base() const noexcept { return iter_; }
@@ -70,6 +75,31 @@ public:
 private:
     iterator_type iter_;
 };
+
+template <typename It>
+constexpr auto operator+(
+    typename _iter_wrapper<It>::difference_type n,
+    const _iter_wrapper<It>& iter) noexcept -> _iter_wrapper<It> {
+    return iter + n;
+}
+
+template <typename It>
+constexpr auto operator-(
+    const _iter_wrapper<It>& lhs,
+    const _iter_wrapper<It>& rhs) noexcept
+    -> typename _iter_wrapper<It>::difference_type {
+    return lhs.base() - rhs.base();
+}
+
+template <typename It1, typename It2>
+constexpr auto operator-(
+    const _iter_wrapper<It1>& lhs,
+    const _iter_wrapper<It2>& rhs) noexcept
+    -> std::common_type_t<
+        typename _iter_wrapper<It1>::difference_type,
+        typename _iter_wrapper<It2>::difference_type> {
+    return lhs.base() - rhs.base();
+}
 
 template <typename It>
 constexpr std::strong_ordering operator<=>(
