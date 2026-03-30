@@ -138,6 +138,7 @@ public:
     using sysinfo        = typename desc_traits::sysinfo;
     using grouped        = typename desc_traits::grouped;
     using run_lists      = typename desc_traits::runlists;
+    using components     = typename desc_traits::components;
     using locals         = typename desc_traits::locals;
     using queries        = typename desc_traits::queries;
     using resources      = typename desc_traits::resources;

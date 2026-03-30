@@ -1,6 +1,8 @@
 // IWYU pragma: private, include <neutron/ecs.hpp>
 #pragma once
 #include <concepts>
+#include <cstddef>
+#include <memory>
 #include <memory_resource>
 #include <utility>
 #include <neutron/concepts.hpp>
@@ -115,17 +117,29 @@ template <typename Descriptor, std_simple_allocator Alloc>
 basic_commands(basic_world<Descriptor, Alloc>&) -> basic_commands<Alloc, true>;
 
 template <auto Sys, std_simple_allocator Alloc, size_t Index>
-struct construct_from_world_t<Sys, basic_commands<Alloc>, Index> {
+struct construct_from_world_t<Sys, basic_commands<Alloc, false>, Index> {
     template <world World>
-    basic_commands<Alloc> operator()(World& world) const noexcept {
+    basic_commands<Alloc, false> operator()(World& world) const noexcept {
         const auto cmdbuf_index = Index % world.command_buffers_.size();
         return basic_commands<Alloc>{ world.command_buffers_[cmdbuf_index] };
     }
 };
 
+template <auto Sys, std_simple_allocator Alloc, size_t Index>
+struct construct_from_world_t<Sys, basic_commands<Alloc, true>, Index> {
+    template <world World>
+    basic_commands<Alloc, true> operator()(World& world) const noexcept {
+        return basic_commands<Alloc, false>{ world };
+    }
+};
+
+using commands        = basic_commands<std::allocator<std::byte>>;
+using direct_commands = basic_commands<std::allocator<std::byte>, true>;
+
 namespace pmr {
 
-using commands = basic_commands<std::pmr::polymorphic_allocator<>>;
+using commands        = basic_commands<std::pmr::polymorphic_allocator<>>;
+using direct_commands = basic_commands<std::pmr::polymorphic_allocator<>, true>;
 
 } // namespace pmr
 

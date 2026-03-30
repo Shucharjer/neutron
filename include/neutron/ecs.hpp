@@ -14,6 +14,7 @@
 #include "neutron/detail/ecs/global.hpp"
 #include "neutron/detail/ecs/insertion.hpp"
 #include "neutron/detail/ecs/local.hpp"
+#include "neutron/detail/ecs/meta_accessor.hpp"
 #include "neutron/detail/ecs/metainfo.hpp"
 #include "neutron/detail/ecs/query.hpp"
 #include "neutron/detail/ecs/res.hpp"

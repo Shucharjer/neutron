@@ -6,6 +6,7 @@
 #include <type_traits>
 #include <utility>
 #include <neutron/metafn.hpp>
+#include "neutron/detail/ecs/metainfo/events.hpp"
 #include "neutron/detail/ecs/metainfo/render.hpp"
 #include "neutron/detail/ecs/metainfo/sysinfo.hpp"
 #include "neutron/detail/ecs/stage.hpp"
@@ -25,7 +26,7 @@ struct _descriptor_sys_traits {
     using poststartups =
         typename stage_sysinfo<post_startup, Descriptor>::traits_list;
 
-    using firsts = typename stage_sysinfo<first, Descriptor>::traits_list;
+    using firsts  = typename stage_sysinfo<first, Descriptor>::traits_list;
     using eventss = typename stage_sysinfo<events, Descriptor>::traits_list;
 
     using preupdates =
@@ -40,8 +41,8 @@ struct _descriptor_sys_traits {
     using shutdowns = typename stage_sysinfo<shutdown, Descriptor>::traits_list;
 
     using all = type_list_cat_t<
-        prestartups, startups, poststartups, firsts, eventss, preupdates, updates,
-        postupdates, renders, lasts, shutdowns>;
+        prestartups, startups, poststartups, firsts, eventss, preupdates,
+        updates, postupdates, renders, lasts, shutdowns>;
 };
 
 template <typename Node, typename Remaining>
@@ -385,7 +386,7 @@ struct descriptor_graph {
     using startups     = stage_graph_t<startup, Descriptor>;
     using poststartups = stage_graph_t<post_startup, Descriptor>;
 
-    using firsts = stage_graph_t<first, Descriptor>;
+    using firsts  = stage_graph_t<first, Descriptor>;
     using eventss = stage_graph_t<events, Descriptor>;
 
     using preupdates  = stage_graph_t<pre_update, Descriptor>;
@@ -398,8 +399,8 @@ struct descriptor_graph {
     using shutdowns = stage_graph_t<shutdown, Descriptor>;
 
     using all = type_list<
-        prestartups, startups, poststartups, firsts, eventss, preupdates, updates,
-        postupdates, renders, lasts, shutdowns>;
+        prestartups, startups, poststartups, firsts, eventss, preupdates,
+        updates, postupdates, renders, lasts, shutdowns>;
 
     static constexpr bool value =
         stage_graph<pre_startup, Descriptor>::value &&
@@ -470,21 +471,30 @@ struct _descriptor_globals<Template<SysTraits...>> {
         _remove_cvref, type_list_cat_t<typename SysTraits::global_list...>>>;
 };
 
+template <typename Traits>
+struct _to_component_list {
+    using type = typename Traits::component_list;
+};
+
 template <typename Descriptor>
 struct descriptor_traits {
+
     using sysinfo    = sysinfo_holder<Descriptor>;
     using sys_traits = typename _descriptor_sys_traits<Descriptor>::all;
-    using graph      = descriptor_graph<Descriptor>;
-    using events     = events_info<Descriptor>;
-    using render     = render_info<Descriptor>;
-    using grouped    = graph;
-    using runlists   = graph;
-    using locals     = typename _descriptor_locals<sys_traits>::type;
-    using queries    = typename _descriptor_queries<sys_traits>::type;
-    using resources  = typename _descriptor_resources<sys_traits>::type;
-    using globals    = typename _descriptor_globals<sys_traits>::type;
+    using components = type_list_filt_t<
+        _not_empty, type_list_convert_t<_to_component_list, sys_traits>>;
+    using graph     = descriptor_graph<Descriptor>;
+    using events    = events_info<Descriptor>;
+    using render    = render_info<Descriptor>;
+    using grouped   = graph;
+    using runlists  = graph;
+    using locals    = typename _descriptor_locals<sys_traits>::type;
+    using queries   = typename _descriptor_queries<sys_traits>::type;
+    using resources = typename _descriptor_resources<sys_traits>::type;
+    using globals   = typename _descriptor_globals<sys_traits>::type;
 
-    static constexpr bool value = graph::value && events::value && render::value;
+    static constexpr bool value =
+        graph::value && events::value && render::value;
 };
 
 } // namespace _metainfo

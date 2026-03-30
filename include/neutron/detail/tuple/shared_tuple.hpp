@@ -8,6 +8,12 @@
 #include "neutron/detail/tuple/first.hpp"
 #include "neutron/detail/tuple/last.hpp"
 
+#ifdef __clang__
+#elif defined(__GNUC__)
+    #pragma GCC diagnostic push
+    #pragma GCC diagnostic ignored "-Winterference-size"
+#endif
+
 namespace neutron {
 
 /**
@@ -25,17 +31,7 @@ class shared_tuple<> {};
 template <typename T, typename... Rest>
 requires(sizeof...(Rest) != 0)
 class shared_tuple<T, Rest...> {
-
-#ifdef __clang__
-#elif defined(__GNUC__)
-    #pragma GCC diagnostic push
-    #pragma GCC diagnostic ignored "-Winterference-size"
-#endif
     struct alignas(std::hardware_destructive_interference_size) _aligned_t {
-#ifdef __clang__
-#elif defined(__GNUC__)
-    #pragma GCC diagnostic pop
-#endif
         T value;
 
         constexpr _aligned_t() noexcept(
@@ -201,3 +197,8 @@ struct tuple_element<Index, neutron::shared_tuple<Tys...>> {
 };
 
 } // namespace std
+
+#ifdef __clang__
+#elif defined(__GNUC__)
+    #pragma GCC diagnostic pop
+#endif
