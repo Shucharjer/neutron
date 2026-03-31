@@ -481,8 +481,11 @@ struct descriptor_traits {
 
     using sysinfo    = sysinfo_holder<Descriptor>;
     using sys_traits = typename _descriptor_sys_traits<Descriptor>::all;
-    using components = type_list_filt_t<
-        _not_empty, type_list_convert_t<_to_component_list, sys_traits>>;
+    using components = type_list_convert_t<
+        std::remove_cvref,
+        type_list_expose_t<
+            type_list, type_list_list_cat_t<type_list_convert_t<
+                           _to_component_list, sys_traits>>>>;
     using graph     = descriptor_graph<Descriptor>;
     using events    = events_info<Descriptor>;
     using render    = render_info<Descriptor>;

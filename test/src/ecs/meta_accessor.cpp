@@ -14,10 +14,10 @@ void echo(commands cmds, meta_accessor accessor) {
         println("name: {}, hash: {}", typeinfo.name(), typeinfo.hash());
     }
 
-    if (auto iter = accessor.find("int"); iter != accessor.end()) {
+    if (const auto* iter = accessor.find("int"); iter != accessor.end()) {
         println("found component: int");
     }
-    if (auto iter = accessor.find("char"); iter == accessor.end()) {
+    if (const auto* iter = accessor.find("char"); iter == accessor.end()) {
         println("could not find component: char");
     }
 }
