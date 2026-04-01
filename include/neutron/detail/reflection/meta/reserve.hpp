@@ -1,5 +1,6 @@
+// private, include <neutron/reflection.hpp>
 #pragma once
-#include "../../macros.hpp"
+#include "neutron/detail/macros.hpp"
 
 #if ATOM_HAS_REFLECTION
 

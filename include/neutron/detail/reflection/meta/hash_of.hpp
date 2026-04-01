@@ -1,5 +1,10 @@
+// private, include <neutron/reflection.hpp>
 #pragma once
-#include "neutron/detail/reflection/hash.hpp"
+#include "neutron/detail/macros.hpp"
+
+#if ATOM_HAS_REFLECTION
+
+#include "neutron/detail/reflection/hash_fn.hpp"
 #include "neutron/detail/reflection/meta/name_of.hpp"
 
 namespace neutron {
@@ -12,3 +17,5 @@ consteval auto hash_of() noexcept {
 }
 
 } // namespace neutron
+
+#endif

@@ -1,6 +1,6 @@
 // IWYU pragma: private, include <neutron/reflection.hpp>
 #pragma once
-#include "neutron/detail/reflection/hash.hpp"
+#include "neutron/detail/reflection/hash_fn.hpp"
 #include "neutron/detail/reflection/legacy/name_of.hpp"
 
 namespace neutron {

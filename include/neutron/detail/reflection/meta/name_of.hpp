@@ -1,4 +1,9 @@
+// private, include <neutron/reflection.hpp>
 #pragma once
+#include "neutron/detail/macros.hpp"
+
+#if ATOM_HAS_REFLECTION
+
 #include <meta>
 #include <string_view>
 
@@ -16,3 +21,5 @@ consteval std::string_view name_of() noexcept {
 }
 
 } // namespace neutron
+
+#endif
