@@ -8,6 +8,8 @@
 #include "neutron/detail/ecs/construct_from_world.hpp"
 #include "neutron/detail/ecs/systuple.hpp"
 #include "neutron/detail/ecs/world_accessor.hpp"
+#include "neutron/detail/metafn/filt.hpp"
+#include "neutron/detail/metafn/first_last.hpp"
 #include "neutron/detail/tuple/first.hpp"
 #include "neutron/detail/tuple/shared_tuple.hpp"
 
