@@ -18,6 +18,7 @@
 #include "neutron/detail/ecs/archetype.hpp"
 #include "neutron/detail/ecs/component.hpp"
 #include "neutron/detail/ranges/concepts.hpp"
+#include "neutron/detail/reflection/refl.hpp"
 #include "neutron/flat_hash_map.hpp"
 #include "neutron/memory.hpp"
 #include "neutron/metafn.hpp"
@@ -191,7 +192,7 @@ private:
     size_type recycled_count_{};
     index_t fresh_begin_{};
     size_type fresh_count_{};
-    [[no_unique_address]] allocator_type allocator_{};
+    ATOM_NO_UNIQUE_ADDR allocator_type allocator_;
 };
 
 template <std_simple_allocator Alloc>
