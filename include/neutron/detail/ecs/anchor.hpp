@@ -12,6 +12,28 @@
 
 namespace neutron {
 
+/**
+ * @class anchor
+ * @brief A specialized contiguous container designed for efficient data access
+ * in type-erasure scenarios.
+ *
+ * The `anchor` class template manages a dynamically allocated array of objects
+ * of type `Ty`. While functionally similar to `std::vector`, it is specifically
+ * optimized for use as a query cache or view over an "archetype" of entities.
+ *
+ * @tparam Ty The type of the elements stored in the container.
+ * @tparam Alloc The allocator type used for memory management. Defaults to
+ * `std::allocator<Ty>`.
+ *
+ * @note **Key Difference from `std::vector`:**
+ * Unlike `std::vector`, the `data()` method in `anchor` returns a reference to
+ * the underlying pointer (`pointer const&`). This design ensures that even in
+ * type-erased contexts, the user can obtain a stable reference to the data
+ * buffer without dealing with raw pointer null checks or worrying about
+ * reference validity in the same manner as standard pointers.
+ * @note It is the internal implementation of `archetype` entity storage, so
+ * some interface for a standard container would not be provided.
+ */
 template <typename Ty, std_simple_allocator Alloc = std::allocator<Ty>>
 class anchor {
 public:
@@ -60,10 +82,27 @@ public:
         return alloc_;
     }
 
+    /**
+     * @brief Returns a reference to the internal data pointer.
+     *
+     * This function provides direct access to the underlying buffer.
+     * It returns a reference to the pointer itself (`pointer const&`), allowing
+     * for efficient pointer arithmetic and access in performance-critical paths
+     * (e.g., type-erased queries) without the overhead of null checks.
+     *
+     * @return A const reference to the pointer pointing to the beginning of the
+     * buffer.
+     */
     ATOM_NODISCARD constexpr auto data() noexcept -> pointer const& {
         return data_;
     }
 
+    /**
+     * @brief Returns a reference to the internal data pointer (const version).
+     *
+     * @return A const reference to the pointer pointing to the beginning of the
+     * buffer.
+     */
     ATOM_NODISCARD constexpr auto data() const noexcept
         -> const_pointer const& {
         return data_;
