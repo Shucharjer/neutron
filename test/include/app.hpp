@@ -14,10 +14,12 @@
 using commands = neutron::basic_commands<std::pmr::polymorphic_allocator<>>;
 
 class myapp {
+    struct insertion {};
+
 public:
     using config_type = std::tuple<>;
     static myapp create() { return {}; }
-    template <auto World> // single world
+    template <auto... Worlds>
     void run() {
         using namespace neutron;
         using namespace neutron::execution;
@@ -47,9 +49,10 @@ public:
 
         // make worlds
 
-        auto worlds = make_worlds<World>(alloc);
+        auto worlds = make_worlds<Worlds...>(alloc);
 
-        auto rt = make_runtime(sch, command_buffers, worlds);
+        insertion insertion{};
+        auto rt = make_runtime(insertion, sch, command_buffers, worlds);
         rt.run();
     }
 };

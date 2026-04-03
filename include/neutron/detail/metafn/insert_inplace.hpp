@@ -73,7 +73,7 @@ struct _tagged_type_list_impl {
 template <
     typename Tag, template <typename...> typename Template, typename Ty,
     template <typename, typename...> typename TaggedList, typename... Tls>
-requires type_list_has_tag_v<Tag, Template<Tls...>>
+requires type_list_has_tag_v<Template<Tls...>, Tag>
 struct _tagged_type_list_impl<Tag, Template, Ty, TaggedList, Tls...> {
     template <typename T>
     struct convert {
@@ -119,7 +119,7 @@ struct _tagged_value_list_impl {
 template <
     typename Tag, template <typename...> typename Template, auto Val,
     template <typename, auto...> typename TaggedList, typename... Tls>
-requires type_list_has_tag_v<Tag, Template<Tls...>>
+requires type_list_has_tag_v<Template<Tls...>, Tag>
 struct _tagged_value_list_impl<Tag, Template, Val, TaggedList, Tls...> {
     template <typename T>
     struct convert {

@@ -17,7 +17,7 @@ template <
     typename Prev>
 struct unique_type_list<Template<Ty, Others...>, Prev> {
     using current_list = std::conditional_t<
-        type_list_has<Ty, Prev>::value, Template<>, Template<Ty>>;
+        type_list_has<Prev, Ty>::value, Template<>, Template<Ty>>;
     using type = unique_type_list<
         Template<Others...>, type_list_cat_t<Prev, current_list>>::type;
 };
@@ -31,7 +31,7 @@ template <
     typename Prev>
 struct unique_value_list<Template<Val, Others...>, Prev> {
     using current_list = std::conditional_t<
-        value_list_has<Val, Prev>::value, Template<>, Template<Val>>;
+        value_list_has<Prev, Val>::value, Template<>, Template<Val>>;
     using type = unique_value_list<
         Template<Others...>, type_list_cat_t<Prev, current_list>>::type;
 };

@@ -12,7 +12,7 @@ template <
     typename... Tys2>
 struct type_list_all_differs_from<Template1<Tys1...>, Template2<Tys2...>> {
     constexpr static bool value =
-        !(type_list_has_v<Tys1, Template2<Tys2...>> || ...);
+        !(type_list_has_v<Template2<Tys2...>, Tys1> || ...);
 };
 template <typename TypeList1, typename TypeList2>
 constexpr auto type_list_all_differs_from_v =

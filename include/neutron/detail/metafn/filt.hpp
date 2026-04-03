@@ -83,7 +83,7 @@ using type_list_filt_nempty_t =
 template <typename Tag, typename TypeList>
 struct type_list_filt_tagged {
     template <typename T>
-    using predicate_type = tagged_list_has_tag<Tag, T>;
+    using predicate_type = tagged_list_has_tag<T, Tag>;
     using type           = type_list_filt_t<predicate_type, TypeList>;
 };
 template <typename Tag, typename TypeList>
@@ -95,7 +95,7 @@ struct type_list_filt_tagged_nempty {
     using type = type_list_filt_tagged_t<Tag, TypeList>;
 };
 template <typename Tag, typename TypeList, typename TyIfEmpty>
-requires std::negation_v<type_list_has_tag<Tag, TypeList>>
+requires std::negation_v<type_list_has_tag<TypeList, Tag>>
 struct type_list_filt_tagged_nempty<Tag, TypeList, TyIfEmpty> {
     using type = TyIfEmpty;
 };

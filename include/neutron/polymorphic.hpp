@@ -166,35 +166,35 @@ class poly :
     template <poly_impl<Object> Impl>
     constexpr static ops_t _operations() noexcept {
         ops_t ops;
-        if constexpr (type_list_has_v<poly_op_default_construct, ops_t>) {
+        if constexpr (type_list_has_v<ops_t, poly_op_default_construct>) {
             get_first<poly_op_default_construct>(ops).value =
                 [](void* ptr) noexcept(
                     std::is_nothrow_default_constructible_v<Impl>) {
                     ::new (ptr) Impl();
                 };
         }
-        if constexpr (type_list_has_v<poly_op_copy_construct, ops_t>) {
+        if constexpr (type_list_has_v<ops_t, poly_op_copy_construct>) {
             get_first<poly_op_copy_construct>(ops).value =
                 [](void* lhs, const void* rhs) noexcept(
                     std::is_nothrow_copy_constructible_v<Impl>) {
                     ::new (lhs) Impl(*static_cast<const Impl*>(rhs));
                 };
         }
-        if constexpr (type_list_has_v<poly_op_move_construct, ops_t>) {
+        if constexpr (type_list_has_v<ops_t, poly_op_move_construct>) {
             get_first<poly_op_move_construct>(ops).value =
                 [](void* lhs, void* rhs) noexcept(
                     std::is_nothrow_move_constructible_v<Impl>) {
                     ::new (lhs) Impl(std::move(*static_cast<Impl*>(rhs)));
                 };
         }
-        if constexpr (type_list_has_v<poly_op_copy_assign, ops_t>) {
+        if constexpr (type_list_has_v<ops_t, poly_op_copy_assign>) {
             get_first<poly_op_copy_assign>(ops).value =
                 [](void* lhs, const void* rhs) noexcept(
                     std::is_nothrow_copy_assignable_v<Impl>) {
                     *static_cast<Impl*>(lhs) = *static_cast<const Impl*>(rhs);
                 };
         }
-        if constexpr (type_list_has_v<poly_op_move_assign, ops_t>) {
+        if constexpr (type_list_has_v<ops_t, poly_op_move_assign>) {
             get_first<poly_op_move_assign>(ops).value =
                 [](void* lhs, void* rhs) noexcept(
                     std::is_nothrow_move_assignable_v<Impl>) {
@@ -240,7 +240,7 @@ public:
     }
 
     constexpr poly(const poly& that)
-    requires type_list_has_v<poly_op_copy_construct, ops_t>
+    requires type_list_has_v<ops_t,poly_op_copy_construct>
         : ptr_(nullptr), hash_code_(that.hash_code_), vtable_(that.vtable_),
           ops_(that.ops_), storage_() {
         if (that.ptr_ != nullptr) {
@@ -251,7 +251,7 @@ public:
     }
 
     constexpr poly(poly&& that) noexcept
-    requires type_list_has_v<poly_op_move_construct, ops_t>
+    requires type_list_has_v<ops_t, poly_op_move_construct>
         : ptr_(nullptr), hash_code_(std::exchange(that.hash_code_, 0)),
           vtable_(that.vtable_), storage_(), ops_(that.ops_) {
         if (that.ptr_ != nullptr) {
@@ -281,11 +281,11 @@ public:
 private:
     constexpr void _make_same(const poly& that) {
         _init_ptr_from(that);
-        if constexpr (type_list_has_v<poly_op_copy_construct, ops_t>) {
+        if constexpr (type_list_has_v<ops_t, poly_op_copy_construct>) {
             get_first<poly_op_copy_construct>(ops_).value(ptr_, that.ptr_);
         } else if constexpr (
-            type_list_has_v<poly_op_default_construct, ops_t> &&
-            type_list_has_v<poly_op_copy_assign, ops_t>) {
+            type_list_has_v<ops_t, poly_op_default_construct> &&
+            type_list_has_v<ops_t, poly_op_copy_assign>) {
             get_first<poly_op_default_construct>(ops_).value(ptr_);
             get_first<poly_op_copy_assign>(ops_).value(ptr_, that.ptr_);
         }
@@ -294,9 +294,9 @@ private:
 
 public:
     constexpr poly& operator=(const poly& that)
-    requires(type_list_has_v<poly_op_copy_assign, ops_t> &&
-             type_list_has_v<poly_op_default_construct, ops_t>) ||
-            type_list_has_v<poly_op_copy_construct, ops_t>
+    requires(type_list_has_v<ops_t, poly_op_copy_assign> &&
+             type_list_has_v<ops_t, poly_op_default_construct>) ||
+            type_list_has_v<ops_t, poly_op_copy_construct>
     {
         if (this == &that) [[unlikely]] {
             return *this;
@@ -305,11 +305,11 @@ public:
         if (that.ptr_ != nullptr) {
             if (ptr_ != nullptr) {
                 if (hash_code_ == that.hash_code_) {
-                    if constexpr (type_list_has_v<poly_op_copy_assign, ops_t>) {
+                    if constexpr (type_list_has_v<ops_t, poly_op_copy_assign>) {
                         get_first<poly_op_copy_assign>(ops_).value(
                             ptr_, that.ptr_);
                     } else if constexpr (type_list_has_v<
-                                             poly_op_copy_construct, ops_t>) {
+                                             ops_t, poly_op_copy_construct>) {
                         _destroy_without_reset();
                         get_first<poly_op_copy_construct>(ops_).value(
                             ptr_, that.ptr_);
@@ -331,11 +331,11 @@ public:
 private:
     constexpr void _make_same(poly&& that) {
         _init_ptr_from(std::move(that));
-        if constexpr (type_list_has_v<poly_op_move_construct, ops_t>) {
+        if constexpr (type_list_has_v<ops_t, poly_op_move_construct>) {
             get_first<poly_op_move_construct>(ops_).value(ptr_, that.ptr_);
         } else if constexpr (
-            type_list_has_v<poly_op_default_construct, ops_t> &&
-            type_list_has_v<poly_op_move_assign, ops_t>) {
+            type_list_has_v<ops_t, poly_op_default_construct> &&
+            type_list_has_v<ops_t, poly_op_move_assign>) {
             get_first<poly_op_default_construct>(ops_).value(ptr_);
             get_first<poly_op_move_assign>(ops_).value(ptr_, that.ptr_);
         }
@@ -344,8 +344,8 @@ private:
 
 public:
     constexpr poly& operator=(poly&& that) noexcept
-    requires type_list_has_v<poly_op_move_assign, ops_t> ||
-             type_list_has_v<poly_op_move_construct, ops_t>
+    requires type_list_has_v<ops_t, poly_op_move_assign> ||
+             type_list_has_v<ops_t, poly_op_move_construct>
     {
         if (this == &that) [[unlikely]] {
             return *this;
@@ -354,11 +354,11 @@ public:
         if (that.ptr_ != nullptr) {
             if (ptr_ != nullptr) {
                 if (hash_code_ == that.hash_code_) {
-                    if constexpr (type_list_has_v<poly_op_move_assign, ops_t>) {
+                    if constexpr (type_list_has_v<ops_t, poly_op_move_assign>) {
                         get_first<poly_op_move_assign>(ops_).value(
                             ptr_, that.ptr_);
                     } else if constexpr (type_list_has_v<
-                                             poly_op_move_construct, ops_t>) {
+                                             ops_t, poly_op_move_construct>) {
                         _destroy_without_reset();
                         get_first<poly_op_move_construct>(ops_).value(
                             ptr_, that.ptr_);

@@ -260,15 +260,15 @@ struct _access_list_intersects;
 template <
     template <typename...> typename Template, typename... Lhs, typename Rhs>
 struct _access_list_intersects<Template<Lhs...>, Rhs> :
-    std::bool_constant<(false || ... || type_list_has_v<Lhs, Rhs>)> {};
+    std::bool_constant<(false || ... || type_list_has_v<Rhs, Lhs>)> {};
 
 template <typename Info, typename Other>
 constexpr bool _has_before_v = type_list_has_v<
-    _add_system::_before_t<Other::fn>, typename Info::requires_list>;
+    typename Info::requires_list, _add_system::_before_t<Other::fn>>;
 
 template <typename Info, typename Other>
 constexpr bool _has_after_v = type_list_has_v<
-    _add_system::_after_t<Other::fn>, typename Info::requires_list>;
+    typename Info::requires_list, _add_system::_after_t<Other::fn>>;
 
 template <typename Info, typename Other>
 constexpr bool _direct_before_v =
@@ -298,7 +298,7 @@ private:
     template <typename Next>
     static consteval bool _step() {
         if constexpr (
-            type_list_has_v<Next, Visited> || !_direct_before_v<From, Next>) {
+            type_list_has_v<Visited, Next> || !_direct_before_v<From, Next>) {
             return false;
         } else if constexpr (std::same_as<Next, To>) {
             return true;
@@ -398,8 +398,8 @@ using _sysinfo_traits_list_for_t = typename _sysinfo_traits_list_for<
 
 template <auto... Fn>
 struct _validate_sysinfo<type_list<_fn_traits<Fn>...>> {
-    using arg_lists    = type_list_cat_t<typename _fn_traits<Fn>::arg_list...>;
-    using query_list   = type_list_filt_t<internal::is_query, arg_lists>;
+    using arg_lists  = type_list_cat_t<typename _fn_traits<Fn>::arg_list...>;
+    using query_list = type_list_filt_t<internal::is_query, arg_lists>;
     using component_lists = type_list_first_t<type_list_filt_nempty_t<
         always_true,
         type_list_list_cat_t<

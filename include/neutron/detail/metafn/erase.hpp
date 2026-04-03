@@ -34,7 +34,7 @@ using type_list_erase_t = typename type_list_erase<TypeList, Ty>::type;
 template <typename TypeList, typename List>
 struct type_list_erase_in {
     template <typename T>
-    using predicate_type = std::negation<type_list_has<T, List>>;
+    using predicate_type = std::negation<type_list_has<List, T>>;
     using type           = type_list_filt_t<predicate_type, TypeList>;
 };
 template <typename TypeList, typename List>

@@ -7,6 +7,7 @@
 #include <tuple>
 #include <type_traits>
 #include <utility>
+#include "neutron/detail/macros.hpp"
 #include "neutron/detail/ecs/construct_from_world.hpp"
 
 namespace neutron {
@@ -93,12 +94,12 @@ void unbind_global() noexcept {
 }
 
 template <typename Ty>
-[[nodiscard]] bool has_global() noexcept {
+ATOM_NODISCARD bool has_global() noexcept {
     return _global::_slot<_global::_base_t<Ty>>::object != nullptr;
 }
 
 template <typename Ty>
-[[nodiscard]] auto try_get_global() noexcept -> _global::_base_t<Ty>* {
+ATOM_NODISCARD auto try_get_global() noexcept -> _global::_base_t<Ty>* {
     return _global::_slot<_global::_base_t<Ty>>::object;
 }
 
