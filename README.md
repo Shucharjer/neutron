@@ -168,8 +168,8 @@ The descriptor system derives metadata at compile time, which helps reduce
 runtime overhead.
 
 For a more complete end-to-end example, take a look at
-[`app.hpp`](test/include/app.hpp) and the repository's
-[`example/src/main.cpp`](../example/src/main.cpp). The example wires Neutron
+[`app.hpp`](test/include/app.hpp) and the `electron` repository's
+[`example/src/main.cpp`](https://github.com/Shucharjer/electron/blob/main/example/src/main.cpp). The example wires Neutron
 into a real application flow with rendering and an ImGui-backed "hello world"
 window.
 
