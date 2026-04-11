@@ -112,20 +112,20 @@ class _accessor : public basic_meta_accessor<Alloc> {
 
 public:
     ATOM_NODISCARD static constexpr const typeinfo* begin() noexcept {
-        return info.begin();
+        return info.data();
     }
 
     ATOM_NODISCARD static constexpr const typeinfo* end() noexcept {
-        return info.end();
+        return info.data() + info.size();
     }
 
     ATOM_NODISCARD static const typeinfo* findhash(uint32_t hash) noexcept {
-        return std::find(info.begin(), info.end(), hash);
+        return std::find(begin(), end(), hash);
     }
 
     ATOM_NODISCARD static const typeinfo*
         findname(std::string_view name) noexcept {
-        return std::find(info.begin(), info.end(), name);
+        return std::find(begin(), end(), name);
     }
 
     static bool add_component(
