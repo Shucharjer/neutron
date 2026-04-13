@@ -11,8 +11,10 @@ struct _product_type : public std::tuple<Args...> {
     using std::tuple<Args...>::tuple;
 };
 
+#if __cplusplus <= 202102L
 template <typename... Args>
 _product_type(Args&&...) -> _product_type<std::decay_t<Args>...>;
+#endif
 
 } // namespace neutron::execution
 
@@ -25,5 +27,11 @@ struct tuple_size<::neutron::execution::_product_type<Args...>> :
 template <size_t Index, typename... Args>
 struct tuple_element<Index, ::neutron::execution::_product_type<Args...>> :
     std::tuple_element<Index, std::tuple<Args...>> {};
+
+#if defined(__glibcxx_tuple_like)
+template <typename... Args>
+inline constexpr bool
+    __is_tuple_like_v<::neutron::execution::_product_type<Args...>> = true;
+#endif
 
 } // namespace std

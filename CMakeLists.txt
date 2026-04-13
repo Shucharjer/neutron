@@ -47,6 +47,10 @@ if(CMAKE_CXX_COMPILER_ID MATCHES "Clang")
   target_link_options(neutron INTERFACE -fexperimental-library)
 endif()
 
+if(MINGW AND CMAKE_CXX_COMPILER_ID MATCHES GNU)
+  target_link_libraries(neutron INTERFACE stdc++exp)
+endif()
+
 # options support
 
 if (false)
