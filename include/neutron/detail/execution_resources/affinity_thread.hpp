@@ -9,7 +9,9 @@
 #include "neutron/execution.hpp" // IWYU pragma: keep
 
 #if defined(_WIN32)
-    #define NOMINMAX
+    #ifndef NOMINMAX
+        #define NOMINMAX
+    #endif
     #include <Windows.h>
 
 #elif defined(__linux) || defined(__linux__)
