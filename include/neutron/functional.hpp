@@ -8,6 +8,7 @@
 #include <neutron/memory.hpp>
 #include "neutron/detail/macros.hpp"
 #include "neutron/detail/utility/spreader.hpp"
+#include "neutron/detail/reflection/refl.hpp"
 #include "neutron/flat_hash_map.hpp"
 #include "neutron/type_traits.hpp"
 
