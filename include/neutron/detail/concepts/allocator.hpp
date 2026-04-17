@@ -1,12 +1,12 @@
 // IWYU pragma: private, include <neutron/concepts.hpp>
 #pragma once
-#include <cstddef>
 #include <concepts>
+#include <cstddef>
 
 namespace neutron {
 
 template <typename Alloc>
-concept sized_allocator = requires(Alloc& alloc, size_t n) {
+concept sized_allocator = requires(Alloc& alloc, std::size_t n) {
     { *alloc.allocate(n) } -> std::same_as<typename Alloc::value_type&>;
     alloc.deallocate(alloc.allocate(n), n);
 };

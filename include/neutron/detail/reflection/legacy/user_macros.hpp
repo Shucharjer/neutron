@@ -35,11 +35,11 @@ namespace neutron::_reflection {
 #define CONCAT(l, r) CONCAT_(l, r)
 
 #define FIELD_TRAITS(_, x)                                                     \
-    ::neutron::field_traits<decltype(&_::x)> { #x, &_::x }                     \
+    ::neutron::_refl_legacy::field_traits<decltype(&_::x)> { #x, &_::x }       \
     //
 
 #define FUNCTION_TRAITS(_, x)                                                  \
-    ::neutron::function_traits<decltype(&_::x)> { #x, &_::x }                  \
+    ::neutron::_refl_legacy::function_traits<decltype(&_::x)> { #x, &_::x }    \
     //
 
 #define FOR_EACH_0(MACRO, _)

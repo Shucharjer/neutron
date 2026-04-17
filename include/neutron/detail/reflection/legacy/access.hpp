@@ -6,7 +6,7 @@
 #include "neutron/detail/reflection/legacy/member_names.hpp"
 #include "neutron/tstring.hpp"
 
-namespace neutron {
+namespace neutron::_refl_legacy {
 
 /**
  * @brief Get the existance of a member.
@@ -109,8 +109,8 @@ template <reflectible Ty>
 template <tstring Name, typename Ty>
 constexpr auto& get_by_name(Ty& obj) noexcept {
     constexpr auto index = index_of<Name, Ty>();
-    static_assert(index < _reflection::member_count_of<Ty>());
-    return _reflection::get<index>(obj);
+    static_assert(index < _refl_legacy::member_count_of<Ty>());
+    return _refl_legacy::get<index>(obj);
 }
 
-} // namespace neutron
+} // namespace neutron::_refl_legacy

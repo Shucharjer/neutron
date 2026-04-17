@@ -2,7 +2,7 @@
 #pragma once
 #include <string_view>
 
-namespace neutron {
+namespace neutron::_refl_legacy {
 
 /**
  * @brief Base of class template field_traits.
@@ -192,5 +192,4 @@ private:
     Ret (Class::*pointer_)(Args...);
 };
 
-
-} // namespace neutron
+} // namespace neutron::_refl_legacy

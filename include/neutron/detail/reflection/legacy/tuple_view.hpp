@@ -4,9 +4,7 @@
 #include "neutron/detail/reflection/legacy/concepts.hpp"
 #include "neutron/detail/reflection/legacy/member_count.hpp"
 
-namespace neutron {
-
-namespace _reflection {
+namespace neutron::_refl_legacy {
 
 template <aggregate Ty>
 struct outline {
@@ -788,8 +786,4 @@ constexpr static auto object_to_tuple_view(Ty& obj) noexcept {
     return tuple_view_helper<std::remove_cvref_t<Ty>>::tuple_view(obj);
 }
 
-} // namespace _reflection
-
-using _reflection::object_to_tuple_view;
-
-} // namespace neutron
+} // namespace neutron::_refl_legacy

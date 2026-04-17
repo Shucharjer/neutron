@@ -18,8 +18,8 @@ struct msgpak {
 void sender(sync<in_group, broadcast, master<msgpak>> sync) {
     auto& [master] = sync;
     auto& [mpm]    = master;
-    mpm.broadcast(
-        msgpak{ std::chrono::high_resolution_clock::now(), "the msg" });
+    // mpm.broadcast(
+    //     msgpak{ std::chrono::high_resolution_clock::now(), "the msg" });
 }
 
 void receiver(sync<in_group, broadcast, slave<msgpak>> sync) {

@@ -19,7 +19,7 @@ struct _is_execute_always_policy : std::false_type {};
 template <>
 struct _is_execute_always_policy<_always_t> : std::true_type {};
 
-template <size_t Index>
+template <std::size_t Index>
 struct _is_execute_group_policy<_group_t<Index>> : std::true_type {};
 
 template <typename>
@@ -78,9 +78,9 @@ struct _is_execute_dynamic_frequency_value :
 template <typename>
 struct _execute_group_index;
 
-template <size_t Index>
+template <std::size_t Index>
 struct _execute_group_index<_group_t<Index>> :
-    std::integral_constant<size_t, Index> {};
+    std::integral_constant<std::size_t, Index> {};
 
 template <typename>
 struct _execute_frequency_interval;
@@ -124,9 +124,9 @@ struct _normalize_execinfo<
 
 private:
     template <template <typename> typename Predicate>
-    static consteval size_t _count() noexcept {
+    static consteval std::size_t _count() noexcept {
         return (
-            size_t(Predicate<std::remove_cvref_t<decltype(Policies)>>::value) +
+            std::size_t(Predicate<std::remove_cvref_t<decltype(Policies)>>::value) +
             ... + 0);
     }
 
@@ -142,13 +142,13 @@ public:
     static constexpr bool has_only_known_policies =
         (_is_execute_policy_v<std::remove_cvref_t<decltype(Policies)>> && ...);
 
-    static constexpr size_t group_count  = _count<_is_execute_group_policy>();
-    static constexpr size_t always_count = _count<_is_execute_always_policy>();
-    static constexpr size_t individual_count =
+    static constexpr std::size_t group_count  = _count<_is_execute_group_policy>();
+    static constexpr std::size_t always_count = _count<_is_execute_always_policy>();
+    static constexpr std::size_t individual_count =
         _count<_is_execute_individual_policy>();
-    static constexpr size_t frequency_count =
+    static constexpr std::size_t frequency_count =
         _count<_is_execute_frequency_policy>();
-    static constexpr size_t dynamic_frequency_count =
+    static constexpr std::size_t dynamic_frequency_count =
         _count<_is_execute_dynamic_frequency_policy>();
 
     static constexpr bool value =
@@ -275,11 +275,11 @@ struct execinfo_traits<tagged_value_list<_execute::exec_tag_t, Policies...>> {
         }
     }())>;
 
-    static constexpr size_t group_index = [] {
+    static constexpr std::size_t group_index = [] {
         if constexpr (is_grouped) {
             return _execute_group_index<group_policy>::value;
         } else {
-            return size_t(0);
+            return std::size_t(0);
         }
     }();
 

@@ -202,7 +202,8 @@
 #endif
 
 #ifndef ATOM_HAS_REFLECTION
-    #if __has_feature(reflection) && __cplusplus >= 202602L
+    #if (defined(__cpp_lib_reflection) && __cpp_lib_reflection >= 202506L) ||  \
+        (__has_feature(reflection) && __cplusplus >= 202502L)
         #define ATOM_HAS_REFLECTION 1
     #else
         #define ATOM_HAS_REFLECTION 0

@@ -11,7 +11,7 @@ namespace _metainfo {
 template <typename RenderInfo>
 struct _validate_renderinfo {
     using markers                        = typename RenderInfo::type_list;
-    static constexpr size_t enable_count = type_list_size_v<markers>;
+    static constexpr std::size_t enable_count = type_list_size_v<markers>;
     static constexpr bool value          = enable_count <= 1;
 };
 
@@ -38,7 +38,7 @@ struct renderinfo_traits<
         tagged_type_list<_n_render::_enable_render_t, Markers...>;
     using type_list = typename tagged_type::type_list;
 
-    static constexpr size_t enable_count = type_list_size_v<type_list>;
+    static constexpr std::size_t enable_count = type_list_size_v<type_list>;
     static constexpr bool is_enabled     = enable_count != 0;
     static constexpr bool value          = enable_count <= 1;
 };

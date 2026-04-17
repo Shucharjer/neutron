@@ -3,8 +3,8 @@
 #include <memory>
 #include <type_traits>
 
-
-namespace neutron::_reflection {
+/*! @cond TURN_OFF_DOXYGEN */
+namespace neutron::_refl_legacy {
 
 template <typename Ty>
 constexpr void
@@ -12,4 +12,5 @@ constexpr void
     std::destroy_at(static_cast<Ty*>(ptr));
 }
 
-} // namespace neutron::_reflection
+} // namespace neutron::_refl_legacy
+/*! @endcond */

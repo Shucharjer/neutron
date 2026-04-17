@@ -226,34 +226,34 @@ struct stage_graph {
 
     static constexpr bool value =
         sysinfo::value && _layer_graph<traits_list>::value;
-    static constexpr size_t size = type_list_size_v<traits_list>;
+    static constexpr std::size_t size = type_list_size_v<traits_list>;
 
-    template <size_t Index>
+    template <std::size_t Index>
     using node_t = type_list_element_t<Index, traits_list>;
 
-    template <size_t Index>
+    template <std::size_t Index>
     using predecessor_indices = _node_index_list_t<
         traits_list, _direct_predecessor_nodes_t<node_t<Index>, traits_list>>;
 
-    template <size_t Index>
+    template <std::size_t Index>
     using successor_indices = _node_index_list_t<
         traits_list, _direct_successor_nodes_t<node_t<Index>, traits_list>>;
 
-    template <size_t Index>
+    template <std::size_t Index>
     using descendant_indices = _node_index_list_t<
         traits_list, _descendant_nodes_t<node_t<Index>, traits_list>>;
 
 private:
     template <typename Values>
-    static consteval size_t _value_list_count() noexcept {
+    static consteval std::size_t _value_list_count() noexcept {
         return value_list_size_v<Values>;
     }
 
-    template <size_t Max, typename Values>
+    template <std::size_t Max, typename Values>
     static consteval auto _make_index_row() noexcept {
-        std::array<size_t, Max> row{};
-        []<size_t... Is>(
-            std::array<size_t, Max>& target, std::index_sequence<Is...>) {
+        std::array<std::size_t, Max> row{};
+        []<std::size_t... Is>(
+            std::array<std::size_t, Max>& target, std::index_sequence<Is...>) {
             (void)std::initializer_list<int>{ (
                 (target[Is] = value_list_element_v<Is, Values>), 0)... };
         }(row, std::make_index_sequence<value_list_size_v<Values>>{});
@@ -261,9 +261,9 @@ private:
     }
 
     static consteval auto _make_predecessor_counts() noexcept {
-        std::array<size_t, size> counts{};
-        []<size_t... Is>(
-            std::array<size_t, size>& target, std::index_sequence<Is...>) {
+        std::array<std::size_t, size> counts{};
+        []<std::size_t... Is>(
+            std::array<std::size_t, size>& target, std::index_sequence<Is...>) {
             (void)std::initializer_list<int>{ (
                 (target[Is] = _value_list_count<predecessor_indices<Is>>()),
                 0)... };
@@ -272,9 +272,9 @@ private:
     }
 
     static consteval auto _make_successor_counts() noexcept {
-        std::array<size_t, size> counts{};
-        []<size_t... Is>(
-            std::array<size_t, size>& target, std::index_sequence<Is...>) {
+        std::array<std::size_t, size> counts{};
+        []<std::size_t... Is>(
+            std::array<std::size_t, size>& target, std::index_sequence<Is...>) {
             (void)std::initializer_list<int>{ (
                 (target[Is] = _value_list_count<successor_indices<Is>>()),
                 0)... };
@@ -283,9 +283,9 @@ private:
     }
 
     static consteval auto _make_descendant_counts() noexcept {
-        std::array<size_t, size> counts{};
-        []<size_t... Is>(
-            std::array<size_t, size>& target, std::index_sequence<Is...>) {
+        std::array<std::size_t, size> counts{};
+        []<std::size_t... Is>(
+            std::array<std::size_t, size>& target, std::index_sequence<Is...>) {
             (void)std::initializer_list<int>{ (
                 (target[Is] = _value_list_count<descendant_indices<Is>>()),
                 0)... };
@@ -293,10 +293,10 @@ private:
         return counts;
     }
 
-    static consteval size_t
-        _max_count(const std::array<size_t, size>& counts) noexcept {
-        size_t result = 0;
-        for (size_t count : counts) {
+    static consteval std::size_t
+        _max_count(const std::array<std::size_t, size>& counts) noexcept {
+        std::size_t result = 0;
+        for (std::size_t count : counts) {
             result = count > result ? count : result;
         }
         return result;
@@ -304,7 +304,7 @@ private:
 
     static consteval auto _make_has_commands() noexcept {
         std::array<bool, size> values{};
-        []<size_t... Is>(
+        []<std::size_t... Is>(
             std::array<bool, size>& target, std::index_sequence<Is...>) {
             (void)std::initializer_list<int>{ (
                 (target[Is] = node_t<Is>::has_commands), 0)... };
@@ -314,7 +314,7 @@ private:
 
     static consteval auto _make_is_individual() noexcept {
         std::array<bool, size> values{};
-        []<size_t... Is>(
+        []<std::size_t... Is>(
             std::array<bool, size>& target, std::index_sequence<Is...>) {
             (void)std::initializer_list<int>{
                 ((target[Is] = node_t<Is>::execute_traits::is_individual), 0)...
@@ -323,11 +323,11 @@ private:
         return values;
     }
 
-    template <size_t Max>
+    template <std::size_t Max>
     static consteval auto _make_successor_matrix() noexcept {
-        std::array<std::array<size_t, Max>, size> matrix{};
-        []<size_t... Is>(
-            std::array<std::array<size_t, Max>, size>& target,
+        std::array<std::array<std::size_t, Max>, size> matrix{};
+        []<std::size_t... Is>(
+            std::array<std::array<std::size_t, Max>, size>& target,
             std::index_sequence<Is...>) {
             (void)std::initializer_list<int>{ (
                 (target[Is] = _make_index_row<Max, successor_indices<Is>>()),
@@ -336,11 +336,11 @@ private:
         return matrix;
     }
 
-    template <size_t Max>
+    template <std::size_t Max>
     static consteval auto _make_descendant_matrix() noexcept {
-        std::array<std::array<size_t, Max>, size> matrix{};
-        []<size_t... Is>(
-            std::array<std::array<size_t, Max>, size>& target,
+        std::array<std::array<std::size_t, Max>, size> matrix{};
+        []<std::size_t... Is>(
+            std::array<std::array<std::size_t, Max>, size>& target,
             std::index_sequence<Is...>) {
             (void)std::initializer_list<int>{ (
                 (target[Is] = _make_index_row<Max, descendant_indices<Is>>()),
@@ -349,9 +349,9 @@ private:
         return matrix;
     }
 
-    static consteval size_t
+    static consteval std::size_t
         _count_commands(const std::array<bool, size>& values) noexcept {
-        size_t result = 0;
+        std::size_t result = 0;
         for (bool current : values) {
             result += current ? 1U : 0U;
         }
@@ -363,8 +363,9 @@ public:
     static constexpr auto successor_counts   = _make_successor_counts();
     static constexpr auto descendant_counts  = _make_descendant_counts();
 
-    static constexpr size_t max_successor_count = _max_count(successor_counts);
-    static constexpr size_t max_descendant_count =
+    static constexpr std::size_t max_successor_count =
+        _max_count(successor_counts);
+    static constexpr std::size_t max_descendant_count =
         _max_count(descendant_counts);
 
     static constexpr auto has_commands  = _make_has_commands();
@@ -374,7 +375,8 @@ public:
     static constexpr auto descendants =
         _make_descendant_matrix<max_descendant_count>();
 
-    static constexpr size_t command_node_count = _count_commands(has_commands);
+    static constexpr std::size_t command_node_count =
+        _count_commands(has_commands);
 };
 
 template <stage Stage, typename Descriptor>

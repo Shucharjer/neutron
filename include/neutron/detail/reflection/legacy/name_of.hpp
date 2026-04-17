@@ -3,9 +3,7 @@
 #include <string_view>
 #include "neutron/detail/macros.hpp"
 
-namespace neutron {
-
-namespace _reflection {
+namespace neutron::_refl_legacy {
 
 template <typename Ty>
 ATOM_NODISCARD consteval std::string_view raw_function_name() noexcept {
@@ -62,15 +60,13 @@ ATOM_NODISCARD consteval std::string_view compiler_name_of() noexcept {
 #endif
 }
 
-} // namespace _reflection
-
 /**
  * @brief Customization point for legacy type names.
  *
  */
 template <typename Ty>
 struct name_of_type {
-    static constexpr auto value = _reflection::compiler_name_of<Ty>();
+    static constexpr auto value = _refl_legacy::compiler_name_of<Ty>();
 };
 
 /**
@@ -82,4 +78,4 @@ ATOM_NODISCARD consteval std::string_view name_of() noexcept {
     return std::string_view{ name_of_type<Ty>::value };
 }
 
-} // namespace neutron
+} // namespace neutron::_refl_legacy

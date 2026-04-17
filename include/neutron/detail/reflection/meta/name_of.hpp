@@ -4,20 +4,22 @@
 
 #if ATOM_HAS_REFLECTION
 
-#include <meta>
-#include <string_view>
+    #include <meta>
+    #include <string_view>
 
 namespace neutron {
 
 template <typename Ty>
 consteval std::string_view name_of() noexcept {
-    constexpr auto info = ^^Ty;
-    if constexpr (std::meta::is_type_alias(info)) {
-        constexpr auto underlying = std::meta::underlying_type(info);
-        using type                = [:std::meta::type_of(underlying):];
-        return name_of<type>();
+    using namespace std::meta;
+    auto info = ^^Ty;
+    while (is_type_alias(info)) {
+        info = underlying_type(info);
     }
-    return std::meta::display_string_of(^^Ty);
+    if (has_identifier(info)) {
+        return identifier_of(info);
+    }
+    return display_string_of(info);
 }
 
 } // namespace neutron

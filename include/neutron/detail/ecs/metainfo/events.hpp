@@ -11,7 +11,7 @@ namespace _metainfo {
 template <typename EventsInfo>
 struct _validate_eventsinfo {
     using markers                        = typename EventsInfo::type_list;
-    static constexpr size_t enable_count = type_list_size_v<markers>;
+    static constexpr std::size_t enable_count = type_list_size_v<markers>;
     static constexpr bool value          = enable_count <= 1;
 };
 
@@ -38,7 +38,7 @@ struct eventsinfo_traits<
         tagged_type_list<_n_events::_enable_events_t, Markers...>;
     using type_list = typename tagged_type::type_list;
 
-    static constexpr size_t enable_count = type_list_size_v<type_list>;
+    static constexpr std::size_t enable_count = type_list_size_v<type_list>;
     static constexpr bool is_enabled     = enable_count != 0;
     static constexpr bool value          = enable_count <= 1;
 };

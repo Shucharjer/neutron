@@ -9,6 +9,7 @@
 #include "neutron/detail/metafn/make.hpp"
 #include "neutron/detail/metafn/sort.hpp"
 #include "neutron/detail/metafn/unique.hpp"
+#include "neutron/detail/reflection/hash_t.hpp"
 #include "neutron/detail/reflection/refl.hpp"
 #include "neutron/detail/utility/immediately.hpp"
 
@@ -73,9 +74,9 @@ struct hash_sequence {
     using hash_list = hash_list_t<TypeList, Hasher, Compare>;
 
     template <typename Ty>
-    static constexpr size_t find() noexcept {
+    static constexpr std::size_t find() noexcept {
         return []<size_t... Is>(std::index_sequence<Is...>) {
-            size_t index = 0;
+            std::size_t index = 0;
             (...,
              (index = std::is_same_v<Ty, type_list_element_t<Is, hash_list>>
                           ? Is
@@ -85,7 +86,7 @@ struct hash_sequence {
     }
 
     using type =
-        std::remove_pointer_t<decltype([]<size_t... Is>(
+        std::remove_pointer_t<decltype([]<std::size_t... Is>(
                                            std::index_sequence<Is...>) {
             return static_cast<std::index_sequence<
                 find<type_list_element_t<Is, TypeList>>()...>*>(nullptr);
@@ -106,18 +107,18 @@ ATOM_NODISCARD consteval auto make_hash_array() noexcept {
 template <
     typename TypeList, auto Hasher = internal::hash,
     template <typename, typename> typename Compare = hash_less>
-ATOM_NODISCARD consteval uint64_t make_array_hash() noexcept {
+ATOM_NODISCARD consteval long_hash_t make_array_hash() noexcept {
     auto array = make_hash_array<TypeList, Hasher, Compare>();
     return internal::hash_combine(array);
 }
 
 template <std::ranges::range Range>
-ATOM_NODISCARD constexpr uint64_t hash_combine(Range&& range) noexcept {
+ATOM_NODISCARD constexpr long_hash_t hash_combine(Range&& range) noexcept {
     return internal::hash_combine(std::forward<Range>(range));
 }
 
 template <std::ranges::range Range>
-ATOM_NODISCARD consteval uint64_t
+ATOM_NODISCARD consteval long_hash_t
     hash_combine(immediately_t, const Range& range) noexcept {
     return internal::hash_combine(range);
 }

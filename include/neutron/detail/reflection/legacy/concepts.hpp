@@ -5,7 +5,7 @@
 namespace neutron {
 
 /*! @cond TURN_OFF_DOXYGEN */
-namespace _reflection {
+namespace _refl_legacy {
 
 template <typename Ty>
 concept aggregate = std::is_aggregate_v<std::remove_cvref_t<Ty>>;
@@ -24,9 +24,9 @@ concept default_reflectible_aggregate = aggregate<Ty> && !has_field_traits<Ty>;
 template <typename Ty>
 concept reflectible = aggregate<Ty> || has_field_traits<Ty>;
 
-} // namespace _reflection
+} // namespace _refl_legacy
 /*! @endcond */
 
-using _reflection::reflectible;
+using _refl_legacy::reflectible;
 
 } // namespace neutron

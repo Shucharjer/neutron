@@ -16,6 +16,7 @@ using trivially_relocatable = std::is_trivially_relocatable_v<Ty>; // the prossi
 }
 
 #else
+
     #include "neutron/detail/macros.hpp"
 
     #if ATOM_HAS_REFLECTION

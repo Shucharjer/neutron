@@ -6,7 +6,7 @@
 
 namespace neutron {
 
-namespace _reflection {
+namespace _refl_legacy {
 
 /**
  * @brief Universal type for deducing.
@@ -42,8 +42,8 @@ consteval auto member_count_of() noexcept {
     }
 }
 
-} // namespace _reflection
+} // namespace _refl_legacy
 
-using _reflection::member_count_of;
+using _refl_legacy::member_count_of;
 
 } // namespace neutron

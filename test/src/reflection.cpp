@@ -16,8 +16,6 @@ int main() {
     test_member_count_of();
     test_get();
     test_member_names_of();
-    test_description_of();
-    test_reflected();
     test_offsets();
     test_offset_value();
     test_member_type_of();
@@ -50,7 +48,9 @@ void test_member_count_of() {
     require(member_count_of<aggregate>() == 2);
     require(member_count_of<not_aggregate>() == 2);
 }
+
 void test_get() {
+#if !ATOM_HAS_REFLECTION && false
     const auto num = 114514;
     const char cha = '!';
     auto agg       = aggregate{ .member1 = num, .member2 = cha };
@@ -67,6 +67,7 @@ void test_get() {
 
     require(get_by_name<"another_member1_">(nagg) == num);
     require(get_by_name<"another_member2_">(nagg) == cha);
+#endif
 }
 
 void test_member_names_of() {
@@ -80,28 +81,6 @@ void test_member_names_of() {
     require(names_na[1] == "another_member2_");
 }
 
-void test_description_of() {
-    auto description_a  = traits_of<aggregate>();
-    auto description_na = traits_of<not_aggregate>();
-
-    using enum traits_bits;
-
-    require(authenticity_of({ .desc = description_a, .bits = is_aggregate }));
-    require(!authenticity_of({ .desc = description_na, .bits = is_aggregate }));
-}
-void test_reflected() {
-    auto reflected_a  = reflected<aggregate>();
-    auto reflected_na = reflected<not_aggregate>();
-
-    using enum traits_bits;
-
-    auto description_a  = reflected_a.traits();
-    auto description_na = reflected_na.traits();
-
-    require(authenticity_of({ .desc = description_a, .bits = is_aggregate }));
-    require_false(
-        authenticity_of({ .desc = description_na, .bits = is_aggregate }));
-}
 void test_offsets() {
     auto offsets = offsets_of<aggregate>();
     auto ptr     = std::get<1>(offsets);

@@ -16,7 +16,7 @@ namespace neutron {
 
 template <std::ranges::random_access_range... Ranges>
 constexpr void
-    _cycle_leader(Ranges&... ranges, std::vector<size_t>& indices, size_t size) noexcept(
+    _cycle_leader(Ranges&... ranges, std::vector<std::size_t>& indices, std::size_t size) noexcept(
         (std::is_nothrow_move_assignable_v<
              std::ranges::range_value_t<Ranges>> &&
          ...)) {
@@ -24,7 +24,7 @@ constexpr void
 
     auto begins = std::forward_as_tuple(std::ranges::begin(ranges)...);
 
-    for (size_t i = 0; i < size; ++i) {
+    for (std::size_t i = 0; i < size; ++i) {
         if (indices[i] == i) {
             continue;
         }
@@ -34,7 +34,7 @@ constexpr void
         using tup = std::tuple<std::ranges::range_value_t<Ranges>...>;
         auto temp = std::apply(
             [curr](auto... begin) {
-                return tup{ (*(begin + static_cast<ptrdiff_t>(curr)))... };
+                return tup{ (*(begin + static_cast<std::ptrdiff_t>(curr)))... };
             },
             begins);
 
@@ -45,8 +45,8 @@ constexpr void
             if (next == i) {
                 std::apply(
                     [curr, &temp](auto... begin) {
-                        [&]<size_t... Is>(std::index_sequence<Is...>) {
-                            ((*(begin + static_cast<ptrdiff_t>(curr)) =
+                        [&]<std::size_t... Is>(std::index_sequence<Is...>) {
+                            ((*(begin + static_cast<std::ptrdiff_t>(curr)) =
                                   std::move(std::get<Is>(temp))),
                              ...);
                         }(is);
@@ -57,8 +57,8 @@ constexpr void
 
             std::apply(
                 [curr, next](auto... begin) {
-                    ((*(begin + static_cast<ptrdiff_t>(curr)) =
-                          std::move(*(begin + static_cast<ptrdiff_t>(next)))),
+                    ((*(begin + static_cast<std::ptrdiff_t>(curr)) = std::move(
+                          *(begin + static_cast<std::ptrdiff_t>(next)))),
                      ...);
                 },
                 begins);
@@ -91,7 +91,7 @@ constexpr std::ranges::borrowed_iterator_t<R> inplace_merge(
 #endif
 
 #if ATOM_HAS_CXX23
-    thread_local std::vector<size_t> indices;
+    thread_local std::vector<std::size_t> indices;
     if (indices.size() < size) [[unlikely]] {
         indices.resize(size);
     }
@@ -104,10 +104,11 @@ constexpr std::ranges::borrowed_iterator_t<R> inplace_merge(
 
     auto dist = std::ranges::distance(r_begin, middle);
 
-    auto compare = [r_begin, &comp, &proj](size_t lhs, size_t rhs) {
+    auto compare = [r_begin, &comp, &proj](std::size_t lhs, std::size_t rhs) {
         return std::invoke(
-            comp, std::invoke(proj, *(r_begin + static_cast<ptrdiff_t>(lhs))),
-            std::invoke(proj, *(r_begin + static_cast<ptrdiff_t>(rhs))));
+            comp,
+            std::invoke(proj, *(r_begin + static_cast<std::ptrdiff_t>(lhs))),
+            std::invoke(proj, *(r_begin + static_cast<std::ptrdiff_t>(rhs))));
     };
 
     std::ranges::inplace_merge(

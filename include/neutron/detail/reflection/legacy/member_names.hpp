@@ -3,9 +3,7 @@
 #include <string_view>
 #include "neutron/detail/reflection/legacy/tuple_view.hpp"
 
-namespace neutron {
-
-namespace _reflection {
+namespace neutron::_refl_legacy {
 
 template <auto Ptr> // name
 consteval std::string_view member_name_of() noexcept {
@@ -65,8 +63,4 @@ constexpr std::array<std::string_view, member_count_of<Ty>()>
     return array;
 }
 
-} // namespace _reflection
-
-using _reflection::member_names_of;
-
-} // namespace neutron
+} // namespace neutron::_refl_legacy

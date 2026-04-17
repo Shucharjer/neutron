@@ -5,9 +5,7 @@
 #include "neutron/detail/reflection/legacy/concepts.hpp"
 #include "neutron/detail/reflection/legacy/tuple_view.hpp"
 
-namespace neutron {
-
-namespace _reflection {
+namespace neutron::_refl_legacy {
 
 template <std::size_t Index, reflectible Ty>
 struct member_type_of;
@@ -29,9 +27,4 @@ struct member_type_of<Index, Ty> {
 template <std::size_t Index, reflectible Ty>
 using member_type_of_t = typename member_type_of<Index, Ty>::type;
 
-} // namespace _reflection
-
-using _reflection::member_type_of;
-using _reflection::member_type_of_t;
-
-} // namespace neutron
+} // namespace neutron::_refl_legacy

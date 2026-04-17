@@ -4,9 +4,8 @@
 #include "neutron/detail/reflection/legacy/concepts.hpp"
 #include "neutron/detail/reflection/legacy/tuple_view.hpp"
 
-namespace neutron {
+namespace neutron::_refl_legacy {
 
-namespace _reflection {
 /**
  * @brief Get member's value.
  *
@@ -25,6 +24,4 @@ constexpr auto& get(Ty&& obj) noexcept {
     }
 }
 
-} // namespace _reflection
-
-} // namespace neutron
+} // namespace neutron::_refl_legacy

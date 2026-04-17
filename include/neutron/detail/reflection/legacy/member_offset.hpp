@@ -3,15 +3,15 @@
 #include <array>
 #include <cstdint>
 #include "neutron/detail/concepts/value.hpp"
-#include "neutron/tstring.hpp"
 #include "neutron/detail/macros.hpp"
+#include "neutron/detail/reflection/legacy/access.hpp"
 #include "neutron/detail/reflection/legacy/concepts.hpp"
 #include "neutron/detail/reflection/legacy/member_count.hpp"
 #include "neutron/detail/reflection/legacy/tuple_view.hpp"
+#include "neutron/tstring.hpp"
 
-namespace neutron {
 
-namespace _reflection {
+namespace neutron::_refl_legacy {
 
 const auto offset_count = 2048;
 
@@ -4595,10 +4595,4 @@ requires(existance_of<Name, Ty>())
     return offset_of<index_of<Name, Ty>()>();
 }
 
-} // namespace _reflection
-
-using _reflection::offset_value_of;
-using _reflection::offsets_of;
-using _reflection::offset_of;
-
-} // namespace neutron
+} // namespace neutron::_refl_legacy

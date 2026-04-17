@@ -21,8 +21,10 @@ concept _has_member_get =
 template <typename T, size_t Index>
 concept _has_adl_get = requires(T&& obj) { get<Index>(std::forward<T>(obj)); };
 
+#if !ATOM_HAS_REFLECTION
 template <typename T, size_t Index>
-concept _has_reflection_get = _reflection::reflectible<T>;
+concept _has_reflection_get = _refl_legacy::reflectible<T>;
+#endif
 
 // BUG: std::get is not SFINAE friendly
 template <typename T, size_t Index>
@@ -30,8 +32,11 @@ concept _has_std_get =
     requires(T&& obj) { typename std::tuple_element<Index, T>::type; };
 
 template <typename T, size_t Index>
-concept gettible = _has_member_get<T, Index> || _has_adl_get<T, Index> ||
-                   _has_reflection_get<T, Index> || _has_std_get<T, Index>;
+concept gettible = _has_member_get<T, Index> || _has_adl_get<T, Index>
+#if !ATOM_HAS_REFLECTION
+                   || _has_reflection_get<T, Index>
+#endif
+                   || _has_std_get<T, Index>;
 
 template <typename T, size_t Index>
 concept _has_nothrow_member_get = requires(T&& obj) {
@@ -53,8 +58,11 @@ concept _has_nothrow_std_get = requires(T&& obj) {
 
 template <typename T, size_t Index>
 concept nothrow_gettible =
-    _has_nothrow_member_get<T, Index> || _has_nothrow_adl_get<T, Index> ||
-    _has_reflection_get<T, Index> || _has_nothrow_std_get<T, Index>;
+    _has_nothrow_member_get<T, Index> || _has_nothrow_adl_get<T, Index>
+#if !ATOM_HAS_REFLECTION
+    || _has_reflection_get<T, Index>
+#endif
+    || _has_nothrow_std_get<T, Index>;
 
 template <size_t Index>
 struct get_t {
@@ -65,9 +73,13 @@ struct get_t {
             return std::forward<T>(obj).template get<Index>();
         } else if constexpr (_has_adl_get<T, Index>) {
             return get<Index>(obj);
-        } else if constexpr (_has_reflection_get<T, Index>) {
-            return _reflection::get<Index>(obj);
-        } else if constexpr (_has_std_get<T, Index>) {
+        }
+#if !ATOM_HAS_REFLECTION
+        else if constexpr (_has_reflection_get<T, Index>) {
+            return _refl_legacy::get<Index>(obj);
+        }
+#endif
+        else if constexpr (_has_std_get<T, Index>) {
             return std::get<Index>(obj);
         }
     }
@@ -78,9 +90,13 @@ struct get_t {
             return std::forward<T>(obj).template get<Index>();
         } else if constexpr (_has_nothrow_adl_get<T, Index>) {
             return get<Index>(obj);
-        } else if constexpr (_has_reflection_get<T, Index>) {
-            return _reflection::get<Index>(obj);
-        } else if constexpr (_has_nothrow_std_get<T, Index>) {
+        }
+#if !ATOM_HAS_REFLECTION
+        else if constexpr (_has_reflection_get<T, Index>) {
+            return _refl_legacy::get<Index>(obj);
+        }
+#endif
+        else if constexpr (_has_nothrow_std_get<T, Index>) {
             return std::get<Index>(obj);
         }
     }

@@ -7,17 +7,13 @@
 #include "neutron/detail/reflection/legacy/hash_of.hpp"
 #include "neutron/detail/reflection/legacy/member_traits.hpp"
 #include "neutron/detail/reflection/legacy/name_of.hpp"
-#include "neutron/detail/reflection/legacy/type_traits.hpp"
+#include "neutron/detail/reflection/type_traits.hpp"
 #include "neutron/tstring.hpp"
 
-namespace neutron {
+namespace neutron::_refl_legacy {
 
-/*! @cond TURN_OFF_DOXYGEN */
-namespace _reflection {
 constexpr static inline std::string_view empty_string;
 constexpr static inline std::tuple<> empty_tuple{};
-} // namespace _reflection
-/*! @endcond */
 
 /**
  * @brief Recording basic information about a type.
@@ -30,12 +26,11 @@ public:
         operator=(const basic_reflected&) noexcept = default;
 
     constexpr basic_reflected(basic_reflected&& obj) noexcept
-        : name_(obj.name_), hash_(obj.hash_), description_(obj.description_) {}
+        : name_(obj.name_), hash_(obj.hash_) {}
     constexpr basic_reflected& operator=(basic_reflected&& obj) noexcept {
-        name_        = obj.name_;
-        hash_        = obj.hash_;
-        description_ = obj.description_;
-        destroy_     = obj.destroy_;
+        name_    = obj.name_;
+        hash_    = obj.hash_;
+        destroy_ = obj.destroy_;
         return *this;
     }
 
@@ -59,24 +54,17 @@ public:
         return hash_;
     }
 
-    [[nodiscard]] constexpr auto traits() const noexcept -> traits_bits {
-        return description_;
-    }
-
     constexpr void destroy(void* ptr) const { destroy_(ptr); }
 
 protected:
     constexpr explicit basic_reflected(
         std::string_view name, const std::size_t hash,
-        const traits_bits description,
         void (*destroy)(void*) = nullptr) noexcept
-        : name_(name), hash_(hash), description_(description),
-          destroy_(destroy) {}
+        : name_(name), hash_(hash), destroy_(destroy) {}
 
 private:
     std::string_view name_;
     std::size_t hash_;
-    traits_bits description_;
     void (*destroy_)(void*) = nullptr;
 };
 
@@ -89,8 +77,8 @@ template <value Ty>
 struct reflected final : public basic_reflected {
     constexpr reflected() noexcept
         : basic_reflected(
-              name_of<Ty>(), hash_of<Ty>(), traits_of<Ty>(),
-              &_reflection::wrapped_destroy<Ty>) {}
+              name_of<Ty>(), hash_of<Ty>(),
+              &::neutron::_refl_legacy::wrapped_destroy<Ty>) {}
 
     reflected(const reflected&) noexcept            = default;
     reflected(reflected&&) noexcept                 = default;
@@ -100,7 +88,7 @@ struct reflected final : public basic_reflected {
 
 private:
     static const auto& _traits()
-    requires _reflection::default_reflectible_aggregate<Ty>
+    requires default_reflectible_aggregate<Ty>
     {
         constexpr auto names = member_names_of<Ty>();
         const auto& offsets  = offsets_of<Ty>();
@@ -122,13 +110,13 @@ public:
      * @return constexpr const auto& A tuple contains function traits.
      */
     constexpr const auto& fields() const noexcept {
-        if constexpr (_reflection::default_reflectible_aggregate<Ty>) {
+        if constexpr (default_reflectible_aggregate<Ty>) {
             // static, but not constexpr.
             return reflected::_traits();
-        } else if constexpr (_reflection::has_field_traits<Ty>) {
+        } else if constexpr (has_field_traits<Ty>) {
             return Ty::field_traits();
         } else {
-            return _reflection::empty_tuple;
+            return empty_tuple;
         }
     }
 
@@ -138,10 +126,10 @@ public:
      * @return constexpr const auto& A tuple contains function traits.
      */
     constexpr const auto& functions() const noexcept {
-        if constexpr (_reflection::has_function_traits<Ty>) {
+        if constexpr (has_function_traits<Ty>) {
             return Ty::function_traits();
         } else {
-            return _reflection::empty_tuple;
+            return empty_tuple;
         }
     }
 };
@@ -178,4 +166,4 @@ consteval std::size_t index_of(const Tuple& tuple) noexcept {
     return index;
 }
 
-} // namespace neutron
+} // namespace neutron::_refl_legacy

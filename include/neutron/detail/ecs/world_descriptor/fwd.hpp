@@ -129,13 +129,13 @@ struct _always_t {
 
 inline constexpr _always_t always;
 
-template <size_t Index>
+template <std::size_t Index>
 struct _group_t {
     using system_requirement_concept = system_requirement_t;
 };
 
 // default: group 0
-template <size_t Index>
+template <std::size_t Index>
 inline constexpr _group_t<Index> group;
 
 template <double Freq>
