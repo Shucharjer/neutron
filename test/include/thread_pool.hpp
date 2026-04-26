@@ -60,7 +60,7 @@ private:
 
 class _scheduler {
 public:
-    using scheduler_concept = ::neutron::execution::scheduler_t;
+    using scheduler_concept = ::neutron::execution::scheduler_tag;
 
     explicit _scheduler(thread_pool* pool) noexcept : pool_(pool) {}
 
@@ -77,7 +77,7 @@ private:
 template <typename Rcvr>
 class _opstate : public _task_base {
 public:
-    using operation_state_concept = operation_state_t;
+    using operation_state_concept = operation_state_tag;
 
     explicit _opstate(thread_pool* pool, Rcvr rcvr)
         : pool_(pool), rcvr_(std::move(rcvr)) {

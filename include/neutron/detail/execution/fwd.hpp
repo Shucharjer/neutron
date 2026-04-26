@@ -124,27 +124,14 @@ extern const get_delegation_scheduler_t get_delegation_scheduler;
 extern const get_forward_progress_guarantee_t get_forward_progress_guarantee;
 template <class CPO>
 extern const get_completion_scheduler_t<CPO> get_completion_scheduler;
-extern const get_await_completion_adaptor_t get_await_completion_adaptor;;
+extern const get_await_completion_adaptor_t get_await_completion_adaptor;
+;
 
-struct empty_env {};
-struct get_env_t {
-    template <typename EnvProvider>
-    requires requires(const std::remove_cvref_t<EnvProvider>& ep) {
-        { ep.get_env() } noexcept -> queryable;
-    }
-    auto operator()(EnvProvider&& ep) const noexcept {
-        return std::as_const(ep).get_env();
-    }
+template <queryable... Envs>
+struct env;
 
-    template <typename EnvProvider>
-    requires(!requires(const std::remove_cvref_t<EnvProvider>& ep) {
-        { ep.get_env() } noexcept -> queryable;
-    })
-    auto operator()(EnvProvider&& ep) const noexcept {
-        return empty_env{};
-    }
-};
-inline constexpr get_env_t get_env;
+struct get_env_t;
+extern const get_env_t get_env;
 
 template <class T>
 using env_of_t = decltype(get_env(std::declval<T>()));
@@ -153,10 +140,10 @@ using env_of_t = decltype(get_env(std::declval<T>()));
 struct default_domain;
 
 // [exec.sched], schedulers
-struct scheduler_t {};
+struct scheduler_tag {};
 
 // [exec.recv], receivers
-struct receiver_t {};
+struct receiver_tag {};
 
 struct set_value_t;
 struct set_error_t;
@@ -167,20 +154,22 @@ extern const set_error_t set_error;
 extern const set_stopped_t set_stopped;
 
 // [exec.opstate], operation states
-struct operation_state_t {};
+struct operation_state_tag {};
 
 struct start_t;
 extern const start_t start;
 
 template <class O>
 concept operation_state =
-    std::derived_from<typename O::operation_state_concept, operation_state_t> &&
+    std::derived_from<
+        typename O::operation_state_concept, operation_state_tag> &&
     std::is_object_v<O> && requires(O& op) {
         { start(op) } noexcept;
     };
 
 // [exec.snd], senders
 struct sender_t {};
+using sender_tag = sender_t;
 
 // [exec.getcomplsigs], completion signatures
 struct get_completion_signatures_t;
@@ -189,7 +178,7 @@ extern const get_completion_signatures_t get_completion_signatures;
 template <class Rcvr>
 concept receiver =
     std::derived_from<
-        typename std::remove_cvref_t<Rcvr>::receiver_concept, receiver_t> &&
+        typename std::remove_cvref_t<Rcvr>::receiver_concept, receiver_tag> &&
     requires(const std::remove_cvref_t<Rcvr>& rcvr) {
         { get_env(rcvr) } -> queryable;
     } && std::move_constructible<std::remove_cvref_t<Rcvr>> &&
@@ -265,9 +254,9 @@ concept _is_sender = // exposition only
     std::derived_from<typename Sndr::sender_concept, sender_t>;
 
 template <class Sndr>
-concept _enable_sender =                      // exposition only
+concept _enable_sender =                  // exposition only
     _is_sender<Sndr> ||
-    awaitable<Sndr, _env_promise<empty_env>>; // [exec.awaitables]
+    awaitable<Sndr, _env_promise<env<>>>; // [exec.awaitables]
 
 template <
     typename Tag, _valid_completion_signatures Completions,
@@ -328,7 +317,7 @@ concept sender = _enable_sender<std::remove_cvref_t<Sndr>> &&
                  std::move_constructible<std::remove_cvref_t<Sndr>> &&
                  std::constructible_from<std::remove_cvref_t<Sndr>, Sndr>;
 
-template <class Sndr, class Env = empty_env>
+template <class Sndr, class Env = env<>>
 concept sender_in =
     sender<Sndr> && queryable<Env> && requires(Sndr&& sndr, Env&& env) {
         {
@@ -337,7 +326,7 @@ concept sender_in =
         } -> _valid_completion_signatures;
     };
 
-template <class Sndr, class Env = empty_env>
+template <class Sndr, class Env = env<>>
 requires sender_in<Sndr, Env>
 using completion_signatures_of_t =
     std::invoke_result_t<get_completion_signatures_t, Sndr, Env>;
@@ -367,7 +356,7 @@ concept sender_to =
     };
 
 template <
-    class Sndr, class Env = empty_env,
+    class Sndr, class Env = env<>,
     template <class...> class Tuple   = _decayed_tuple,
     template <class...> class Variant = _variant_or_empty>
 requires sender_in<Sndr, Env>
@@ -375,7 +364,7 @@ using value_types_of_t = _gather_signatures<
     set_value_t, completion_signatures_of_t<Sndr, Env>, Tuple, Variant>;
 
 template <
-    class Sndr, class Env = empty_env,
+    class Sndr, class Env = env<>,
     template <class...> class Variant = _variant_or_empty>
 requires sender_in<Sndr, Env>
 using error_types_of_t = _gather_signatures<
@@ -383,7 +372,7 @@ using error_types_of_t = _gather_signatures<
     Variant>;
 
 template <
-    typename Sndr, typename Env = empty_env,
+    typename Sndr, typename Env = env<>,
     template <typename...> typename Tuple   = _decayed_tuple,
     template <typename...> typename Variant = _variant_or_empty>
 requires sender_in<Sndr, Env>
@@ -395,7 +384,7 @@ constexpr bool sends_stopped = !std::same_as<
 template <class Sch>
 concept scheduler =
     std::derived_from<
-        typename std::remove_cvref_t<Sch>::scheduler_concept, scheduler_t> &&
+        typename std::remove_cvref_t<Sch>::scheduler_concept, scheduler_tag> &&
     queryable<Sch> &&
     requires(Sch&& sch) {
         { schedule(std::forward<Sch>(sch)) } -> sender;

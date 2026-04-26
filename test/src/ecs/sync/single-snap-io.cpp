@@ -8,19 +8,15 @@ using namespace neutron;
 using enum stage;
 using enum strategy;
 
-void fn() {
-
-}
-void sys1() {
-
-}
-void sys2(sync<single, atomic_snap, inout<int>> sync) {
-    auto& [sio] = sync;
+void fn() {}
+void sys1() {}
+void sys2(::neutron::sync<single, atomic_snap, inout<int>> sync) {
+    auto& [sio]  = sync;
     auto& [isio] = sio;
     isio.read(std::memory_order_relaxed);
 }
 
-constexpr auto world = world_desc|add_systems<update,sys1, sys2>;
+constexpr auto world = world_desc | add_systems<update, sys1, sys2>;
 
 int main() {
     myapp::create() | run_worlds<>();

@@ -3,7 +3,7 @@
 #include <type_traits>
 #include <utility>
 #include "neutron/detail/execution/fwd.hpp"
-#include "neutron/detail/execution/get_domain.hpp"
+#include "neutron/detail/execution/queries/get_domain.hpp"
 
 namespace neutron::execution {
 

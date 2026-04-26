@@ -42,46 +42,59 @@ using ::stdexec::sync_wait;
 } // namespace neutron
 
 #else
+    #define ATOM_BUILTIN_EXECUTION
 // IWYU pragma: begin_exports
 
     #include "neutron/detail/execution/fwd.hpp" // IWYU pragma: export
 
-    #include "neutron/detail/execution/connect.hpp"
-    #include "neutron/detail/execution/default_domain.hpp"
-    #include "neutron/detail/execution/fwd_env.hpp"
-    #include "neutron/detail/execution/get_completion_scheduler.hpp"
-    #include "neutron/detail/execution/get_completion_signatures.hpp"
-    #include "neutron/detail/execution/get_domain.hpp"
-    #include "neutron/detail/execution/get_scheduler.hpp"
-    #include "neutron/detail/execution/make_sender.hpp"
-    #include "neutron/detail/execution/product_type.hpp"
     #include "neutron/detail/execution/queries.hpp"
-    #include "neutron/detail/execution/query_with_default.hpp"
-    #include "neutron/detail/execution/run_loop.hpp"
-    #include "neutron/detail/execution/sender_adaptor.hpp"
-    #include "neutron/detail/execution/sender_adaptor_closure.hpp"
-    #include "neutron/detail/execution/set_error.hpp"
-    #include "neutron/detail/execution/set_stopped.hpp"
-    #include "neutron/detail/execution/set_value.hpp"
-    #include "neutron/detail/execution/start.hpp"
+    #include "neutron/detail/execution/queries/get_await_completion_adaptor.hpp"
+    #include "neutron/detail/execution/queries/get_completion_scheduler.hpp"
+    #include "neutron/detail/execution/queries/get_delegation_scheduler.hpp"
+    #include "neutron/detail/execution/queries/get_domain.hpp"
+    #include "neutron/detail/execution/queries/get_env.hpp"
+    #include "neutron/detail/execution/queries/get_scheduler.hpp"
 
-// sender factories
+    #include "neutron/detail/execution/receivers/set_error.hpp"
+    #include "neutron/detail/execution/receivers/set_stopped.hpp"
+    #include "neutron/detail/execution/receivers/set_value.hpp"
 
-    #include "neutron/detail/execution/sender_factories/just.hpp"
-    #include "neutron/detail/execution/sender_factories/just_error.hpp"
-    #include "neutron/detail/execution/sender_factories/just_stopped.hpp"
-    #include "neutron/detail/execution/sender_factories/schedule.hpp"
+    #include "neutron/detail/execution/operation_states/start.hpp"
 
-// sender consumers
+    #include "neutron/detail/execution/senders/apply_sender.hpp"
+    #include "neutron/detail/execution/senders/connect.hpp"
+    #include "neutron/detail/execution/senders/default_domain.hpp"
+    #include "neutron/detail/execution/senders/get_completion_signatures.hpp"
+    #include "neutron/detail/execution/senders/transform_sender.hpp"
+    // sender factories
+    #include "neutron/detail/execution/senders/sender_factories/just.hpp"
+    #include "neutron/detail/execution/senders/sender_factories/just_error.hpp"
+    #include "neutron/detail/execution/senders/sender_factories/just_stopped.hpp"
+    #include "neutron/detail/execution/senders/sender_factories/schedule.hpp"
+    // sender adaptors
+    #include "neutron/detail/execution/senders/sender_adaptors/bulk.hpp"
+    #include "neutron/detail/execution/senders/sender_adaptors/continues_on.hpp"
+    #include "neutron/detail/execution/senders/sender_adaptors/let_value.hpp"
+    #include "neutron/detail/execution/senders/sender_adaptors/schedule_from.hpp"
+    #include "neutron/detail/execution/senders/sender_adaptors/then.hpp"
+    #include "neutron/detail/execution/senders/sender_adaptors/when_all.hpp"
+    // sender consumers
+    #include "neutron/detail/execution/senders/sender_consumers/sync_wait.hpp"
 
-    #include "neutron/detail/execution/sender_consumers/sync_wait.hpp"
+    #include "neutron/detail/execution/queryable_utilities/env.hpp"
 
-// sender adaptors
+    #include "neutron/detail/execution/execution_contexts/run_loop.hpp"
 
-    #include "neutron/detail/execution/sender_adaptors/bulk.hpp"
-    #include "neutron/detail/execution/sender_adaptors/continues_on.hpp"
-    #include "neutron/detail/execution/sender_adaptors/then.hpp"
-// TODO: finish when_all
-// #include "neutron/detail/execution/sender_adaptors/when_all.hpp"
+    #include "neutron/detail/execution/coroutine_utilities/affine.hpp"
+    #include "neutron/detail/execution/coroutine_utilities/as_awaitable.hpp"
+    #include "neutron/detail/execution/coroutine_utilities/inline_scheduler.hpp"
+    #include "neutron/detail/execution/coroutine_utilities/task.hpp"
+    #include "neutron/detail/execution/coroutine_utilities/task_scheduler.hpp"
+    #include "neutron/detail/execution/coroutine_utilities/with_awaitable_senders.hpp"
+
+    #include "neutron/detail/execution/parallel_scheduler_replacement/parallel_scheduler_backend.hpp"
+    #include "neutron/detail/execution/parallel_scheduler_replacement/receiver_proxy.hpp"
+
+// IWYU pragma: end_exports
 
 #endif

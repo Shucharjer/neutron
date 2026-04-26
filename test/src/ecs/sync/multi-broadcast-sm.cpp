@@ -10,11 +10,11 @@ using enum strategy;
 
 using time_point = decltype(std::chrono::high_resolution_clock::now());
 
-void sender(sync<multi, broadcast, master<time_point>> sync) {
+void sender(::neutron::sync<multi, broadcast, master<time_point>> sync) {
     //
 }
 
-void receiver(sync<multi, broadcast, slave<time_point>> sync) {
+void receiver(::neutron::sync<multi, broadcast, slave<time_point>> sync) {
     //
 }
 

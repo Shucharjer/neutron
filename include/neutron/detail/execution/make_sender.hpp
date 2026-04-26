@@ -6,13 +6,14 @@
 #include <type_traits>
 #include <utility>
 #include "neutron/detail/concepts/movable_value.hpp"
-#include "neutron/detail/execution/connect.hpp"
 #include "neutron/detail/execution/fwd.hpp"
 #include "neutron/detail/execution/fwd_env.hpp"
 #include "neutron/detail/execution/product_type.hpp"
-#include "neutron/detail/execution/set_error.hpp"
-#include "neutron/detail/execution/set_stopped.hpp"
-#include "neutron/detail/execution/set_value.hpp"
+#include "neutron/detail/execution/queryable_utilities/env.hpp"
+#include "neutron/detail/execution/receivers/set_error.hpp"
+#include "neutron/detail/execution/receivers/set_stopped.hpp"
+#include "neutron/detail/execution/receivers/set_value.hpp"
+#include "neutron/detail/execution/senders/connect.hpp"
 #include "neutron/detail/metafn/size.hpp"
 #include "neutron/detail/utility/forward_like.hpp"
 #include "neutron/detail/utility/get.hpp"
@@ -32,7 +33,7 @@ struct _default_impls {
             if constexpr (sizeof...(child) == 1) {
                 return (_fwd_env(::neutron::execution::get_env(child)), ...);
             } else {
-                return empty_env{};
+                return env<>{};
             }
         }
     } get_attrs{};
@@ -108,7 +109,7 @@ _basic_state(Sndr&&, Rcvr&&) -> _basic_state<Sndr&&, Rcvr>;
 template <typename Sndr, typename Rcvr, typename Index>
 requires _valid_specialization<_env_type, Index, Sndr, Rcvr>
 struct _basic_receiver {
-    using receiver_concept = receiver_t;
+    using receiver_concept = receiver_tag;
 
     using _tag_t                          = tag_of_t<Sndr>;
     using _state_t                        = _state_type<Sndr, Rcvr>;
@@ -169,7 +170,7 @@ template <typename Sndr, typename Rcvr>
 requires _valid_specialization<_state_type, Sndr, Rcvr> &&
          _valid_specialization<_connect_all_result, Sndr, Rcvr>
 struct _basic_operation : public _basic_state<Sndr, Rcvr> {
-    using operation_state_concept = operation_state_t;
+    using operation_state_concept = operation_state_tag;
     using _tag_t                  = tag_of_t<Sndr>;
     using _inner_ops_t            = _connect_all_result<Sndr, Rcvr>;
     _inner_ops_t inner_ops;

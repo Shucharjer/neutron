@@ -6,13 +6,13 @@ using namespace neutron;
 using enum stage;
 using enum strategy;
 
-void sender(sync<single, double_buffer, output<int>> sync) {
+void sender(::neutron::sync<single, double_buffer, output<int>> sync) {
     auto& [output] = sync;
     // auto& [iout]   = output;
     // iout.set(64);
 }
 
-void receiver(sync<single, double_buffer, input<int>> sync) {
+void receiver(::neutron::sync<single, double_buffer, input<int>> sync) {
     auto& [input] = sync;
     // auto& [iin]   = input;
     // auto val = iin.use();

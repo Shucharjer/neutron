@@ -25,6 +25,7 @@
 #include "neutron/detail/ecs/task_graph.hpp"
 #include "neutron/detail/ecs/world_base.hpp"
 #include "neutron/detail/ecs/world_descriptor.hpp"
+#include "neutron/detail/execution/fwd.hpp"
 #include "neutron/detail/execution_resources/normthread.hpp"
 #include "neutron/detail/memory/rebind_alloc.hpp"
 #include "neutron/execution.hpp"
@@ -508,7 +509,7 @@ struct _completion_state {
 };
 
 struct _count_down_receiver {
-    using receiver_concept = execution::receiver_t;
+    using receiver_concept = execution::receiver_tag;
 
     _completion_state* state;
 
@@ -529,7 +530,7 @@ struct _count_down_receiver {
     void set_stopped() && noexcept { state->pending.count_down(); }
 
     [[nodiscard]] auto get_env() const noexcept {
-#if __has_include(<stdexec/execution.hpp>) && !defined(ATOM_EXECUTION)
+#if __has_include(<stdexec/execution.hpp>) || defined(ATOM_BUILTIN_EXECUTION) || __cpp_lib_execution >= 202902L
         return execution::env<>{};
 #else
         return execution::empty_env{};

@@ -15,14 +15,14 @@ struct msgpak {
     std::string msg;
 };
 
-void sender(sync<in_group, broadcast, master<msgpak>> sync) {
+void sender(::neutron::sync<in_group, broadcast, master<msgpak>> sync) {
     auto& [master] = sync;
     auto& [mpm]    = master;
     // mpm.broadcast(
     //     msgpak{ std::chrono::high_resolution_clock::now(), "the msg" });
 }
 
-void receiver(sync<in_group, broadcast, slave<msgpak>> sync) {
+void receiver(::neutron::sync<in_group, broadcast, slave<msgpak>> sync) {
     auto& [slave] = sync;
     // auto& [mps] = slave;
     // while (mps) {
