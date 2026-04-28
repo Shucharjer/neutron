@@ -21,6 +21,7 @@
 #include <neutron/memory.hpp>
 #include <neutron/metafn.hpp>
 #include <neutron/utility.hpp>
+#include "neutron/detail/algorithm/branchless_lower_bound.hpp"
 #include "neutron/detail/ecs/anchor.hpp"
 #include "neutron/detail/ecs/component.hpp"
 #include "neutron/detail/ecs/entity.hpp"
@@ -28,12 +29,11 @@
 #include "neutron/detail/macros.hpp"
 #include "neutron/detail/memory/uninitialized_move_if_noexcept.hpp"
 #include "neutron/detail/ranges/concepts.hpp"
-#include "neutron/detail/ranges/to.hpp"
 #include "neutron/detail/reflection/hash.hpp"
-#include "neutron/detail/reflection/legacy/hash_of.hpp"
 #include "neutron/detail/tuple/rmcvref_first.hpp"
 #include "neutron/detail/utility/spreader.hpp"
 #include "neutron/shift_map.hpp"
+
 
 namespace neutron {
 
@@ -1572,7 +1572,7 @@ private:
     constexpr void _get_sorted(auto& result, auto& hint) const noexcept {
         using type = type_list_element_t<Index, TypeList>;
 
-        hint = std::lower_bound(hint, hash_list_.end(), hash_of<type>());
+        hint = branchless_lower_bound(hint, hash_list_.end(), hash_of<type>());
         const auto index = std::distance(hash_list_.begin(), hint);
         result[Index]    = storage_[index].get();
     }
@@ -1615,7 +1615,7 @@ private:
     constexpr void _get_buffer_sorted(auto& result, auto& hint) noexcept {
         using type = type_list_element_t<Index, TypeList>;
 
-        hint = std::lower_bound(hint, hash_list_.end(), hash_of<type>());
+        hint = branchless_lower_bound(hint, hash_list_.end(), hash_of<type>());
         const auto index = std::distance(hash_list_.begin(), hint);
         result[Index]    = &storage_[index];
     }
