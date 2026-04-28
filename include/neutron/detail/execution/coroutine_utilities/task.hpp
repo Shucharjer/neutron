@@ -163,7 +163,7 @@ class ATOM_NODISCARD task {
     static_assert(std::is_class_v<Env>);
 
 public:
-    using sender_concept   = sender_t;
+    using sender_concept   = sender_tag;
     using allocator_type   = typename _task::_env_allocator<Env>::type;
     using scheduler_type   = typename _task::_env_scheduler<Env>::type;
     using stop_source_type = typename _task::_env_stop_source<Env>::type;

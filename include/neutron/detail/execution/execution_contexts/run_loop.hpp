@@ -4,6 +4,11 @@
 #include "neutron/detail/execution/fwd.hpp"
 #include "neutron/detail/macros.hpp"
 #include "neutron/detail/stop_token/unstoppable_token.hpp"
+#include "neutron/detail/execution/queries/get_env.hpp"
+#include "neutron/detail/execution/queries.hpp"
+#include "neutron/detail/execution/receivers/set_stopped.hpp"
+#include "neutron/detail/execution/receivers/set_value.hpp"
+#include "neutron/detail/execution/receivers/set_error.hpp"
 
 namespace neutron::execution {
 
@@ -78,7 +83,7 @@ class run_loop {
     };
 
     struct _run_loop_sender {
-        using sender_concept = sender_t;
+        using sender_concept = sender_tag;
         using completion_signatures =
             ::neutron::execution::completion_signatures<
                 set_value_t(), set_error_t(std::exception_ptr),

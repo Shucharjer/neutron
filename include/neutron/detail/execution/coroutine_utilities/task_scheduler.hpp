@@ -4,8 +4,27 @@
 #include <type_traits>
 #include "neutron/detail/execution/fwd.hpp"
 #include "neutron/detail/execution/parallel_scheduler_replacement/parallel_scheduler_backend.hpp"
+#include "neutron/detail/execution/queries/get_forward_progress_guarantee.hpp"
+#include "neutron/detail/macros.hpp"
+#include "neutron/detail/stop_token/unstoppable_token.hpp"
 
 namespace neutron::execution {
+
+template <typename Sch, typename Env>
+concept _infallible_scheduler =
+    scheduler<Sch> &&
+    (std::same_as<
+         completion_signatures<set_value_t()>,
+         completion_signatures_of_t<decltype(schedule(declval<Sch>())), Env>> ||
+     (!unstoppable_token<stop_token_of_t<Env>> &&
+      (std::same_as<
+           completion_signatures<set_value_t(), set_stopped_t()>,
+           completion_signatures_of_t<
+               decltype(schedule(declval<Sch>())), Env>> ||
+       std::same_as<
+           completion_signatures<set_stopped_t(), set_value_t()>,
+           completion_signatures_of_t<
+               decltype(schedule(declval<Sch>())), Env>>)));
 
 class task_scheduler {
     class _ts_domain;
@@ -43,15 +62,44 @@ public:
     // friend bool operator==(const task_scheduler& lhs, const Sch& rhs)
     // noexcept;
 
+    ATOM_NODISCARD constexpr auto
+        query(get_forward_progress_guarantee_t qry) const noexcept
+        -> forward_progress_guarantee {
+        // return sch_->query(qry);
+        return {};
+    }
+
 private:
     std::shared_ptr<parallel_scheduler_replacement::parallel_scheduler_backend>
         sch_;
     // std::shared_ptr<void> sch_; // exposition only
 };
 
+template <scheduler Sch>
+class task_scheduler::_backend_for :
+    public parallel_scheduler_replacement::parallel_scheduler_backend {
+public:
+    explicit _backend_for(Sch sch) : sched_(std::move(sch)) {}
+
+    void schedule(
+        parallel_scheduler_replacement::receiver_proxy& rcvr,
+        std::span<std::byte> span) noexcept override;
+    void schedule_bulk_chunked(
+        size_t shape,
+        parallel_scheduler_replacement::bulk_item_receiver_proxy& rcvr,
+        std::span<std::byte> span) noexcept override;
+    void schedule_bulk_unchunked(
+        size_t shape,
+        parallel_scheduler_replacement::bulk_item_receiver_proxy& rcvr,
+        std::span<std::byte> span) noexcept override;
+
+private:
+    Sch sched_;
+};
+
 class task_scheduler::_ts_sender {
 public:
-    using sender_concept = sender_t;
+    using sender_concept = sender_tag;
 
     template <receiver Rcvr>
     task_scheduler::_state<Rcvr> connect(Rcvr&& rcvr) &&;

@@ -3,6 +3,9 @@
 #include <type_traits>
 #include "neutron/detail/execution/fwd.hpp"
 #include "neutron/detail/macros.hpp"
+#include "neutron/detail/execution/queries/get_env.hpp"
+#include "neutron/detail/execution/queries/get_await_completion_adaptor.hpp"
+#include "neutron/detail/execution/operation_states/start.hpp"
 
 namespace neutron::execution {
 

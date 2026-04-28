@@ -4,6 +4,7 @@
 #include "neutron/detail/execution/join_env.hpp"
 #include "neutron/detail/execution/make_sender.hpp"
 #include "neutron/detail/execution/queries/get_domain.hpp"
+#include "neutron/detail/execution/queries/get_env.hpp"
 #include "neutron/detail/execution/sched_attrs.hpp"
 #include "neutron/detail/execution/sender_adaptor.hpp"
 #include "neutron/detail/execution/senders/transform_sender.hpp"

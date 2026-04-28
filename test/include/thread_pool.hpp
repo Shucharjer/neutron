@@ -113,7 +113,7 @@ private:
 
 class _sender {
 public:
-    using sender_concept        = neutron::execution::sender_t;
+    using sender_concept        = neutron::execution::sender_tag;
     using completion_signatures = neutron::execution::completion_signatures<
         set_value_t(), set_error_t(std::exception_ptr), set_stopped_t()>;
 

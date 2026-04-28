@@ -234,7 +234,7 @@ using _completion_signatures_for = typename _completion_signatures_for_impl<
 
 template <typename Tag, typename Data, typename... Child>
 struct _basic_sender : public _product_type<Tag, Data, Child...> {
-    using sender_concept = sender_t;
+    using sender_concept = sender_tag;
     using _indices_for   = std::index_sequence_for<Child...>;
 
     using _product_type<Tag, Data, Child...>::_product_type;

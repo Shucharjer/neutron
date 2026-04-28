@@ -168,8 +168,7 @@ concept operation_state =
     };
 
 // [exec.snd], senders
-struct sender_t {};
-using sender_tag = sender_t;
+struct sender_tag {};
 
 // [exec.getcomplsigs], completion signatures
 struct get_completion_signatures_t;
@@ -251,7 +250,7 @@ concept receiver_of = receiver<Rcvr> && _has_completions<Rcvr, Completions>;
 
 template <class Sndr>
 concept _is_sender = // exposition only
-    std::derived_from<typename Sndr::sender_concept, sender_t>;
+    std::derived_from<typename Sndr::sender_concept, sender_tag>;
 
 template <class Sndr>
 concept _enable_sender =                  // exposition only
