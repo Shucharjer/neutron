@@ -343,6 +343,8 @@ template <std_simple_allocator Alloc>
 class world_base : private _entity_slots_base<Alloc> {
     template <typename, std_simple_allocator>
     friend class basic_world;
+    template <typename>
+    friend class snapshot;
 
     friend struct ::neutron::world_accessor;
 
