@@ -6,7 +6,7 @@ namespace neutron::execution {
 
 inline constexpr struct get_forward_progress_guarantee_t {
     template <scheduler Sch>
-    constexpr auto operator()(Sch&& scheduler) noexcept
+    constexpr auto operator()(Sch&& scheduler) const noexcept
     requires requires {
         { std::as_const(scheduler).query(*this) } noexcept;
     }
@@ -15,7 +15,7 @@ inline constexpr struct get_forward_progress_guarantee_t {
     }
 
     template <scheduler Sch>
-    constexpr auto operator()(Sch&& scheduler) noexcept
+    constexpr auto operator()(Sch&& scheduler) const noexcept
     requires(!requires {
         { std::as_const(scheduler).query(*this) } noexcept;
     })

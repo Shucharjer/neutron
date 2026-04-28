@@ -62,12 +62,18 @@ class _scheduler {
 public:
     using scheduler_concept = ::neutron::execution::scheduler_tag;
 
-    explicit _scheduler(thread_pool* pool) noexcept : pool_(pool) {}
+    constexpr explicit _scheduler(thread_pool* pool) noexcept : pool_(pool) {}
 
     _sender schedule();
 
     bool operator==(const _scheduler& that) const noexcept {
         return pool_ == that.pool_;
+    }
+
+    ATOM_NODISCARD
+    constexpr auto query(
+        ::neutron::execution::get_forward_progress_guarantee_t) const noexcept {
+        return neutron::execution::forward_progress_guarantee::parallel;
     }
 
 private:

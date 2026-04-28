@@ -1,3 +1,4 @@
+// IWYU pragma: private
 #pragma once
 #include <concepts>
 #include <coroutine>

@@ -4,7 +4,7 @@
 #include "neutron/detail/concepts/allocator.hpp"
 #include "neutron/detail/execution/fwd.hpp"
 
-namespace neutron::execution {
+namespace neutron {
 
 struct forwarding_query_t {
     template <typename Query>
@@ -58,4 +58,4 @@ struct get_stop_token_t {
 
 inline constexpr get_stop_token_t get_stop_token{};
 
-} // namespace neutron::execution
+} // namespace neutron
