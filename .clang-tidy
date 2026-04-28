@@ -1,6 +1,7 @@
 Checks: >
   -*,
   bugprone-*,
+  -bugprone-easily-swappable-parameters,
   concurrency-*,
   cppcoreguidelines-*,
   -cppcoreguidelines-avoid-do-while,
