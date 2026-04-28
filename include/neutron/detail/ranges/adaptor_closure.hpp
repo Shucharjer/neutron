@@ -15,7 +15,7 @@ using range_adaptor_closure = std::ranges::range_adaptor_closure<Derived>;
 #else
 
     #include <utility>
-    #include "../pipeline.hpp"
+    #include "neutron/detail/pipeline.hpp"
 
 namespace neutron {
 

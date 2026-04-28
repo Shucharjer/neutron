@@ -12,9 +12,8 @@ using std::ranges::to;
 
 #else
 
-    #include "../iterator/phony_input_iterator.hpp"
-    #include "./adaptor_closure.hpp"
-    #include "./concepts.hpp"
+    #include "neutron/detail/iterator/phony_input_iterator.hpp"
+    #include "neutron/detail/ranges/concepts.hpp"
 
 namespace neutron::ranges {
 

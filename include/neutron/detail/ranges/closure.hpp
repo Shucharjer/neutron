@@ -1,6 +1,6 @@
 // IWYU pragma: private, include <neutron/ranges.hpp>
 #pragma once
-#include "./adaptor_closure.hpp"
+#include "neutron/detail/ranges/adaptor_closure.hpp"
 
 namespace neutron {
 /**

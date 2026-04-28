@@ -10,7 +10,7 @@
 #include <type_traits>
 #include <utility>
 #include <vector>
-#include "../macros.hpp"
+#include "neutron/detail/macros.hpp"
 
 namespace neutron {
 
