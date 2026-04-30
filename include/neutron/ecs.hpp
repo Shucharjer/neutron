@@ -30,4 +30,6 @@
 #include "neutron/detail/ecs/world_base.hpp"
 #include "neutron/detail/ecs/world_descriptor.hpp"
 #include "neutron/detail/ecs/world_schedule.hpp"
+
+#include "neutron/detail/ecs/runtime.hpp"
 // IWYU pragma: end_exports
