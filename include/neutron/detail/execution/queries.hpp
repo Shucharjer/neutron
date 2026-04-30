@@ -3,6 +3,7 @@
 #include <utility>
 #include "neutron/detail/concepts/allocator.hpp"
 #include "neutron/detail/execution/fwd.hpp"
+#include "neutron/detail/macros.hpp"
 
 namespace neutron {
 
@@ -21,15 +22,17 @@ inline constexpr forwarding_query_t forwarding_query{};
 
 struct get_allocator_t {
     template <typename Query>
-    constexpr bool operator()(Query&& object) const noexcept
+    constexpr auto operator()(Query&& object) const noexcept
     requires requires(const Query& object) {
-        { std::as_const(object).query(*this) } noexcept -> std_simple_allocator;
+        { std::as_const(object).query(*this) } noexcept -> simple_allocator;
     }
     {
         return std::as_const(object).query(*this);
     }
 
-    constexpr bool query(forwarding_query_t) const noexcept { return true; }
+    ATOM_NODISCARD constexpr bool query(forwarding_query_t) const noexcept {
+        return true;
+    }
 };
 
 inline constexpr get_allocator_t get_allocator{};

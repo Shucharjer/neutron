@@ -3,8 +3,14 @@
 #include <memory>
 #include <type_traits>
 #include "neutron/detail/execution/fwd.hpp"
+#include "neutron/detail/execution/fwd_env.hpp"
 #include "neutron/detail/execution/parallel_scheduler_replacement/parallel_scheduler_backend.hpp"
+#include "neutron/detail/execution/queries/get_completion_scheduler.hpp"
 #include "neutron/detail/execution/queries/get_forward_progress_guarantee.hpp"
+#include "neutron/detail/execution/query_with_default.hpp"
+#include "neutron/detail/execution/receivers/set_value.hpp"
+#include "neutron/detail/execution/sched_attrs.hpp"
+#include "neutron/detail/execution/senders/default_domain.hpp"
 #include "neutron/detail/macros.hpp"
 #include "neutron/detail/stop_token/unstoppable_token.hpp"
 
@@ -69,6 +75,12 @@ public:
         return {};
     }
 
+    ATOM_NODISCARD constexpr auto
+        query(get_completion_scheduler_t<set_value_t>) const noexcept
+        -> const task_scheduler& {
+        return *this;
+    }
+
 private:
     std::shared_ptr<parallel_scheduler_replacement::parallel_scheduler_backend>
         sch_;
@@ -83,7 +95,10 @@ public:
 
     void schedule(
         parallel_scheduler_replacement::receiver_proxy& rcvr,
-        std::span<std::byte> span) noexcept override;
+        std::span<std::byte> span) noexcept override {
+        // auto os = connect(schedule(sched_), _WRAP_RCVR(rcvr));
+        // start(os);
+    }
     void schedule_bulk_chunked(
         size_t shape,
         parallel_scheduler_replacement::bulk_item_receiver_proxy& rcvr,
@@ -104,7 +119,43 @@ public:
     template <receiver Rcvr>
     task_scheduler::_state<Rcvr> connect(Rcvr&& rcvr) &&;
 
+    ATOM_NODISCARD
+    constexpr auto get_env() const noexcept
+        -> const _sched_attrs<task_scheduler>& {
+        return attrs_;
+    }
+
 private:
+    _sched_attrs<task_scheduler> attrs_;
+};
+
+constexpr auto _not_a_scheduler() noexcept {
+    return "the expr is not a scheduler";
+}
+
+class task_scheduler::_ts_domain : public default_domain {
+public:
+    template <typename BulkSndr, typename Env>
+    requires sender_in<BulkSndr, Env> &&
+             (sender_for<BulkSndr, bulk_chunked_t> ||
+              sender_for<BulkSndr, bulk_unchunked_t>)
+    static constexpr auto transform_sender(
+        set_value_t, BulkSndr&& bulk_sndr,
+        const Env& env) noexcept(std::
+                                     is_nothrow_constructible_v<
+                                         std::decay_t<BulkSndr>, BulkSndr>) {
+        auto& [_, data, child] = bulk_sndr;
+        auto& [_, shape, fn]   = data;
+        auto sch               = _call_with_default(
+            get_completion_scheduler<set_value_t>, _not_a_scheduler(),
+            get_env(child), _fwd_env(env));
+        using sch_t = std::remove_cvref_t<decltype(sch)>;
+        if constexpr (std::same_as<sch_t, task_scheduler>) {
+            // ...
+        } else {
+            return _not_a_scheduler();
+        }
+    }
 };
 
 template <receiver R>

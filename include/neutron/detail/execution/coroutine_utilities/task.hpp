@@ -163,10 +163,10 @@ class ATOM_NODISCARD task {
     static_assert(std::is_class_v<Env>);
 
 public:
-    using sender_concept   = sender_tag;
-    using allocator_type   = typename _task::_env_allocator<Env>::type;
-    using scheduler_type   = typename _task::_env_scheduler<Env>::type;
-    using stop_source_type = typename _task::_env_stop_source<Env>::type;
+    using sender_concept       = sender_tag;
+    using allocator_type       = typename _task::_env_allocator<Env>::type;
+    using start_scheduler_type = typename _task::_env_scheduler<Env>::type;
+    using stop_source_type     = typename _task::_env_stop_source<Env>::type;
     using stop_token_type =
         decltype(std::declval<stop_source_type>().get_token());
     using error_types = _task::_env_errors<Env>::type;
@@ -180,9 +180,9 @@ public:
     using handle_type = std::coroutine_handle<promise_type>;
 
     struct _opstate_base {
-        constexpr _opstate_base(scheduler_type sched) noexcept
-            : sched_(sched) {}
-        scheduler_type sched_;
+        constexpr _opstate_base(start_scheduler_type sched) noexcept
+            : sched(sched) {}
+        start_scheduler_type sched;
     };
 
     class promise_type :
@@ -225,7 +225,8 @@ public:
 
         template <sender Sndr>
         auto await_transform(Sndr&& sndr) noexcept {
-            if constexpr (std::same_as<inline_scheduler, scheduler_type>) {
+            if constexpr (std::same_as<
+                              inline_scheduler, start_scheduler_type>) {
                 return as_awaitable(std::forward<Sndr>(sndr), *this);
             } else {
                 return as_awaitable(affine(std::forward<Sndr>(sndr)), *this);
@@ -244,7 +245,7 @@ public:
             const promise_type* promise;
 
             constexpr auto query(get_scheduler_t) const noexcept {
-                return promise->state_->sched_;
+                return promise->state_->sched;
             }
 
             constexpr auto query(get_allocator_t) const noexcept {
@@ -392,7 +393,7 @@ private:
                 return scheduler_type(
                     get_scheduler(::neutron::execution::get_env(rcvr)));
             } else {
-                return scheduler_type{};
+                return start_scheduler_type{};
             }
         }
 

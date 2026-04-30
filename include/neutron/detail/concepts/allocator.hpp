@@ -2,6 +2,7 @@
 #pragma once
 #include <concepts>
 #include <cstddef>
+#include "neutron/detail/memory/rebind_alloc.hpp"
 
 namespace neutron {
 
@@ -22,5 +23,10 @@ template <typename Alloc>
 concept std_simple_allocator =
     sized_allocator<Alloc> && std::copy_constructible<Alloc> &&
     std::equality_comparable<Alloc>;
+
+template <typename Alloc>
+concept simple_allocator =
+    std_simple_allocator<Alloc> ||
+    std_simple_allocator<rebind_alloc_t<Alloc, std::byte>>;
 
 } // namespace neutron

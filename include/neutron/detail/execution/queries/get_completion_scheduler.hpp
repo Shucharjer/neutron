@@ -7,7 +7,7 @@ namespace neutron::execution {
 template <typename Completion>
 struct get_completion_scheduler_t {
     template <typename Env>
-    auto operator()(Env env) const noexcept
+    constexpr auto operator()(Env env) const noexcept
     requires requires {
         { std::as_const(env).query(get_completion_scheduler_t{}) } noexcept;
     }

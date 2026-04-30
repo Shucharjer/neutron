@@ -73,6 +73,8 @@ using ::stdexec::sync_wait;
     #include "neutron/detail/execution/senders/sender_factories/schedule.hpp"
     // sender adaptors
     #include "neutron/detail/execution/senders/sender_adaptors/bulk.hpp"
+    #include "neutron/detail/execution/senders/sender_adaptors/bulk_chunked.hpp"
+    #include "neutron/detail/execution/senders/sender_adaptors/bulk_unchunked.hpp"
     #include "neutron/detail/execution/senders/sender_adaptors/continues_on.hpp"
     #include "neutron/detail/execution/senders/sender_adaptors/let_value.hpp"
     #include "neutron/detail/execution/senders/sender_adaptors/schedule_from.hpp"

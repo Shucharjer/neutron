@@ -106,7 +106,7 @@ public:
 // so we need specifiy it.
 
 template <typename T>
-class alignas(64) shared_tuple<T> {
+class alignas(std::hardware_destructive_interference_size) shared_tuple<T> {
     T value_;
 
 public:

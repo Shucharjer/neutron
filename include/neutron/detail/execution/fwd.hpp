@@ -17,6 +17,7 @@
 #include "neutron/detail/metafn/unique.hpp"
 #include "neutron/detail/utility/fake_copy.hpp"
 #include "neutron/detail/utility/get.hpp"
+#include "senders/sender_adaptors/bulk_unchunked.hpp"
 
 namespace neutron {
 
@@ -421,6 +422,8 @@ struct let_value_t;
 struct let_error_t;
 struct let_stopped_t;
 struct bulk_t;
+struct bulk_chunked_t;
+struct bulk_unchunked_t;
 struct split_t;
 struct when_all_t;
 struct when_all_with_variant_t;
@@ -439,6 +442,8 @@ extern const let_value_t let_value;
 extern const let_error_t let_error;
 extern const let_stopped_t let_stopped;
 extern const bulk_t bulk;
+extern const bulk_chunked_t bulk_chunked;
+extern const bulk_unchunked_t bulk_unchunked;
 extern const split_t split;
 extern const when_all_t when_all;
 extern const when_all_with_variant_t when_all_with_variant;

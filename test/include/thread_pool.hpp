@@ -7,6 +7,7 @@
 #include <condition_variable>
 #include <cstddef>
 #include <exception>
+#include <memory>
 #include <mutex>
 #include <queue>
 #include <stdexcept>
@@ -76,6 +77,11 @@ public:
         return neutron::execution::forward_progress_guarantee::parallel;
     }
 
+    ATOM_NODISCARD constexpr auto
+        query(::neutron::get_allocator_t) const noexcept {
+        return std::allocator<void>{};
+    }
+
 private:
     thread_pool* pool_;
 };
@@ -90,7 +96,7 @@ public:
         // NOLINTNEXTLINE
         this->execute = [](_task_base* base) noexcept {
             auto& self  = *static_cast<_opstate*>(base);
-            auto stoken = get_stop_token(get_env(self.rcvr_));
+            auto stoken = ::neutron::get_stop_token(get_env(self.rcvr_));
 
             // NOLINTNEXTLINE
             if constexpr (neutron::unstoppable_token<decltype(stoken)>) {

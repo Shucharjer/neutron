@@ -6,6 +6,7 @@
 #include "neutron/detail/execution/queries/get_env.hpp"
 #include "neutron/detail/execution/queries/get_await_completion_adaptor.hpp"
 #include "neutron/detail/execution/operation_states/start.hpp"
+#include "neutron/detail/utility/as_except_ptr.hpp"
 
 namespace neutron::execution {
 
