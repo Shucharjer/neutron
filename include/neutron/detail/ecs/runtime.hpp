@@ -26,7 +26,7 @@ public:
 
         const auto guarantee = get_forward_progress_guarantee(sch_);
         if (guarantee == forward_progress_guarantee::weakly_parallel) {
-            //
+            _run_weak_parallel();
         } else {
             _run();
         }
@@ -35,6 +35,12 @@ public:
     }
 
 private:
+    void _run_weak_parallel() {
+        [&]<std::size_t... Is>(std::index_sequence<Is...>) {
+            //
+        }(std::make_index_sequence<std::tuple_size_v<Worlds>>());
+    }
+
     void _run() {
         auto alloc = get_allocator(sch_);
         [&]<std::size_t... Is>(std::index_sequence<Is...>) {

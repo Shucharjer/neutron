@@ -1,5 +1,5 @@
-#include <neutron/ecs.hpp>
 #include "neutron/detail/ecs/runtime.hpp"
+#include <neutron/ecs.hpp>
 #include "thread_pool.hpp"
 
 using namespace neutron;
@@ -28,7 +28,4 @@ void foo() {}
 
 constexpr auto world1 = world_desc | add_systems<update, foo>;
 
-int main() {
-    app::create() | run_worlds<world1>();
-    return 0;
-}
+int main() { return app::create() | run_worlds<world1>(); }

@@ -17,10 +17,10 @@ public:
     constexpr run_worlds_fn() noexcept = default;
 
     template <typename App>
-    constexpr void operator()(App&& app) const
+    constexpr decltype(auto) operator()(App&& app) const
     requires requires { std::forward<App>(app).template run<Worlds...>(); }
     {
-        std::forward<App>(app).template run<Worlds...>();
+        return std::forward<App>(app).template run<Worlds...>();
     }
 };
 
