@@ -57,4 +57,18 @@ consteval auto type_traits_of() noexcept -> type_traits {
     }; // namespace neutron
 }
 
+template <typename>
+struct _type_traits_list_impl;
+template <template <typename...> typename Tmp, typename... Args>
+struct _type_traits_list_impl<Tmp<Args...>> {
+    static constexpr std::array<type_traits, sizeof...(Args)> value = {
+        type_traits_of<Args>()...
+    };
+};
+
+template <typename T>
+consteval auto traits_list_of() noexcept {
+    return _type_traits_list_impl<T>::value;
+}
+
 } // namespace neutron

@@ -5,7 +5,7 @@
 namespace neutron {
 
 template <typename Ty>
-concept nothrow_conditional_movable =
+concept nothrow_conditional_move_constrctible =
     std::is_nothrow_move_constructible_v<Ty> ||
     std::is_nothrow_copy_constructible_v<Ty>;
 

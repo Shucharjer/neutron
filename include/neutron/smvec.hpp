@@ -217,7 +217,7 @@ public:
     }
 
     smvec& operator=(smvec&& that) noexcept(
-        std::is_nothrow_destructible_v<Ty> && nothrow_conditional_movable<Ty>) {
+        std::is_nothrow_destructible_v<Ty> && nothrow_conditional_move_constrctible<Ty>) {
         if (this == &that) {
             return *this;
         }

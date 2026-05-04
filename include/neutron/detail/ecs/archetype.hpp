@@ -17,10 +17,6 @@
 #include <utility>
 #include <vector>
 #include <version>
-#include <neutron/concepts.hpp>
-#include <neutron/memory.hpp>
-#include <neutron/metafn.hpp>
-#include <neutron/utility.hpp>
 #include "neutron/detail/algorithm/branchless_lower_bound.hpp"
 #include "neutron/detail/ecs/anchor.hpp"
 #include "neutron/detail/ecs/component.hpp"
@@ -30,10 +26,10 @@
 #include "neutron/detail/memory/uninitialized_move_if_noexcept.hpp"
 #include "neutron/detail/ranges/concepts.hpp"
 #include "neutron/detail/reflection/hash.hpp"
+#include "neutron/detail/reflection/type_traits.hpp"
 #include "neutron/detail/tuple/rmcvref_first.hpp"
 #include "neutron/detail/utility/spreader.hpp"
 #include "neutron/shift_map.hpp"
-
 
 namespace neutron {
 
@@ -43,65 +39,6 @@ class slice;
 // NOLINTBEGIN(cppcoreguidelines-pro-bounds-pointer-arithmetic)
 // NOLINTBEGIN(cppcoreguidelines-avoid-c-arrays)
 // NOLINTBEGIN(modernize-avoid-c-arrays)
-
-/**
- * @brief Compile-time metadata descriptor for a component type.
- *
- * This structure encapsulates essential compile-time properties of a type, such
- * as trivial copyability, relocatability, alignment, and size. It is primarily
- * used by the `archetype` to manage heterogeneous component storage.
- */
-struct basic_info {
-    uint64_t trivially_copyable : 1;
-    uint64_t trivially_relocatable : 1;
-    uint64_t trivially_move_assignable : 1;
-    uint64_t _reserve : 13;
-    uint64_t align : 16;
-    uint64_t size : 32;
-
-    /**
-     * @brief Constructs a `basic_info` instance for type `Ty` at compile time.
-     * @tparam Ty The type to introspect.
-     * @return A `consteval`-computed `basic_info` object describing `Ty`.
-     */
-    template <typename Ty>
-    consteval static basic_info make() noexcept {
-        return { .trivially_copyable    = std::is_trivially_copyable_v<Ty>,
-                 .trivially_relocatable = neutron::trivially_relocatable<Ty>,
-                 .trivially_move_assignable =
-                     std::is_trivially_move_assignable_v<Ty>,
-                 ._reserve = 0,
-                 .align    = std::is_empty_v<Ty> ? 0 : alignof(Ty),
-                 .size     = std::is_empty_v<Ty> ? 0 : sizeof(Ty) };
-    }
-};
-
-static_assert(sizeof(basic_info) == sizeof(uint64_t));
-
-/**
- * @brief Generates an array of @ref basic_info objects from a type list.
- * @tparam Tys Parameter pack of component types.
- * @param[in] list A `type_list<Tys...>` instance (used only for deduction).
- * @return A compile-time `std::array<basic_info, sizeof...(Tys)>`.
- */
-template <typename... Tys>
-consteval auto make_info(type_list<Tys...>) noexcept {
-    return std::array{ basic_info::make<Tys>()... };
-}
-
-/**
- * @brief Convenience overload that sorts the input types before generating
- * metadata.
-
- * Sorting ensures deterministic layout and hash computation across translation
- * units.
- * @tparam Tys Unsorted component types.
- * @return A compile-time array of sorted `basic_info` descriptors.
- */
-template <typename... Tys>
-consteval auto make_info() noexcept {
-    return make_info(hash_list_t<type_list<Tys...>>{});
-}
 
 template <component... Comp>
 struct add_components_t {};
@@ -160,7 +97,7 @@ class archetype<Alloc> {
 public:
     using size_type        = size_t;
     using difference_type  = ptrdiff_t;
-    using _hash_type       = uint32_t;
+    using _hash_type       = std::uint32_t;
     using _hash_vector     = _vector_t<_hash_type>;
     using _ctor_fn         = void (*)(void* ptr, size_type n);
     using _mov_ctor_fn     = void (*)(void* src, size_type n, void* dst);
@@ -186,9 +123,9 @@ public:
               self->_relocate<Components...>(capacity);
           }),
           hash_list_(
-              std::initializer_list<uint32_t>{ hash_of<Components>()... },
+              std::initializer_list<std::uint32_t>{ hash_of<Components>()... },
               alloc),
-          basic_info_({ basic_info::make<Components>()... }, alloc),
+          comp_traits_({ type_traits_of<Components>()... }, alloc),
           constructors_(
               { [](void* ptr, size_t n) noexcept(
                     std::is_nothrow_default_constructible_v<Components>) {
@@ -260,7 +197,7 @@ public:
     template <component... Components>
     archetype(const archetype& archetype, add_components_t<Components...>)
         : hash_list_(archetype.get_allocator()),
-          basic_info_(archetype.get_allocator()),
+          comp_traits_(archetype.get_allocator()),
           constructors_(archetype.get_allocator()),
           move_constructors_(archetype.get_allocator()),
           move_assignments_(archetype.get_allocator()),
@@ -283,8 +220,8 @@ public:
         while (i < size && j < hash_array.size()) {
             if (archetype.hash_list_[i] < hash_array[j]) {
                 hash_list_.push_back(archetype.hash_list_[i]);
-                const basic_info info = archetype.basic_info_[i];
-                basic_info_.push_back(info);
+                const type_traits info = archetype.comp_traits_[i];
+                comp_traits_.push_back(info);
                 constructors_.push_back(archetype.constructors_[i]);
                 move_constructors_.push_back(archetype.move_constructors_[i]);
                 move_assignments_.push_back(archetype.move_assignments_[i]);
@@ -295,8 +232,8 @@ public:
                 ++i;
             } else if (hash_array[j] < archetype.hash_list_[i]) {
                 hash_list_.push_back(hash_array[j]);
-                const basic_info info = newinfo[j];
-                basic_info_.push_back(info);
+                const type_traits info = newinfo[j];
+                comp_traits_.push_back(info);
                 constructors_.push_back(std::get<1>(metainfo)[j]);
                 move_constructors_.push_back(std::get<2>(metainfo)[j]);
                 move_assignments_.push_back(std::get<3>(metainfo)[j]);
@@ -307,8 +244,8 @@ public:
                 ++j;
             } else {
                 hash_list_.push_back(archetype.hash_list_[i]);
-                const basic_info info = archetype.basic_info_[i];
-                basic_info_.push_back(info);
+                const type_traits info = archetype.comp_traits_[i];
+                comp_traits_.push_back(info);
                 constructors_.push_back(archetype.constructors_[i]);
                 move_constructors_.push_back(archetype.move_constructors_[i]);
                 move_assignments_.push_back(archetype.move_assignments_[i]);
@@ -322,8 +259,8 @@ public:
         }
         for (; i < size; ++i) {
             hash_list_.push_back(archetype.hash_list_[i]);
-            const basic_info info = archetype.basic_info_[i];
-            basic_info_.push_back(info);
+            const type_traits info = archetype.comp_traits_[i];
+            comp_traits_.push_back(info);
             constructors_.push_back(archetype.constructors_[i]);
             move_constructors_.push_back(archetype.move_constructors_[i]);
             move_assignments_.push_back(archetype.move_assignments_[i]);
@@ -334,8 +271,8 @@ public:
         }
         for (; j < hash_array.size(); ++j) {
             hash_list_.push_back(hash_array[j]);
-            const basic_info info = newinfo[j];
-            basic_info_.push_back(info);
+            const type_traits info = newinfo[j];
+            comp_traits_.push_back(info);
             constructors_.push_back(std::get<1>(metainfo)[j]);
             move_constructors_.push_back(std::get<2>(metainfo)[j]);
             move_assignments_.push_back(std::get<3>(metainfo)[j]);
@@ -352,7 +289,7 @@ public:
     constexpr archetype(
         const archetype& archetype, remove_components_t<Components...>)
         : hash_list_(archetype.get_allocator()),
-          basic_info_(archetype.get_allocator()),
+          comp_traits_(archetype.get_allocator()),
           constructors_(archetype.get_allocator()),
           move_constructors_(archetype.get_allocator()),
           move_assignments_(archetype.get_allocator()),
@@ -369,8 +306,8 @@ public:
             if (hash_array[index] != archetype.hash_list_[offset]) {
                 // emplace
                 hash_list_.push_back(archetype.hash_list_[offset]);
-                const auto info = archetype.basic_info_[offset];
-                basic_info_.push_back(info);
+                const auto info = archetype.comp_traits_[offset];
+                comp_traits_.push_back(info);
                 constructors_.push_back(archetype.constructors_[offset]);
                 move_constructors_.push_back(
                     archetype.move_constructors_[offset]);
@@ -388,8 +325,8 @@ public:
         }
         for (; offset < size; ++offset) {
             hash_list_.push_back(archetype.hash_list_[offset]);
-            const auto info = archetype.basic_info_[offset];
-            basic_info_.push_back(info);
+            const auto info = archetype.comp_traits_[offset];
+            comp_traits_.push_back(info);
             constructors_.push_back(archetype.constructors_[offset]);
             move_constructors_.push_back(archetype.move_constructors_[offset]);
             move_assignments_.push_back(archetype.move_assignments_[offset]);
@@ -407,7 +344,7 @@ public:
 
     archetype(archetype&& that) noexcept
         : hash_list_(std::move(that.hash_list_)),
-          basic_info_(std::move(that.basic_info_)),
+          comp_traits_(std::move(that.comp_traits_)),
           constructors_(std::move(that.constructors_)),
           move_constructors_(std::move(that.move_constructors_)),
           move_assignments_(std::move(that.move_assignments_)),
@@ -428,8 +365,8 @@ public:
      */
     ATOM_CONSTEXPR_SINCE_CXX23 ~archetype() noexcept {
         for (auto i = 0; i < hash_list_.size(); ++i) {
-            const basic_info info = basic_info_[i];
-            const auto size       = info.size;
+            const type_traits info = comp_traits_[i];
+            const auto size        = info.size;
             if (size == 0) { // empty component
                 continue;
             }
@@ -448,23 +385,18 @@ public:
      * @return `true` if all queried types are present; otherwise `false`.
      */
     template <typename... Args>
-    ATOM_NODISCARD constexpr bool has() const noexcept {
-        if constexpr (sizeof...(Args) == 1U) {
-            constexpr auto hash = hash_of<Args...>();
-            return std::binary_search(
-                this->hash_list_.begin(), this->hash_list_.end(), hash);
-        } else {
-            return (has<Args>() && ...);
-        }
+    ATOM_NODISCARD constexpr auto has() const noexcept {
+        using sorted_list = hash_list_t<type_list<Args...>>;
+        return _has_impl<sorted_list>();
     }
 
     ATOM_NODISCARD constexpr auto emplace(entity_t entity) { _emplace(entity); }
 
     template <component... Components>
     ATOM_NODISCARD auto emplace(entity_t entity) {
-        using type_list                  = type_list<Components...>;
-        using hash_list                  = hash_list_t<type_list>;
-        constexpr uint64_t combined_hash = make_array_hash<type_list>();
+        using type_list                       = type_list<Components...>;
+        using hash_list                       = hash_list_t<type_list>;
+        constexpr std::uint64_t combined_hash = make_array_hash<type_list>();
         assert(combined_hash == hash_);
 
         _emplace(entity, hash_list{});
@@ -474,9 +406,9 @@ public:
     ATOM_NODISCARD auto emplace(auto&& range)
     requires compatible_range<decltype(range), entity_t>
     {
-        using type_list                  = type_list<Components...>;
-        using hash_list                  = hash_list_t<type_list>;
-        constexpr uint64_t combined_hash = make_array_hash<type_list>();
+        using type_list                       = type_list<Components...>;
+        using hash_list                       = hash_list_t<type_list>;
+        constexpr std::uint64_t combined_hash = make_array_hash<type_list>();
         assert(combined_hash == hash_);
 
         _emplace(std::forward<decltype(range)>(range), hash_list{});
@@ -485,7 +417,7 @@ public:
     template <component... Components>
     ATOM_NODISCARD constexpr auto
         emplace(entity_t entity, Components&&... components) {
-        constexpr uint64_t combined_hash =
+        constexpr std::uint64_t combined_hash =
             make_array_hash<type_list<std::remove_cvref_t<Components>...>>();
         assert(combined_hash == hash_);
 
@@ -497,7 +429,7 @@ public:
         emplace(auto&& range, Components&&... components)
     requires compatible_range<decltype(range), entity_t>
     {
-        constexpr uint64_t combined_hash =
+        constexpr std::uint64_t combined_hash =
             make_array_hash<type_list<std::remove_cvref_t<Components>...>>();
         assert(combined_hash == hash_);
 
@@ -539,7 +471,9 @@ public:
         return capacity_;
     }
 
-    ATOM_NODISCARD constexpr uint64_t hash() const noexcept { return hash_; }
+    ATOM_NODISCARD constexpr std::uint64_t hash() const noexcept {
+        return hash_;
+    }
 
     ATOM_NODISCARD constexpr auto hash_list() const noexcept
         -> const _vector_t<_hash_type>& {
@@ -570,8 +504,8 @@ public:
     ATOM_NODISCARD constexpr auto clear() {
         const auto kinds = hash_list_.size();
         for (size_type i = 0; i < kinds; ++i) {
-            const basic_info info = basic_info_[i];
-            auto* const ptr       = storage_[i].get();
+            const type_traits info = comp_traits_[i];
+            auto* const ptr        = storage_[i].get();
             destructors_[i](ptr, size_);
         }
         index2entity_.clear();
@@ -584,7 +518,7 @@ public:
     }
 
     constexpr void transfer(entity_t entity, archetype& target) {
-        _transfer(entity, target, [](size_type, size_type, uint32_t) {
+        _transfer(entity, target, [](size_type, size_type, std::uint32_t) {
             assert(
                 false &&
                 "target archetype unexpectedly requires new components");
@@ -597,7 +531,7 @@ public:
         [[maybe_unused]] add_components_t<Components...>) {
         _transfer(
             entity, target,
-            [&target](size_type kind, size_type index, uint32_t) {
+            [&target](size_type kind, size_type index, std::uint32_t) {
                 target._default_construct(kind, index);
             });
     }
@@ -611,19 +545,34 @@ public:
             std::forward_as_tuple(std::forward<Components>(components)...);
         _transfer(
             entity, target,
-            [&target, &tuple](size_type kind, size_type index, uint32_t hash) {
+            [&target,
+             &tuple](size_type kind, size_type index, std::uint32_t hash) {
                 target.template _construct_added_from_tuple<
                     std::remove_cvref_t<Added>...>(kind, index, hash, tuple);
             });
     }
 
 private:
+    template <typename T>
+    ATOM_NODISCARD constexpr auto _has_impl() const noexcept {
+        auto it        = this->hash_list_.begin();
+        const auto end = this->hash_list_.end();
+        return [it,
+                end]<std::size_t... Is>(std::index_sequence<Is...>) mutable {
+            return (
+                (it = branchless_lower_bound(
+                     it, end, hash_of<type_list_element_t<Is, T>>()),
+                 it != end && *it == hash_of<type_list_element_t<Is, T>>()) &&
+                ...);
+        }(std::make_index_sequence<type_list_size_v<T>>());
+    }
+
     constexpr void _erase_known_index(entity_t entity, size_type index) {
         const auto last_index = size_ - 1;
 
         if (index != last_index) {
-            for (uint32_t i = 0; i < hash_list_.size(); ++i) {
-                const basic_info info = basic_info_[i];
+            for (std::uint32_t i = 0; i < hash_list_.size(); ++i) {
+                const type_traits info = comp_traits_[i];
                 if (info.size == 0) {
                     continue;
                 }
@@ -632,7 +581,7 @@ private:
                 auto* dst        = data + (info.size * index);
                 auto* src        = data + (info.size * last_index);
 
-                if (info.trivially_move_assignable) {
+                if (info.is_trivially_move_assignable) {
                     std::memcpy(dst, src, info.size);
                 } else {
                     // requires component move assignable
@@ -646,8 +595,8 @@ private:
             index2entity_[index]       = last_entity;
             entity2index_[last_entity] = index;
         } else {
-            for (uint32_t i = 0; i < hash_list_.size(); ++i) {
-                const basic_info info = basic_info_[i];
+            for (std::uint32_t i = 0; i < hash_list_.size(); ++i) {
+                const type_traits info = comp_traits_[i];
                 if (info.size == 0) {
                     continue;
                 }
@@ -700,7 +649,7 @@ private:
 
     ATOM_NODISCARD constexpr auto
         _slot_ptr(size_type kind, size_type index) noexcept -> std::byte* {
-        const auto size = basic_info_[kind].size;
+        const auto size = comp_traits_[kind].size;
         if (size == 0) {
             return nullptr;
         }
@@ -710,7 +659,7 @@ private:
     ATOM_NODISCARD constexpr auto
         _slot_ptr(size_type kind, size_type index) const noexcept
         -> const std::byte* {
-        const auto size = basic_info_[kind].size;
+        const auto size = comp_traits_[kind].size;
         if (size == 0) {
             return nullptr;
         }
@@ -792,7 +741,7 @@ private:
 
     template <component... Components, typename Tup>
     constexpr void _construct_added_from_tuple(
-        size_type kind, size_type index, uint32_t hash, Tup&& tuple) {
+        size_type kind, size_type index, std::uint32_t hash, Tup&& tuple) {
         auto* const ptr = _slot_ptr(kind, index);
         const bool matched =
             ((hash == hash_of<std::remove_cvref_t<Components>>()
@@ -868,7 +817,8 @@ private:
     template <component... SortedComponents>
     consteval static auto
         _get_metainfo(type_list<SortedComponents...>) noexcept {
-        constexpr auto basic_info = make_info<SortedComponents...>();
+        constexpr auto basic_info =
+            traits_list_of<type_list<SortedComponents...>>();
         constexpr std::array<_ctor_fn, sizeof...(SortedComponents)>
             constructors = {
                 [](void* ptr, size_type n) noexcept(
@@ -930,7 +880,7 @@ private:
         int64_t idx = 0;
         auto guard  = make_exception_guard([this, &idx]() noexcept {
             for (int64_t i = idx - 1; i-- > 0;) {
-                const basic_info info = basic_info_[i];
+                const type_traits info = comp_traits_[i];
 
                 _buffer_ptr& data = storage_[i];
                 auto* const ptr   = data.get();
@@ -940,7 +890,7 @@ private:
         });
 
         for (; idx < hash_list_.size(); ++idx) {
-            const basic_info info = basic_info_[idx];
+            const type_traits info = comp_traits_[idx];
 
             _buffer_ptr& data = storage_[idx];
             auto* const ptr   = data.get();
@@ -954,7 +904,7 @@ private:
         const size_type kinds, _vector_t<_buffer_ptr>& buffers,
         size_type capacity) {
         for (size_type i = 0; i < kinds; ++i) {
-            const basic_info info = basic_info_[i];
+            const type_traits info = comp_traits_[i];
             if (info.size == 0) {
                 continue;
             }
@@ -970,7 +920,7 @@ private:
         auto guard =
             make_exception_guard([this, kinds, &idx, &buffers]() noexcept {
                 for (size_type i = idx + 1; i < kinds; ++i) {
-                    const basic_info info = basic_info_[i];
+                    const type_traits info = comp_traits_[i];
                     if (info.size == 0) {
                         continue;
                     }
@@ -978,7 +928,7 @@ private:
                 }
             });
         for (; idx-- > 0;) {
-            const basic_info info = basic_info_[idx];
+            const type_traits info = comp_traits_[idx];
             if (info.size == 0) {
                 continue;
             }
@@ -1027,7 +977,7 @@ private:
         typename Ty = type_list_element_t<Index, TypeList>>
     void _relocate_data(
         _vector_t<_buffer_ptr>& buffers,
-        size_type& succ) noexcept(nothrow_conditional_movable<Ty>) {
+        size_type& succ) noexcept(nothrow_conditional_move_constrctible<Ty>) {
         if constexpr (std::is_empty_v<Ty>) {
             return;
         }
@@ -1075,7 +1025,7 @@ private:
     }
 
     template <component... Components>
-    requires(nothrow_conditional_movable<Components> && ...)
+    requires(nothrow_conditional_move_constrctible<Components> && ...)
     auto _relocate(size_type capacity) {
         using tlist          = type_list<Components...>;
         constexpr auto count = sizeof...(Components);
@@ -1091,7 +1041,7 @@ private:
     }
 
     template <component... Components>
-    requires(!(nothrow_conditional_movable<Components> && ...))
+    requires(!(nothrow_conditional_move_constrctible<Components> && ...))
     void _relocate(size_type capacity) {
         using tlist        = type_list<Components...>;
         constexpr auto num = sizeof...(Components);
@@ -1650,7 +1600,7 @@ private:
 
     void (*relocate_fn_)(archetype*, size_type) = nullptr;
     _vector_t<_hash_type> hash_list_;
-    _vector_t<basic_info> basic_info_;
+    _vector_t<type_traits> comp_traits_;
     _vector_t<_ctor_fn> constructors_;
     _vector_t<_mov_ctor_fn> move_constructors_;
     _vector_t<_mov_assign_fn> move_assignments_;
@@ -1658,7 +1608,7 @@ private:
     _vector_t<_buffer_ptr> storage_;
     size_type size_{};
     size_type capacity_{};
-    uint64_t hash_{};
+    std::uint64_t hash_{};
     shift_map<entity_t, index_t, 256UL, half_bits<entity_t>, Alloc>
         entity2index_;
     // _vector_t<bool> created_;

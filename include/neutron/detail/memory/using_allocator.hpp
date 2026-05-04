@@ -266,7 +266,7 @@ template <
 ATOM_CONSTEXPR_SINCE_CXX20 Pointer
     uninitialized_move_if_noexcept_n_using_allocator(
         Alloc& alloc, Pointer src, SizeT n,
-        Pointer dst) noexcept(nothrow_conditional_movable<Ty>) {
+        Pointer dst) noexcept(nothrow_conditional_move_constrctible<Ty>) {
     if constexpr (std::is_nothrow_move_constructible_v<Ty>) {
         return uninitialized_move_n_using_allocator(alloc, src, n, dst);
     }

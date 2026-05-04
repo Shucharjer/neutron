@@ -15,7 +15,7 @@ template <std::input_iterator InputIt, std::forward_iterator NothrowForwardIter>
 ATOM_CONSTEXPR_SINCE_CXX26 auto uninitialized_move_if_noexcept(
     InputIt first, InputIt last,
     NothrowForwardIter
-        dst) noexcept(nothrow_conditional_movable<std::iter_value_t<InputIt>>)
+        dst) noexcept(nothrow_conditional_move_constrctible<std::iter_value_t<InputIt>>)
     -> NothrowForwardIter {
     using value_type = std::iter_value_t<InputIt>;
 #if __cplusplus < 202602L
