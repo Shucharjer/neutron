@@ -21,16 +21,17 @@ concept _infallible_scheduler =
     scheduler<Sch> &&
     (std::same_as<
          completion_signatures<set_value_t()>,
-         completion_signatures_of_t<decltype(schedule(declval<Sch>())), Env>> ||
+         completion_signatures_of_t<
+             decltype(schedule(std::declval<Sch>())), Env>> ||
      (!unstoppable_token<stop_token_of_t<Env>> &&
       (std::same_as<
            completion_signatures<set_value_t(), set_stopped_t()>,
            completion_signatures_of_t<
-               decltype(schedule(declval<Sch>())), Env>> ||
+               decltype(schedule(std::declval<Sch>())), Env>> ||
        std::same_as<
            completion_signatures<set_stopped_t(), set_value_t()>,
            completion_signatures_of_t<
-               decltype(schedule(declval<Sch>())), Env>>)));
+               decltype(schedule(std::declval<Sch>())), Env>>)));
 
 class task_scheduler {
     class _ts_domain;
@@ -144,9 +145,9 @@ public:
         const Env& env) noexcept(std::
                                      is_nothrow_constructible_v<
                                          std::decay_t<BulkSndr>, BulkSndr>) {
-        auto& [_, data, child] = bulk_sndr;
-        auto& [_, shape, fn]   = data;
-        auto sch               = _call_with_default(
+        auto& [_1, data, child] = bulk_sndr;
+        auto& [_2, shape, fn]   = data;
+        auto sch                = _call_with_default(
             get_completion_scheduler<set_value_t>, _not_a_scheduler(),
             get_env(child), _fwd_env(env));
         using sch_t = std::remove_cvref_t<decltype(sch)>;
