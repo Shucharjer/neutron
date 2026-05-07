@@ -4,6 +4,7 @@
 #include <neutron/metafn.hpp>
 #include "neutron/detail/ecs/stage.hpp"
 #include "neutron/detail/ecs/world_descriptor/fwd.hpp"
+#include "neutron/detail/type_traits/is_convertible_to_function_pointer.hpp"
 
 namespace neutron {
 
@@ -33,6 +34,8 @@ struct _after_t {
 // e.g. { &foo, after<&bar> }
 template <typename Sys, auto... Requires>
 struct sysdesc {
+    static_assert(is_convertible_to_function_pointer_v<Sys>);
+
     Sys fn;
     constexpr sysdesc(Sys fn, decltype(Requires)...) noexcept : fn(fn) {}
 };
@@ -68,19 +71,3 @@ template <auto Sys>
 inline constexpr _add_system::_after_t<Sys> after;
 
 } // namespace neutron
-
-#if ATOM_HAS_REFLECTION
-namespace neutron {
-
-template <stage Stage, sysdesc... Desc>
-struct _add_systems_t {
-    static constexpr auto infos = std::define_static_array({(^^Desc)...});
-};
-
-template <stage Stage, sysdesc... Desc>
-constexpr auto _add_systems_t<Stage, Desc...> add_systems;
-
-add_systems<update, { fn }, { afn, after<fn> }>;
-
-} // namespace neutron
-#endif
