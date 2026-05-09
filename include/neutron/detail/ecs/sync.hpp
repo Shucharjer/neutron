@@ -239,7 +239,7 @@ public:
 // sync should satify construct_from_world
 template <_sync_scope Scope, strategy Strategy, _sync_access... Access>
 requires(sizeof...(Access) != 0)
-class sync :
+class sync_point :
     private _sync::_sync_storage<Scope>,
     public std::tuple<_sync::_sync_access<Strategy, Access>...> {
 public:
@@ -248,19 +248,21 @@ public:
 
     using std::tuple<_sync::_sync_access<Strategy, Access>...>::tuple;
 
-    sync(const sync&)            = delete;
-    sync& operator=(const sync&) = delete;
-    sync(sync&&)                 = delete;
-    sync& operator=(sync&&)      = delete;
-    ~sync()                      = default;
+    sync_point(const sync_point&)            = delete;
+    sync_point& operator=(const sync_point&) = delete;
+    sync_point(sync_point&&)                 = delete;
+    sync_point& operator=(sync_point&&)      = delete;
+    ~sync_point()                            = default;
 };
 
 template <
     auto Sys, _sync_scope Scope, strategy Strategy, _sync_access... Access,
     size_t Index>
-struct construct_from_world_t<Sys, sync<Scope, Strategy, Access...>, Index> {
+struct construct_from_world_t<
+    Sys, sync_point<Scope, Strategy, Access...>, Index> {
     template <world World>
-    auto operator()(World& world) const -> sync<Scope, Strategy, Access...> {
+    auto operator()(World& world) const
+        -> sync_point<Scope, Strategy, Access...> {
         // using group_id = World::group_id;
         return {};
     }
@@ -273,14 +275,14 @@ namespace std {
 template <
     neutron::_sync_scope Scope, neutron::strategy Strategy,
     neutron::_sync_access... Access>
-struct tuple_size<neutron::sync<Scope, Strategy, Access...>> {
+struct tuple_size<neutron::sync_point<Scope, Strategy, Access...>> {
     static constexpr size_t value = sizeof...(Access);
 };
 
 template <
     size_t Index, neutron::_sync_scope Scope, neutron::strategy Strategy,
     neutron::_sync_access... Access>
-struct tuple_element<Index, neutron::sync<Scope, Strategy, Access...>> {
+struct tuple_element<Index, neutron::sync_point<Scope, Strategy, Access...>> {
     using type = std::tuple_element_t<
         Index, std::tuple<neutron::_sync::_sync_access<Strategy, Access>...>>;
 };
