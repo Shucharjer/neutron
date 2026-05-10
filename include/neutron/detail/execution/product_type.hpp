@@ -11,7 +11,8 @@ struct _product_type : public std::tuple<Args...> {
     using std::tuple<Args...>::tuple;
 };
 
-#if __cplusplus <= 202102L
+#if defined(__GNUC__) && !defined(__clang__) && __cplusplus <= 202102L
+#else
 template <typename... Args>
 _product_type(Args&&...) -> _product_type<std::decay_t<Args>...>;
 #endif

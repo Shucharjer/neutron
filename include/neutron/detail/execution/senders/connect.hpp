@@ -1,4 +1,5 @@
 #pragma once
+#include <exception>
 #include "neutron/detail/execution/fwd.hpp"
 #include "neutron/detail/macros.hpp"
 

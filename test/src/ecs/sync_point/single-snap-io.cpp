@@ -10,7 +10,7 @@ using enum strategy;
 
 void fn() {}
 void sys1() {}
-void sys2(::neutron::sync<single, atomic_snap, inout<int>> sync) {
+void sys2(sync_point<single, atomic_snap, inout<int>> sync) {
     auto& [sio]  = sync;
     auto& [isio] = sio;
     isio.read(std::memory_order_relaxed);
