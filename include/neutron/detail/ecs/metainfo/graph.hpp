@@ -471,6 +471,75 @@ private:
         return best;
     }
 
+    template <_stage_graph_count_kind Kind>
+    static consteval std::uint32_t
+        _timely_resource_count(std::size_t index) noexcept {
+        if constexpr (Kind == _stage_graph_count_kind::concurrency) {
+            return 1;
+        } else {
+            return has_buffered_commands[index] ? 1U : 0U;
+        }
+    }
+
+    template <_stage_graph_count_kind Kind>
+    static consteval std::uint32_t _max_timely_layer_count() noexcept {
+        std::array<std::size_t, size> pending = predecessor_counts;
+        std::array<bool, size> completed{};
+        std::uint32_t best        = 0;
+        std::size_t completed_cnt = 0;
+
+        while (completed_cnt != size) {
+            std::array<bool, size> selected{};
+            std::uint32_t current = 0;
+            bool has_selected     = false;
+
+            for (std::size_t index = 0; index < size; ++index) {
+                if (!completed[index] && pending[index] == 0 &&
+                    !is_locally_individual[index]) {
+                    selected[index] = true;
+                    current += _timely_resource_count<Kind>(index);
+                    has_selected = true;
+                }
+            }
+
+            if (!has_selected) {
+                for (std::size_t index = 0; index < size; ++index) {
+                    if (!completed[index] && pending[index] == 0) {
+                        selected[index] = true;
+                        current += _timely_resource_count<Kind>(index);
+                        has_selected = true;
+                        break;
+                    }
+                }
+            }
+
+            if (!has_selected) {
+                return best;
+            }
+
+            best = best < current ? current : best;
+
+            for (std::size_t index = 0; index < size; ++index) {
+                if (!selected[index]) {
+                    continue;
+                }
+
+                completed[index] = true;
+                ++completed_cnt;
+
+                for (std::size_t offset = 0; offset < successor_counts[index];
+                     ++offset) {
+                    const std::size_t successor = successors[index][offset];
+                    if (pending[successor] != 0) {
+                        --pending[successor];
+                    }
+                }
+            }
+        }
+
+        return best;
+    }
+
 public:
     static constexpr auto predecessor_counts = _make_predecessor_counts();
     static constexpr auto successor_counts   = _make_successor_counts();
@@ -498,6 +567,10 @@ public:
         _max_counted_antichain<_stage_graph_count_kind::concurrency>();
     static constexpr std::uint32_t max_buffer_count =
         _max_counted_antichain<_stage_graph_count_kind::command_buffers>();
+    static constexpr std::uint32_t min_concurrency =
+        _max_timely_layer_count<_stage_graph_count_kind::concurrency>();
+    static constexpr std::uint32_t min_buffer_count =
+        _max_timely_layer_count<_stage_graph_count_kind::command_buffers>();
 };
 
 template <stage Stage, typename Descriptor>
@@ -558,10 +631,24 @@ private:
         stage_graph<render, Descriptor>::max_concurrency,
         stage_graph<last, Descriptor>::max_concurrency,
         stage_graph<shutdown, Descriptor>::max_concurrency>();
+    static constexpr std::uint32_t _raw_min_concurrency = _max_graph_value<
+        stage_graph<pre_startup, Descriptor>::min_concurrency,
+        stage_graph<startup, Descriptor>::min_concurrency,
+        stage_graph<post_startup, Descriptor>::min_concurrency,
+        stage_graph<first, Descriptor>::min_concurrency,
+        stage_graph<events, Descriptor>::min_concurrency,
+        stage_graph<pre_update, Descriptor>::min_concurrency,
+        stage_graph<update, Descriptor>::min_concurrency,
+        stage_graph<post_update, Descriptor>::min_concurrency,
+        stage_graph<render, Descriptor>::min_concurrency,
+        stage_graph<last, Descriptor>::min_concurrency,
+        stage_graph<shutdown, Descriptor>::min_concurrency>();
 
 public:
     static constexpr std::uint32_t max_concurrency =
         _raw_max_concurrency == 0 ? 1 : _raw_max_concurrency;
+    static constexpr std::uint32_t min_concurrency =
+        _raw_min_concurrency == 0 ? 1 : _raw_min_concurrency;
     static constexpr std::uint32_t max_buffer_count = _max_graph_value<
         stage_graph<pre_startup, Descriptor>::max_buffer_count,
         stage_graph<startup, Descriptor>::max_buffer_count,
@@ -574,6 +661,18 @@ public:
         stage_graph<render, Descriptor>::max_buffer_count,
         stage_graph<last, Descriptor>::max_buffer_count,
         stage_graph<shutdown, Descriptor>::max_buffer_count>();
+    static constexpr std::uint32_t min_buffer_count = _max_graph_value<
+        stage_graph<pre_startup, Descriptor>::min_buffer_count,
+        stage_graph<startup, Descriptor>::min_buffer_count,
+        stage_graph<post_startup, Descriptor>::min_buffer_count,
+        stage_graph<first, Descriptor>::min_buffer_count,
+        stage_graph<events, Descriptor>::min_buffer_count,
+        stage_graph<pre_update, Descriptor>::min_buffer_count,
+        stage_graph<update, Descriptor>::min_buffer_count,
+        stage_graph<post_update, Descriptor>::min_buffer_count,
+        stage_graph<render, Descriptor>::min_buffer_count,
+        stage_graph<last, Descriptor>::min_buffer_count,
+        stage_graph<shutdown, Descriptor>::min_buffer_count>();
 };
 
 template <typename Descriptor>
