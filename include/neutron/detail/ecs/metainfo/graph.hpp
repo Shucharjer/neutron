@@ -2,6 +2,7 @@
 #pragma once
 #include <array>
 #include <cstddef>
+#include <cstdint>
 #include <initializer_list>
 #include <type_traits>
 #include <utility>
@@ -17,6 +18,11 @@ namespace neutron {
 namespace _metainfo {
 
 using enum stage;
+
+enum class _stage_graph_count_kind : std::uint8_t {
+    concurrency,
+    command_buffers
+};
 
 template <typename Descriptor>
 struct _descriptor_sys_traits {
@@ -312,6 +318,16 @@ private:
         return values;
     }
 
+    static consteval auto _make_has_buffered_commands() noexcept {
+        std::array<bool, size> values{};
+        []<std::size_t... Is>(
+            std::array<bool, size>& target, std::index_sequence<Is...>) {
+            (void)std::initializer_list<int>{ (
+                (target[Is] = node_t<Is>::has_buffered_commands), 0)... };
+        }(values, std::make_index_sequence<size>{});
+        return values;
+    }
+
     static consteval auto _make_is_individual() noexcept {
         std::array<bool, size> values{};
         []<std::size_t... Is>(
@@ -319,6 +335,16 @@ private:
             (void)std::initializer_list<int>{
                 ((target[Is] = node_t<Is>::execute_traits::is_individual), 0)...
             };
+        }(values, std::make_index_sequence<size>{});
+        return values;
+    }
+
+    static consteval auto _make_is_locally_individual() noexcept {
+        std::array<bool, size> values{};
+        []<std::size_t... Is>(
+            std::array<bool, size>& target, std::index_sequence<Is...>) {
+            (void)std::initializer_list<int>{ (
+                (target[Is] = node_t<Is>::is_locally_individual), 0)... };
         }(values, std::make_index_sequence<size>{});
         return values;
     }
@@ -358,6 +384,93 @@ private:
         return result;
     }
 
+    static consteval bool
+        _descendant_of(std::size_t node, std::size_t ancestor) noexcept {
+        for (std::size_t offset = 0; offset < descendant_counts[ancestor];
+             ++offset) {
+            if (descendants[ancestor][offset] == node) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    template <_stage_graph_count_kind Kind>
+    static consteval auto _make_counted_nodes() noexcept {
+        std::array<bool, size> values{};
+
+        for (std::size_t index = 0; index < size; ++index) {
+            if constexpr (Kind == _stage_graph_count_kind::concurrency) {
+                values[index] = !is_locally_individual[index];
+            } else {
+                values[index] = has_buffered_commands[index] &&
+                                !is_locally_individual[index];
+            }
+        }
+
+        return values;
+    }
+
+    template <_stage_graph_count_kind Kind>
+    static consteval std::uint32_t _max_counted_antichain() noexcept {
+        constexpr auto counted = _make_counted_nodes<Kind>();
+
+        std::array<std::size_t, size> selected{};
+        std::uint32_t best = 0;
+
+        auto remaining_count = [&](std::size_t first) consteval {
+            std::uint32_t result = 0;
+            for (std::size_t index = first; index < size; ++index) {
+                result += counted[index] ? 1U : 0U;
+            }
+            return result;
+        };
+
+        auto compatible_with_selected =
+            [&](std::size_t candidate, std::size_t selected_count) consteval {
+                for (std::size_t index = 0; index < selected_count; ++index) {
+                    const auto current = selected[index];
+                    if (_descendant_of(candidate, current) ||
+                        _descendant_of(current, candidate)) {
+                        return false;
+                    }
+                }
+                return true;
+            };
+
+        auto visit = [&]<typename Self>(
+                         Self&& self, std::size_t index,
+                         std::size_t selected_count,
+                         std::uint32_t count) consteval -> void {
+            if (index == size) {
+                best = best < count ? count : best;
+                return;
+            }
+
+            if (count + remaining_count(index) <= best) {
+                return;
+            }
+
+            self(self, index + 1, selected_count, count);
+
+            if (counted[index] &&
+                compatible_with_selected(index, selected_count)) {
+                selected[selected_count] = index;
+                self(self, index + 1, selected_count + 1, count + 1);
+            }
+        };
+
+        visit(visit, 0, 0, 0);
+
+        if constexpr (Kind == _stage_graph_count_kind::command_buffers) {
+            if (best == 0 && buffered_command_node_count != 0) {
+                return 1;
+            }
+        }
+
+        return best;
+    }
+
 public:
     static constexpr auto predecessor_counts = _make_predecessor_counts();
     static constexpr auto successor_counts   = _make_successor_counts();
@@ -368,8 +481,10 @@ public:
     static constexpr std::size_t max_descendant_count =
         _max_count(descendant_counts);
 
-    static constexpr auto has_commands  = _make_has_commands();
-    static constexpr auto is_individual = _make_is_individual();
+    static constexpr auto has_commands          = _make_has_commands();
+    static constexpr auto has_buffered_commands = _make_has_buffered_commands();
+    static constexpr auto is_individual         = _make_is_individual();
+    static constexpr auto is_locally_individual = _make_is_locally_individual();
     static constexpr auto successors =
         _make_successor_matrix<max_successor_count>();
     static constexpr auto descendants =
@@ -377,10 +492,23 @@ public:
 
     static constexpr std::size_t command_node_count =
         _count_commands(has_commands);
+    static constexpr std::size_t buffered_command_node_count =
+        _count_commands(has_buffered_commands);
+    static constexpr std::uint32_t max_concurrency =
+        _max_counted_antichain<_stage_graph_count_kind::concurrency>();
+    static constexpr std::uint32_t max_buffer_count =
+        _max_counted_antichain<_stage_graph_count_kind::command_buffers>();
 };
 
 template <stage Stage, typename Descriptor>
 using stage_graph_t = typename stage_graph<Stage, Descriptor>::type;
+
+template <std::uint32_t... Values>
+consteval std::uint32_t _max_graph_value() noexcept {
+    std::uint32_t result = 0;
+    ((result = result < Values ? Values : result), ...);
+    return result;
+}
 
 template <typename Descriptor>
 struct descriptor_graph {
@@ -416,6 +544,36 @@ struct descriptor_graph {
         stage_graph<render, Descriptor>::value &&
         stage_graph<last, Descriptor>::value &&
         stage_graph<shutdown, Descriptor>::value;
+
+private:
+    static constexpr std::uint32_t _raw_max_concurrency = _max_graph_value<
+        stage_graph<pre_startup, Descriptor>::max_concurrency,
+        stage_graph<startup, Descriptor>::max_concurrency,
+        stage_graph<post_startup, Descriptor>::max_concurrency,
+        stage_graph<first, Descriptor>::max_concurrency,
+        stage_graph<events, Descriptor>::max_concurrency,
+        stage_graph<pre_update, Descriptor>::max_concurrency,
+        stage_graph<update, Descriptor>::max_concurrency,
+        stage_graph<post_update, Descriptor>::max_concurrency,
+        stage_graph<render, Descriptor>::max_concurrency,
+        stage_graph<last, Descriptor>::max_concurrency,
+        stage_graph<shutdown, Descriptor>::max_concurrency>();
+
+public:
+    static constexpr std::uint32_t max_concurrency =
+        _raw_max_concurrency == 0 ? 1 : _raw_max_concurrency;
+    static constexpr std::uint32_t max_buffer_count = _max_graph_value<
+        stage_graph<pre_startup, Descriptor>::max_buffer_count,
+        stage_graph<startup, Descriptor>::max_buffer_count,
+        stage_graph<post_startup, Descriptor>::max_buffer_count,
+        stage_graph<first, Descriptor>::max_buffer_count,
+        stage_graph<events, Descriptor>::max_buffer_count,
+        stage_graph<pre_update, Descriptor>::max_buffer_count,
+        stage_graph<update, Descriptor>::max_buffer_count,
+        stage_graph<post_update, Descriptor>::max_buffer_count,
+        stage_graph<render, Descriptor>::max_buffer_count,
+        stage_graph<last, Descriptor>::max_buffer_count,
+        stage_graph<shutdown, Descriptor>::max_buffer_count>();
 };
 
 template <typename Descriptor>

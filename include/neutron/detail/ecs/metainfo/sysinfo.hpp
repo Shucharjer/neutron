@@ -187,6 +187,13 @@ template <typename Ty>
 constexpr bool _is_commands_arg_v =
     _is_commands_arg<std::remove_cvref_t<Ty>>::value;
 
+template <typename>
+struct _is_buffered_commands_arg : std::false_type {};
+
+template <std_simple_allocator Alloc>
+struct _is_buffered_commands_arg<basic_commands<Alloc, false>> :
+    std::true_type {};
+
 template <typename WorldExecInfo, auto Desc, typename = decltype(Desc)>
 struct _sys_traits;
 
@@ -205,12 +212,17 @@ struct _sys_traits<WorldExecInfo, Desc, sysdesc<Sys, Requires...>> {
     using raw_execute_policies =
         value_list_filt_t<_is_execute_policy_value, raw_requires>;
     using raw_execute_info = _execinfo_from_value_list_t<raw_execute_policies>;
+    using raw_execute_traits = execinfo_traits<raw_execute_info>;
     using execute          = merge_execinfo_t<WorldExecInfo, raw_execute_info>;
     using execute_traits   = execinfo_traits<execute>;
     using execution_policy = typename execute_traits::execution_policy;
 
+    static constexpr bool is_locally_individual =
+        raw_execute_traits::is_individual;
     static constexpr bool has_commands =
         !is_empty_template_v<type_list_filt_t<_is_commands_arg, arg_list>>;
+    static constexpr bool has_buffered_commands = !is_empty_template_v<
+        type_list_filt_t<_is_buffered_commands_arg, arg_list>>;
 
     using query_list   = type_list_filt_t<internal::is_query, arg_list>;
     using querior_list = query_list;

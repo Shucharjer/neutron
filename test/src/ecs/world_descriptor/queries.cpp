@@ -2,11 +2,10 @@
 #include "neutron/detail/ecs/world_descriptor/queries/get_events.hpp"
 #include "neutron/detail/ecs/world_descriptor/queries/get_execution_frequency.hpp"
 #include "neutron/detail/ecs/world_descriptor/queries/get_execution_policy.hpp"
+#include "neutron/detail/ecs/world_descriptor/queries/get_max_buffer_count.hpp"
 #include "neutron/detail/ecs/world_descriptor/queries/get_max_concurrency.hpp"
 #include "neutron/detail/ecs/world_descriptor/queries/get_render.hpp"
 #include "neutron/ecs.hpp"
-
-#include "neutron/detail/type_traits/is_convertible_to_function_pointer.hpp"
 
 using namespace neutron;
 using enum stage;
@@ -88,23 +87,141 @@ int main() {
         {
             constexpr auto desc =
                 world_desc | add_systems<update, fn1, fn2, fn3>;
-            // static_assert(get_max_concurrency(desc) == 3);
-            static_assert(get_max_concurrency(desc) == 1);
+            static_assert(get_max_concurrency(desc) == 3);
         }
 
         {
             constexpr auto desc =
                 world_desc | add_systems<update, fn1, { fn2, after<fn1> }, fn3>;
-            // static_assert(get_max_concurrency(desc) == 2);
-            static_assert(get_max_concurrency(desc) == 1);
+            static_assert(get_max_concurrency(desc) == 2);
         }
 
         {
             constexpr auto desc =
                 world_desc |
                 add_systems<update, fn1, { fn2, before<fn1> }, fn3>;
-            // static_assert(get_max_concurrency(desc) == 2);
+            static_assert(get_max_concurrency(desc) == 2);
+        }
+
+        {
+            constexpr auto desc =
+                world_desc | add_systems<update, fn1, { fn2, individual }, fn3>;
+            static_assert(get_max_concurrency(desc) == 2);
+        }
+
+        {
+            constexpr auto desc =
+                world_desc |
+                add_systems<
+                    update, fn1, { fn2, individual }, { fn3, individual }>;
             static_assert(get_max_concurrency(desc) == 1);
+        }
+
+        {
+            constexpr auto desc =
+                world_desc |
+                add_systems<
+                    update, fn1, { fn2, individual }, { fn3, after<fn2> }>;
+            static_assert(get_max_concurrency(desc) == 2);
+        }
+
+        {
+            constexpr auto desc =
+                world_desc | add_systems<
+                                 update, fn1, { fn2, individual, after<fn1> },
+                                 { fn3, after<fn2> }>;
+            static_assert(get_max_concurrency(desc) == 1);
+        }
+
+        {
+            constexpr auto desc = world_desc |
+                                  add_systems<update, fn1, fn2, fn3> |
+                                  execute<individual>;
+            static_assert(get_max_concurrency(desc) == 3);
+        }
+
+        void fn4();
+        {
+            constexpr auto desc =
+                world_desc |
+                add_systems<
+                    update, fn1, { fn2, after<fn1> }, { fn3, after<fn1> }, fn4>;
+            // (fn1, fn4) -> (fn2, fn3, [fn4])
+            // because of fn4 may be unfinished
+            static_assert(get_max_concurrency(desc) == 3);
+        }
+    }
+
+    // get_max_buffer_count
+    {
+        void fn1(); // NOLINT
+        void fn2(); // NOLINT
+        void cmd1(commands);
+        void cmd2(commands);
+        void cmd3(commands);
+        void cmd4(commands);
+        void direct(direct_commands);
+
+        {
+            constexpr auto desc = world_desc;
+            static_assert(get_max_buffer_count(desc) == 0);
+        }
+
+        {
+            constexpr auto desc = world_desc | add_systems<update, fn1, fn2>;
+            static_assert(get_max_buffer_count(desc) == 0);
+        }
+
+        {
+            constexpr auto desc = world_desc | add_systems<update, cmd1>;
+            static_assert(get_max_buffer_count(desc) == 1);
+        }
+
+        {
+            constexpr auto desc =
+                world_desc | add_systems<update, cmd1, cmd2, cmd3>;
+            static_assert(get_max_buffer_count(desc) == 3);
+        }
+
+        {
+            constexpr auto desc =
+                world_desc | add_systems<
+                                 update, cmd1, { cmd2, after<cmd1> },
+                                 { cmd3, after<cmd1> }, cmd4>;
+            static_assert(get_max_buffer_count(desc) == 3);
+        }
+
+        {
+            constexpr auto desc =
+                world_desc |
+                add_systems<update, cmd1, { cmd2, after<cmd1> }, fn1, fn2>;
+            static_assert(get_max_buffer_count(desc) == 1);
+        }
+
+        {
+            constexpr auto desc =
+                world_desc |
+                add_systems<update, cmd1, { cmd2, individual }, cmd3>;
+            static_assert(get_max_buffer_count(desc) == 2);
+        }
+
+        {
+            constexpr auto desc =
+                world_desc |
+                add_systems<update, { cmd1, individual }, { cmd2, individual }>;
+            static_assert(get_max_buffer_count(desc) == 1);
+        }
+
+        {
+            constexpr auto desc =
+                world_desc | add_systems<update, direct, cmd1>;
+            static_assert(get_max_buffer_count(desc) == 1);
+        }
+
+        {
+            constexpr auto desc = world_desc | add_systems<update, cmd1> |
+                                  add_systems<render, cmd2, cmd3>;
+            static_assert(get_max_buffer_count(desc) == 2);
         }
     }
 
