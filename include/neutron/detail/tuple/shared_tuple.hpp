@@ -63,7 +63,7 @@ public:
 
     template <size_t Index>
     requires(Index <= sizeof...(Rest))
-    constexpr decltype(auto) get() & noexcept {
+    constexpr auto& get() & noexcept {
         if constexpr (Index == 0) {
             return current_.value;
         } else {
@@ -73,7 +73,7 @@ public:
 
     template <size_t Index>
     requires(Index <= sizeof...(Rest))
-    constexpr decltype(auto) get() const& noexcept {
+    constexpr const auto& get() const& noexcept {
         if constexpr (Index == 0) {
             return current_.value;
         } else {
@@ -83,7 +83,7 @@ public:
 
     template <size_t Index>
     requires(Index <= sizeof...(Rest))
-    constexpr decltype(auto) get() && noexcept {
+    constexpr auto&& get() && noexcept {
         if constexpr (Index == 0) {
             return std::move(current_.value);
         } else {
@@ -93,7 +93,7 @@ public:
 
     template <size_t Index>
     requires(Index <= sizeof...(Rest))
-    constexpr decltype(auto) get() const&& noexcept {
+    constexpr const auto&& get() const&& noexcept {
         if constexpr (Index == 0) {
             return std::move(current_.value);
         } else {

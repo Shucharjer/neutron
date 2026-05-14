@@ -1,6 +1,6 @@
 #include "neutron/detail/ecs/world_descriptor.hpp"
 #include "neutron/detail/ecs/world_descriptor/queries/get_events.hpp"
-#include "neutron/detail/ecs/world_descriptor/queries/get_execution_frequency.hpp"
+#include "neutron/detail/ecs/world_descriptor/queries/get_execution_interval.hpp"
 #include "neutron/detail/ecs/world_descriptor/queries/get_execution_policy.hpp"
 #include "neutron/detail/ecs/world_descriptor/queries/get_max_buffer_count.hpp"
 #include "neutron/detail/ecs/world_descriptor/queries/get_max_concurrency.hpp"
@@ -61,17 +61,17 @@ int main() {
         }
     }
 
-    // get_execution_frequency
+    // get_execution_interval
     {
         {
             constexpr auto desc = world_desc;
-            static_assert(get_execution_frequency(desc) == 0.0);
+            static_assert(get_execution_interval(desc) == 0.0);
         }
 
         {
             constexpr double interval = 1.0 / 32;
             constexpr auto desc = world_desc | execute<frequency<interval>>;
-            static_assert(get_execution_frequency(desc) == interval);
+            static_assert(get_execution_interval(desc) == interval);
         }
     }
 
@@ -361,3 +361,13 @@ int main() {
 
     return 0;
 }
+
+void fn1() {}
+void fn2() {}
+void fn3() {}
+void fn4() {}
+void cmd1(commands) {}
+void cmd2(commands) {}
+void cmd3(commands) {}
+void cmd4(commands) {}
+void direct(direct_commands) {}

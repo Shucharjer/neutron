@@ -88,7 +88,7 @@ constexpr auto always_update_desc =
 constexpr auto static_update_desc = world_desc | execute<frequency<1000.0>> |
                                     add_systems<update, &static_update_system>;
 constexpr auto dynamic_update_desc =
-    world_desc | execute<dynamic_frequency<>> |
+    world_desc | execute<dynamic_interval<>> |
     add_systems<update, &dynamic_update_system>;
 
 // Grouped worlds used to validate scheduling order.

@@ -403,7 +403,7 @@ private:
     [[nodiscard]] double _update_interval() const noexcept {
         if constexpr (execute_traits::is_always) {
             return 0.0;
-        } else if constexpr (execute_traits::has_dynamic_frequency) {
+        } else if constexpr (execute_traits::has_dynamic_interval) {
             return has_dynamic_update_interval_ ? dynamic_update_interval_
                                                 : 0.0;
         } else if constexpr (execute_traits::has_frequency) {

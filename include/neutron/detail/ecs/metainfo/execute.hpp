@@ -32,14 +32,14 @@ template <typename>
 struct _is_execute_frequency_policy : std::false_type {};
 
 template <double Freq>
-struct _is_execute_frequency_policy<_frequency_t<Freq>> : std::true_type {};
+struct _is_execute_frequency_policy<_interval_t<Freq>> : std::true_type {};
 
 template <typename>
-struct _is_execute_dynamic_frequency_policy : std::false_type {};
+struct _is_execute_dynamic_interval_policy : std::false_type {};
 
 template <double DefaultFreq>
-struct _is_execute_dynamic_frequency_policy<
-    _execute::_dynamic_frequency_t<DefaultFreq>> : std::true_type {};
+struct _is_execute_dynamic_interval_policy<
+    _execute::_dynamic_interval_t<DefaultFreq>> : std::true_type {};
 
 template <typename Policy>
 constexpr bool _is_execute_policy_v =
@@ -47,7 +47,7 @@ constexpr bool _is_execute_policy_v =
     _is_execute_always_policy<Policy>::value ||
     _is_execute_individual_policy<Policy>::value ||
     _is_execute_frequency_policy<Policy>::value ||
-    _is_execute_dynamic_frequency_policy<Policy>::value;
+    _is_execute_dynamic_interval_policy<Policy>::value;
 
 template <auto Policy>
 struct _is_execute_policy_value :
@@ -71,8 +71,8 @@ struct _is_execute_frequency_value :
     _is_execute_frequency_policy<std::remove_cvref_t<decltype(Policy)>> {};
 
 template <auto Policy>
-struct _is_execute_dynamic_frequency_value :
-    _is_execute_dynamic_frequency_policy<
+struct _is_execute_dynamic_interval_value :
+    _is_execute_dynamic_interval_policy<
         std::remove_cvref_t<decltype(Policy)>> {};
 
 template <typename>
@@ -86,7 +86,7 @@ template <typename>
 struct _execute_frequency_interval;
 
 template <double Freq>
-struct _execute_frequency_interval<_frequency_t<Freq>> {
+struct _execute_frequency_interval<_interval_t<Freq>> {
     static constexpr double value = Freq;
 };
 
@@ -119,8 +119,8 @@ struct _normalize_execinfo<
         value_list_filt_t<_is_execute_individual_value, raw_policy_list>;
     using frequency_policies =
         value_list_filt_t<_is_execute_frequency_value, raw_policy_list>;
-    using dynamic_frequency_policies =
-        value_list_filt_t<_is_execute_dynamic_frequency_value, raw_policy_list>;
+    using dynamic_interval_policies =
+        value_list_filt_t<_is_execute_dynamic_interval_value, raw_policy_list>;
 
 private:
     template <template <typename> typename Predicate>
@@ -148,14 +148,14 @@ public:
         _count<_is_execute_individual_policy>();
     static constexpr std::size_t frequency_count =
         _count<_is_execute_frequency_policy>();
-    static constexpr std::size_t dynamic_frequency_count =
-        _count<_is_execute_dynamic_frequency_policy>();
+    static constexpr std::size_t dynamic_interval_count =
+        _count<_is_execute_dynamic_interval_policy>();
 
     static constexpr bool value =
         has_only_known_policies && group_count <= 1 && always_count <= 1 &&
         individual_count <= 1 && frequency_count <= 1 &&
-        dynamic_frequency_count <= 1 &&
-        (always_count + frequency_count + dynamic_frequency_count) <= 1 &&
+        dynamic_interval_count <= 1 &&
+        (always_count + frequency_count + dynamic_interval_count) <= 1 &&
         !(group_count != 0 && individual_count != 0);
 
 private:
@@ -173,9 +173,9 @@ private:
     }())>;
 
     using update_policy_list = std::remove_pointer_t<decltype([] {
-        if constexpr (!is_empty_template_v<dynamic_frequency_policies>) {
+        if constexpr (!is_empty_template_v<dynamic_interval_policies>) {
             return static_cast<value_list<
-                value_list_element_v<0, dynamic_frequency_policies>>*>(nullptr);
+                value_list_element_v<0, dynamic_interval_policies>>*>(nullptr);
         } else if constexpr (!is_empty_template_v<frequency_policies>) {
             return static_cast<
                 value_list<value_list_element_v<0, frequency_policies>>*>(
@@ -203,7 +203,7 @@ struct _validate_local_execinfo : _normalize_execinfo<ExecInfo, false, true> {
     using base = _normalize_execinfo<ExecInfo, false, true>;
 
     static constexpr bool value =
-        base::value && base::dynamic_frequency_count == 0;
+        base::value && base::dynamic_interval_count == 0;
     using type = typename base::type;
 };
 
@@ -222,8 +222,8 @@ struct execinfo_traits<tagged_value_list<_execute::exec_tag_t, Policies...>> {
         value_list_filt_t<_is_execute_individual_value, policy_list>;
     using frequency_policies =
         value_list_filt_t<_is_execute_frequency_value, policy_list>;
-    using dynamic_frequency_policies =
-        value_list_filt_t<_is_execute_dynamic_frequency_value, policy_list>;
+    using dynamic_interval_policies =
+        value_list_filt_t<_is_execute_dynamic_interval_value, policy_list>;
 
     static constexpr bool is_individual =
         !is_empty_template_v<individual_policies>;
@@ -232,8 +232,8 @@ struct execinfo_traits<tagged_value_list<_execute::exec_tag_t, Policies...>> {
     static constexpr bool has_execution_policy = is_individual || is_grouped;
     static constexpr bool has_frequency =
         !is_empty_template_v<frequency_policies>;
-    static constexpr bool has_dynamic_frequency =
-        !is_empty_template_v<dynamic_frequency_policies>;
+    static constexpr bool has_dynamic_interval =
+        !is_empty_template_v<dynamic_interval_policies>;
 
     using group_policy = std::remove_pointer_t<decltype([] {
         if constexpr (is_grouped) {
@@ -331,9 +331,9 @@ private:
     using domain_policy_list = value_list<_domain_policy()>;
 
     using update_policy_list = std::remove_pointer_t<decltype([] {
-        if constexpr (child_traits::has_dynamic_frequency) {
+        if constexpr (child_traits::has_dynamic_interval) {
             return static_cast<value_list<value_list_element_v<
-                0, typename child_traits::dynamic_frequency_policies>>*>(
+                0, typename child_traits::dynamic_interval_policies>>*>(
                 nullptr);
         } else if constexpr (child_traits::has_frequency) {
             return static_cast<value_list<value_list_element_v<
@@ -341,9 +341,9 @@ private:
         } else if constexpr (child_traits::is_always) {
             return static_cast<value_list<value_list_element_v<
                 0, typename child_traits::always_policies>>*>(nullptr);
-        } else if constexpr (parent_traits::has_dynamic_frequency) {
+        } else if constexpr (parent_traits::has_dynamic_interval) {
             return static_cast<value_list<value_list_element_v<
-                0, typename parent_traits::dynamic_frequency_policies>>*>(
+                0, typename parent_traits::dynamic_interval_policies>>*>(
                 nullptr);
         } else if constexpr (parent_traits::has_frequency) {
             return static_cast<value_list<value_list_element_v<
@@ -388,7 +388,7 @@ struct _checked_merge_execinfo {
         merge::value,
         "invalid execute policies: group conflicts with individual, world "
         "individual cannot be overridden by a system group, systems default "
-        "to always, and local execute policies cannot use dynamic_frequency");
+        "to always, and local execute policies cannot use dynamic_interval");
 
     using type = typename merge::type;
 };
@@ -406,7 +406,7 @@ struct fetch_execinfo {
         validation::value,
         "invalid execute policies: group conflicts with individual, only one "
         "update mode may be specified, and frequency conflicts with "
-        "dynamic_frequency");
+        "dynamic_interval");
 
     using type = typename validation::type;
 };

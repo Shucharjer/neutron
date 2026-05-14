@@ -154,7 +154,7 @@ constexpr auto desc =
 - `execute<group<N>>` 指定世界所属的组，决定多世界运行时的组序.
 - `execute<individual>` 让世界走单独的执行路径.
 - `execute<frequency<...>>` 指定固定更新频率.
-- `execute<dynamic_frequency<>>` 允许在运行时设置更新间隔.
+- `execute<dynamic_interval<>>` 允许在运行时设置更新间隔.
 - `execute<always>` 表示总是更新；这也是默认描述符的一部分.
 
 [`test/src/ecs/execute.cpp`](../../test/src/ecs/execute.cpp) 验证了这些规则的归一化结果：
@@ -162,7 +162,7 @@ constexpr auto desc =
 - 默认 `world_desc` 会被归一化成 `group<0> + always`.
 - `group` 与 `frequency` 可以在世界级别组合.
 - `individual` 会切换执行域.
-- `dynamic_frequency<>` 不能与静态 `frequency<...>` 混用.
+- `dynamic_interval<>` 不能与静态 `frequency<...>` 混用.
 
 ### 编译期验证
 

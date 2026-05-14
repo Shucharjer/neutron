@@ -3,11 +3,11 @@
 
 namespace neutron {
 
-inline constexpr struct get_execution_frequency_t {
+inline constexpr struct get_execution_interval_t {
     template <typename Desc>
     constexpr double operator()(Desc) const noexcept {
         return _metainfo::execute_info<Desc>::frequency_interval;
     }
-} get_execution_frequency;
+} get_execution_interval;
 
 } // namespace neutron

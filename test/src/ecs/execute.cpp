@@ -54,15 +54,15 @@ int main() {
     static_assert(std::same_as<
                   std::remove_cvref_t<
                       decltype(value_list_element_v<1, desc1_policies>)>,
-                  _frequency_t<1.0 / 30>>);
+                  _interval_t<1.0 / 30>>);
     static_assert(execute_info<decltype(desc1)>::has_frequency);
     static_assert(execute_info<decltype(desc1)>::group_index == 0);
     static_assert(
         execute_info<decltype(desc1)>::frequency_interval == 1.0 / 30);
-    static_assert(!execute_info<decltype(desc1)>::has_dynamic_frequency);
+    static_assert(!execute_info<decltype(desc1)>::has_dynamic_interval);
 
     constexpr auto desc2 =
-        world_desc | execute<group<2>> | execute<dynamic_frequency<>>;
+        world_desc | execute<group<2>> | execute<dynamic_interval<>>;
     using desc2_exec     = fetch_execinfo_t<decltype(desc2)>;
     using desc2_policies = typename desc2_exec::value_list;
     static_assert(value_list_size_v<desc2_policies> == 2);
@@ -73,9 +73,9 @@ int main() {
     static_assert(std::same_as<
                   std::remove_cvref_t<
                       decltype(value_list_element_v<1, desc2_policies>)>,
-                  _execute::template _dynamic_frequency_t<>>);
+                  _execute::template _dynamic_interval_t<>>);
     static_assert(execute_info<decltype(desc2)>::group_index == 2);
-    static_assert(execute_info<decltype(desc2)>::has_dynamic_frequency);
+    static_assert(execute_info<decltype(desc2)>::has_dynamic_interval);
 
     constexpr auto desc3 =
         world_desc | add_systems<update, &foo> | execute<individual>;
@@ -150,9 +150,9 @@ int main() {
                       _execute::exec_tag_t, group<1>, individual>>::value);
     static_assert(!_metainfo::_validate_execinfo<tagged_value_list<
                       _execute::exec_tag_t, frequency<1.0 / 30>,
-                      dynamic_frequency<>>>::value);
+                      dynamic_interval<>>>::value);
     static_assert(!_metainfo::_validate_local_execinfo<tagged_value_list<
-                      _execute::exec_tag_t, dynamic_frequency<>>>::value);
+                      _execute::exec_tag_t, dynamic_interval<>>>::value);
     static_assert(!merge_execinfo<
                   tagged_value_list<_execute::exec_tag_t, individual>,
                   tagged_value_list<_execute::exec_tag_t, group<2>>>::value);
