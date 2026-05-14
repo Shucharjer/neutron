@@ -119,9 +119,11 @@ basic_commands(basic_world<Descriptor, Alloc>&) -> basic_commands<Alloc, true>;
 template <auto Sys, std_simple_allocator Alloc, size_t Index>
 struct construct_from_world_t<Sys, basic_commands<Alloc, false>, Index> {
     template <world World>
-    basic_commands<Alloc, false> operator()(World& world) const noexcept {
-        const auto cmdbuf_index = Index % world.command_buffers_.size();
-        return basic_commands<Alloc>{ world.command_buffers_[cmdbuf_index] };
+    basic_commands<Alloc, false> operator()(World&) const noexcept {
+        static_assert(
+            sizeof(World) == 0,
+            "buffered commands require an external command_buffer supplied by "
+            "the runtime task invoker");
     }
 };
 
@@ -129,7 +131,7 @@ template <auto Sys, std_simple_allocator Alloc, size_t Index>
 struct construct_from_world_t<Sys, basic_commands<Alloc, true>, Index> {
     template <world World>
     basic_commands<Alloc, true> operator()(World& world) const noexcept {
-        return basic_commands<Alloc, false>{ world };
+        return basic_commands<Alloc, true>{ world };
     }
 };
 

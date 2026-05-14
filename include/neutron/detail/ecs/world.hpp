@@ -34,6 +34,15 @@
 
 namespace neutron {
 
+template <typename Descriptor>
+struct world_task_set {
+    using descriptor_type       = Descriptor;
+    using descriptor_graph_type = descriptor_graph<Descriptor>;
+
+    template <stage Stage>
+    using graph = stage_graph<Stage, Descriptor>;
+};
+
 namespace _basic_world {
 
 template <typename Descriptor, bool = world_descriptor<Descriptor>>
@@ -75,11 +84,14 @@ public:
     using commands_type = basic_commands<Alloc>;
     using sysinfo       = sysinfo_holder<world_descriptor_t<>>;
     using queries       = type_list<>;
+    using task_set      = world_task_set<descriptor_type>;
     // using systems        = world_descriptor_t<>::systems;
 
     template <typename Al = Alloc>
     constexpr explicit basic_world(const Al& alloc = {})
         : world_base<Alloc>(alloc) {}
+
+    static consteval auto get_tasks() noexcept -> task_set { return {}; }
 
     template <stage Stage>
     void call() noexcept {}
@@ -101,7 +113,6 @@ public:
 
 private:
     type_list_rebind_t<neutron::shared_tuple, queries> queries_{};
-    std::span<command_buffer> command_buffers_{};
     const insertion_context* insertion_context_ = nullptr;
 };
 
@@ -144,10 +155,13 @@ public:
     using queries        = typename desc_traits::queries;
     using resources      = typename desc_traits::resources;
     using clock_type     = std::chrono::steady_clock;
+    using task_set       = world_task_set<descriptor_type>;
 
     template <typename Al = Alloc>
     constexpr explicit basic_world(const Al& alloc = {})
         : world_base<Alloc>(alloc) /*, resources_(), locals_()*/ {}
+
+    static consteval auto get_tasks() noexcept -> task_set { return {}; }
 
     void set_dynamic_update_interval(double seconds) noexcept {
         if (seconds > 0.0) {
@@ -198,14 +212,9 @@ public:
         } else if constexpr (static_graph::command_node_count == 0) {
             _call_stage_layers<static_graph>();
         } else {
-            std::array<command_buffer, static_graph::size> cmdbufs{};
+            auto cmdbufs = _make_command_buffers<static_graph>();
             _drive_stage_graph<static_graph>(
-                cmdbufs, [this](auto& ready, size_t ready_count) {
-                    for (size_t index = 0; index < ready_count; ++index) {
-                        _stage_invokers<static_graph>::value[ready[index]](
-                            this);
-                    }
-                });
+                std::span<command_buffer>{ cmdbufs });
         }
     }
 
@@ -217,19 +226,25 @@ public:
         if constexpr (static_graph::size == 0) {
             return;
         } else {
-            if constexpr (static_graph::command_node_count != 0) {
-                assert(cmdbufs.size() >= static_graph::size);
+            if constexpr (static_graph::buffered_command_node_count != 0) {
+                assert(cmdbufs.size() >= static_graph::max_buffer_count);
             }
             _drive_stage_graph<static_graph>(
-                cmdbufs, [this, &sch](auto& ready, size_t ready_count) {
-                    auto batch = execution::schedule(sch) |
-                                 execution::bulk(
-                                     std::execution::par,
-                                     static_cast<uint32_t>(ready_count),
-                                     [this, &ready](uint32_t batch_index) {
-                                         _stage_invokers<static_graph>::value
-                                             [ready[batch_index]](this);
-                                     });
+                cmdbufs,
+                [this,
+                 &sch](auto& ready, auto& buffers_by_task, size_t ready_count) {
+                    auto batch =
+                        execution::schedule(sch) |
+                        execution::bulk(
+                            std::execution::par,
+                            static_cast<uint32_t>(ready_count),
+                            [this, &ready,
+                             &buffers_by_task](uint32_t batch_index) {
+                                const auto task_index = ready[batch_index];
+                                _stage_invokers<static_graph>::value
+                                    [task_index](
+                                        this, buffers_by_task[task_index]);
+                            });
                     neutron::this_thread::sync_wait(std::move(batch));
                 });
         }
@@ -245,9 +260,9 @@ public:
         using static_graph = stage_graph<Stage, Descriptor>;
         static_assert(static_graph::value, "Invalid ECS stage graph");
 
-        if constexpr (static_graph::command_node_count != 0) {
-            if (cmdbufs.size() < static_graph::size) {
-                cmdbufs.resize(static_graph::size);
+        if constexpr (static_graph::buffered_command_node_count != 0) {
+            if (cmdbufs.size() < static_graph::max_buffer_count) {
+                cmdbufs.resize(static_graph::max_buffer_count);
             }
         }
 
@@ -277,37 +292,43 @@ private:
     struct _call_sys;
     template <size_t Index, auto Sys, typename Ret, typename... Args>
     struct _call_sys<Index, Sys, Ret (*)(Args...)> {
-        void operator()(basic_world* world) const {
-            Sys(construct_from_world<Sys, Args, Index>(*world)...);
+        void operator()(basic_world* world, command_buffer* cmdbuf) const {
+            Sys(world->template _construct_task_arg<Sys, Args, Index>(
+                cmdbuf)...);
         }
     };
     template <size_t Index, auto Sys, typename Ret, typename... Args>
     struct _call_sys<Index, Sys, Ret (*const)(Args...)> {
-        void operator()(basic_world* world) const {
-            Sys(construct_from_world<Sys, Args, Index>(*world)...);
+        void operator()(basic_world* world, command_buffer* cmdbuf) const {
+            Sys(world->template _construct_task_arg<Sys, Args, Index>(
+                cmdbuf)...);
         }
     };
     template <size_t Index, auto Sys, typename Ret, typename... Args>
     struct _call_sys<Index, Sys, Ret (*)(Args...) noexcept> {
-        void operator()(basic_world* world) const noexcept {
-            Sys(construct_from_world<Sys, Args, Index>(*world)...);
+        void operator()(
+            basic_world* world, command_buffer* cmdbuf) const noexcept {
+            Sys(world->template _construct_task_arg<Sys, Args, Index>(
+                cmdbuf)...);
         }
     };
     template <size_t Index, auto Sys, typename Ret, typename... Args>
     struct _call_sys<Index, Sys, Ret (*const)(Args...) noexcept> {
-        void operator()(basic_world* world) const noexcept {
-            Sys(construct_from_world<Sys, Args, Index>(*world)...);
+        void operator()(
+            basic_world* world, command_buffer* cmdbuf) const noexcept {
+            Sys(world->template _construct_task_arg<Sys, Args, Index>(
+                cmdbuf)...);
         }
     };
 
     template <typename StaticGraph>
     struct _stage_invokers {
-        using invoker_t = void (*)(basic_world*);
+        using invoker_t = void (*)(basic_world*, command_buffer*);
 
         template <size_t Index>
-        static void invoke(basic_world* world) {
+        static void invoke(basic_world* world, command_buffer* cmdbuf) {
             using sysinfo_t = typename StaticGraph::template node_t<Index>;
-            _call_sys<Index, sysinfo_t::fn>{}(world);
+            _call_sys<Index, sysinfo_t::fn>{}(world, cmdbuf);
         }
 
         static constexpr auto value = []<size_t... Is>(
@@ -326,7 +347,7 @@ private:
         static void call(basic_world* world) {
             (_call_sys<
                  tuple_first_v<SysInfos, typename StaticGraph::traits_list>,
-                 SysInfos::fn>{}(world),
+                 SysInfos::fn>{}(world, nullptr),
              ...);
         }
     };
@@ -348,13 +369,52 @@ private:
         _stage_layers<StaticGraph, typename StaticGraph::layers>::call(this);
     }
 
+    template <auto Sys, typename Arg, size_t Index>
+    decltype(auto) _construct_task_arg(command_buffer* cmdbuf) {
+        using arg_type = std::remove_cvref_t<Arg>;
+        if constexpr (std::same_as<
+                          arg_type, basic_commands<_byte_alloc, false>>) {
+            assert(cmdbuf != nullptr);
+            return basic_commands<_byte_alloc, false>{ *cmdbuf };
+        } else if constexpr (std::same_as<
+                                 arg_type, basic_commands<_byte_alloc, true>>) {
+            return basic_commands<_byte_alloc, true>{ *this };
+        } else {
+            return construct_from_world<Sys, Arg, Index>(*this);
+        }
+    }
+
+    template <stage Stage>
+    static consteval auto _task_invokers() noexcept {
+        return _stage_invokers<stage_graph<Stage, Descriptor>>::value;
+    }
+
+    template <stage Stage>
+    void _call_task(size_t index, command_buffer* cmdbuf) {
+        constexpr auto invokers = _task_invokers<Stage>();
+        invokers[index](this, cmdbuf);
+    }
+
+    template <typename StaticGraph>
+    auto _make_command_buffers() {
+        _vector_t<command_buffer> buffers(
+            _allocator_t<command_buffer>{ _base().get_allocator() });
+        if constexpr (StaticGraph::max_buffer_count != 0) {
+            buffers.reserve(StaticGraph::max_buffer_count);
+            for (size_t index = 0; index < StaticGraph::max_buffer_count;
+                 ++index) {
+                buffers.emplace_back(_byte_alloc{ _base().get_allocator() });
+            }
+        }
+        return buffers;
+    }
+
     template <typename StaticGraph>
     void _prepare_command_buffers(std::span<command_buffer> cmdbufs) {
-        command_buffers_ = cmdbufs;
-        if constexpr (StaticGraph::command_node_count != 0) {
-            assert(command_buffers_.size() >= StaticGraph::size);
+        if constexpr (StaticGraph::buffered_command_node_count != 0) {
+            assert(cmdbufs.size() >= StaticGraph::max_buffer_count);
         }
-        _reset_command_buffers();
+        _reset_command_buffers(cmdbufs);
     }
 
     template <typename StaticGraph, typename ReadyExecutor>
@@ -364,6 +424,8 @@ private:
 
         stage_task_graph<StaticGraph> runtime_graph;
         std::array<size_t, StaticGraph::size> ready{};
+        std::array<command_buffer*, StaticGraph::size> buffers_by_task{};
+        size_t dirty_buffer_count = 0;
 
         while (!runtime_graph.done()) {
             const auto ready_count = runtime_graph.collect_runnable(ready);
@@ -372,29 +434,69 @@ private:
                 if (!runtime_graph.needs_flush()) {
                     break;
                 }
-                _flush_command_buffers();
+                _flush_command_buffers(
+                    cmdbufs.first(static_cast<ptrdiff_t>(dirty_buffer_count)));
+                dirty_buffer_count = 0;
                 runtime_graph.flush();
                 continue;
             }
 
-            execute_ready(ready, ready_count);
+            _assign_command_buffers<StaticGraph>(
+                ready, buffers_by_task, ready_count, cmdbufs,
+                dirty_buffer_count);
+            execute_ready(ready, buffers_by_task, ready_count);
             runtime_graph.complete(ready, ready_count);
         }
 
         if (runtime_graph.dirty_commands()) {
-            _flush_command_buffers();
+            _flush_command_buffers(
+                cmdbufs.first(static_cast<ptrdiff_t>(dirty_buffer_count)));
             runtime_graph.flush();
         }
     }
 
-    void _reset_command_buffers() noexcept {
-        for (auto& cmdbuf : command_buffers_) {
+    template <typename StaticGraph>
+    void _drive_stage_graph(std::span<command_buffer> cmdbufs) {
+        _drive_stage_graph<StaticGraph>(
+            cmdbufs,
+            [this](auto& ready, auto& buffers_by_task, size_t ready_count) {
+                for (size_t index = 0; index < ready_count; ++index) {
+                    const auto task_index = ready[index];
+                    _stage_invokers<StaticGraph>::value[task_index](
+                        this, buffers_by_task[task_index]);
+                }
+            });
+    }
+
+    template <typename StaticGraph>
+    static void _assign_command_buffers(
+        const std::array<size_t, StaticGraph::size>& ready,
+        std::array<command_buffer*, StaticGraph::size>& buffers_by_task,
+        size_t ready_count, std::span<command_buffer> cmdbufs,
+        size_t& dirty_buffer_count) noexcept {
+        for (size_t index = 0; index < ready_count; ++index) {
+            const auto task_index = ready[index];
+            if constexpr (StaticGraph::buffered_command_node_count != 0) {
+                if (StaticGraph::has_buffered_commands[task_index]) {
+                    assert(dirty_buffer_count < cmdbufs.size());
+                    buffers_by_task[task_index] =
+                        std::addressof(cmdbufs[dirty_buffer_count++]);
+                    continue;
+                }
+            }
+            buffers_by_task[task_index] = nullptr;
+        }
+    }
+
+    static void
+        _reset_command_buffers(std::span<command_buffer> cmdbufs) noexcept {
+        for (auto& cmdbuf : cmdbufs) {
             cmdbuf.reset();
         }
     }
 
-    void _flush_command_buffers() noexcept {
-        for (auto& cmdbuf : command_buffers_) {
+    void _flush_command_buffers(std::span<command_buffer> cmdbufs) noexcept {
+        for (auto& cmdbuf : cmdbufs) {
             cmdbuf.apply(_base());
             cmdbuf.reset();
         }
@@ -421,7 +523,6 @@ private:
     //  variables could be pass between each systems
     type_list_rebind_t<neutron::shared_tuple, resources> resources_;
 
-    std::span<command_buffer> command_buffers_{};
     const insertion_context* insertion_context_ = nullptr;
     typename clock_type::time_point last_update_{};
     double dynamic_update_interval_   = 0.0;
