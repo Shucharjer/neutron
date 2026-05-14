@@ -118,13 +118,5 @@ int main() {
         return 1;
     }
 
-    // tasks<1-5>
-    /*
-    auto final_sender = a task group;
-    cmdbufs bufs;
-    schedule(sch) | then([&bufs, sch]{finish a task});
-    sync_wait(when_all(...))
-    */
-
     return app::create() | run_worlds<world1, world2, world3, world4, world5>();
 }
