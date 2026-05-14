@@ -23,23 +23,23 @@ int main() {
 
     // World-level execute metadata applies to the whole world.
     constexpr auto desc2 =
-        world_desc | add_systems<update, &foo> | execute<frequency<1.0 / 60>>;
+        world_desc | add_systems<update, &foo> | execute<interval<1.0 / 60>>;
 
     // Local execute policies are still allowed under an individual world, as
     // long as they only describe per-system update behavior.
     constexpr auto desc3 =
         world_desc |
         add_systems<
-            update, { &foo, frequency<1.0 / 30> }, { &nop, frequency<1.0> }> |
+            update, { &foo, interval<1.0 / 30> }, { &nop, interval<1.0> }> |
         execute<individual>;
 
-    // Group and frequency can be combined at world scope.
+    // Group and interval can be combined at world scope.
     constexpr auto desc4 = world_desc | add_systems<update, &foo> |
-                           execute<group<1>, frequency<1.0 / 30>>;
+                           execute<group<1>, interval<1.0 / 30>>;
 
     // Additional systems inherit the normalized world execute metadata.
     constexpr auto desc5 = world_desc | add_systems<update, &foo> |
-                           execute<group<1>, frequency<1.0 / 30>> |
+                           execute<group<1>, interval<1.0 / 30>> |
                            add_systems<update, { &foo }>;
 
     // This file is a descriptor-syntax smoke test.

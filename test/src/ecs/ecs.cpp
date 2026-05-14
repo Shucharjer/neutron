@@ -82,10 +82,10 @@ constexpr auto render_runner_desc =
 constexpr auto individual_desc = world_desc | execute<individual> |
                                  add_systems<update, &individual_world_system>;
 
-// Update-frequency variants.
+// Update-interval variants.
 constexpr auto always_update_desc =
     world_desc | add_systems<update, &always_update_system>;
-constexpr auto static_update_desc = world_desc | execute<frequency<1000.0>> |
+constexpr auto static_update_desc = world_desc | execute<interval<1000.0>> |
                                     add_systems<update, &static_update_system>;
 constexpr auto dynamic_update_desc =
     world_desc | execute<dynamic_interval<>> |
@@ -148,7 +148,7 @@ int main() {
         }
     }
 
-    // `always`, static frequency and dynamic frequency each keep their own
+    // `always`, static interval and dynamic interval each keep their own
     // update semantics.
     {
         auto always_world = make_world<always_update_desc>();

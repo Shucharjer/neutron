@@ -138,17 +138,17 @@ struct _group_t {
 template <std::size_t Index>
 inline constexpr _group_t<Index> group;
 
-template <double Freq>
+template <double Interval>
 struct _interval_t {
     using system_requirement_concept = system_requirement_t;
 };
 
 /**
- * @brief Frequency of calling or scheduling.
+ * @brief Interval of calling or scheduling.
  *
- * @tparam Freq A floating-point value indicating a time interval.
+ * @tparam Interval A floating-point value indicating a time interval.
  */
-template <double Freq>
-constexpr _interval_t<Freq> frequency;
+template <double Interval>
+constexpr _interval_t<Interval> interval;
 
 } // namespace neutron

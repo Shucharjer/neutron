@@ -147,7 +147,7 @@ World descriptors are built by composing small adapters:
 - `add_systems<stage, ...>` registers systems for a stage.
 - `execute<group<N>>` assigns a grouped execution order.
 - `execute<individual>` lets a world run on its own execution path.
-- `execute<frequency<...>>` and `execute<dynamic_interval<>>` control update
+- `execute<interval<...>>` and `execute<dynamic_interval<>>` control update
   cadence.
 - `enable_render` and `enable_events` attach render and event metadata.
 

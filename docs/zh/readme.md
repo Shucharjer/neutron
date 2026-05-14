@@ -139,7 +139,7 @@ commands.add_components(future, Velocity{3.0f, 4.0f}); commands.apply(world);
 
 - `execute<individual>` 允许世界在其自身的执行路径上运行。
 
-- `execute<frequency<...>>` 和 `execute<dynamic_interval<>>` 控制更新频率。
+- `execute<interval<...>>` 和 `execute<dynamic_interval<>>` 控制更新间隔。
 
 - `enable_render` 和 `enable_events` 附加渲染和事件元数据。
 

@@ -10,7 +10,7 @@ namespace _execute {
 
 struct exec_tag_t {};
 
-template <double DefaultFreq = 1.0 / 128>
+template <double DefaultInterval = 1.0 / 128>
 struct _dynamic_interval_t {};
 
 template <auto... Policies>
@@ -31,8 +31,8 @@ struct _execute_t : descriptor_adaptor_closure<_execute_t<Policies...>> {
  * - 128 tick => runtime interval `1.0 / 128`
  * - 64 tick  => runtime interval `1.0 / 64`
  */
-template <double DefaultFreq = 1.0 / 128>
-constexpr _execute::_dynamic_interval_t<DefaultFreq> dynamic_interval;
+template <double DefaultInterval = 1.0 / 128>
+constexpr _execute::_dynamic_interval_t<DefaultInterval> dynamic_interval;
 
 template <auto... Policies>
 inline constexpr _execute::_execute_t<Policies...> execute;

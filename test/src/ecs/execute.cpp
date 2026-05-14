@@ -43,7 +43,7 @@ int main() {
     static_assert(execute_info<decltype(world_desc)>::is_always);
 
     // World-level execute policies keep their normalized metadata intact.
-    constexpr auto desc1 = world_desc | execute<frequency<1.0 / 30>>;
+    constexpr auto desc1 = world_desc | execute<interval<1.0 / 30>>;
     using desc1_exec     = fetch_execinfo_t<decltype(desc1)>;
     using desc1_policies = typename desc1_exec::value_list;
     static_assert(value_list_size_v<desc1_policies> == 2);
@@ -55,10 +55,10 @@ int main() {
                   std::remove_cvref_t<
                       decltype(value_list_element_v<1, desc1_policies>)>,
                   _interval_t<1.0 / 30>>);
-    static_assert(execute_info<decltype(desc1)>::has_frequency);
+    static_assert(execute_info<decltype(desc1)>::has_interval);
     static_assert(execute_info<decltype(desc1)>::group_index == 0);
     static_assert(
-        execute_info<decltype(desc1)>::frequency_interval == 1.0 / 30);
+        execute_info<decltype(desc1)>::execution_interval == 1.0 / 30);
     static_assert(!execute_info<decltype(desc1)>::has_dynamic_interval);
 
     constexpr auto desc2 =
@@ -126,7 +126,7 @@ int main() {
     static_assert(system_requirement<decltype(individual)>);
     static_assert(system_requirement<decltype(always)>);
     static_assert(system_requirement<decltype(group<1>)>);
-    static_assert(system_requirement<decltype(frequency<1.0 / 30>)>);
+    static_assert(system_requirement<decltype(interval<1.0 / 30>)>);
     static_assert(system_requirement<decltype(before<&foo>)>);
     static_assert(system_requirement<decltype(after<&foo>)>);
     static_assert(system_requirement<direct_marker_requirement>);
@@ -143,13 +143,13 @@ int main() {
         tagged_value_list<_execute::exec_tag_t, individual>>;
     static_assert(execinfo_traits<merged_exec>::is_individual);
     static_assert(execinfo_traits<merged_exec>::is_always);
-    static_assert(!execinfo_traits<merged_exec>::has_frequency);
+    static_assert(!execinfo_traits<merged_exec>::has_interval);
 
     // Invalid combinations are still rejected during validation.
     static_assert(!_metainfo::_validate_execinfo<tagged_value_list<
                       _execute::exec_tag_t, group<1>, individual>>::value);
     static_assert(!_metainfo::_validate_execinfo<tagged_value_list<
-                      _execute::exec_tag_t, frequency<1.0 / 30>,
+                      _execute::exec_tag_t, interval<1.0 / 30>,
                       dynamic_interval<>>>::value);
     static_assert(!_metainfo::_validate_local_execinfo<tagged_value_list<
                       _execute::exec_tag_t, dynamic_interval<>>>::value);

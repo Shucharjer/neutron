@@ -29,24 +29,24 @@ template <>
 struct _is_execute_individual_policy<_individual_t> : std::true_type {};
 
 template <typename>
-struct _is_execute_frequency_policy : std::false_type {};
+struct _is_execute_interval_policy : std::false_type {};
 
-template <double Freq>
-struct _is_execute_frequency_policy<_interval_t<Freq>> : std::true_type {};
+template <double Interval>
+struct _is_execute_interval_policy<_interval_t<Interval>> : std::true_type {};
 
 template <typename>
 struct _is_execute_dynamic_interval_policy : std::false_type {};
 
-template <double DefaultFreq>
+template <double DefaultInterval>
 struct _is_execute_dynamic_interval_policy<
-    _execute::_dynamic_interval_t<DefaultFreq>> : std::true_type {};
+    _execute::_dynamic_interval_t<DefaultInterval>> : std::true_type {};
 
 template <typename Policy>
 constexpr bool _is_execute_policy_v =
     _is_execute_group_policy<Policy>::value ||
     _is_execute_always_policy<Policy>::value ||
     _is_execute_individual_policy<Policy>::value ||
-    _is_execute_frequency_policy<Policy>::value ||
+    _is_execute_interval_policy<Policy>::value ||
     _is_execute_dynamic_interval_policy<Policy>::value;
 
 template <auto Policy>
@@ -67,8 +67,8 @@ struct _is_execute_individual_value :
     _is_execute_individual_policy<std::remove_cvref_t<decltype(Policy)>> {};
 
 template <auto Policy>
-struct _is_execute_frequency_value :
-    _is_execute_frequency_policy<std::remove_cvref_t<decltype(Policy)>> {};
+struct _is_execute_interval_value :
+    _is_execute_interval_policy<std::remove_cvref_t<decltype(Policy)>> {};
 
 template <auto Policy>
 struct _is_execute_dynamic_interval_value :
@@ -83,11 +83,11 @@ struct _execute_group_index<_group_t<Index>> :
     std::integral_constant<std::size_t, Index> {};
 
 template <typename>
-struct _execute_frequency_interval;
+struct _execute_interval_value;
 
-template <double Freq>
-struct _execute_frequency_interval<_interval_t<Freq>> {
-    static constexpr double value = Freq;
+template <double Interval>
+struct _execute_interval_value<_interval_t<Interval>> {
+    static constexpr double value = Interval;
 };
 
 template <typename ValueList>
@@ -117,8 +117,8 @@ struct _normalize_execinfo<
         value_list_filt_t<_is_execute_always_value, raw_policy_list>;
     using individual_policies =
         value_list_filt_t<_is_execute_individual_value, raw_policy_list>;
-    using frequency_policies =
-        value_list_filt_t<_is_execute_frequency_value, raw_policy_list>;
+    using interval_policies =
+        value_list_filt_t<_is_execute_interval_value, raw_policy_list>;
     using dynamic_interval_policies =
         value_list_filt_t<_is_execute_dynamic_interval_value, raw_policy_list>;
 
@@ -146,16 +146,16 @@ public:
     static constexpr std::size_t always_count = _count<_is_execute_always_policy>();
     static constexpr std::size_t individual_count =
         _count<_is_execute_individual_policy>();
-    static constexpr std::size_t frequency_count =
-        _count<_is_execute_frequency_policy>();
+    static constexpr std::size_t interval_count =
+        _count<_is_execute_interval_policy>();
     static constexpr std::size_t dynamic_interval_count =
         _count<_is_execute_dynamic_interval_policy>();
 
     static constexpr bool value =
         has_only_known_policies && group_count <= 1 && always_count <= 1 &&
-        individual_count <= 1 && frequency_count <= 1 &&
+        individual_count <= 1 && interval_count <= 1 &&
         dynamic_interval_count <= 1 &&
-        (always_count + frequency_count + dynamic_interval_count) <= 1 &&
+        (always_count + interval_count + dynamic_interval_count) <= 1 &&
         !(group_count != 0 && individual_count != 0);
 
 private:
@@ -176,9 +176,9 @@ private:
         if constexpr (!is_empty_template_v<dynamic_interval_policies>) {
             return static_cast<value_list<
                 value_list_element_v<0, dynamic_interval_policies>>*>(nullptr);
-        } else if constexpr (!is_empty_template_v<frequency_policies>) {
+        } else if constexpr (!is_empty_template_v<interval_policies>) {
             return static_cast<
-                value_list<value_list_element_v<0, frequency_policies>>*>(
+                value_list<value_list_element_v<0, interval_policies>>*>(
                 nullptr);
         } else if constexpr (!is_empty_template_v<always_policies>) {
             return static_cast<
@@ -220,8 +220,8 @@ struct execinfo_traits<tagged_value_list<_execute::exec_tag_t, Policies...>> {
         value_list_filt_t<_is_execute_always_value, policy_list>;
     using individual_policies =
         value_list_filt_t<_is_execute_individual_value, policy_list>;
-    using frequency_policies =
-        value_list_filt_t<_is_execute_frequency_value, policy_list>;
+    using interval_policies =
+        value_list_filt_t<_is_execute_interval_value, policy_list>;
     using dynamic_interval_policies =
         value_list_filt_t<_is_execute_dynamic_interval_value, policy_list>;
 
@@ -230,8 +230,8 @@ struct execinfo_traits<tagged_value_list<_execute::exec_tag_t, Policies...>> {
     static constexpr bool is_grouped = !is_empty_template_v<group_policies>;
     static constexpr bool is_always  = !is_empty_template_v<always_policies>;
     static constexpr bool has_execution_policy = is_individual || is_grouped;
-    static constexpr bool has_frequency =
-        !is_empty_template_v<frequency_policies>;
+    static constexpr bool has_interval =
+        !is_empty_template_v<interval_policies>;
     static constexpr bool has_dynamic_interval =
         !is_empty_template_v<dynamic_interval_policies>;
 
@@ -253,10 +253,10 @@ struct execinfo_traits<tagged_value_list<_execute::exec_tag_t, Policies...>> {
         }
     }())>;
 
-    using frequency_policy = std::remove_pointer_t<decltype([] {
-        if constexpr (has_frequency) {
+    using interval_policy = std::remove_pointer_t<decltype([] {
+        if constexpr (has_interval) {
             return static_cast<std::remove_cvref_t<
-                decltype(value_list_element_v<0, frequency_policies>)>*>(
+                decltype(value_list_element_v<0, interval_policies>)>*>(
                 nullptr);
         } else {
             return static_cast<void*>(nullptr);
@@ -283,9 +283,9 @@ struct execinfo_traits<tagged_value_list<_execute::exec_tag_t, Policies...>> {
         }
     }();
 
-    static constexpr double frequency_interval = [] {
-        if constexpr (has_frequency) {
-            return _execute_frequency_interval<frequency_policy>::value;
+    static constexpr double execution_interval = [] {
+        if constexpr (has_interval) {
+            return _execute_interval_value<interval_policy>::value;
         } else {
             return 0.0;
         }
@@ -335,9 +335,9 @@ private:
             return static_cast<value_list<value_list_element_v<
                 0, typename child_traits::dynamic_interval_policies>>*>(
                 nullptr);
-        } else if constexpr (child_traits::has_frequency) {
+        } else if constexpr (child_traits::has_interval) {
             return static_cast<value_list<value_list_element_v<
-                0, typename child_traits::frequency_policies>>*>(nullptr);
+                0, typename child_traits::interval_policies>>*>(nullptr);
         } else if constexpr (child_traits::is_always) {
             return static_cast<value_list<value_list_element_v<
                 0, typename child_traits::always_policies>>*>(nullptr);
@@ -345,9 +345,9 @@ private:
             return static_cast<value_list<value_list_element_v<
                 0, typename parent_traits::dynamic_interval_policies>>*>(
                 nullptr);
-        } else if constexpr (parent_traits::has_frequency) {
+        } else if constexpr (parent_traits::has_interval) {
             return static_cast<value_list<value_list_element_v<
-                0, typename parent_traits::frequency_policies>>*>(nullptr);
+                0, typename parent_traits::interval_policies>>*>(nullptr);
         } else if constexpr (parent_traits::is_always) {
             return static_cast<value_list<value_list_element_v<
                 0, typename parent_traits::always_policies>>*>(nullptr);
@@ -405,7 +405,7 @@ struct fetch_execinfo {
     static_assert(
         validation::value,
         "invalid execute policies: group conflicts with individual, only one "
-        "update mode may be specified, and frequency conflicts with "
+        "update mode may be specified, and interval conflicts with "
         "dynamic_interval");
 
     using type = typename validation::type;

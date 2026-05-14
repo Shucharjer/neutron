@@ -69,9 +69,10 @@ int main() {
         }
 
         {
-            constexpr double interval = 1.0 / 32;
-            constexpr auto desc = world_desc | execute<frequency<interval>>;
-            static_assert(get_execution_interval(desc) == interval);
+            constexpr double update_interval = 1.0 / 32;
+            constexpr auto desc =
+                world_desc | execute<interval<update_interval>>;
+            static_assert(get_execution_interval(desc) == update_interval);
         }
     }
 

@@ -2,8 +2,8 @@
 #include <cstddef>
 #include <memory>
 #include <string>
-#include "neutron/detail/ecs/query.hpp"
 #include "neutron/detail/ecs/global.hpp"
+#include "neutron/detail/ecs/query.hpp"
 #include "neutron/detail/ecs/world_descriptor/add_systems.hpp"
 #include "neutron/detail/ecs/world_descriptor/fwd.hpp"
 
@@ -142,7 +142,7 @@ int main() {
         std::same_as<typename system_group_sys::execution_policy, _group_t<1>>);
 
     constexpr auto system_individual_override =
-        world_desc | execute<group<1>, frequency<1.0 / 60>> |
+        world_desc | execute<group<1>, interval<1.0 / 60>> |
         add_systems<update, { exec_plain, individual }>;
     static_assert(validate_update_desc_v<system_individual_override>);
     using system_individual_info =
@@ -153,7 +153,7 @@ int main() {
         std::same_as<
             typename system_individual_sys::execution_policy, _individual_t>);
     static_assert(system_individual_sys::execute_traits::is_always);
-    static_assert(!system_individual_sys::execute_traits::has_frequency);
+    static_assert(!system_individual_sys::execute_traits::has_interval);
 
     constexpr auto cross_group_dependency =
         world_desc | execute<group<1>> |

@@ -406,8 +406,8 @@ private:
         } else if constexpr (execute_traits::has_dynamic_interval) {
             return has_dynamic_update_interval_ ? dynamic_update_interval_
                                                 : 0.0;
-        } else if constexpr (execute_traits::has_frequency) {
-            return execute_traits::frequency_interval;
+        } else if constexpr (execute_traits::has_interval) {
+            return execute_traits::execution_interval;
         } else {
             return 0.0;
         }
