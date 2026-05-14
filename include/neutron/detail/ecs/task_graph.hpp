@@ -13,20 +13,21 @@ class stage_task_graph {
 public:
     struct node_state {
         size_t pending_predecessors = 0;
-        bool blocked_by_commands = false;
-        bool completed = false;
+        bool blocked_by_commands    = false;
+        bool completed              = false;
     };
 
     constexpr stage_task_graph() noexcept { reset(); }
 
     constexpr void reset() noexcept {
         for (size_t index = 0; index < _size; ++index) {
-            nodes_[index].pending_predecessors = StageGraph::predecessor_counts[index];
+            nodes_[index].pending_predecessors =
+                StageGraph::predecessor_counts[index];
             nodes_[index].blocked_by_commands = false;
-            nodes_[index].completed = false;
+            nodes_[index].completed           = false;
         }
         completed_count_ = 0;
-        dirty_commands_ = false;
+        dirty_commands_  = false;
     }
 
     [[nodiscard]] static constexpr size_t size() noexcept { return _size; }
@@ -45,7 +46,8 @@ public:
         return completed_count_;
     }
 
-    [[nodiscard]] constexpr const node_state& state(size_t index) const noexcept {
+    [[nodiscard]] constexpr const node_state&
+        state(size_t index) const noexcept {
         return nodes_[index];
     }
 
@@ -62,7 +64,8 @@ public:
         return dirty_commands_ && !done() && !has_runnable();
     }
 
-    constexpr size_t collect_runnable(std::array<size_t, _size>& out) const noexcept {
+    constexpr size_t
+        collect_runnable(std::array<size_t, _size>& out) const noexcept {
         size_t count = 0;
         for (size_t index = 0; index < _size; ++index) {
             if (_runnable(index) && !StageGraph::is_individual[index]) {
@@ -82,31 +85,24 @@ public:
     }
 
     constexpr void complete(size_t index) noexcept {
-        if (nodes_[index].completed) {
+        if (!_mark_completed(index)) {
             return;
-        }
-
-        nodes_[index].completed = true;
-        ++completed_count_;
-
-        for (size_t offset = 0; offset < StageGraph::successor_counts[index]; ++offset) {
-            const size_t successor = StageGraph::successors[index][offset];
-            auto& state = nodes_[successor];
-            if (!state.completed && state.pending_predecessors != 0) {
-                --state.pending_predecessors;
-            }
         }
 
         if (StageGraph::has_commands[index]) {
             dirty_commands_ = true;
-            for (size_t offset = 0; offset < StageGraph::descendant_counts[index]; ++offset) {
-                const size_t descendant = StageGraph::descendants[index][offset];
+            for (size_t offset = 0;
+                 offset < StageGraph::descendant_counts[index]; ++offset) {
+                const size_t descendant =
+                    StageGraph::descendants[index][offset];
                 if (!nodes_[descendant].completed) {
                     nodes_[descendant].blocked_by_commands = true;
                 }
             }
         }
     }
+
+    constexpr void skip(size_t index) noexcept { (void)_mark_completed(index); }
 
     constexpr void complete(
         const std::array<size_t, _size>& completed_indices,
@@ -129,6 +125,26 @@ public:
     }
 
 private:
+    constexpr bool _mark_completed(size_t index) noexcept {
+        if (nodes_[index].completed) {
+            return false;
+        }
+
+        nodes_[index].completed = true;
+        ++completed_count_;
+
+        for (size_t offset = 0; offset < StageGraph::successor_counts[index];
+             ++offset) {
+            const size_t successor = StageGraph::successors[index][offset];
+            auto& state            = nodes_[successor];
+            if (!state.completed && state.pending_predecessors != 0) {
+                --state.pending_predecessors;
+            }
+        }
+
+        return true;
+    }
+
     [[nodiscard]] constexpr bool _runnable(size_t index) const noexcept {
         const auto& state = nodes_[index];
         return !state.completed && !state.blocked_by_commands &&
@@ -137,7 +153,7 @@ private:
 
     std::array<node_state, _size> nodes_{};
     size_t completed_count_ = 0;
-    bool dirty_commands_ = false;
+    bool dirty_commands_    = false;
 };
 
 } // namespace neutron

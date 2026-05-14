@@ -23,6 +23,15 @@ struct impl {
     void render_end() {}
 };
 
+struct two_update_impl {
+    int checks = 0;
+
+    bool poll_events() { return false; }
+    bool is_stopped() { return checks++ >= 2; }
+    void render_begin() {}
+    void render_end() {}
+};
+
 class app : impl {
     app() = default;
 
@@ -42,7 +51,10 @@ public:
 
 void foo() {}
 void bar() {}
-int marker_count = 0;
+int marker_count               = 0;
+int interval_always_count      = 0;
+int local_interval_count       = 0;
+int local_interval_after_count = 0;
 
 void spawn_marker(commands cmd) { cmd.spawn<marker>(); }
 
@@ -52,6 +64,12 @@ void count_marker(query<with<marker&>> query) {
         ++marker_count;
     }
 }
+
+void count_interval_always() { ++interval_always_count; }
+
+void count_local_interval() { ++local_interval_count; }
+
+void count_after_local_interval() { ++local_interval_after_count; }
 
 constexpr auto world1 = world_desc | add_systems<update, foo>;
 constexpr auto world2 =
@@ -68,6 +86,12 @@ constexpr auto task_world =
 constexpr auto command_world =
     world_desc |
     add_systems<update, spawn_marker, { count_marker, after<spawn_marker> }>;
+constexpr auto local_interval_world =
+    world_desc |
+    add_systems<
+        update, count_interval_always,
+        { count_local_interval, interval<1000.0> },
+        { count_after_local_interval, after<count_local_interval> }>;
 constexpr auto group_world_a =
     world_desc | add_systems<update, foo> | execute<group<3>>;
 constexpr auto group_world_b =
@@ -116,6 +140,30 @@ int main() {
     command_rt.run();
     if (marker_count != 1) {
         return 1;
+    }
+
+    two_update_impl interval_payload{};
+    auto interval_rt =
+        make_runtime<local_interval_world>(sch, &interval_payload);
+    interval_always_count      = 0;
+    local_interval_count       = 0;
+    local_interval_after_count = 0;
+    interval_rt.run();
+    if (interval_always_count != 2 || local_interval_count != 1 ||
+        local_interval_after_count != 2) {
+        return 2;
+    }
+
+    auto interval_step_rt =
+        make_runtime<local_interval_world>(sch, static_cast<impl*>(nullptr));
+    interval_always_count      = 0;
+    local_interval_count       = 0;
+    local_interval_after_count = 0;
+    interval_step_rt.template run_env<0>().update_step();
+    interval_step_rt.template run_env<0>().update_step();
+    if (interval_always_count != 2 || local_interval_count != 1 ||
+        local_interval_after_count != 2) {
+        return 3;
     }
 
     return app::create() | run_worlds<world1, world2, world3, world4, world5>();

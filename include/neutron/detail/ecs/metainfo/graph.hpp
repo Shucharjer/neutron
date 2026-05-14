@@ -349,6 +349,28 @@ private:
         return values;
     }
 
+    static consteval auto _make_uses_interval() noexcept {
+        std::array<bool, size> values{};
+        []<std::size_t... Is>(
+            std::array<bool, size>& target, std::index_sequence<Is...>) {
+            (void)std::initializer_list<int>{
+                ((target[Is] = node_t<Is>::execute_traits::has_interval), 0)...
+            };
+        }(values, std::make_index_sequence<size>{});
+        return values;
+    }
+
+    static consteval auto _make_execution_intervals() noexcept {
+        std::array<double, size> values{};
+        []<std::size_t... Is>(
+            std::array<double, size>& target, std::index_sequence<Is...>) {
+            (void)std::initializer_list<int>{ (
+                (target[Is] = node_t<Is>::execute_traits::execution_interval),
+                0)... };
+        }(values, std::make_index_sequence<size>{});
+        return values;
+    }
+
     template <std::size_t Max>
     static consteval auto _make_successor_matrix() noexcept {
         std::array<std::array<std::size_t, Max>, size> matrix{};
@@ -554,6 +576,8 @@ public:
     static constexpr auto has_buffered_commands = _make_has_buffered_commands();
     static constexpr auto is_individual         = _make_is_individual();
     static constexpr auto is_locally_individual = _make_is_locally_individual();
+    static constexpr auto uses_interval         = _make_uses_interval();
+    static constexpr auto execution_intervals   = _make_execution_intervals();
     static constexpr auto successors =
         _make_successor_matrix<max_successor_count>();
     static constexpr auto descendants =
@@ -563,6 +587,8 @@ public:
         _count_commands(has_commands);
     static constexpr std::size_t buffered_command_node_count =
         _count_commands(has_buffered_commands);
+    static constexpr std::size_t interval_task_count =
+        _count_commands(uses_interval);
     static constexpr std::uint32_t max_concurrency =
         _max_counted_antichain<_stage_graph_count_kind::concurrency>();
     static constexpr std::uint32_t max_buffer_count =

@@ -1,8 +1,10 @@
 #pragma once
 #include <array>
+#include <chrono>
 #include <condition_variable>
 #include <csignal>
 #include <cstddef>
+#include <cstdint>
 #include <exception>
 #include <memory>
 #include <mutex>
@@ -278,11 +280,57 @@ private:
     using allocator_t = rebind_alloc_t<byte_alloc, Ty>;
     using buffer_vector =
         std::vector<command_buffer, allocator_t<command_buffer>>;
+    using time_point        = typename world_type::clock_type::time_point;
+    using time_point_vector = std::vector<time_point, allocator_t<time_point>>;
+    using interval_flag_vector =
+        std::vector<std::uint8_t, allocator_t<std::uint8_t>>;
+
+    template <stage Stage>
+    using graph_t =
+        typename decltype(world_type::get_tasks())::template graph<Stage>;
+
+    template <typename Graph, bool = Graph::interval_task_count != 0>
+    struct _stage_interval_state {
+        explicit _stage_interval_state(const byte_alloc&) {}
+
+        void ensure() noexcept {}
+    };
+
+    template <typename Graph>
+    struct _stage_interval_state<Graph, true> {
+        explicit _stage_interval_state(const byte_alloc& alloc)
+            : last(allocator_t<time_point>{ alloc }),
+              has_last(allocator_t<std::uint8_t>{ alloc }) {}
+
+        void ensure() {
+            if (last.size() < Graph::size) {
+                last.resize(Graph::size);
+                has_last.resize(Graph::size);
+            }
+        }
+
+        time_point_vector last;
+        interval_flag_vector has_last;
+    };
+
+    template <stage Stage>
+    using stage_interval_state = _stage_interval_state<graph_t<Stage>>;
 
 public:
     explicit _world_state(const Alloc& alloc = {})
         : alloc_(alloc), world_(byte_alloc{ alloc }),
-          buffers_(allocator_t<command_buffer>{ alloc }) {
+          buffers_(allocator_t<command_buffer>{ alloc }),
+          pre_startup_intervals_(byte_alloc{ alloc }),
+          startup_intervals_(byte_alloc{ alloc }),
+          post_startup_intervals_(byte_alloc{ alloc }),
+          first_intervals_(byte_alloc{ alloc }),
+          events_intervals_(byte_alloc{ alloc }),
+          pre_update_intervals_(byte_alloc{ alloc }),
+          update_intervals_(byte_alloc{ alloc }),
+          post_update_intervals_(byte_alloc{ alloc }),
+          render_intervals_(byte_alloc{ alloc }),
+          last_intervals_(byte_alloc{ alloc }),
+          shutdown_intervals_(byte_alloc{ alloc }) {
         if constexpr (max_buffer_count != 0) {
             buffers_.reserve(max_buffer_count);
             for (std::size_t index = 0; index < max_buffer_count; ++index) {
@@ -350,6 +398,91 @@ private:
         return 0;
     }
 
+    template <stage Stage>
+    [[nodiscard]] auto& _interval_state_for() noexcept {
+        if constexpr (Stage == stage::pre_startup) {
+            return pre_startup_intervals_;
+        } else if constexpr (Stage == stage::startup) {
+            return startup_intervals_;
+        } else if constexpr (Stage == stage::post_startup) {
+            return post_startup_intervals_;
+        } else if constexpr (Stage == stage::first) {
+            return first_intervals_;
+        } else if constexpr (Stage == stage::events) {
+            return events_intervals_;
+        } else if constexpr (Stage == stage::pre_update) {
+            return pre_update_intervals_;
+        } else if constexpr (Stage == stage::update) {
+            return update_intervals_;
+        } else if constexpr (Stage == stage::post_update) {
+            return post_update_intervals_;
+        } else if constexpr (Stage == stage::render) {
+            return render_intervals_;
+        } else if constexpr (Stage == stage::last) {
+            return last_intervals_;
+        } else {
+            return shutdown_intervals_;
+        }
+    }
+
+    template <typename Graph, typename IntervalState>
+    [[nodiscard]] static bool _interval_allows(
+        IntervalState& intervals, std::size_t task_index, time_point now) {
+        const auto interval = Graph::execution_intervals[task_index];
+        if (interval <= 0.0) {
+            return false;
+        }
+
+        if (intervals.has_last[task_index] == 0U ||
+            std::chrono::duration<double>(now - intervals.last[task_index])
+                    .count() >= interval) {
+            intervals.last[task_index]     = now;
+            intervals.has_last[task_index] = 1U;
+            return true;
+        }
+        return false;
+    }
+
+    template <stage Stage, typename Graph>
+    [[nodiscard]] std::size_t _filter_interval_ready(
+        stage_task_graph<Graph>& graph,
+        std::array<std::size_t, Graph::size>& ready, std::size_t ready_count) {
+        if constexpr (Graph::interval_task_count == 0) {
+            return ready_count;
+        } else {
+            auto& intervals     = _interval_state_for<Stage>();
+            auto now            = time_point{};
+            bool sampled_now    = false;
+            bool ensured_state  = false;
+            std::size_t allowed = 0;
+
+            for (std::size_t index = 0; index < ready_count; ++index) {
+                const auto task_index = ready[index];
+                if (!Graph::uses_interval[task_index]) {
+                    ready[allowed++] = task_index;
+                    continue;
+                }
+
+                if (!ensured_state) {
+                    intervals.ensure();
+                    ensured_state = true;
+                }
+                if (!sampled_now) {
+                    now         = world_type::clock_type::now();
+                    sampled_now = true;
+                }
+
+                if (_interval_allows<Graph>(intervals, task_index, now)) {
+                    ready[allowed++] = task_index;
+                } else {
+                    graph.skip(task_index);
+                }
+            }
+
+            return allowed;
+        }
+    }
+
     template <typename Graph>
     void _assign_command_buffers(
         const std::array<std::size_t, Graph::size>& ready,
@@ -391,10 +524,17 @@ private:
                 const auto ready_count =
                     _collect_runnable<Graph>(graph, running, ready);
                 if (ready_count != 0) {
+                    const auto allowed_count =
+                        _filter_interval_ready<Stage, Graph>(
+                            graph, ready, ready_count);
+                    if (allowed_count == 0) {
+                        continue;
+                    }
                     _assign_command_buffers<Graph>(
-                        ready, buffers_by_task, ready_count,
+                        ready, buffers_by_task, allowed_count,
                         dirty_buffer_count);
-                    for (std::size_t index = 0; index < ready_count; ++index) {
+                    for (std::size_t index = 0; index < allowed_count;
+                         ++index) {
                         const auto task_index = ready[index];
                         auto sender =
                             execution::schedule(sch) |
@@ -478,9 +618,14 @@ private:
                     continue;
                 }
 
+                const auto allowed_count = _filter_interval_ready<Stage, Graph>(
+                    graph, ready, ready_count);
+                if (allowed_count == 0) {
+                    continue;
+                }
                 _assign_command_buffers<Graph>(
-                    ready, buffers_by_task, ready_count, dirty_buffer_count);
-                for (std::size_t index = 0; index < ready_count; ++index) {
+                    ready, buffers_by_task, allowed_count, dirty_buffer_count);
+                for (std::size_t index = 0; index < allowed_count; ++index) {
                     const auto task_index = ready[index];
                     world_accessor::call_task<Stage>(
                         world_, task_index, buffers_by_task[task_index]);
@@ -498,6 +643,22 @@ private:
     ATOM_NO_UNIQUE_ADDR byte_alloc alloc_;
     world_type world_;
     buffer_vector buffers_;
+    ATOM_NO_UNIQUE_ADDR stage_interval_state<stage::pre_startup>
+        pre_startup_intervals_;
+    ATOM_NO_UNIQUE_ADDR stage_interval_state<stage::startup> startup_intervals_;
+    ATOM_NO_UNIQUE_ADDR stage_interval_state<stage::post_startup>
+        post_startup_intervals_;
+    ATOM_NO_UNIQUE_ADDR stage_interval_state<stage::first> first_intervals_;
+    ATOM_NO_UNIQUE_ADDR stage_interval_state<stage::events> events_intervals_;
+    ATOM_NO_UNIQUE_ADDR stage_interval_state<stage::pre_update>
+        pre_update_intervals_;
+    ATOM_NO_UNIQUE_ADDR stage_interval_state<stage::update> update_intervals_;
+    ATOM_NO_UNIQUE_ADDR stage_interval_state<stage::post_update>
+        post_update_intervals_;
+    ATOM_NO_UNIQUE_ADDR stage_interval_state<stage::render> render_intervals_;
+    ATOM_NO_UNIQUE_ADDR stage_interval_state<stage::last> last_intervals_;
+    ATOM_NO_UNIQUE_ADDR stage_interval_state<stage::shutdown>
+        shutdown_intervals_;
 };
 
 } // namespace _runtime
