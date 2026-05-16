@@ -9,6 +9,7 @@ using namespace neutron;
 using enum stage;
 
 void foo() {}
+void bar() {}
 
 // Marker type accepted through the nested `system_requirement_concept` alias.
 struct direct_marker_requirement {
@@ -128,7 +129,9 @@ int main() {
     static_assert(system_requirement<decltype(group<1>)>);
     static_assert(system_requirement<decltype(interval<1.0 / 30>)>);
     static_assert(system_requirement<decltype(before<&foo>)>);
+    static_assert(system_requirement<decltype(before<&foo, &bar>)>);
     static_assert(system_requirement<decltype(after<&foo>)>);
+    static_assert(system_requirement<decltype(after<&foo, &bar>)>);
     static_assert(system_requirement<direct_marker_requirement>);
     static_assert(system_requirement<adapted_requirement>);
     static_assert(!system_requirement<invalid_requirement>);

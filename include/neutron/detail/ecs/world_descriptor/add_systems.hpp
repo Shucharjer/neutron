@@ -21,13 +21,17 @@ concept system_requirement = (requires {
         system_requirement_t>;
 } || as_system_requirement<std::remove_cvref_t<Ty>>);
 
-template <auto Sys>
+template <auto... Sys>
 struct _before_t {
+    static_assert(sizeof...(Sys) != 0, "before requires at least one system");
+
     using system_requirement_concept = system_requirement_t;
 };
 
-template <auto Sys>
+template <auto... Sys>
 struct _after_t {
+    static_assert(sizeof...(Sys) != 0, "after requires at least one system");
+
     using system_requirement_concept = system_requirement_t;
 };
 
@@ -64,10 +68,12 @@ using _add_system::sys_tag_t;
 template <stage Stage, sysdesc... Systems>
 inline constexpr _add_system::_add_systems_t<Stage, Systems...> add_systems;
 
-template <auto Sys>
-inline constexpr _add_system::_before_t<Sys> before;
+template <auto... Sys>
+requires(sizeof...(Sys) != 0)
+inline constexpr _add_system::_before_t<Sys...> before;
 
-template <auto Sys>
-inline constexpr _add_system::_after_t<Sys> after;
+template <auto... Sys>
+requires(sizeof...(Sys) != 0)
+inline constexpr _add_system::_after_t<Sys...> after;
 
 } // namespace neutron

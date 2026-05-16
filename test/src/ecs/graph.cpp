@@ -1,4 +1,5 @@
 #include <array>
+#include <cstddef>
 #include <type_traits>
 #include "neutron/detail/ecs/basic_commands.hpp"
 #include "neutron/detail/ecs/metainfo.hpp"
@@ -11,6 +12,8 @@ using enum stage;
 void foo() {}
 void exec_plain() {}
 void exec_plain_2() {}
+void exec_plain_3() {}
+void exec_plain_4() {}
 void cmd_foo(basic_commands<>) {}
 void cmd_after() {}
 void cmd_independent() {}
@@ -28,35 +31,75 @@ int main() {
     constexpr auto desc1 =
         world_desc | add_systems<update, &foo, { &foo, individual }>;
     using desc1_stage = stage_sysinfo<update, decltype(desc1)>;
-    using desc1_first = type_list_element_t<0, typename desc1_stage::traits_list>;
-    using desc1_second = type_list_element_t<1, typename desc1_stage::traits_list>;
+    using desc1_first =
+        type_list_element_t<0, typename desc1_stage::traits_list>;
+    using desc1_second =
+        type_list_element_t<1, typename desc1_stage::traits_list>;
     using desc1_graph = descriptor_graph<decltype(desc1)>;
-    static_assert(std::same_as<
-                  typename desc1_graph::updates,
-                  staged_type_list<
-                      update,
-                      type_list<desc1_first>,
-                      type_list<desc1_second>>>);
+    static_assert(
+        std::same_as<
+            typename desc1_graph::updates,
+            staged_type_list<
+                update, type_list<desc1_first>, type_list<desc1_second>>>);
 
     constexpr auto desc2 = add_systems<
-        update, { exec_plain }, { exec_plain_2, after<exec_plain> }>(world_desc);
+        update, { exec_plain }, { exec_plain_2, after<exec_plain> }>(
+        world_desc);
     using desc2_stage = stage_sysinfo<update, decltype(desc2)>;
-    using desc2_first = type_list_element_t<0, typename desc2_stage::traits_list>;
-    using desc2_second = type_list_element_t<1, typename desc2_stage::traits_list>;
+    using desc2_first =
+        type_list_element_t<0, typename desc2_stage::traits_list>;
+    using desc2_second =
+        type_list_element_t<1, typename desc2_stage::traits_list>;
     using desc2_graph = descriptor_graph<decltype(desc2)>;
-    static_assert(std::same_as<
-                  typename desc2_graph::updates,
-                  staged_type_list<
-                      update,
-                      type_list<desc2_first>,
-                      type_list<desc2_second>>>);
+    static_assert(
+        std::same_as<
+            typename desc2_graph::updates,
+            staged_type_list<
+                update, type_list<desc2_first>, type_list<desc2_second>>>);
 
-    constexpr auto desc3 = world_desc |
-                           add_systems<
-                               update,
-                               { &cmd_foo },
-                               { &cmd_after, after<&cmd_foo> },
-                               { &cmd_independent }>;
+    constexpr auto desc_multi_after =
+        world_desc | add_systems<
+                         update, exec_plain, exec_plain_2, exec_plain_3,
+                         { exec_plain_4, after<exec_plain, exec_plain_2> }>;
+    using desc_multi_after_graph =
+        stage_graph<update, decltype(desc_multi_after)>;
+    static_assert(
+        std::same_as<
+            typename desc_multi_after_graph::template successor_indices<0>,
+            value_list<std::size_t{ 3 }>>);
+    static_assert(
+        std::same_as<
+            typename desc_multi_after_graph::template successor_indices<1>,
+            value_list<std::size_t{ 3 }>>);
+    static_assert(
+        std::same_as<
+            typename desc_multi_after_graph::template predecessor_indices<3>,
+            value_list<std::size_t{ 0 }, std::size_t{ 1 }>>);
+
+    constexpr auto desc_multi_before =
+        world_desc |
+        add_systems<
+            update, { exec_plain, before<exec_plain_2, exec_plain_3> },
+            exec_plain_2, exec_plain_3, exec_plain_4>;
+    using desc_multi_before_graph =
+        stage_graph<update, decltype(desc_multi_before)>;
+    static_assert(
+        std::same_as<
+            typename desc_multi_before_graph::template successor_indices<0>,
+            value_list<std::size_t{ 1 }, std::size_t{ 2 }>>);
+    static_assert(
+        std::same_as<
+            typename desc_multi_before_graph::template predecessor_indices<1>,
+            value_list<std::size_t{ 0 }>>);
+    static_assert(
+        std::same_as<
+            typename desc_multi_before_graph::template predecessor_indices<2>,
+            value_list<std::size_t{ 0 }>>);
+
+    constexpr auto desc3 =
+        world_desc | add_systems<
+                         update, { &cmd_foo }, { &cmd_after, after<&cmd_foo> },
+                         { &cmd_independent }>;
     using desc3_graph = stage_graph<update, decltype(desc3)>;
     static_assert(desc3_graph::command_node_count == 1);
     static_assert(desc3_graph::has_commands[0]);

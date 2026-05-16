@@ -274,13 +274,52 @@ template <
 struct _access_list_intersects<Template<Lhs...>, Rhs> :
     std::bool_constant<(false || ... || type_list_has_v<Rhs, Lhs>)> {};
 
-template <typename Info, typename Other>
-constexpr bool _has_before_v = type_list_has_v<
-    typename Info::requires_list, _add_system::_before_t<Other::fn>>;
+template <typename Requirement, auto Sys>
+struct _before_requirement_contains : std::false_type {};
+
+template <auto... Requires, auto Sys>
+struct _before_requirement_contains<_add_system::_before_t<Requires...>, Sys> :
+    value_list_has<value_list<Requires...>, Sys> {};
+
+template <typename Requirement, auto Sys>
+constexpr bool _before_requirement_contains_v =
+    _before_requirement_contains<Requirement, Sys>::value;
+
+template <typename Requirement, auto Sys>
+struct _after_requirement_contains : std::false_type {};
+
+template <auto... Requires, auto Sys>
+struct _after_requirement_contains<_add_system::_after_t<Requires...>, Sys> :
+    value_list_has<value_list<Requires...>, Sys> {};
+
+template <typename RequirementList, auto Sys>
+struct _has_before_requirement;
+
+template <
+    template <typename...> typename Template, typename... Requirements,
+    auto Sys>
+struct _has_before_requirement<Template<Requirements...>, Sys> :
+    std::bool_constant<(
+        false || ... || _before_requirement_contains_v<Requirements, Sys>)> {};
+
+template <typename RequirementList, auto Sys>
+struct _has_after_requirement;
+
+template <
+    template <typename...> typename Template, typename... Requirements,
+    auto Sys>
+struct _has_after_requirement<Template<Requirements...>, Sys> :
+    std::bool_constant<(
+        false || ... ||
+        _after_requirement_contains<Requirements, Sys>::value)> {};
 
 template <typename Info, typename Other>
-constexpr bool _has_after_v = type_list_has_v<
-    typename Info::requires_list, _add_system::_after_t<Other::fn>>;
+constexpr bool _has_before_v =
+    _has_before_requirement<typename Info::requires_list, Other::fn>::value;
+
+template <typename Info, typename Other>
+constexpr bool _has_after_v =
+    _has_after_requirement<typename Info::requires_list, Other::fn>::value;
 
 template <typename Info, typename Other>
 constexpr bool _direct_before_v =
