@@ -37,7 +37,7 @@ consteval auto type_traits_of() noexcept -> type_traits {
     static_assert(alignof(T) <= std::uint64_t(static_cast<std::uint16_t>(-1)));
 
     return type_traits{
-        .size  = sizeof(T),
+        .size  = std::is_empty_v<T> ? 0 : sizeof(T),
         .align = alignof(T),
         .is_trivially_default_constructible =
             std::is_trivially_default_constructible_v<T>,
