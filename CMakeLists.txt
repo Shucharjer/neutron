@@ -19,6 +19,8 @@ list(INSERT CMAKE_MODULE_PATH 0 ${CMAKE_CURRENT_SOURCE_DIR}/cmake/modules)
 option(NEUTRON_INCLUDE_HEADERS OFF)
 option(NEUTRON_INSTALL ON)
 option(NEUTRON_BUILD_DOCS "Build documentation for neutron" OFF)
+option(NEUTRON_USES_STDEXEC "uses stdexec as execution control library implementation, which supports c++20" OFF)
+option(NEUTRON_USES_BEMAN_EXECUTION "uses beman::execution as execution control library implementation, which needs a compiler that supports at least c++23" OFF)
 option(BUILD_NEUTRON_TESTING "Build test for neutron" OFF)
 option(BUILD_NEUTRON_BENCHMARK "Build benchmark for neutron" OFF)
 
@@ -104,6 +106,27 @@ if(NEUTRON_BUILD_DOCS)
     VERBATIM)
 endif()
 
+if(NEUTRON_USES_STDEXEC)
+  include(FetchContent)
+  FetchContent_Declare(
+    stdexec
+    GIT_REPOSITORY https://github.com/NVIDIA/stdexec.git
+    GIT_TAG main
+    GIT_SHALLOW 1
+  )
+  FetchContent_MakeAvailable(stdexec)
+  target_link_libraries(neutron INTERFACE STDEXEC::stdexec)
+elseif(NEUTRON_USES_BEMAN_EXECUTION)
+  include(FetchContent)
+  FetchContent_Declare(
+    beman_execution
+    GIT_REPOSITORY https://github.com/bemanproject/execution.git
+    GIT_TAG main
+    GIT_SHALLOW 1
+  )
+  FetchContent_MakeAvailable(beman_execution)
+  target_link_libraries(neutron INTERFACE beman::execution_headers)
+endif()
 
 include(exec)
 
