@@ -7,7 +7,6 @@
 #include <condition_variable>
 #include <cstddef>
 #include <exception>
-#include <memory>
 #include <mutex>
 #include <queue>
 #include <stdexcept>
@@ -15,9 +14,9 @@
 #include <type_traits>
 #include <utility>
 #include <vector>
-#include "neutron/concepts.hpp"
 #include "neutron/detail/macros.hpp"
 #include "neutron/execution.hpp"
+#include "neutron/stop_token.hpp"
 
 namespace thread_pool_for_test {
 
@@ -72,14 +71,9 @@ public:
     }
 
     ATOM_NODISCARD
-    constexpr auto query(
+    constexpr auto query( // NOLINT
         ::neutron::execution::get_forward_progress_guarantee_t) const noexcept {
         return neutron::execution::forward_progress_guarantee::parallel;
-    }
-
-    ATOM_NODISCARD constexpr auto
-        query(::neutron::get_allocator_t) const noexcept {
-        return std::allocator<void>{};
     }
 
 private:
