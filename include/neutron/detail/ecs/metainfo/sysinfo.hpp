@@ -494,11 +494,29 @@ struct _validate_sysinfo<type_list<_sys_traits<WorldExecInfo, Desc>...>> {
         _validate_sysinfo_impl<info_list, info_list>::value;
 };
 
+template <stage Stage>
+inline constexpr bool _stage_allows_system_interval_v =
+    Stage == pre_update || Stage == update || Stage == post_update ||
+    Stage == render;
+
+template <stage Stage, typename TraitsList>
+struct _validate_stage_system_intervals;
+
+template <
+    stage Stage, template <typename...> typename Template,
+    typename... SysTraits>
+struct _validate_stage_system_intervals<Stage, Template<SysTraits...>> :
+    std::bool_constant<
+        _stage_allows_system_interval_v<Stage> ||
+        (... && !SysTraits::raw_execute_traits::has_interval)> {};
+
 template <stage Stage, auto... Desc>
 struct _validate_sysinfo<tagged_value_list<sys_tag_t<Stage>, Desc...>> {
     using _traits_list =
         _sysinfo_traits_list_t<tagged_value_list<sys_tag_t<Stage>, Desc...>>;
-    static constexpr bool value = _validate_sysinfo<_traits_list>::value;
+    static constexpr bool value =
+        _validate_sysinfo<_traits_list>::value &&
+        _validate_stage_system_intervals<Stage, _traits_list>::value;
 };
 
 template <stage Stage, typename Descriptor>
@@ -507,6 +525,8 @@ struct stage_sysinfo {
     using world_execute = fetch_execinfo_t<Descriptor>;
     using traits_list   = _sysinfo_traits_list_for_t<Stage, Descriptor>;
     using validator     = _validate_sysinfo<traits_list>;
+    using interval_validator =
+        _validate_stage_system_intervals<Stage, traits_list>;
 
     using arg_lists       = typename validator::arg_lists;
     using query_list      = typename validator::query_list;
@@ -518,7 +538,7 @@ struct stage_sysinfo {
     using access_keys     = typename validator::access_keys;
     using write_keys      = typename validator::write_keys;
 
-    static constexpr bool value = validator::value;
+    static constexpr bool value = validator::value && interval_validator::value;
 };
 
 } // namespace _metainfo
