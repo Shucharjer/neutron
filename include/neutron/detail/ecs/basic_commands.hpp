@@ -5,9 +5,9 @@
 #include <memory>
 #include <memory_resource>
 #include <utility>
-#include <neutron/concepts.hpp>
-#include <neutron/ecs.hpp>
+#include "neutron/concepts.hpp"
 #include "neutron/detail/ecs/command_buffer.hpp"
+#include "neutron/detail/ecs/component.hpp"
 #include "neutron/detail/ecs/construct_from_world.hpp"
 #include "neutron/detail/ecs/fwd.hpp"
 
