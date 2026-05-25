@@ -2,6 +2,7 @@
 #pragma once
 #include "neutron/detail/ecs/fwd.hpp"
 
+#include <bit>
 #include <concepts>
 #include <cstddef>
 #include <memory>
@@ -10,12 +11,6 @@
 #include <vector>
 #include "neutron/detail/ecs/world_base.hpp"
 
-#ifndef neutron_STD_FUNCTION_CMDBUF
-    #include <bit>
-#else
-    #include <functional>
-#endif
-
 #ifdef __clang__
 #elif defined(__GNUC__)
     #pragma GCC diagnostic push
@@ -23,8 +18,6 @@
 #endif
 
 namespace neutron {
-
-#ifndef neutron_STD_FUNCTION_CMDBUF
 
 // The code is not fully tested yet, it's useful currently.
 // This version may be a little faster than std::function version.
@@ -304,7 +297,7 @@ class alignas(std::hardware_destructive_interference_size) command_buffer {
 
     using _command_base = _command::_command_base<Alloc>;
 
-    static constexpr size_t block_size  = 1024U << 4UL; // 16kb
+    static constexpr size_t block_size  = 1024U << 4UL; // 16kB
     static constexpr auto default_align = static_cast<std::align_val_t>(16);
 
     struct _ptr_deletor {
@@ -531,159 +524,6 @@ private:
     /// buffers store commands
     _vector_t<_unique_ptr> buffers_;
 };
-
-#else
-
-/**
- * @class command_buffer
- * @brief A buffer stores commands in a single thread.
- *
- * @tparam Alloc
- */
-template <std_simple_allocator Alloc = std::allocator<std::byte>>
-class alignas(std::hardware_destructive_interference_size) command_buffer {
-
-    template <typename Ty>
-    using _allocator_t = neutron::rebind_alloc_t<Alloc, Ty>;
-
-    template <typename Ty>
-    using _vector_t = std::vector<Ty, _allocator_t<Ty>>;
-
-    using _world_base = world_base<Alloc>;
-
-public:
-    template <typename Al = Alloc>
-    constexpr command_buffer(const Al& alloc = {}) : commands_(alloc) {}
-
-    constexpr void reset() noexcept {
-        inframe_index_ = 0;
-        commands_.clear();
-    }
-
-    constexpr future_entity_t spawn() noexcept {
-        auto fut = future_entity_t{ inframe_index_++ };
-        commands_.emplace_back(
-            [fut](_world_base& world, _vector_t<entity_t>& future_map) {
-                future_map[fut.get()] = world.spawn();
-            });
-        return fut;
-    }
-
-    template <component... Components>
-    requires(std::same_as<Components, std::remove_cvref_t<Components>> && ...)
-    future_entity_t spawn() {
-        const auto fut = future_entity_t{ inframe_index_++ };
-        commands_.emplace_back(
-            [fut](_world_base& world, _vector_t<entity_t>& future_map) {
-                future_map[fut.get()] = world.template spawn<Components...>();
-            });
-        return fut;
-    }
-
-    template <component... Components>
-    future_entity_t spawn(Components&&... components) {
-        const auto fut = future_entity_t{ inframe_index_++ };
-        commands_.emplace_back(
-            [fut, ... comps = std::forward<Components>(components)](
-                _world_base& world, _vector_t<entity_t>& future_map) {
-                future_map[fut.get()] = world.spawn(std::move(comps)...);
-            });
-        return fut;
-    }
-
-    template <component... Components>
-    requires(std::same_as<Components, std::remove_cvref_t<Components>> && ...)
-    void add_components(future_entity_t entity) {
-        commands_.emplace_back(
-            [entity](_world_base& world, _vector_t<entity_t>& future_map) {
-                const entity_t ntt = future_map[entity.get()];
-                world.template add_components<Components...>(ntt);
-            });
-    }
-
-    template <component... Components>
-    requires(std::same_as<Components, std::remove_cvref_t<Components>> && ...)
-    void add_components(entity_t entity) {
-        commands_.emplace_back(
-            [entity](
-                _world_base& world, [[maybe_unused]] _vector_t<entity_t>&) {
-                world.template add_components<Components...>(entity);
-            });
-    }
-
-    template <component... Components>
-    void add_components(future_entity_t entity, Components&&... comopnents) {
-        commands_.emplace_back(
-            [entity, ... comps = std::forward<Components>(comopnents)](
-                _world_base& world, _vector_t<entity_t>& future_map) {
-                const entity_t ntt = future_map[entity.get()];
-                world.add_components(ntt, std::move(comps)...);
-            });
-    }
-
-    template <component... Components>
-    void add_components(entity_t entity, Components&&... components) {
-        commands_.emplace_back(
-            [entity, ... comps = std::forward<Components>(components)](
-                _world_base& world, [[maybe_unused]] _vector_t<entity_t>&) {
-                world.add_components(entity, std::move(comps)...);
-            });
-    }
-
-    template <component... Components>
-    requires(std::same_as<Components, std::remove_cvref_t<Components>> && ...)
-    void remove_components(future_entity_t entity) {
-        commands_.emplace_back(
-            [entity](_world_base& world, _vector_t<entity_t>& future_map) {
-                const entity_t ntt = future_map[entity.get()];
-                world.template remove_components<Components...>(ntt);
-            });
-    }
-
-    template <component... Components>
-    requires(std::same_as<Components, std::remove_cvref_t<Components>> && ...)
-    void remove_components(entity_t entity) {
-        commands_.emplace_back(
-            [entity](
-                _world_base& world, [[maybe_unused]] _vector_t<entity_t>&) {
-                world.template remove_components<Components...>(entity);
-            });
-    }
-
-    void kill(future_entity_t entity) {
-        commands_.emplace_back(
-            [entity](
-                _world_base& world, _vector_t<entity_t>& future_map) noexcept {
-                const entity_t ntt = future_map[entity.get()];
-                world.kill(ntt);
-            });
-    }
-
-    void kill(entity_t entity) {
-        commands_.emplace_back(
-            [entity](
-                _world_base& world,
-                [[maybe_unused]] _vector_t<entity_t>&) noexcept {
-                world.kill(entity);
-            });
-    }
-
-    void apply(world_base<Alloc>& world) {
-        _vector_t<entity_t> future_map(
-            inframe_index_, commands_.get_allocator());
-
-        for (auto& cmd : commands_) {
-            cmd(world, future_map);
-        }
-    }
-
-private:
-    index_t inframe_index_{};
-    _vector_t<std::function<void(_world_base&, _vector_t<entity_t>&)>>
-        commands_;
-};
-
-#endif
 
 } // namespace neutron
 
