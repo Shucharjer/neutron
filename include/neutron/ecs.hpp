@@ -20,16 +20,14 @@
 #include "neutron/detail/ecs/res.hpp"
 #include "neutron/detail/ecs/resource.hpp"
 #include "neutron/detail/ecs/run.hpp"
+#include "neutron/detail/ecs/runtime.hpp"
 #include "neutron/detail/ecs/slice.hpp"
 #include "neutron/detail/ecs/stage.hpp"
-#include "neutron/detail/ecs/sync.hpp"
+#include "neutron/detail/ecs/sync_point.hpp"
 #include "neutron/detail/ecs/systuple.hpp"
 #include "neutron/detail/ecs/task_graph.hpp"
 #include "neutron/detail/ecs/world.hpp"
 #include "neutron/detail/ecs/world_accessor.hpp"
 #include "neutron/detail/ecs/world_base.hpp"
 #include "neutron/detail/ecs/world_descriptor.hpp"
-#include "neutron/detail/ecs/world_schedule.hpp"
-
-#include "neutron/detail/ecs/runtime.hpp"
 // IWYU pragma: end_exports

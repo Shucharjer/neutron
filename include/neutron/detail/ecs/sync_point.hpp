@@ -5,11 +5,13 @@
 #include <cstddef>
 #include <cstdint>
 #include <tuple>
-#include <neutron/ecs.hpp>
 #include "neutron/detail/concepts/one_of.hpp"
+#include "neutron/detail/ecs/construct_from_world.hpp"
+#include "neutron/detail/ecs/fwd.hpp"
 #include "neutron/detail/metafn/cat.hpp"
 #include "neutron/detail/metafn/definition.hpp"
-#include "neutron/detail/metafn/has.hpp"
+#include "neutron/detail/metafn/element.hpp"
+#include "neutron/detail/metafn/size.hpp"
 #include "neutron/detail/metafn/specific.hpp"
 #include "neutron/tstring.hpp"
 
