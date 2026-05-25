@@ -452,6 +452,9 @@ private:
     auto _dst_transition_remove(archetype* archetype, uint64_t delta)
         -> _transition_target&;
 
+    /// @brief Version of component storage.
+    std::uint64_t version_;
+
     /// @brief A container stores archetypes with combined hash.
     archetype_map archetypes_;
 
@@ -487,6 +490,7 @@ constexpr void world_base<Alloc>::_emplace_new_entity(entity_t entity) {
             hash, archetype{ spread_type<Components...> });
         iter->second.template emplace<Components...>(entity);
         slot.second = &iter->second;
+        ++version_;
     }
 }
 
@@ -517,6 +521,7 @@ constexpr void world_base<Alloc>::_emplace_new_entities(Rng& range) {
         auto on_append = bind_archetype(&created->second);
         created->second.template _emplace_with_entity_binding<Components...>(
             range, on_append, reset_archetype);
+        ++version_;
     }
 }
 
@@ -559,6 +564,7 @@ constexpr void world_base<Alloc>::_emplace_new_entity(
             hash, archetype{ spread_type<std::remove_cvref_t<Components>...> });
         iter->second.emplace(entity, std::forward<Components>(components)...);
         slot.second = &iter->second;
+        ++version_;
     }
 }
 
@@ -592,6 +598,7 @@ constexpr void world_base<Alloc>::_emplace_new_entities(
         created->second._emplace_with_entity_binding(
             range, on_append, reset_archetype,
             std::forward<Components>(components)...);
+        ++version_;
     }
 }
 
@@ -702,6 +709,7 @@ constexpr void world_base<Alloc>::add_components(entity_t entity) {
             auto [it, _] = archetypes_.try_emplace(
                 transition.hash, *archetype,
                 add_components_t<std::remove_cvref_t<Components>...>{});
+            ++version_;
             iter = it;
         }
         target            = &iter->second;
@@ -743,6 +751,7 @@ constexpr void world_base<Alloc>::add_components(
             auto [it, _] = archetypes_.try_emplace(
                 transition.hash, *archetype,
                 add_components_t<std::remove_cvref_t<Components>...>{});
+            ++version_;
             iter = it;
         }
         target            = &iter->second;
@@ -787,6 +796,7 @@ constexpr void world_base<Alloc>::remove_components(entity_t entity) {
             auto [it, _] = archetypes_.try_emplace(
                 transition.hash, *archetype,
                 remove_components_t<Components...>{});
+            ++version_;
             iter = it;
         }
         target            = &iter->second;
@@ -853,6 +863,7 @@ void world_base<Alloc>::clear() {
         archetype.clear();
     }
     _clear_entities();
+    version_ = 0;
 }
 
 } // namespace _world_base

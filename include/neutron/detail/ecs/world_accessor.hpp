@@ -33,17 +33,7 @@ struct world_accessor {
     }
     template <world World>
     static auto version(World& world) noexcept {
-        return world.archetypes_.size();
-    }
-    template <world World>
-    static auto& insertion_context(World& world) noexcept {
-        return world.insertion_context_;
-    }
-    template <stage Stage, world World>
-    static void call_task(
-        World& world, size_t index,
-        typename std::remove_cvref_t<World>::command_buffer* cmdbuf) {
-        world.template _call_task<Stage>(index, cmdbuf);
+        return world.version_;
     }
 };
 
