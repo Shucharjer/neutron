@@ -1,5 +1,6 @@
 #include <neutron/ecs.hpp>
 #include <neutron/print.hpp>
+#include "thread_pool.hpp"
 
 using namespace neutron;
 using enum stage;
@@ -24,8 +25,22 @@ void echo(commands cmds, meta_accessor accessor) {
 
 int main() {
     constexpr auto desc = world_desc | add_systems<update, norm, echo>;
-    auto world          = make_world<desc>();
-    world.template call<update>();
+    struct hooks {
+        int polls = 0;
+
+        bool poll_events() noexcept {
+            ++polls;
+            return true;
+        }
+
+        [[nodiscard]] bool is_stopped() const noexcept { return polls > 1; }
+    };
+
+    thread_pool pool(2);
+    auto sch = pool.get_scheduler();
+    hooks runtime_hooks;
+    auto runtime = make_runtime<desc>(sch, &runtime_hooks);
+    runtime.run();
 
     return 0;
 }

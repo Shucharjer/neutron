@@ -5,7 +5,6 @@
 #include <cstddef>
 #include <memory_resource>
 #include <tuple>
-#include <vector>
 #include <neutron/ecs.hpp>
 #include <neutron/execution.hpp>
 #include <neutron/metafn.hpp>
@@ -14,7 +13,16 @@
 using commands = neutron::basic_commands<std::pmr::polymorphic_allocator<>>;
 
 class myapp {
-    struct insertion {};
+    struct single_frame {
+        int polls = 0;
+
+        bool poll_events() noexcept {
+            ++polls;
+            return true;
+        }
+
+        [[nodiscard]] bool is_stopped() const noexcept { return polls > 1; }
+    };
 
 public:
     using config_type = std::tuple<>;
@@ -38,21 +46,10 @@ public:
         auto thread_pool   = thread_pool_for_test::thread_pool{};
         scheduler auto sch = thread_pool.get_scheduler();
 
-        // make command buffers
-
-        using command_buffer_t = command_buffer<allocator_t>;
-        using _cmdbuf_allocator =
-            std::pmr::polymorphic_allocator<command_buffer_t>;
-        const auto concurrency = thread_pool.available_parallelism();
-        std::pmr::vector<command_buffer_t> command_buffers(
-            concurrency, _cmdbuf_allocator{ alloc });
-
-        // make worlds
-
-        auto worlds = make_worlds<Worlds...>(alloc);
-
-        insertion insertion{};
-        auto rt = make_runtime(insertion, sch, command_buffers, worlds);
-        rt.run();
+        if constexpr (sizeof...(Worlds) != 0) {
+            auto hooks = single_frame{};
+            auto rt    = make_runtime<Worlds...>(sch, &hooks, alloc);
+            rt.run();
+        }
     }
 };

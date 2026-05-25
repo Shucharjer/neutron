@@ -3,6 +3,7 @@
 #include <neutron/ecs.hpp>
 #include "neutron/detail/ecs/basic_querior.hpp"
 #include "require.hpp"
+#include "thread_pool.hpp"
 
 using namespace neutron;
 using enum stage;
@@ -54,18 +55,33 @@ auto test_manual_query_keeps_snapshot_behavior() -> int {
 
 auto test_cached_query_syncs_on_each_system_call() -> int {
     constexpr auto desc = world_desc | add_systems<update, &observe>;
-    basic_world<decltype(desc)> world;
+    struct hooks {
+        int polls = 0;
+
+        bool poll_events() noexcept {
+            ++polls;
+            return true;
+        }
+
+        [[nodiscard]] bool is_stopped() const noexcept { return polls > 1; }
+    };
+    hooks runtime_hooks;
+    thread_pool pool(2);
+    auto sch     = pool.get_scheduler();
+    auto runtime = make_runtime<desc>(sch, &runtime_hooks);
+    auto& world  = runtime.template run_env<0>().template get_world<0>();
 
     observed_count = 0;
     observed_sum   = 0;
     world.spawn(1);
-    world.call<update>();
+    runtime.run();
     if (observed_count != 1 || observed_sum != 1) {
         return 2;
     }
 
     world.spawn(2, 3L);
-    world.call<update>();
+    runtime_hooks.polls = 0;
+    runtime.run();
     return observed_count == 2 && observed_sum == 3 ? 0 : 3;
 }
 

@@ -172,5 +172,37 @@ int main() {
         { exec_plain_2, after<exec_plain> }>(world_desc);
     static_assert(!validate_update_desc_v<cyclic_dependency>);
 
+    constexpr auto preupdate_interval =
+        world_desc | add_systems<pre_update, { exec_plain, interval<1.0> }>;
+    static_assert(
+        stage_sysinfo<pre_update, decltype(preupdate_interval)>::value);
+    static_assert(descriptor_traits<decltype(preupdate_interval)>::value);
+
+    constexpr auto update_interval =
+        world_desc | add_systems<update, { exec_plain, interval<1.0> }>;
+    static_assert(stage_sysinfo<update, decltype(update_interval)>::value);
+    static_assert(descriptor_traits<decltype(update_interval)>::value);
+
+    constexpr auto postupdate_interval =
+        world_desc | add_systems<post_update, { exec_plain, interval<1.0> }>;
+    static_assert(
+        stage_sysinfo<post_update, decltype(postupdate_interval)>::value);
+    static_assert(descriptor_traits<decltype(postupdate_interval)>::value);
+
+    constexpr auto render_interval =
+        world_desc | add_systems<render, { exec_plain, interval<1.0> }>;
+    static_assert(stage_sysinfo<render, decltype(render_interval)>::value);
+    static_assert(descriptor_traits<decltype(render_interval)>::value);
+
+    constexpr auto startup_interval =
+        world_desc | add_systems<startup, { exec_plain, interval<1.0> }>;
+    static_assert(!stage_sysinfo<startup, decltype(startup_interval)>::value);
+    static_assert(!descriptor_traits<decltype(startup_interval)>::value);
+
+    constexpr auto events_interval =
+        world_desc | add_systems<events, { exec_plain, interval<1.0> }>;
+    static_assert(!stage_sysinfo<events, decltype(events_interval)>::value);
+    static_assert(!descriptor_traits<decltype(events_interval)>::value);
+
     return 0;
 }

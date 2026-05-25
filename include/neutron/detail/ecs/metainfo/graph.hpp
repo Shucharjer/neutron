@@ -353,9 +353,9 @@ private:
         std::array<bool, size> values{};
         []<std::size_t... Is>(
             std::array<bool, size>& target, std::index_sequence<Is...>) {
-            (void)std::initializer_list<int>{
-                ((target[Is] = node_t<Is>::execute_traits::has_interval), 0)...
-            };
+            (void)std::initializer_list<int>{ (
+                (target[Is] = node_t<Is>::raw_execute_traits::has_interval),
+                0)... };
         }(values, std::make_index_sequence<size>{});
         return values;
     }
@@ -365,7 +365,8 @@ private:
         []<std::size_t... Is>(
             std::array<double, size>& target, std::index_sequence<Is...>) {
             (void)std::initializer_list<int>{ (
-                (target[Is] = node_t<Is>::execute_traits::execution_interval),
+                (target[Is] =
+                     node_t<Is>::raw_execute_traits::execution_interval),
                 0)... };
         }(values, std::make_index_sequence<size>{});
         return values;

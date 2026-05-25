@@ -1,9 +1,10 @@
-#include <array>
 #include <cstddef>
+#include <tuple>
 #include <type_traits>
 #include "neutron/detail/ecs/basic_commands.hpp"
 #include "neutron/detail/ecs/metainfo.hpp"
 #include "neutron/detail/ecs/task_graph.hpp"
+#include "neutron/detail/ecs/world.hpp"
 #include "neutron/detail/ecs/world_descriptor.hpp"
 
 using namespace neutron;
@@ -96,6 +97,24 @@ int main() {
             typename desc_multi_before_graph::template predecessor_indices<2>,
             value_list<std::size_t{ 0 }>>);
 
+    using world0            = basic_world<decltype(desc_multi_before)>;
+    using world0_tasks      = decltype(world0::template get_tasks<update>());
+    using stage_task_graph0 = _stage_task_graph<world0_tasks>;
+
+    static_assert(std::same_as<
+                  typename world0_tasks::descriptor_type,
+                  decltype(desc_multi_before)>);
+    static_assert(world0_tasks::stage_value == update);
+    static_assert(stage_task_graph0::size == 4);
+    static_assert(stage_task_graph0::task_count == 4);
+    static_assert(stage_task_graph0::predecessor_counts[0] == 0);
+    static_assert(stage_task_graph0::predecessor_counts[1] == 1);
+    static_assert(stage_task_graph0::predecessor_counts[2] == 1);
+    static_assert(stage_task_graph0::successor_counts[0] == 2);
+    static_assert(stage_task_graph0::successors[0][0] == 1);
+    static_assert(stage_task_graph0::successors[0][1] == 2);
+    static_assert(stage_task_graph0::local_task_indices[3] == 3);
+
     constexpr auto desc3 =
         world_desc | add_systems<
                          update, { &cmd_foo }, { &cmd_after, after<&cmd_foo> },
@@ -106,41 +125,35 @@ int main() {
     static_assert(!desc3_graph::has_commands[1]);
     static_assert(!desc3_graph::has_commands[2]);
 
-    stage_task_graph<desc3_graph> runtime_graph;
-    std::array<size_t, desc3_graph::size> ready{};
+    constexpr auto env_world0 =
+        world_desc |
+        add_systems<
+            update, { exec_plain }, { exec_plain_2, after<exec_plain> }>;
+    constexpr auto env_world1 =
+        world_desc | add_systems<update, exec_plain_3, exec_plain_4>;
+    using env_slot0 = basic_world<decltype(env_world0)>;
+    using env_slot1 = basic_world<decltype(env_world1)>;
+    using env_graph = _env_task_graph<
+        decltype(env_slot0::template get_tasks<update>()),
+        decltype(env_slot1::template get_tasks<update>())>;
 
-    auto ready_count = runtime_graph.collect_runnable(ready);
-    if (ready_count != 2 || ready[0] != 0 || ready[1] != 2) {
-        return 1;
-    }
-
-    runtime_graph.complete(0);
-    if (!runtime_graph.dirty_commands() ||
-        runtime_graph.state(1).pending_predecessors != 0 ||
-        !runtime_graph.state(1).blocked_by_commands) {
-        return 2;
-    }
-
-    ready_count = runtime_graph.collect_runnable(ready);
-    if (ready_count != 1 || ready[0] != 2) {
-        return 3;
-    }
-
-    runtime_graph.complete(2);
-    if (!runtime_graph.needs_flush()) {
-        return 4;
-    }
-
-    runtime_graph.flush();
-    ready_count = runtime_graph.collect_runnable(ready);
-    if (ready_count != 1 || ready[0] != 1) {
-        return 5;
-    }
-
-    runtime_graph.complete(1);
-    if (!runtime_graph.done()) {
-        return 6;
-    }
+    static_assert(env_graph::world_count == 2);
+    static_assert(env_graph::task_count == 4);
+    static_assert(env_graph::world_indices[0] == 0);
+    static_assert(env_graph::world_indices[1] == 0);
+    static_assert(env_graph::world_indices[2] == 1);
+    static_assert(env_graph::world_indices[3] == 1);
+    static_assert(env_graph::local_task_indices[0] == 0);
+    static_assert(env_graph::local_task_indices[1] == 1);
+    static_assert(env_graph::local_task_indices[2] == 0);
+    static_assert(env_graph::local_task_indices[3] == 1);
+    static_assert(env_graph::predecessor_counts[0] == 0);
+    static_assert(env_graph::predecessor_counts[1] == 1);
+    static_assert(env_graph::predecessor_counts[2] == 0);
+    static_assert(env_graph::predecessor_counts[3] == 0);
+    static_assert(env_graph::successor_counts[0] == 1);
+    static_assert(env_graph::successors[0][0] == 1);
+    static_assert(env_graph::max_concurrency == 3);
 
     return 0;
 }

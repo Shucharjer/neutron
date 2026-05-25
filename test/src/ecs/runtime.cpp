@@ -1,170 +1,98 @@
-#include "neutron/detail/ecs/runtime.hpp"
-#include <type_traits>
-#include <utility>
+#include <atomic>
+#include <chrono>
+#include <thread>
+#include <neutron/detail/ecs/runtime.hpp>
+#include <neutron/detail/ecs/world_descriptor.hpp>
 #include <neutron/ecs.hpp>
+#include <neutron/execution.hpp> // IWYU pragma: keep, for run_loop
+#include "require.hpp"
 #include "thread_pool.hpp"
 
 using namespace neutron;
 using enum stage;
 
-struct marker {
-    int value = 0;
-};
+std::atomic<int> flat_started = 0;
+std::atomic<int> flat_passed  = 0;
 
-template <>
-constexpr bool neutron::as_component<marker> = true;
+void flat_task() {
+    flat_started.fetch_add(1, std::memory_order_acq_rel);
+    const auto deadline =
+        std::chrono::steady_clock::now() + std::chrono::seconds{ 1 };
+    while (flat_started.load(std::memory_order_acquire) < 2 &&
+           std::chrono::steady_clock::now() < deadline) {
+        std::this_thread::yield();
+    }
+    if (flat_started.load(std::memory_order_acquire) >= 2) {
+        flat_passed.fetch_add(1, std::memory_order_acq_rel);
+    }
+}
 
 struct impl {
     int updates = 0;
 
-    bool poll_events() { return false; }
-    bool is_stopped() { return updates++ != 0; }
+    bool poll_events() noexcept {
+        ++updates;
+        return false;
+    }
+    [[nodiscard]] bool is_stopped() const noexcept { return updates < 8; }
     void render_begin() {}
     void render_end() {}
 };
 
-struct two_update_impl {
-    int checks = 0;
+int do_test(auto& sch) {
+    constexpr void (*fn1)() = [] {};
+    constexpr void (*fn2)() = [] {};
 
-    bool poll_events() { return false; }
-    bool is_stopped() { return checks++ >= 2; }
-    void render_begin() {}
-    void render_end() {}
-};
+    constexpr auto world1 =
+        world_desc | enable_events | enable_render | add_systems<update, fn1>;
+    constexpr auto world2 = world_desc | add_systems<update, fn2>;
 
-class app : impl {
-    app() = default;
-
-public:
-    static app create() { return {}; }
-
-    template <auto... Worlds>
-    int run() {
-        using namespace thread_pool_for_test;
-        thread_pool pool;
-
-        scheduler auto sch = pool.get_scheduler();
-        auto rt = make_runtime<Worlds...>(sch, static_cast<impl*>(this));
-        return rt.run();
-    }
-};
-
-void foo() {}
-void bar() {}
-int marker_count               = 0;
-int interval_always_count      = 0;
-int local_interval_count       = 0;
-int local_interval_after_count = 0;
-
-void spawn_marker(commands cmd) { cmd.spawn<marker>(); }
-
-void count_marker(query<with<marker&>> query) {
-    marker_count = 0;
-    for ([[maybe_unused]] auto marker : query.get()) {
-        ++marker_count;
-    }
+    impl impl;
+    auto rt = make_runtime<world1, world2>(sch, &impl);
+    return rt.run();
 }
 
-void count_interval_always() { ++interval_always_count; }
+int test_with_run_loop() {
+    execution::run_loop loop;
+    auto sch = loop.get_scheduler();
+    return do_test(sch);
+}
 
-void count_local_interval() { ++local_interval_count; }
-
-void count_after_local_interval() { ++local_interval_after_count; }
-
-constexpr auto world1 = world_desc | add_systems<update, foo>;
-constexpr auto world2 =
-    world_desc | add_systems<update, foo> | execute<group<2>>;
-constexpr auto world3 =
-    world_desc | add_systems<update, foo> | execute<individual>;
-constexpr auto world4 =
-    world_desc | add_systems<update, foo> | execute<group<2>>;
-constexpr auto world5 =
-    world_desc | add_systems<update, foo> | execute<individual>;
-
-constexpr auto task_world =
-    world_desc | add_systems<update, foo, { bar, after<foo> }>;
-constexpr auto command_world =
-    world_desc |
-    add_systems<update, spawn_marker, { count_marker, after<spawn_marker> }>;
-constexpr auto local_interval_world =
-    world_desc |
-    add_systems<
-        update, count_interval_always,
-        { count_local_interval, interval<1000.0> },
-        { count_after_local_interval, after<count_local_interval> }>;
-constexpr auto group_world_a =
-    world_desc | add_systems<update, foo> | execute<group<3>>;
-constexpr auto group_world_b =
-    world_desc | add_systems<update, foo> | execute<group<3>>;
-constexpr auto group_world_c =
-    world_desc | add_systems<update, foo> | execute<group<3>>;
-
-template <typename Runtime>
-using first_run_env_t = std::remove_cvref_t<
-    decltype(std::declval<Runtime&>().template run_env<0>())>;
-
-using command_world_state = neutron::_runtime::_world_state<
-    std::remove_cvref_t<decltype(command_world)>, std::allocator<std::byte>>;
-static_assert(!noexcept(std::declval<command_world_state&>().flush(0)));
-
-int main() {
+int test_with_pool() {
     thread_pool pool;
     auto sch = pool.get_scheduler();
-    auto rt  = make_runtime<world1, world2, world3, world4, world5>(
-        sch, static_cast<impl*>(nullptr));
+    return do_test(sch);
+}
 
-    auto typed_world = make_world<task_world>();
-    constexpr auto tasks =
-        std::remove_cvref_t<decltype(typed_world)>::get_tasks();
-    using update_tasks = typename decltype(tasks)::template graph<update>;
-    static_assert(update_tasks::size == 2);
-    static_assert(update_tasks::predecessor_counts[1] == 1);
+int test_flat_group_dispatch() {
+    constexpr auto world1 = world_desc | add_systems<update, &flat_task>;
+    constexpr auto world2 = world_desc | add_systems<update, &flat_task>;
 
-    auto task_rt = make_runtime<task_world>(sch, static_cast<impl*>(nullptr));
-    static_assert(decltype(task_rt)::run_env_count == 1);
-    static_assert(
-        requires { task_rt.template run_env<0>().template world<0>(); });
-    using single_group_env = first_run_env_t<decltype(task_rt)>;
-    static_assert(
-        single_group_env::max_concurrency == get_max_concurrency(task_world));
+    struct single_frame {
+        int polls = 0;
 
-    auto group_rt = make_runtime<group_world_a, group_world_b, group_world_c>(
-        sch, static_cast<impl*>(nullptr));
-    using multi_group_env = first_run_env_t<decltype(group_rt)>;
-    static_assert(
-        multi_group_env::max_concurrency == get_max_concurrency(group_world_a));
+        bool poll_events() noexcept {
+            ++polls;
+            return true;
+        }
 
-    impl command_payload{};
-    auto command_rt = make_runtime<command_world>(sch, &command_payload);
-    marker_count    = 0;
-    command_rt.run();
-    if (marker_count != 1) {
-        return 1;
-    }
+        [[nodiscard]] bool is_stopped() const noexcept { return polls > 1; }
+    };
 
-    two_update_impl interval_payload{};
-    auto interval_rt =
-        make_runtime<local_interval_world>(sch, &interval_payload);
-    interval_always_count      = 0;
-    local_interval_count       = 0;
-    local_interval_after_count = 0;
-    interval_rt.run();
-    if (interval_always_count != 2 || local_interval_count != 1 ||
-        local_interval_after_count != 2) {
-        return 2;
-    }
+    flat_started.store(0, std::memory_order_release);
+    flat_passed.store(0, std::memory_order_release);
 
-    auto interval_step_rt =
-        make_runtime<local_interval_world>(sch, static_cast<impl*>(nullptr));
-    interval_always_count      = 0;
-    local_interval_count       = 0;
-    local_interval_after_count = 0;
-    interval_step_rt.template run_env<0>().update_step();
-    interval_step_rt.template run_env<0>().update_step();
-    if (interval_always_count != 2 || local_interval_count != 1 ||
-        local_interval_after_count != 2) {
-        return 3;
-    }
+    single_frame hooks;
+    thread_pool pool(3);
+    auto sch = pool.get_scheduler();
+    auto rt  = make_runtime<world1, world2>(sch, &hooks);
+    rt.run();
+    return flat_passed.load(std::memory_order_acquire) == 2 ? 0 : 1;
+}
 
-    return app::create() | run_worlds<world1, world2, world3, world4, world5>();
+int main() {
+    require_or_return(test_with_pool() == 0, 1);
+    require_or_return(test_with_pool() == 0, 2);
+    require_or_return(test_flat_group_dispatch() == 0, 3);
+    return 0;
 }

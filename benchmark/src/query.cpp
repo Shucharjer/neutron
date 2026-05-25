@@ -1,6 +1,7 @@
 #include <cstddef>
 #include <benchmark/benchmark.h>
 #include <neutron/ecs.hpp>
+#include "thread_pool.hpp"
 
 using namespace neutron;
 using enum stage;
@@ -91,7 +92,22 @@ static void BM_query_manual_call(benchmark::State& state) {
 static void BM_query_automatic_call(benchmark::State& state) {
     const auto count = static_cast<std::size_t>(state.range());
 
-    basic_world<decltype(automatic_desc)> world;
+    struct hooks {
+        int polls = 0;
+
+        bool poll_events() noexcept {
+            ++polls;
+            return true;
+        }
+
+        [[nodiscard]] bool is_stopped() const noexcept { return polls > 1; }
+    };
+
+    thread_pool pool(2);
+    auto sch = pool.get_scheduler();
+    hooks runtime_hooks;
+    auto runtime = make_runtime<automatic_desc>(sch, &runtime_hooks);
+    auto& world  = runtime.template run_env<0>().template get_world<0>();
     world.reserve(count);
     world.template reserve<Position, Velocity>(count);
     for (std::size_t i = 0; i < count; ++i) {
@@ -102,10 +118,11 @@ static void BM_query_automatic_call(benchmark::State& state) {
                 static_cast<float>(i + 3U),
             });
     }
-    world.call<update>(); // update version, prefetch
+    runtime.run(); // update version, prefetch
 
     for (auto _ : state) {
-        world.call<update>();
+        runtime_hooks.polls = 0;
+        runtime.run();
     }
 }
 

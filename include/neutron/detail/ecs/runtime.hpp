@@ -1,6 +1,7 @@
 #pragma once
 #include <array>
-#include <chrono>
+#include <atomic>
+#include <cassert>
 #include <condition_variable>
 #include <csignal>
 #include <cstddef>
@@ -15,20 +16,19 @@
 #include <type_traits>
 #include <utility>
 #include <vector>
+#include "neutron/detail/ecs/task_graph.hpp"
 #include "neutron/detail/ecs/world.hpp"
 #include "neutron/detail/ecs/world_accessor.hpp"
 #include "neutron/detail/ecs/world_descriptor/queries/get_events.hpp"
-#include "neutron/detail/ecs/world_descriptor/queries/get_execution_interval.hpp"
 #include "neutron/detail/ecs/world_descriptor/queries/get_execution_policy.hpp"
 #include "neutron/detail/ecs/world_descriptor/queries/get_max_buffer_count.hpp"
 #include "neutron/detail/ecs/world_descriptor/queries/get_max_concurrency.hpp"
-#include "neutron/detail/ecs/world_descriptor/queries/get_min_concurrency.hpp"
 #include "neutron/detail/ecs/world_descriptor/queries/get_render.hpp"
-#include "neutron/detail/execution/fwd.hpp"
 #include "neutron/detail/macros.hpp"
-#include "neutron/detail/metafn/cat.hpp"
+#include "neutron/detail/memory/rebind_alloc.hpp"
 #include "neutron/detail/tuple/shared_tuple.hpp"
 #include "neutron/execution.hpp"
+#include "neutron/metafn.hpp"
 
 namespace neutron {
 
@@ -43,6 +43,7 @@ struct _run_env_for_individual_spec {};
 
 template <typename, auto... Worlds>
 struct _to_run_envs;
+
 template <typename Curr, auto World>
 struct _to_run_envs<Curr, World> {
     using policy = std::remove_const_t<decltype(get_execution_policy(World))>;
@@ -55,6 +56,7 @@ struct _to_run_envs<Curr, World> {
         }
     }());
 };
+
 template <typename Curr, auto World, auto... Others>
 struct _to_run_envs<Curr, World, Others...> {
     using policy = std::remove_const_t<decltype(get_execution_policy(World))>;
@@ -68,16 +70,19 @@ struct _to_run_envs<Curr, World, Others...> {
     }());
     using type   = typename _to_run_envs<result, Others...>::type;
 };
+
 template <auto... Worlds>
 using _to_run_envs_t = typename _to_run_envs<type_list<>, Worlds...>::type;
 
 template <typename Alloc, typename>
 struct _make_run_env_impl;
+
 template <typename Alloc, std::size_t GroupId, auto... Worlds>
 struct _make_run_env_impl<
     Alloc, tagged_value_list<_group_t<GroupId>, Worlds...>> {
     using type = run_env_for_group<GroupId, Alloc, Worlds...>;
 };
+
 template <typename Alloc, auto World>
 struct _make_run_env_impl<Alloc, _run_env_for_individual_spec<World>> {
     using type = run_env_for_individual<Alloc, World>;
@@ -85,11 +90,13 @@ struct _make_run_env_impl<Alloc, _run_env_for_individual_spec<World>> {
 
 template <typename Alloc, typename>
 struct _make_run_envs;
+
 template <
     typename Alloc, template <typename...> typename Template, typename... Tys>
 struct _make_run_envs<Alloc, Template<Tys...>> {
     using type = Template<typename _make_run_env_impl<Alloc, Tys>::type...>;
 };
+
 template <typename Alloc, typename Tys>
 using _make_run_envs_t = typename _make_run_envs<Alloc, Tys>::type;
 
@@ -159,7 +166,7 @@ template <std::size_t Size>
 class _completion_queue {
 public:
     struct record {
-        std::size_t index{};
+        std::size_t task_index{};
         std::exception_ptr error{};
         bool stopped = false;
     };
@@ -210,41 +217,31 @@ struct _completion_receiver {
     using receiver_concept = execution::receiver_tag;
 
     _completion_queue<Size>* queue;
-    std::size_t index;
+    std::size_t task_index;
 
-    void set_value() && noexcept { queue->push({ .index = index }); }
+    void set_value() && noexcept { queue->push({ .task_index = task_index }); }
 
     template <typename Error>
     void set_error(Error&& error) && noexcept {
         if constexpr (std::same_as<
                           std::remove_cvref_t<Error>, std::exception_ptr>) {
             queue->push(
-                { .index = index, .error = std::forward<Error>(error) });
+                { .task_index = task_index,
+                  .error      = std::forward<Error>(error) });
         } else {
             queue->push(
-                { .index = index,
+                { .task_index = task_index,
                   .error =
                       std::make_exception_ptr(std::forward<Error>(error)) });
         }
     }
 
     void set_stopped() && noexcept {
-        queue->push({ .index = index, .stopped = true });
+        queue->push({ .task_index = task_index, .stopped = true });
     }
 
-    [[nodiscard]] auto get_env() const noexcept { return execution::env<>{}; }
-};
-
-template <stage Stage, typename World>
-struct _task_fn {
-    using command_buffer = typename World::command_buffer;
-
-    World* world;
-    std::size_t index;
-    command_buffer* cmdbuf;
-
-    void operator()() const {
-        world_accessor::call_task<Stage>(*world, index, cmdbuf);
+    ATOM_NODISCARD constexpr auto get_env() const noexcept {
+        return execution::env<>{};
     }
 };
 
@@ -255,11 +252,11 @@ struct _connected_task {
 
     template <typename Sndr>
     _connected_task(
-        Sndr&& sender, _completion_queue<Size>& queue, std::size_t index)
+        Sndr&& sender, _completion_queue<Size>& queue, std::size_t task_index)
         : opstate(
               execution::connect(
                   std::forward<Sndr>(sender),
-                  _completion_receiver<Size>{ &queue, index })) {}
+                  _completion_receiver<Size>{ &queue, task_index })) {}
 
     void start() noexcept { execution::start(opstate); }
 
@@ -267,7 +264,7 @@ struct _connected_task {
 };
 
 template <typename Descriptor, typename Alloc>
-class _world_state {
+class _world_slot {
     using byte_alloc = rebind_alloc_t<Alloc, std::byte>;
 
 public:
@@ -280,57 +277,17 @@ private:
     using allocator_t = rebind_alloc_t<byte_alloc, Ty>;
     using buffer_vector =
         std::vector<command_buffer, allocator_t<command_buffer>>;
-    using time_point        = typename world_type::clock_type::time_point;
-    using time_point_vector = std::vector<time_point, allocator_t<time_point>>;
-    using interval_flag_vector =
-        std::vector<std::uint8_t, allocator_t<std::uint8_t>>;
-
-    template <stage Stage>
-    using graph_t =
-        typename decltype(world_type::get_tasks())::template graph<Stage>;
-
-    template <typename Graph, bool = Graph::interval_task_count != 0>
-    struct _stage_interval_state {
-        explicit _stage_interval_state(const byte_alloc&) {}
-
-        void ensure() noexcept {}
-    };
-
-    template <typename Graph>
-    struct _stage_interval_state<Graph, true> {
-        explicit _stage_interval_state(const byte_alloc& alloc)
-            : last(allocator_t<time_point>{ alloc }),
-              has_last(allocator_t<std::uint8_t>{ alloc }) {}
-
-        void ensure() {
-            if (last.size() < Graph::size) {
-                last.resize(Graph::size);
-                has_last.resize(Graph::size);
-            }
-        }
-
-        time_point_vector last;
-        interval_flag_vector has_last;
-    };
-
-    template <stage Stage>
-    using stage_interval_state = _stage_interval_state<graph_t<Stage>>;
 
 public:
-    explicit _world_state(const Alloc& alloc = {})
-        : alloc_(alloc), world_(byte_alloc{ alloc }),
-          buffers_(allocator_t<command_buffer>{ alloc }),
-          pre_startup_intervals_(byte_alloc{ alloc }),
-          startup_intervals_(byte_alloc{ alloc }),
-          post_startup_intervals_(byte_alloc{ alloc }),
-          first_intervals_(byte_alloc{ alloc }),
-          events_intervals_(byte_alloc{ alloc }),
-          pre_update_intervals_(byte_alloc{ alloc }),
-          update_intervals_(byte_alloc{ alloc }),
-          post_update_intervals_(byte_alloc{ alloc }),
-          render_intervals_(byte_alloc{ alloc }),
-          last_intervals_(byte_alloc{ alloc }),
-          shutdown_intervals_(byte_alloc{ alloc }) {
+    template <stage Stage>
+    using task_set = decltype(world_type::template get_tasks<Stage>());
+
+    template <stage Stage>
+    using graph = _stage_task_graph<task_set<Stage>>;
+
+    explicit _world_slot(const Alloc& alloc = {})
+        : world_(byte_alloc{ alloc }),
+          buffers_(allocator_t<command_buffer>{ alloc }) {
         if constexpr (max_buffer_count != 0) {
             buffers_.reserve(max_buffer_count);
             for (std::size_t index = 0; index < max_buffer_count; ++index) {
@@ -345,21 +302,17 @@ public:
         return world_;
     }
 
-    template <stage Stage, execution::scheduler Sch>
-    void run_stage(Sch& sch) {
-        using graph =
-            typename decltype(world_type::get_tasks())::template graph<Stage>;
-        _run_stage<Stage, graph>(sch);
+    [[nodiscard]] bool should_call_update() noexcept {
+        return world_.should_call_update();
     }
 
-    template <stage Stage>
-    void step_stage() {
-        using graph =
-            typename decltype(world_type::get_tasks())::template graph<Stage>;
-        _step_stage<Stage, graph>();
+    [[nodiscard]] auto buffer(std::size_t index) noexcept -> command_buffer& {
+        assert(index < buffers_.size());
+        return buffers_[index];
     }
 
     void flush(std::size_t count) {
+        assert(count <= buffers_.size());
         for (std::size_t index = 0; index < count; ++index) {
             buffers_[index].apply(world_accessor::base(world_));
             buffers_[index].reset();
@@ -370,296 +323,265 @@ public:
         get_max_buffer_count(Descriptor{});
 
 private:
-    template <typename Graph>
-    [[nodiscard]] static std::size_t _collect_runnable(
-        const stage_task_graph<Graph>& graph,
-        const std::array<bool, Graph::size>& running,
-        std::array<std::size_t, Graph::size>& ready) noexcept {
-        std::size_t count = 0;
-        for (std::size_t index = 0; index < Graph::size; ++index) {
-            const auto& state = graph.state(index);
-            if (!running[index] && !state.completed &&
-                !state.blocked_by_commands && state.pending_predecessors == 0 &&
-                !Graph::is_individual[index]) {
-                ready[count++] = index;
-            }
-        }
-        if (count != 0) {
-            return count;
-        }
-        for (std::size_t index = 0; index < Graph::size; ++index) {
-            const auto& state = graph.state(index);
-            if (!running[index] && !state.completed &&
-                !state.blocked_by_commands && state.pending_predecessors == 0) {
-                ready[0] = index;
-                return 1;
-            }
-        }
-        return 0;
-    }
-
-    template <stage Stage>
-    [[nodiscard]] auto& _interval_state_for() noexcept {
-        if constexpr (Stage == stage::pre_startup) {
-            return pre_startup_intervals_;
-        } else if constexpr (Stage == stage::startup) {
-            return startup_intervals_;
-        } else if constexpr (Stage == stage::post_startup) {
-            return post_startup_intervals_;
-        } else if constexpr (Stage == stage::first) {
-            return first_intervals_;
-        } else if constexpr (Stage == stage::events) {
-            return events_intervals_;
-        } else if constexpr (Stage == stage::pre_update) {
-            return pre_update_intervals_;
-        } else if constexpr (Stage == stage::update) {
-            return update_intervals_;
-        } else if constexpr (Stage == stage::post_update) {
-            return post_update_intervals_;
-        } else if constexpr (Stage == stage::render) {
-            return render_intervals_;
-        } else if constexpr (Stage == stage::last) {
-            return last_intervals_;
-        } else {
-            return shutdown_intervals_;
-        }
-    }
-
-    template <typename Graph, typename IntervalState>
-    [[nodiscard]] static bool _interval_allows(
-        IntervalState& intervals, std::size_t task_index, time_point now) {
-        const auto interval = Graph::execution_intervals[task_index];
-        if (interval <= 0.0) {
-            return false;
-        }
-
-        if (intervals.has_last[task_index] == 0U ||
-            std::chrono::duration<double>(now - intervals.last[task_index])
-                    .count() >= interval) {
-            intervals.last[task_index]     = now;
-            intervals.has_last[task_index] = 1U;
-            return true;
-        }
-        return false;
-    }
-
-    template <stage Stage, typename Graph>
-    [[nodiscard]] std::size_t _filter_interval_ready(
-        stage_task_graph<Graph>& graph,
-        std::array<std::size_t, Graph::size>& ready, std::size_t ready_count) {
-        if constexpr (Graph::interval_task_count == 0) {
-            return ready_count;
-        } else {
-            auto& intervals     = _interval_state_for<Stage>();
-            auto now            = time_point{};
-            bool sampled_now    = false;
-            bool ensured_state  = false;
-            std::size_t allowed = 0;
-
-            for (std::size_t index = 0; index < ready_count; ++index) {
-                const auto task_index = ready[index];
-                if (!Graph::uses_interval[task_index]) {
-                    ready[allowed++] = task_index;
-                    continue;
-                }
-
-                if (!ensured_state) {
-                    intervals.ensure();
-                    ensured_state = true;
-                }
-                if (!sampled_now) {
-                    now         = world_type::clock_type::now();
-                    sampled_now = true;
-                }
-
-                if (_interval_allows<Graph>(intervals, task_index, now)) {
-                    ready[allowed++] = task_index;
-                } else {
-                    graph.skip(task_index);
-                }
-            }
-
-            return allowed;
-        }
-    }
-
-    template <typename Graph>
-    void _assign_command_buffers(
-        const std::array<std::size_t, Graph::size>& ready,
-        std::array<command_buffer*, Graph::size>& buffers_by_task,
-        std::size_t ready_count, std::size_t& dirty_buffer_count) noexcept {
-        for (std::size_t index = 0; index < ready_count; ++index) {
-            const auto task_index = ready[index];
-            if constexpr (Graph::buffered_command_node_count != 0) {
-                if (Graph::has_buffered_commands[task_index]) {
-                    buffers_by_task[task_index] =
-                        std::addressof(buffers_[dirty_buffer_count++]);
-                    continue;
-                }
-            }
-            buffers_by_task[task_index] = nullptr;
-        }
-    }
-
-    template <stage Stage, typename Graph, execution::scheduler Sch>
-    void _run_stage(Sch& sch) {
-        static_assert(Graph::value, "Invalid ECS stage graph");
-        if constexpr (Graph::size == 0) {
-            return;
-        } else {
-            stage_task_graph<Graph> graph;
-            std::array<bool, Graph::size> running{};
-            std::array<std::size_t, Graph::size> ready{};
-            std::array<command_buffer*, Graph::size> buffers_by_task{};
-            _completion_queue<Graph::size> completions;
-            std::size_t dirty_buffer_count = 0;
-            std::size_t inflight           = 0;
-
-            using sender_type =
-                decltype(execution::schedule(std::declval<Sch&>()) | execution::then(_task_fn<Stage, world_type>{}));
-            using operation_type = _connected_task<sender_type, Graph::size>;
-            std::array<std::optional<operation_type>, Graph::size> operations{};
-
-            while (!graph.done()) {
-                const auto ready_count =
-                    _collect_runnable<Graph>(graph, running, ready);
-                if (ready_count != 0) {
-                    const auto allowed_count =
-                        _filter_interval_ready<Stage, Graph>(
-                            graph, ready, ready_count);
-                    if (allowed_count == 0) {
-                        continue;
-                    }
-                    _assign_command_buffers<Graph>(
-                        ready, buffers_by_task, allowed_count,
-                        dirty_buffer_count);
-                    for (std::size_t index = 0; index < allowed_count;
-                         ++index) {
-                        const auto task_index = ready[index];
-                        auto sender =
-                            execution::schedule(sch) |
-                            execution::then(
-                                _task_fn<Stage, world_type>{
-                                    std::addressof(world_), task_index,
-                                    buffers_by_task[task_index] });
-                        operations[task_index].emplace(
-                            std::move(sender), completions, task_index);
-                        operations[task_index]->start();
-                        running[task_index] = true;
-                        ++inflight;
-                    }
-                    continue;
-                }
-
-                if (graph.needs_flush() && inflight == 0) {
-                    flush(dirty_buffer_count);
-                    dirty_buffer_count = 0;
-                    graph.flush();
-                    continue;
-                }
-
-                if (inflight == 0) {
-                    break;
-                }
-
-                auto completed = completions.wait_pop();
-                _complete_task(graph, running, operations, completed, inflight);
-
-                while (completions.try_pop(completed)) {
-                    _complete_task(
-                        graph, running, operations, completed, inflight);
-                }
-            }
-
-            if (graph.dirty_commands()) {
-                flush(dirty_buffer_count);
-                graph.flush();
-            }
-        }
-    }
-
-    template <typename Graph, typename Operations>
-    static void _complete_task(
-        stage_task_graph<Graph>& graph, std::array<bool, Graph::size>& running,
-        Operations& operations,
-        const typename _completion_queue<Graph::size>::record& completed,
-        std::size_t& inflight) {
-        running[completed.index] = false;
-        operations[completed.index].reset();
-        --inflight;
-        if (completed.error) {
-            std::rethrow_exception(completed.error);
-        }
-        graph.complete(completed.index);
-    }
-
-    template <stage Stage, typename Graph>
-    void _step_stage() {
-        static_assert(Graph::value, "Invalid ECS stage graph");
-        if constexpr (Graph::size == 0) {
-            return;
-        } else {
-            stage_task_graph<Graph> graph;
-            std::array<bool, Graph::size> running{};
-            std::array<std::size_t, Graph::size> ready{};
-            std::array<command_buffer*, Graph::size> buffers_by_task{};
-            std::size_t dirty_buffer_count = 0;
-
-            while (!graph.done()) {
-                const auto ready_count =
-                    _collect_runnable<Graph>(graph, running, ready);
-                if (ready_count == 0) {
-                    if (!graph.needs_flush()) {
-                        break;
-                    }
-                    flush(dirty_buffer_count);
-                    dirty_buffer_count = 0;
-                    graph.flush();
-                    continue;
-                }
-
-                const auto allowed_count = _filter_interval_ready<Stage, Graph>(
-                    graph, ready, ready_count);
-                if (allowed_count == 0) {
-                    continue;
-                }
-                _assign_command_buffers<Graph>(
-                    ready, buffers_by_task, allowed_count, dirty_buffer_count);
-                for (std::size_t index = 0; index < allowed_count; ++index) {
-                    const auto task_index = ready[index];
-                    world_accessor::call_task<Stage>(
-                        world_, task_index, buffers_by_task[task_index]);
-                    graph.complete(task_index);
-                }
-            }
-
-            if (graph.dirty_commands()) {
-                flush(dirty_buffer_count);
-                graph.flush();
-            }
-        }
-    }
-
-    ATOM_NO_UNIQUE_ADDR byte_alloc alloc_;
     world_type world_;
     buffer_vector buffers_;
-    ATOM_NO_UNIQUE_ADDR stage_interval_state<stage::pre_startup>
-        pre_startup_intervals_;
-    ATOM_NO_UNIQUE_ADDR stage_interval_state<stage::startup> startup_intervals_;
-    ATOM_NO_UNIQUE_ADDR stage_interval_state<stage::post_startup>
-        post_startup_intervals_;
-    ATOM_NO_UNIQUE_ADDR stage_interval_state<stage::first> first_intervals_;
-    ATOM_NO_UNIQUE_ADDR stage_interval_state<stage::events> events_intervals_;
-    ATOM_NO_UNIQUE_ADDR stage_interval_state<stage::pre_update>
-        pre_update_intervals_;
-    ATOM_NO_UNIQUE_ADDR stage_interval_state<stage::update> update_intervals_;
-    ATOM_NO_UNIQUE_ADDR stage_interval_state<stage::post_update>
-        post_update_intervals_;
-    ATOM_NO_UNIQUE_ADDR stage_interval_state<stage::render> render_intervals_;
-    ATOM_NO_UNIQUE_ADDR stage_interval_state<stage::last> last_intervals_;
-    ATOM_NO_UNIQUE_ADDR stage_interval_state<stage::shutdown>
-        shutdown_intervals_;
 };
+
+template <stage Stage, typename SlotsTuple, typename IndexSeq>
+struct _env_graph_for_slots;
+
+template <stage Stage, typename SlotsTuple, std::size_t... Is>
+struct _env_graph_for_slots<Stage, SlotsTuple, std::index_sequence<Is...>> {
+    using type = _env_task_graph<
+        decltype(std::tuple_element_t<
+                 Is, SlotsTuple>::world_type::template get_tasks<Stage>())...>;
+};
+
+template <stage Stage, typename SlotsTuple>
+using _env_graph_for_slots_t = typename _env_graph_for_slots<
+    Stage, SlotsTuple,
+    std::make_index_sequence<
+        std::tuple_size_v<std::remove_cvref_t<SlotsTuple>>>>::type;
+
+template <std::size_t Index = 0, typename Tuple, typename Fn>
+void _visit_tuple(Tuple& tuple, std::size_t index, Fn&& fn) {
+    if constexpr (Index < std::tuple_size_v<std::remove_cvref_t<Tuple>>) {
+        if (index == Index) {
+            std::forward<Fn>(fn)(
+                std::integral_constant<std::size_t, Index>{},
+                tuple.template get<Index>());
+        } else {
+            _visit_tuple<Index + 1>(tuple, index, std::forward<Fn>(fn));
+        }
+    } else {
+        assert(false);
+    }
+}
+
+template <typename TaskSet, std::size_t Index = 0, typename Fn>
+void _visit_task(std::size_t index, Fn&& fn) {
+    if constexpr (Index < _stage_task_graph<TaskSet>::task_count) {
+        if (index == Index) {
+            std::forward<Fn>(fn)(std::integral_constant<std::size_t, Index>{});
+        } else {
+            _visit_task<TaskSet, Index + 1>(index, std::forward<Fn>(fn));
+        }
+    } else {
+        assert(false);
+    }
+}
+
+template <typename EnvGraph, typename SlotsTuple>
+struct _env_task_fn {
+    using slots_type = std::remove_cvref_t<SlotsTuple>;
+    using command_buffer =
+        typename std::tuple_element_t<0, slots_type>::command_buffer;
+
+    slots_type* slots;
+    std::size_t task_index;
+    command_buffer* cmdbuf;
+
+    void operator()() const {
+        const auto world_index = EnvGraph::world_indices[task_index];
+        const auto local_index = EnvGraph::local_task_indices[task_index];
+
+        _visit_tuple(*slots, world_index, [&](auto world_constant, auto& slot) {
+            constexpr auto world = decltype(world_constant)::value;
+            using task_set       = typename EnvGraph::template task_set<world>;
+
+            _visit_task<task_set>(local_index, [&](auto task_constant) {
+                constexpr auto task = decltype(task_constant)::value;
+                _task_graph::_task_invoker<task_set, task>::call(
+                    slot.world(), cmdbuf);
+            });
+        });
+    }
+};
+
+template <typename EnvGraph, typename SlotsTuple>
+auto _assign_buffer(
+    SlotsTuple& slots,
+    std::array<std::size_t, EnvGraph::world_count>& dirty_buffer_counts,
+    std::size_t task_index) ->
+    typename std::tuple_element_t<
+        0, std::remove_cvref_t<SlotsTuple>>::command_buffer* {
+    using command_buffer = typename std::tuple_element_t<
+        0, std::remove_cvref_t<SlotsTuple>>::command_buffer;
+    command_buffer* result = nullptr;
+
+    if constexpr (EnvGraph::buffered_command_node_count != 0) {
+        if (EnvGraph::has_buffered_commands[task_index]) {
+            const auto world = EnvGraph::world_indices[task_index];
+            _visit_tuple(slots, world, [&](auto, auto& slot) {
+                result =
+                    std::addressof(slot.buffer(dirty_buffer_counts[world]++));
+            });
+        }
+    }
+
+    return result;
+}
+
+template <typename EnvGraph, typename SlotsTuple>
+void _flush_world(
+    SlotsTuple& slots,
+    std::array<std::size_t, EnvGraph::world_count>& dirty_buffer_counts,
+    _env_task_executor<EnvGraph>& executor, std::size_t world) {
+    _visit_tuple(slots, world, [&](auto, auto& slot) {
+        slot.flush(dirty_buffer_counts[world]);
+    });
+    dirty_buffer_counts[world] = 0;
+    executor.flush(world);
+}
+
+template <stage Stage, execution::scheduler Sch, typename SlotsTuple>
+void _run_env_stage(
+    Sch& sch, SlotsTuple& slots,
+    const std::array<bool, std::tuple_size_v<std::remove_cvref_t<SlotsTuple>>>*
+        active = nullptr) {
+    using slots_type = std::remove_cvref_t<SlotsTuple>;
+    using graph      = _env_graph_for_slots_t<Stage, slots_type>;
+
+    if constexpr (graph::task_count != 0) {
+        static constexpr std::size_t queue_size = graph::task_count;
+        using task_fn = _env_task_fn<graph, slots_type>;
+        using sender_type =
+            decltype(execution::schedule(std::declval<Sch&>()) | execution::then(std::declval<task_fn>()));
+        using operation_type = _connected_task<sender_type, queue_size>;
+
+        _env_task_executor<graph> executor;
+        executor.reset(active);
+
+        std::array<std::size_t, queue_size> ready{};
+        std::array<std::optional<operation_type>, queue_size> operations{};
+        std::array<std::size_t, graph::world_count> dirty_buffer_counts{};
+        _completion_queue<queue_size> completions;
+        std::size_t inflight = 0;
+
+        auto process_completion = [&](auto completed) {
+            const auto task = completed.task_index;
+            --inflight;
+            executor.complete(task);
+            operations[task].reset();
+            if (completed.error) {
+                std::rethrow_exception(completed.error);
+            }
+        };
+
+        while (!executor.done()) {
+            const auto ready_count = executor.collect_runnable(ready);
+            if (ready_count != 0) {
+                for (std::size_t index = 0; index < ready_count; ++index) {
+                    const auto task = ready[index];
+                    auto* cmdbuf =
+                        _assign_buffer<graph>(slots, dirty_buffer_counts, task);
+                    auto sender =
+                        execution::schedule(sch) |
+                        execution::then(task_fn{ &slots, task, cmdbuf });
+                    operations[task].emplace(
+                        std::move(sender), completions, task);
+                    executor.mark_running(task);
+                    ++inflight;
+                    operations[task]->start();
+                }
+                continue;
+            }
+
+            bool flushed = false;
+            for (std::size_t world = 0; world < graph::world_count; ++world) {
+                if (executor.needs_flush(world)) {
+                    _flush_world<graph>(
+                        slots, dirty_buffer_counts, executor, world);
+                    flushed = true;
+                }
+            }
+            if (flushed) {
+                continue;
+            }
+
+            if (inflight == 0) {
+                break;
+            }
+
+            auto completed = completions.wait_pop();
+            process_completion(completed);
+            while (completions.try_pop(completed)) {
+                process_completion(completed);
+            }
+        }
+
+        for (std::size_t world = 0; world < graph::world_count; ++world) {
+            if (executor.dirty(world)) {
+                _flush_world<graph>(
+                    slots, dirty_buffer_counts, executor, world);
+            }
+        }
+    }
+}
+
+template <std::size_t Count>
+struct _update_mask {
+    std::array<bool, Count> active{};
+    bool any = false;
+};
+
+template <typename SlotsTuple, std::size_t... Is>
+auto _make_update_mask_impl(SlotsTuple& slots, std::index_sequence<Is...>)
+    -> _update_mask<sizeof...(Is)> {
+    _update_mask<sizeof...(Is)> mask{};
+    ((mask.active[Is] = slots.template get<Is>().should_call_update(),
+      mask.any        = mask.any || mask.active[Is]),
+     ...);
+    return mask;
+}
+
+template <typename SlotsTuple>
+auto _make_update_mask(SlotsTuple& slots)
+    -> _update_mask<std::tuple_size_v<std::remove_cvref_t<SlotsTuple>>> {
+    return _make_update_mask_impl(
+        slots, std::make_index_sequence<
+                   std::tuple_size_v<std::remove_cvref_t<SlotsTuple>>>{});
+}
+
+template <typename Payload, typename Runtime>
+constexpr bool _poll_events(Payload& payload, Runtime& runtime) {
+    if constexpr (_poll_events_with_runtime<Payload, Runtime>) {
+        return payload.poll_events(runtime);
+    } else if constexpr (_poll_events_plain<Payload>) {
+        return payload.poll_events();
+    } else {
+        return true;
+    }
+}
+
+template <typename Payload, typename Runtime>
+constexpr bool _is_stopped(Payload& payload, Runtime& runtime) {
+    if constexpr (_is_stopped_with_runtime<Payload, Runtime>) {
+        return payload.is_stopped(runtime);
+    } else if constexpr (_is_stopped_plain<Payload>) {
+        return payload.is_stopped();
+    } else {
+        return false;
+    }
+}
+
+template <typename Payload, typename Runtime>
+constexpr void _render_begin(Payload& payload, Runtime& runtime) {
+    if constexpr (_render_begin_with_runtime<Payload, Runtime>) {
+        payload.render_begin(runtime);
+    } else if constexpr (_render_begin_plain<Payload>) {
+        payload.render_begin();
+    }
+}
+
+template <typename Payload, typename Runtime>
+constexpr void _render_end(Payload& payload, Runtime& runtime) {
+    if constexpr (_render_end_with_runtime<Payload, Runtime>) {
+        payload.render_end(runtime);
+    } else if constexpr (_render_end_plain<Payload>) {
+        payload.render_end();
+    }
+}
 
 } // namespace _runtime
 
@@ -670,6 +592,8 @@ class runtime {
     using run_envs    = RunEnvs;
     using env_tuple   = type_list_rebind_t<shared_tuple, run_envs>;
     using pack_traits = _runtime::_run_env_pack_traits<run_envs>;
+
+    inline static std::atomic<bool> running = true;
 
 public:
     static constexpr std::size_t run_env_count = std::tuple_size_v<env_tuple>;
@@ -713,6 +637,13 @@ public:
         if (payload_ == nullptr) [[unlikely]] {
             throw std::runtime_error("runtime payload is nullptr");
         }
+        running.store(true, std::memory_order_release);
+
+        constexpr auto exit = [](int) noexcept {
+            running.store(false, std::memory_order_release);
+        };
+        std::signal(SIGINT, exit);
+        std::signal(SIGTERM, exit);
 
         const auto guarantee = get_forward_progress_guarantee(sch_);
         if (guarantee == forward_progress_guarantee::weakly_parallel) {
@@ -731,91 +662,74 @@ private:
         return env_tuple{ std::tuple_element_t<Is, env_tuple>{ alloc }... };
     }
 
-    template <typename Fn>
-    void _for_each_env(Fn&& fn) {
-        [&]<std::size_t... Is>(std::index_sequence<Is...>) {
-            (fn(envs_.template get<Is>()), ...);
-        }(std::make_index_sequence<run_env_count>{});
+    template <stage Stage, std::size_t... Is>
+    void _run_stage_all(std::index_sequence<Is...>) {
+        using namespace this_thread;
+        using namespace execution;
+        sync_wait(when_all(
+            envs_.template get<Is>().template stage_parallel<Stage>(sch_)...));
     }
 
-    [[nodiscard]] bool _poll_events() {
-        if constexpr (_runtime::_poll_events_with_runtime<Payload, runtime>) {
-            return payload_->poll_events(*this);
-        } else if constexpr (_runtime::_poll_events_plain<Payload>) {
-            return payload_->poll_events();
-        } else {
-            return false;
-        }
+    template <stage Stage>
+    void _run_stage_all() {
+        _run_stage_all<Stage>(
+            std::make_index_sequence<std::tuple_size_v<env_tuple>>{});
     }
 
-    [[nodiscard]] bool _is_stopped() {
-        if constexpr (_runtime::_is_stopped_with_runtime<Payload, runtime>) {
-            return payload_->is_stopped(*this);
-        } else if constexpr (_runtime::_is_stopped_plain<Payload>) {
-            return payload_->is_stopped();
-        } else {
-            return false;
-        }
+    template <std::size_t... Is>
+    void _run_update_all(std::index_sequence<Is...>) {
+        using namespace this_thread;
+        using namespace execution;
+        sync_wait(when_all(envs_.template get<Is>().update_parallel(sch_)...));
     }
 
-    void _render_begin() {
-        if constexpr (_runtime::_render_begin_with_runtime<Payload, runtime>) {
-            payload_->render_begin(*this);
-        } else if constexpr (_runtime::_render_begin_plain<Payload>) {
-            payload_->render_begin();
-        }
+    void _run_update_all() {
+        _run_update_all(
+            std::make_index_sequence<std::tuple_size_v<env_tuple>>{});
     }
 
-    void _render_end() {
-        if constexpr (_runtime::_render_end_with_runtime<Payload, runtime>) {
-            payload_->render_end(*this);
-        } else if constexpr (_runtime::_render_end_plain<Payload>) {
-            payload_->render_end();
-        }
+    void _run_startup_all() {
+        _run_stage_all<stage::pre_startup>();
+        _run_stage_all<stage::startup>();
+        _run_stage_all<stage::post_startup>();
+        _run_stage_all<stage::first>();
     }
 
-    void _run_weak_parallel() {
-        static volatile std::sig_atomic_t keep_running = 1;
-        keep_running                                   = 1;
-        auto exit = [](int) noexcept { keep_running = 0; };
-        std::signal(SIGINT, exit);
-        std::signal(SIGTERM, exit);
+    void _run_shutdown_all() {
+        _run_stage_all<stage::last>();
+        _run_stage_all<stage::shutdown>();
+    }
 
-        _for_each_env([this](auto& env) { env.startup_step(); });
-        while (keep_running != 0 && !_is_stopped()) {
-            if (_poll_events()) {
-                continue;
+    void _run_frame() {
+        if (!_runtime::_poll_events(*payload_, *this)) {
+            if (_runtime::_is_stopped(*payload_, *this)) {
+                running.store(false, std::memory_order_release);
             }
-            if constexpr (pack_traits::events_enabled_count != 0) {
-                _for_each_env([](auto& env) { env.events_step(); });
-            }
-            _for_each_env([](auto& env) { env.update_step(); });
-            if constexpr (pack_traits::render_enabled_count != 0) {
-                _render_begin();
-                _for_each_env([](auto& env) { env.render_step(); });
-                _render_end();
-            }
+            return;
         }
-        _for_each_env([](auto& env) { env.shutdown_step(); });
+
+        _run_stage_all<stage::events>();
+        if (_runtime::_is_stopped(*payload_, *this)) {
+            running.store(false, std::memory_order_release);
+            return;
+        }
+
+        _run_update_all();
+        if constexpr (pack_traits::render_enabled_count != 0) {
+            _runtime::_render_begin(*payload_, *this);
+            _run_stage_all<stage::render>();
+            _runtime::_render_end(*payload_, *this);
+        }
     }
+
+    void _run_weak_parallel() { _run_blocking(); }
 
     void _run_blocking() {
-        _for_each_env([this](auto& env) { env.startup(sch_); });
-        while (!_is_stopped()) {
-            if (_poll_events()) {
-                continue;
-            }
-            if constexpr (pack_traits::events_enabled_count != 0) {
-                _for_each_env([this](auto& env) { env.events(sch_); });
-            }
-            _for_each_env([this](auto& env) { env.update(sch_); });
-            if constexpr (pack_traits::render_enabled_count != 0) {
-                _render_begin();
-                _for_each_env([this](auto& env) { env.render(sch_); });
-                _render_end();
-            }
+        _run_startup_all();
+        while (running.load(std::memory_order_acquire)) {
+            _run_frame();
         }
-        _for_each_env([this](auto& env) { env.shutdown(sch_); });
+        _run_shutdown_all();
     }
 
     Sch sch_;
@@ -824,11 +738,15 @@ private:
     env_tuple envs_;
 };
 
+template <auto... Worlds, execution::scheduler Sch, typename Payload>
+requires(sizeof...(Worlds) == 0)
+ATOM_NODISCARD auto make_runtime([[maybe_unused]] Sch&&, Payload*) {
+    static_assert(false, "world count could not be zero");
+}
+
 template <auto... Worlds, execution::scheduler Sch>
 ATOM_NODISCARD auto make_runtime([[maybe_unused]] Sch&&, std::nullptr_t) {
-    static_assert(
-        sizeof...(Worlds) == static_cast<std::size_t>(-1),
-        "application payload is required");
+    static_assert(false, "application payload is invalid");
 }
 
 template <
@@ -850,10 +768,10 @@ ATOM_NODISCARD auto make_runtime(Sch&& sch, Payload* payload) {
 template <std::size_t GroupID, typename Alloc, auto... Worlds>
 class run_env_for_group {
     template <auto World>
-    using world_state =
-        _runtime::_world_state<std::remove_cvref_t<decltype(World)>, Alloc>;
+    using world_slot =
+        _runtime::_world_slot<std::remove_cvref_t<decltype(World)>, Alloc>;
 
-    using worlds_tuple = shared_tuple<world_state<Worlds>...>;
+    using worlds_tuple = shared_tuple<world_slot<Worlds>...>;
 
 public:
     static constexpr std::size_t world_count = sizeof...(Worlds);
@@ -871,8 +789,8 @@ public:
         (std::size_t{ 0 } + ... + (get_render(Worlds) ? 1U : 0U));
 
     explicit run_env_for_group(const Alloc& alloc = {})
-        : worlds_(
-              _make_worlds(alloc, std::make_index_sequence<world_count>{})) {}
+        : worlds_(_make_worlds(
+              alloc, std::make_index_sequence<sizeof...(Worlds)>{})) {}
 
     run_env_for_group(const run_env_for_group&)            = delete;
     run_env_for_group(run_env_for_group&&)                 = default;
@@ -881,60 +799,64 @@ public:
     ~run_env_for_group()                                   = default;
 
     template <std::size_t Index>
-    [[nodiscard]] auto world() noexcept -> decltype(auto) {
+    requires(Index <= sizeof...(Worlds))
+    [[nodiscard]] auto get_world() noexcept -> decltype(auto) {
         return worlds_.template get<Index>().world();
     }
 
     template <std::size_t Index>
-    [[nodiscard]] auto world() const noexcept -> decltype(auto) {
+    requires(Index <= sizeof...(Worlds))
+    [[nodiscard]] auto get_world() const noexcept -> decltype(auto) {
         return worlds_.template get<Index>().world();
     }
 
-    template <execution::scheduler Sch>
-    void startup(Sch& sch) {
-        _run_all<stage::pre_startup>(sch);
-        _run_all<stage::startup>(sch);
-        _run_all<stage::post_startup>(sch);
-        _run_all<stage::first>(sch);
+    template <stage Stage, typename Sch>
+    auto stage_parallel(Sch& sch) {
+        using namespace execution;
+        auto sndr = [this, &sch] {
+            _runtime::_run_env_stage<Stage>(sch, worlds_);
+        };
+        return schedule(sch) | then(std::move(sndr));
     }
 
-    void startup_step() {
-        _step_all<stage::pre_startup>();
-        _step_all<stage::startup>();
-        _step_all<stage::post_startup>();
-        _step_all<stage::first>();
+    template <typename Sch>
+    auto update_parallel(Sch& sch) {
+        using namespace execution;
+        auto sndr = [this, &sch] {
+            auto mask = _runtime::_make_update_mask(worlds_);
+            if (!mask.any) {
+                return;
+            }
+            _runtime::_run_env_stage<stage::pre_update>(
+                sch, worlds_, std::addressof(mask.active));
+            _runtime::_run_env_stage<stage::update>(
+                sch, worlds_, std::addressof(mask.active));
+            _runtime::_run_env_stage<stage::post_update>(
+                sch, worlds_, std::addressof(mask.active));
+        };
+        return schedule(sch) | then(std::move(sndr));
     }
 
-    template <execution::scheduler Sch>
-    void events(Sch& sch) {
-        _run_all<stage::events>(sch);
+    template <typename Sch>
+    auto startup_parallel(Sch& sch) {
+        using namespace execution;
+        auto sndr = [this, &sch] {
+            _runtime::_run_env_stage<stage::pre_startup>(sch, worlds_);
+            _runtime::_run_env_stage<stage::startup>(sch, worlds_);
+            _runtime::_run_env_stage<stage::post_startup>(sch, worlds_);
+            _runtime::_run_env_stage<stage::first>(sch, worlds_);
+        };
+        return schedule(sch) | then(std::move(sndr));
     }
 
-    void events_step() { _step_all<stage::events>(); }
-
-    template <execution::scheduler Sch>
-    void update(Sch& sch) {
-        _update_all(sch);
-    }
-
-    void update_step() { _update_step_all(); }
-
-    template <execution::scheduler Sch>
-    void render(Sch& sch) {
-        _run_all<stage::render>(sch);
-    }
-
-    void render_step() { _step_all<stage::render>(); }
-
-    template <execution::scheduler Sch>
-    void shutdown(Sch& sch) {
-        _run_all<stage::last>(sch);
-        _run_all<stage::shutdown>(sch);
-    }
-
-    void shutdown_step() {
-        _step_all<stage::last>();
-        _step_all<stage::shutdown>();
+    template <typename Sch>
+    auto shutdown_parallel(Sch& sch) {
+        using namespace execution;
+        auto sndr = [this, &sch] {
+            _runtime::_run_env_stage<stage::last>(sch, worlds_);
+            _runtime::_run_env_stage<stage::shutdown>(sch, worlds_);
+        };
+        return schedule(sch) | then(std::move(sndr));
     }
 
 private:
@@ -945,64 +867,28 @@ private:
             alloc }... };
     }
 
-    template <typename Fn>
-    void _for_each_world(Fn&& fn) {
-        [&]<std::size_t... Is>(std::index_sequence<Is...>) {
-            (fn(worlds_.template get<Is>()), ...);
-        }(std::make_index_sequence<world_count>{});
-    }
-
-    template <stage Stage, execution::scheduler Sch>
-    void _run_all(Sch& sch) {
-        _for_each_world(
-            [&sch](auto& state) { state.template run_stage<Stage>(sch); });
-    }
-
-    template <stage Stage>
-    void _step_all() {
-        _for_each_world(
-            [](auto& state) { state.template step_stage<Stage>(); });
-    }
-
-    template <execution::scheduler Sch>
-    void _update_all(Sch& sch) {
-        _for_each_world([&sch](auto& state) {
-            if (state.world().should_call_update()) {
-                state.template run_stage<stage::pre_update>(sch);
-                state.template run_stage<stage::update>(sch);
-                state.template run_stage<stage::post_update>(sch);
-            }
-        });
-    }
-
-    void _update_step_all() {
-        _for_each_world([](auto& state) {
-            if (state.world().should_call_update()) {
-                state.template step_stage<stage::pre_update>();
-                state.template step_stage<stage::update>();
-                state.template step_stage<stage::post_update>();
-            }
-        });
-    }
-
     worlds_tuple worlds_;
 };
 
 template <typename Alloc, auto World>
 class alignas(std::hardware_destructive_interference_size)
     run_env_for_individual {
-    using state_type =
-        _runtime::_world_state<std::remove_cvref_t<decltype(World)>, Alloc>;
+    using slot_type =
+        _runtime::_world_slot<std::remove_cvref_t<decltype(World)>, Alloc>;
+    using worlds_tuple = shared_tuple<slot_type>;
 
 public:
-    static constexpr std::size_t max_concurrency       = 1;
-    static constexpr std::size_t total_max_concurrency = 1;
+    static constexpr std::size_t world_count     = 1;
+    static constexpr std::size_t max_concurrency = get_max_concurrency(World);
+    static constexpr std::size_t total_max_concurrency =
+        get_max_concurrency(World);
     static constexpr std::size_t events_enabled_count =
         get_events(World) ? 1U : 0U;
     static constexpr std::size_t render_enabled_count =
         get_render(World) ? 1U : 0U;
 
-    explicit run_env_for_individual(const Alloc& alloc = {}) : state_(alloc) {}
+    explicit run_env_for_individual(const Alloc& alloc = {})
+        : worlds_(slot_type{ alloc }) {}
 
     run_env_for_individual(const run_env_for_individual&)            = delete;
     run_env_for_individual(run_env_for_individual&&)                 = default;
@@ -1010,74 +896,70 @@ public:
     run_env_for_individual& operator=(run_env_for_individual&&)      = delete;
     ~run_env_for_individual()                                        = default;
 
-    [[nodiscard]] auto world() noexcept -> typename state_type::world_type& {
-        return state_.world();
+    template <std::size_t Index>
+    requires(Index == 0)
+    [[nodiscard]] auto get_world() noexcept -> typename slot_type::world_type& {
+        return worlds_.template get<0>().world();
     }
 
-    [[nodiscard]] auto world() const noexcept -> const
-        typename state_type::world_type& {
-        return state_.world();
+    template <std::size_t Index>
+    requires(Index == 0)
+    [[nodiscard]] auto get_world() const noexcept -> const
+        typename slot_type::world_type& {
+        return worlds_.template get<0>().world();
     }
 
-    template <execution::scheduler Sch>
-    void startup(Sch& sch) {
-        state_.template run_stage<stage::pre_startup>(sch);
-        state_.template run_stage<stage::startup>(sch);
-        state_.template run_stage<stage::post_startup>(sch);
-        state_.template run_stage<stage::first>(sch);
+    template <stage Stage, typename Sch>
+    auto stage_parallel(Sch& sch) {
+        using namespace execution;
+        auto sndr = [this, &sch] {
+            _runtime::_run_env_stage<Stage>(sch, worlds_);
+        };
+        return schedule(sch) | then(std::move(sndr));
     }
 
-    void startup_step() {
-        state_.template step_stage<stage::pre_startup>();
-        state_.template step_stage<stage::startup>();
-        state_.template step_stage<stage::post_startup>();
-        state_.template step_stage<stage::first>();
+    template <typename Sch>
+    auto update_parallel(Sch& sch) {
+        using namespace execution;
+        auto sndr = [this, &sch] {
+            auto mask = _runtime::_make_update_mask(worlds_);
+            if (!mask.any) {
+                return;
+            }
+            _runtime::_run_env_stage<stage::pre_update>(
+                sch, worlds_, std::addressof(mask.active));
+            _runtime::_run_env_stage<stage::update>(
+                sch, worlds_, std::addressof(mask.active));
+            _runtime::_run_env_stage<stage::post_update>(
+                sch, worlds_, std::addressof(mask.active));
+        };
+        return schedule(sch) | then(std::move(sndr));
     }
 
-    template <execution::scheduler Sch>
-    void events(Sch& sch) {
-        state_.template run_stage<stage::events>(sch);
+    template <typename Sch>
+    auto startup_parallel(Sch& sch) {
+        using namespace execution;
+        auto sndr = [this, &sch] {
+            _runtime::_run_env_stage<stage::pre_startup>(sch, worlds_);
+            _runtime::_run_env_stage<stage::startup>(sch, worlds_);
+            _runtime::_run_env_stage<stage::post_startup>(sch, worlds_);
+            _runtime::_run_env_stage<stage::first>(sch, worlds_);
+        };
+        return schedule(sch) | then(std::move(sndr));
     }
 
-    void events_step() { state_.template step_stage<stage::events>(); }
-
-    template <execution::scheduler Sch>
-    void update(Sch& sch) {
-        if (state_.world().should_call_update()) {
-            state_.template run_stage<stage::pre_update>(sch);
-            state_.template run_stage<stage::update>(sch);
-            state_.template run_stage<stage::post_update>(sch);
-        }
-    }
-
-    void update_step() {
-        if (state_.world().should_call_update()) {
-            state_.template step_stage<stage::pre_update>();
-            state_.template step_stage<stage::update>();
-            state_.template step_stage<stage::post_update>();
-        }
-    }
-
-    template <execution::scheduler Sch>
-    void render(Sch& sch) {
-        state_.template run_stage<stage::render>(sch);
-    }
-
-    void render_step() { state_.template step_stage<stage::render>(); }
-
-    template <execution::scheduler Sch>
-    void shutdown(Sch& sch) {
-        state_.template run_stage<stage::last>(sch);
-        state_.template run_stage<stage::shutdown>(sch);
-    }
-
-    void shutdown_step() {
-        state_.template step_stage<stage::last>();
-        state_.template step_stage<stage::shutdown>();
+    template <typename Sch>
+    auto shutdown_parallel(Sch& sch) {
+        using namespace execution;
+        auto sndr = [this, &sch] {
+            _runtime::_run_env_stage<stage::last>(sch, worlds_);
+            _runtime::_run_env_stage<stage::shutdown>(sch, worlds_);
+        };
+        return schedule(sch) | then(std::move(sndr));
     }
 
 private:
-    state_type state_;
+    worlds_tuple worlds_;
 };
 
 } // namespace neutron
