@@ -14,6 +14,8 @@ using namespace ::std::this_thread;
 
 namespace neutron {
 
+using ::stdexec::get_stop_token;
+
 namespace execution {
 
 using namespace stdexec;
