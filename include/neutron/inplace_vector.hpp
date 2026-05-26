@@ -1,6 +1,7 @@
 #pragma once
 #include <cassert>
 #include <cstddef>
+#include <memory>
 #include <type_traits>
 #include <version>
 
@@ -203,7 +204,7 @@ private:
 } // namespace internal
 
 template <typename T, std::size_t N>
-class inplace_vector : internal::inplace_vector_base<T, N> {
+class inplace_vector : public internal::inplace_vector_base<T, N> {
 public:
 private:
 };
