@@ -42,7 +42,7 @@ struct _descriptor_validator<Descriptor, false> {
 
 template <std_simple_allocator Alloc>
 class basic_world<world_descriptor_t<>, Alloc> : public world_base<Alloc> {
-    template <auto, typename, size_t>
+    template <auto, typename>
     friend struct construct_from_world_t;
     friend struct world_accessor;
 
@@ -93,7 +93,7 @@ template <typename Descriptor, std_simple_allocator Alloc>
 class basic_world :
     private _basic_world::_descriptor_validator<Descriptor>,
     public world_base<Alloc> {
-    template <auto, typename, size_t>
+    template <auto, typename>
     friend struct construct_from_world_t;
     friend struct world_accessor;
 

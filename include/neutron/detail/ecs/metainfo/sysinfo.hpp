@@ -1,7 +1,6 @@
 // IWYU pragma: private, include "neutron/detail/ecs/metainfo.hpp"
 #pragma once
 #include "neutron/detail/ecs/global.hpp"
-#include "neutron/detail/ecs/insertion.hpp"
 #include "neutron/detail/ecs/local.hpp"
 #include "neutron/detail/ecs/metainfo/common.hpp"
 #include "neutron/detail/ecs/metainfo/execute.hpp"
@@ -113,12 +112,6 @@ struct to_global_list<global<Globals...>> {
 
 template <typename T>
 struct to_insertion_list;
-
-template <typename... Insertions>
-struct to_insertion_list<insertion<Insertions...>> {
-    using type = type_list_recurse_expose_t<
-        bundle, type_list<Insertions...>, same_cvref>;
-};
 
 template <typename T>
 struct _component_access_key;
@@ -237,8 +230,6 @@ struct _sys_traits<WorldExecInfo, Desc, sysdesc<Sys, Requires...>> {
         _extract_access_list_t<internal::_is_res, to_resource_list, arg_list>;
     using global_list =
         _extract_access_list_t<internal::_is_global, to_global_list, arg_list>;
-    using insertion_list = _extract_access_list_t<
-        internal::_is_insertion, to_insertion_list, arg_list>;
 
     using component_access_keys =
         _access_key_list_t<to_component_access_key, component_list>;
@@ -246,8 +237,6 @@ struct _sys_traits<WorldExecInfo, Desc, sysdesc<Sys, Requires...>> {
         _access_key_list_t<to_resource_access_key, resource_list>;
     using global_access_keys =
         _access_key_list_t<to_global_access_key, global_list>;
-    using insertion_access_keys =
-        _access_key_list_t<to_insertion_access_key, insertion_list>;
 
     using component_write_keys =
         _write_key_list_t<to_component_access_key, component_list>;
@@ -255,15 +244,11 @@ struct _sys_traits<WorldExecInfo, Desc, sysdesc<Sys, Requires...>> {
         _write_key_list_t<to_resource_access_key, resource_list>;
     using global_write_keys =
         _write_key_list_t<to_global_access_key, global_list>;
-    using insertion_write_keys =
-        _write_key_list_t<to_insertion_access_key, insertion_list>;
 
     using access_keys = unique_type_list_t<type_list_cat_t<
-        component_access_keys, resource_access_keys, global_access_keys,
-        insertion_access_keys>>;
+        component_access_keys, resource_access_keys, global_access_keys>>;
     using write_keys  = unique_type_list_t<type_list_cat_t<
-         component_write_keys, resource_write_keys, global_write_keys,
-         insertion_write_keys>>;
+         component_write_keys, resource_write_keys, global_write_keys>>;
 };
 
 template <typename Lhs, typename Rhs>
@@ -482,8 +467,6 @@ struct _validate_sysinfo<type_list<_sys_traits<WorldExecInfo, Desc>...>> {
          typename _sys_traits<WorldExecInfo, Desc>::resource_list...>;
     using global_lists = type_list_cat_t<
         typename _sys_traits<WorldExecInfo, Desc>::global_list...>;
-    using insertion_lists = type_list_cat_t<
-        typename _sys_traits<WorldExecInfo, Desc>::insertion_list...>;
 
     using access_keys = unique_type_list_t<type_list_cat_t<
         typename _sys_traits<WorldExecInfo, Desc>::access_keys...>>;
@@ -534,7 +517,6 @@ struct stage_sysinfo {
     using component_lists = typename validator::component_lists;
     using resource_lists  = typename validator::resource_lists;
     using global_lists    = typename validator::global_lists;
-    using insertion_lists = typename validator::insertion_lists;
     using access_keys     = typename validator::access_keys;
     using write_keys      = typename validator::write_keys;
 

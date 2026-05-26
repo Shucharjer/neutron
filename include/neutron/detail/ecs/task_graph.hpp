@@ -682,7 +682,7 @@ decltype(auto) _make_arg(
                              arg_type, basic_commands<command_alloc, true>>) {
         return basic_commands<command_alloc, true>{ world };
     } else {
-        return construct_from_world<Sys, Arg, Index>(world);
+        return construct_from_world<Sys, Arg>(world);
     }
 }
 

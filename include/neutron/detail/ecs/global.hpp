@@ -7,8 +7,8 @@
 #include <tuple>
 #include <type_traits>
 #include <utility>
+#include "neutron/detail/ecs/fwd.hpp"
 #include "neutron/detail/macros.hpp"
-#include "neutron/detail/ecs/construct_from_world.hpp"
 
 namespace neutron {
 
@@ -21,8 +21,9 @@ template <typename...>
 struct _all_unique : std::true_type {};
 
 template <typename Head, typename... Tail>
-struct _all_unique<Head, Tail...> : std::bool_constant<
-    (!(std::same_as<Head, Tail>) && ...) && _all_unique<Tail...>::value> {};
+struct _all_unique<Head, Tail...> :
+    std::bool_constant<
+        (!(std::same_as<Head, Tail>) && ...) && _all_unique<Tail...>::value> {};
 
 template <typename Ty>
 struct _slot {
@@ -132,7 +133,9 @@ private:
 };
 
 template <typename... Args>
-class global : private _global::_lock_pack<Args...>, public std::tuple<Args...> {
+class global :
+    private _global::_lock_pack<Args...>,
+    public std::tuple<Args...> {
     using _lock_base  = _global::_lock_pack<Args...>;
     using _tuple_base = std::tuple<Args...>;
 
@@ -142,15 +145,8 @@ class global : private _global::_lock_pack<Args...>, public std::tuple<Args...> 
 
 public:
     template <world World>
-    explicit global(World&) : _lock_base(), _tuple_base(_global::_forward_bound<Args>()...) {}
-};
-
-template <auto Sys, size_t Index, typename... Args>
-struct construct_from_world_t<Sys, global<Args...>, Index> {
-    template <world World>
-    global<Args...> operator()(World& world) const {
-        return global<Args...>(world);
-    }
+    explicit global(World&)
+        : _lock_base(), _tuple_base(_global::_forward_bound<Args>()...) {}
 };
 
 namespace internal {

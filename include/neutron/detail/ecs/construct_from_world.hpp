@@ -5,7 +5,7 @@
 
 namespace neutron {
 
-template <auto Sys, typename Argument, size_t IndexOfSysInSysList = 0>
+template <auto Sys, typename Argument>
 struct construct_from_world_t {
     template <world World>
     constexpr Argument operator()(World& world) const {
@@ -13,14 +13,13 @@ struct construct_from_world_t {
     }
 };
 
-template <auto Sys, typename Arg, size_t IndexOfSysInSysList = 0>
-constexpr inline construct_from_world_t<Sys, Arg, IndexOfSysInSysList>
-    construct_from_world;
+template <auto Sys, typename Arg>
+constexpr inline construct_from_world_t<Sys, Arg> construct_from_world;
 
-template <auto Sys, typename Arg, size_t Index = 0>
+template <auto Sys, typename Arg>
 concept constructible_from_world = requires {
     {
-        construct_from_world<Sys, Arg, Index>(
+        construct_from_world<Sys, Arg>(
             std::declval<basic_world<world_descriptor_t<>>>())
     } -> std::same_as<Arg>;
 };

@@ -116,8 +116,8 @@ basic_commands(command_buffer<Alloc>&) -> basic_commands<Alloc, false>;
 template <typename Descriptor, std_simple_allocator Alloc>
 basic_commands(basic_world<Descriptor, Alloc>&) -> basic_commands<Alloc, true>;
 
-template <auto Sys, std_simple_allocator Alloc, size_t Index>
-struct construct_from_world_t<Sys, basic_commands<Alloc, false>, Index> {
+template <auto Sys, std_simple_allocator Alloc>
+struct construct_from_world_t<Sys, basic_commands<Alloc, false>> {
     template <world World>
     basic_commands<Alloc, false> operator()(World&) const noexcept {
         static_assert(
@@ -127,8 +127,8 @@ struct construct_from_world_t<Sys, basic_commands<Alloc, false>, Index> {
     }
 };
 
-template <auto Sys, std_simple_allocator Alloc, size_t Index>
-struct construct_from_world_t<Sys, basic_commands<Alloc, true>, Index> {
+template <auto Sys, std_simple_allocator Alloc>
+struct construct_from_world_t<Sys, basic_commands<Alloc, true>> {
     template <world World>
     basic_commands<Alloc, true> operator()(World& world) const noexcept {
         return basic_commands<Alloc, true>{ world };

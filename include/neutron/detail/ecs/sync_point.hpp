@@ -258,10 +258,8 @@ public:
 };
 
 template <
-    auto Sys, _sync_scope Scope, strategy Strategy, _sync_access... Access,
-    size_t Index>
-struct construct_from_world_t<
-    Sys, sync_point<Scope, Strategy, Access...>, Index> {
+    auto Sys, _sync_scope Scope, strategy Strategy, _sync_access... Access>
+struct construct_from_world_t<Sys, sync_point<Scope, Strategy, Access...>> {
     template <world World>
     auto operator()(World& world) const
         -> sync_point<Scope, Strategy, Access...> {

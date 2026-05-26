@@ -496,12 +496,12 @@ public:
 private:
     std::span<const slice_t> slices_{};
 
-    template <auto Sys, typename Argument, size_t IndexOfSysInSysList>
+    template <auto Sys, typename Argument>
     friend struct construct_from_world_t;
 };
 
-template <auto Sys, typename... Filters, size_t Index>
-struct construct_from_world_t<Sys, query<Filters...>, Index> {
+template <auto Sys, typename... Filters>
+struct construct_from_world_t<Sys, query<Filters...>> {
     template <typename Ty>
     using _predicate = internal::_is_relevant_query_tuple<Sys, Ty>;
 

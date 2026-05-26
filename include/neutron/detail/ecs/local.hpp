@@ -37,8 +37,8 @@ private:
     std::tuple<Args...>& tup_; // NOLINT
 };
 
-template <auto Sys, size_t Index, typename... Args>
-struct construct_from_world_t<Sys, local<Args...>, Index> {
+template <auto Sys, typename... Args>
+struct construct_from_world_t<Sys, local<Args...>> {
     template <typename Ty>
     using _predicate = internal::_is_relevant_sys_tuple<Sys, Ty>;
 

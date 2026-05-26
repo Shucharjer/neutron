@@ -12,7 +12,6 @@
 #include "neutron/detail/ecs/construct_from_world.hpp"
 #include "neutron/detail/ecs/entity.hpp"
 #include "neutron/detail/ecs/global.hpp"
-#include "neutron/detail/ecs/insertion.hpp"
 #include "neutron/detail/ecs/local.hpp"
 #include "neutron/detail/ecs/meta_accessor.hpp"
 #include "neutron/detail/ecs/metainfo.hpp"

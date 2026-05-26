@@ -172,8 +172,8 @@ private:
 
 } // namespace _meta_accessor
 
-template <auto Sys, size_t Index, typename Alloc>
-struct construct_from_world_t<Sys, basic_meta_accessor<Alloc>, Index> {
+template <auto Sys, typename Alloc>
+struct construct_from_world_t<Sys, basic_meta_accessor<Alloc>> {
     template <typename... Components>
     using _accessor_t = _meta_accessor::_accessor<Alloc, Components...>;
 
