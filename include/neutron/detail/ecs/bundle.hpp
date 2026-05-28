@@ -5,7 +5,7 @@
 namespace neutron {
 
 template <typename...>
-struct bundle {};
+struct bundle;
 
 /*! @cond TURN_OFF_DOXYGEN */
 namespace internal {

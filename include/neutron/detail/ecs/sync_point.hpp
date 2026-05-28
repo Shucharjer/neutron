@@ -6,7 +6,6 @@
 #include <cstdint>
 #include <tuple>
 #include "neutron/detail/concepts/one_of.hpp"
-#include "neutron/detail/ecs/construct_from_world.hpp"
 #include "neutron/detail/ecs/fwd.hpp"
 #include "neutron/detail/metafn/cat.hpp"
 #include "neutron/detail/metafn/definition.hpp"
@@ -255,17 +254,6 @@ public:
     sync_point(sync_point&&)                 = delete;
     sync_point& operator=(sync_point&&)      = delete;
     ~sync_point()                            = default;
-};
-
-template <
-    auto Sys, _sync_scope Scope, strategy Strategy, _sync_access... Access>
-struct construct_from_world_t<Sys, sync_point<Scope, Strategy, Access...>> {
-    template <world World>
-    auto operator()(World& world) const
-        -> sync_point<Scope, Strategy, Access...> {
-        // using group_id = World::group_id;
-        return {};
-    }
 };
 
 } // namespace neutron

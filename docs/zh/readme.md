@@ -57,13 +57,13 @@ ECS API 位于 [`<neutron/ecs.hpp>`](../../include/neutron/ecs.hpp)。组件
 #include <neutron/ecs.hpp>
 
 struct Position {
-using component_concept = neutron::component_t;
+using component_concept = neutron::component_tag;
     float x{};
     float y{};
 };
 
 struct Velocity {
-using component_concept = neutron::component_t;
+using component_concept = neutron::component_tag;
     float x{};
     float y{};
 };

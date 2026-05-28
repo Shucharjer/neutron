@@ -60,13 +60,13 @@ functions, and world descriptors define how those systems are scheduled.
 #include <neutron/ecs.hpp>
 
 struct Position {
-    using component_concept = neutron::component_t;
+    using component_concept = neutron::component_tag;
     float x{};
     float y{};
 };
 
 struct Velocity {
-    using component_concept = neutron::component_t;
+    using component_concept = neutron::component_tag;
     float x{};
     float y{};
 };

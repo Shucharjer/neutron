@@ -10,18 +10,18 @@ using namespace neutron;
 
 // Test component types
 struct Position {
-    using component_concept = neutron::component_t;
+    using component_concept = neutron::component_tag;
     float x{ 0 }, y{ 0 };
 };
 struct Velocity {
-    using component_concept = neutron::component_t;
+    using component_concept = neutron::component_tag;
     float vx{ 0 }, vy{ 0 };
 };
 struct TagEmpty {
-    using component_concept = neutron::component_t;
+    using component_concept = neutron::component_tag;
 };
 struct Tracker {
-    using component_concept       = neutron::component_t;
+    using component_concept       = neutron::component_tag;
     static inline int ctor        = 0;
     static inline int dtor        = 0;
     static inline int move_ctor   = 0;
@@ -41,7 +41,7 @@ struct Tracker {
 };
 
 struct SlowDefault {
-    using component_concept = neutron::component_t;
+    using component_concept = neutron::component_tag;
     static inline int alive = 0;
     int value{ 0 };
 
@@ -54,7 +54,7 @@ struct SlowDefault {
 };
 
 struct SlowCopy {
-    using component_concept = neutron::component_t;
+    using component_concept = neutron::component_tag;
     static inline int alive = 0;
     int value{ 0 };
 

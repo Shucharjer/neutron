@@ -5,7 +5,6 @@
 #include <cstddef>
 #include <tuple>
 #include <type_traits>
-#include "neutron/detail/ecs/construct_from_world.hpp"
 #include "neutron/detail/ecs/systuple.hpp"
 #include "neutron/detail/ecs/world_accessor.hpp"
 #include "neutron/detail/metafn/filt.hpp"
@@ -37,19 +36,19 @@ private:
     std::tuple<Args...>& tup_; // NOLINT
 };
 
-template <auto Sys, typename... Args>
-struct construct_from_world_t<Sys, local<Args...>> {
-    template <typename Ty>
-    using _predicate = internal::_is_relevant_sys_tuple<Sys, Ty>;
+// template <auto Sys, typename... Args>
+// struct construct_from_world_t<Sys, local<Args...>> {
+//     template <typename Ty>
+//     using _predicate = internal::_is_relevant_sys_tuple<Sys, Ty>;
 
-    template <world World>
-    local<Args...> operator()(World& world) const noexcept {
-        using sys_tuple = type_list_first_t<
-            type_list_filt_t<_predicate, typename World::locals>>;
-        auto& locals = world_accessor::locals(world);
-        return local<Args...>(neutron::get_first<sys_tuple>(locals));
-    }
-};
+//     template <world World>
+//     local<Args...> operator()(World& world) const noexcept {
+//         using sys_tuple = type_list_first_t<
+//             type_list_filt_t<_predicate, typename World::locals>>;
+//         auto& locals = world_accessor::locals(world);
+//         return local<Args...>(neutron::get_first<sys_tuple>(locals));
+//     }
+// };
 
 namespace internal {
 

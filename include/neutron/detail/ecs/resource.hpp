@@ -6,7 +6,7 @@
 
 namespace neutron {
 
-struct resource_t {};
+struct resource_tag {};
 
 template <typename Ty>
 constexpr bool as_resource = false;
@@ -15,7 +15,7 @@ template <typename Ty>
 concept resource = requires {
     typename std::remove_cvref_t<Ty>::resource_concept;
     requires std::derived_from<
-        typename std::remove_cvref_t<Ty>::resource_concept, resource_t>;
+        typename std::remove_cvref_t<Ty>::resource_concept, resource_tag>;
 } || as_resource<std::remove_cvref_t<Ty>>;
 
 /*! @cond TURN_OFF_DOXYGEN */

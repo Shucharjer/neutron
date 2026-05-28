@@ -12,15 +12,15 @@
 using namespace neutron;
 
 struct Position {
-    using component_concept = neutron::component_t;
+    using component_concept = neutron::component_tag;
     float x{ 0 }, y{ 0 };
 };
 struct Velocity {
-    using component_concept = neutron::component_t;
+    using component_concept = neutron::component_tag;
     float vx{ 0 }, vy{ 0 };
 };
 struct TagEmpty {
-    using component_concept = neutron::component_t;
+    using component_concept = neutron::component_tag;
 };
 
 static void BM_archetype_construct(benchmark::State& st) {

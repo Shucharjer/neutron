@@ -235,12 +235,12 @@ public:
 
     basic_querior() = default;
 
-    template <world World>
+    template <internal::world World>
     explicit basic_querior(World& world) : _base(world.get_allocator()) {
         sync(world);
     }
 
-    template <world World>
+    template <internal::world World>
     void sync(World& world) {
         const auto ver = world_accessor::version(world);
         if (ver == version_) [[likely]] {
@@ -275,7 +275,7 @@ public:
     using typename _base::fetchable_filters;
     using typename _base::component_list;
 
-    template <world World>
+    template <internal::world World>
     basic_querior(World& world) {
         auto& archetypes = world_accessor::archetypes(world);
         this->make(archetypes);

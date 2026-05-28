@@ -7,13 +7,13 @@ using namespace neutron;
 using enum stage;
 
 struct Position {
-    using component_concept = neutron::component_t;
+    using component_concept = neutron::component_tag;
     float x{ 0.0F };
     float y{ 0.0F };
 };
 
 struct Velocity {
-    using component_concept = neutron::component_t;
+    using component_concept = neutron::component_tag;
     float x{ 0.0F };
     float y{ 0.0F };
 };

@@ -1,49 +1,38 @@
-// IWYU pragma: private, include <neutron/ecs.hpp>
 #pragma once
-#include <cstddef>
-#include <memory>
-#include <neutron/detail/concepts/allocator.hpp>
 
 namespace neutron {
 
-template <std_simple_allocator Alloc = std::allocator<std::byte>>
+template <typename Alloc>
 class archetype;
 
-template <typename... Filters>
-class query;
+template <typename Alloc>
+class world_base;
 
-template <std_simple_allocator Alloc = std::allocator<std::byte>>
+template <typename Alloc>
 class command_buffer;
 
-template <
-    std_simple_allocator Alloc = std::allocator<std::byte>, bool Direct = false>
+template <typename Alloc>
+class basic_command_list;
+
+template <typename Alloc>
 class basic_commands;
 
-template <
-    typename Descriptor, std_simple_allocator Alloc = std::allocator<std::byte>>
+template <typename Descriptor, typename Alloc>
 class basic_world;
 
-/*! @cond TURN_OFF_DOXYGEN */
+template <typename...>
+class query;
+
 namespace internal {
 
 template <typename>
-constexpr bool _is_basic_world = false;
-template <typename... Args>
-constexpr bool _is_basic_world<basic_world<Args...>> = true;
+constexpr bool _is_world = false;
+template <typename Descriptor, typename Alloc>
+constexpr bool _is_world<basic_world<Descriptor, Alloc>> = true;
+
+template <typename World>
+concept world = _is_world<World>;
 
 } // namespace internal
-/* @endcond */
-
-template <typename Ty>
-concept world = internal::_is_basic_world<Ty>;
-
-class insertion_context;
-
-namespace _world_base {
-
-template <std_simple_allocator Alloc = std::allocator<std::byte>>
-class world_base;
-
-} // namespace _world_base
 
 } // namespace neutron

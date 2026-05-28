@@ -144,7 +144,7 @@ class global :
         "global<T...> cannot contain duplicate underlying types");
 
 public:
-    template <world World>
+    template <internal::world World>
     explicit global(World&)
         : _lock_base(), _tuple_base(_global::_forward_bound<Args>()...) {}
 };

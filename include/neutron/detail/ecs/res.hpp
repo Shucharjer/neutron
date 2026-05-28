@@ -11,7 +11,7 @@ namespace neutron {
 
 template <resource_like... Resources>
 struct res : public std::tuple<Resources...> {
-    template <world World>
+    template <internal::world World>
     res(World& world)
         : std::tuple<Resources...>(
               neutron::rmcvref_first<std::remove_cvref_t<Resources>>(

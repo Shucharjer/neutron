@@ -9,36 +9,13 @@
 #include <vector>
 #include "neutron/detail/ecs/archetype.hpp"
 #include "neutron/detail/ecs/command_buffer.hpp"
-#include "neutron/detail/ecs/metainfo.hpp"
 #include "neutron/detail/ecs/query.hpp"
-#include "neutron/detail/ecs/task_graph.hpp"
 #include "neutron/detail/ecs/world_base.hpp"
-#include "neutron/detail/ecs/world_descriptor.hpp"
 #include "neutron/detail/memory/rebind_alloc.hpp"
 #include "neutron/memory.hpp"
 #include "neutron/tuple.hpp"
 
 namespace neutron {
-
-namespace _basic_world {
-
-template <typename Descriptor, bool = world_descriptor<Descriptor>>
-struct _descriptor_validator;
-
-template <typename Descriptor>
-struct _descriptor_validator<Descriptor, true> {
-    static_assert(
-        descriptor_traits<Descriptor>::value, "Invalid ECS world descriptor");
-};
-
-template <typename Descriptor>
-struct _descriptor_validator<Descriptor, false> {
-    static_assert(
-        world_descriptor<Descriptor>,
-        "basic_world requires a world descriptor");
-};
-
-} // namespace _basic_world
 
 template <std_simple_allocator Alloc>
 class basic_world<world_descriptor_t<>, Alloc> : public world_base<Alloc> {
@@ -59,7 +36,6 @@ public:
     template <typename... Filters>
     using query_type    = query<Filters...>;
     using commands_type = basic_commands<Alloc>;
-    using sysinfo       = sysinfo_holder<world_descriptor_t<>>;
     using queries       = type_list<>;
     // using systems        = world_descriptor_t<>::systems;
 
@@ -69,7 +45,7 @@ public:
 
     template <stage Stage>
     static consteval auto get_tasks() noexcept {
-        return _world_task_set<Stage, descriptor_type>{};
+        // return _world_task_set<Stage, descriptor_type>{};
     }
 
     void set_dynamic_update_interval(double) noexcept {}
@@ -86,13 +62,10 @@ public:
 
 private:
     type_list_rebind_t<neutron::shared_tuple, queries> queries_{};
-    const insertion_context* insertion_context_ = nullptr;
 };
 
-template <typename Descriptor, std_simple_allocator Alloc>
-class basic_world :
-    private _basic_world::_descriptor_validator<Descriptor>,
-    public world_base<Alloc> {
+template <typename Descriptor, typename Alloc>
+class basic_world : public world_base<Alloc> {
     template <auto, typename>
     friend struct construct_from_world_t;
     friend struct world_accessor;
@@ -216,12 +189,6 @@ private:
     type_list_rebind_t<neutron::shared_tuple, queries> queries_;
     //  variables could be pass between each systems
     type_list_rebind_t<neutron::shared_tuple, resources> resources_;
-
-    const insertion_context* insertion_context_ = nullptr;
-    typename clock_type::time_point last_update_{};
-    double dynamic_update_interval_   = 0.0;
-    bool has_dynamic_update_interval_ = false;
-    bool has_last_update_             = false;
 };
 
 template <

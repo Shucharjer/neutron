@@ -4,10 +4,9 @@
 #include "neutron/detail/ecs/bundle.hpp"
 #include "neutron/detail/metafn/requires.hpp"
 
-
 namespace neutron {
 
-struct component_t {};
+struct component_tag {};
 
 template <typename Ty>
 constexpr bool as_component = false;
@@ -17,7 +16,7 @@ concept component =
     (requires {
         typename std::remove_cvref_t<Ty>::component_concept;
         requires std::derived_from<
-            typename std::remove_cvref_t<Ty>::component_concept, component_t>;
+            typename std::remove_cvref_t<Ty>::component_concept, component_tag>;
     } || as_component<std::remove_cvref_t<Ty>>) &&
     std::default_initializable<std::remove_cvref_t<Ty>> &&
     std::movable<std::remove_cvref_t<Ty>> &&

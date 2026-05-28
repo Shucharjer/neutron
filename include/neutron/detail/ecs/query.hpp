@@ -8,8 +8,7 @@
 #include <span>
 #include <tuple>
 #include <type_traits>
-#include "neutron/detail/ecs/basic_querior.hpp"
-#include "neutron/detail/ecs/construct_from_world.hpp"
+#include "neutron/detail/ecs/querior.hpp"
 #include "neutron/detail/ecs/world_accessor.hpp"
 #include "neutron/detail/macros.hpp"
 #include "neutron/detail/metafn/convert.hpp"
@@ -498,27 +497,6 @@ private:
 
     template <auto Sys, typename Argument>
     friend struct construct_from_world_t;
-};
-
-template <auto Sys, typename... Filters>
-struct construct_from_world_t<Sys, query<Filters...>> {
-    template <typename Ty>
-    using _predicate = internal::_is_relevant_query_tuple<Sys, Ty>;
-
-    template <world World>
-    query<Filters...> operator()(World& world) const {
-        using query_t        = query<Filters...>;
-        using cached_querior = _basic_querior::basic_querior<
-            typename World::allocator_type, true, Filters...>;
-        using queries_tuple = type_list_first_t<
-            type_list_filt_t<_predicate, typename World::queries>>;
-
-        auto& queries = world_accessor::queries(world);
-        auto& tuple   = neutron::get_first<queries_tuple>(queries);
-        auto& querior = tuple.template get_first<cached_querior>();
-        querior.sync(world);
-        return query_t{ querior };
-    }
 };
 
 } // namespace neutron

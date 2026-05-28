@@ -21,7 +21,6 @@
 #include "neutron/detail/ecs/anchor.hpp"
 #include "neutron/detail/ecs/component.hpp"
 #include "neutron/detail/ecs/entity.hpp"
-#include "neutron/detail/ecs/fwd.hpp"
 #include "neutron/detail/macros.hpp"
 #include "neutron/detail/memory/uninitialized_move_if_noexcept.hpp"
 #include "neutron/detail/ranges/concepts.hpp"
@@ -73,7 +72,7 @@ using _buffer_ptr = std::unique_ptr<std::byte[], _buffer_deletor>;
  * and cache-friendly access.
  * @tparam Alloc Allocator type conforming to `std_simple_allocator` concept.
  */
-template <std_simple_allocator Alloc>
+template <typename Alloc>
 class archetype : public archetype<rebind_alloc_t<Alloc, std::byte>> {};
 
 template <std_simple_allocator Alloc>
@@ -83,7 +82,7 @@ class archetype<Alloc> {
     template <component...>
     friend class slice;
     template <std_simple_allocator>
-    friend class _world_base::world_base;
+    friend class world_base;
 
     template <typename Ty>
     using _allocator_t = rebind_alloc_t<Alloc, Ty>;

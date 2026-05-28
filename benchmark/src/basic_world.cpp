@@ -5,19 +5,19 @@
 using namespace neutron;
 
 struct Position {
-    using component_concept = neutron::component_t;
+    using component_concept = neutron::component_tag;
     float x{ 0 };
     float y{ 0 };
 };
 
 struct Velocity {
-    using component_concept = neutron::component_t;
+    using component_concept = neutron::component_tag;
     float x{ 0 };
     float y{ 0 };
 };
 
 struct Tag {
-    using component_concept = neutron::component_t;
+    using component_concept = neutron::component_tag;
 };
 
 static void BM_world_base_construct(benchmark::State& state) {

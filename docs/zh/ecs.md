@@ -29,7 +29,7 @@
 
 ```cpp
 struct Position {
-    using component_concept = neutron::component_t;
+    using component_concept = neutron::component_tag;
     float x{};
     float y{};
 };

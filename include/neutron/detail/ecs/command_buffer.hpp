@@ -285,7 +285,7 @@ private:
 
 } // namespace _command
 
-template <std_simple_allocator Alloc>
+template <typename Alloc>
 class alignas(std::hardware_destructive_interference_size) command_buffer {
     template <typename Ty>
     using _allocator_t = neutron::rebind_alloc_t<Alloc, Ty>;

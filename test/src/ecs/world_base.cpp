@@ -15,23 +15,23 @@ template <typename... Filters>
 using manual_querior = basic_querior<std::allocator<std::byte>, Filters...>;
 
 struct Position {
-    using component_concept = neutron::component_t;
+    using component_concept = neutron::component_tag;
     float x{ 0 };
     float y{ 0 };
 };
 
 struct Velocity {
-    using component_concept = neutron::component_t;
+    using component_concept = neutron::component_tag;
     float x{ 0 };
     float y{ 0 };
 };
 
 struct Tag {
-    using component_concept = neutron::component_t;
+    using component_concept = neutron::component_tag;
 };
 
 struct ThrowOnDefault {
-    using component_concept = neutron::component_t;
+    using component_concept = neutron::component_tag;
 
     int value{ 0 };
 

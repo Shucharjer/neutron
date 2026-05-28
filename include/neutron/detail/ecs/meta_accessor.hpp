@@ -11,8 +11,7 @@
 #include <string_view>
 #include <type_traits>
 #include <utility>
-#include "neutron/detail/ecs/basic_commands.hpp" // IWYU pragma: keep
-#include "neutron/detail/ecs/construct_from_world.hpp"
+#include "neutron/detail/ecs/commands.hpp" // IWYU pragma: keep
 #include "neutron/detail/macros.hpp"
 #include "neutron/detail/metafn/rebind.hpp"
 #include "neutron/reflection.hpp"
@@ -172,22 +171,22 @@ private:
 
 } // namespace _meta_accessor
 
-template <auto Sys, typename Alloc>
-struct construct_from_world_t<Sys, basic_meta_accessor<Alloc>> {
-    template <typename... Components>
-    using _accessor_t = _meta_accessor::_accessor<Alloc, Components...>;
+// template <auto Sys, typename Alloc>
+// struct construct_from_world_t<Sys, basic_meta_accessor<Alloc>> {
+//     template <typename... Components>
+//     using _accessor_t = _meta_accessor::_accessor<Alloc, Components...>;
 
-    template <world World>
-    basic_meta_accessor<Alloc> operator()(World& world) const {
-        using components = typename std::remove_cvref_t<World>::components;
-        using accessor_t = type_list_rebind_t<_accessor_t, components>;
-        return basic_meta_accessor<Alloc>{
-            &accessor_t::begin,         &accessor_t::end,
-            &accessor_t::findhash,      &accessor_t::findname,
-            &accessor_t::add_component, &accessor_t::remove_component
-        };
-    }
-};
+//     template <world World>
+//     basic_meta_accessor<Alloc> operator()(World& world) const {
+//         using components = typename std::remove_cvref_t<World>::components;
+//         using accessor_t = type_list_rebind_t<_accessor_t, components>;
+//         return basic_meta_accessor<Alloc>{
+//             &accessor_t::begin,         &accessor_t::end,
+//             &accessor_t::findhash,      &accessor_t::findname,
+//             &accessor_t::add_component, &accessor_t::remove_component
+//         };
+//     }
+// };
 
 using meta_accessor = basic_meta_accessor<std::allocator<std::byte>>;
 

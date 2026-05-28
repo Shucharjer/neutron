@@ -868,8 +868,8 @@ void world_base<Alloc>::clear() {
 
 } // namespace _world_base
 
-template <std_simple_allocator Alloc = std::allocator<std::byte>>
-using world_base = _world_base::world_base<Alloc>;
+template <typename Alloc = std::allocator<std::byte>>
+class world_base : public _world_base::world_base<Alloc> {};
 
 } // namespace neutron
 
