@@ -2,15 +2,12 @@
 #pragma once
 #include "neutron/detail/ecs/fwd.hpp"
 
-#include <algorithm>
 #include <concepts>
 #include <cstddef>
-#include <memory>
 #include <span>
 #include <type_traits>
 #include <vector>
-#include <neutron/concepts.hpp>
-#include <neutron/metafn.hpp>
+#include "neutron/concepts.hpp"
 #include "neutron/detail/ecs/archetype.hpp"
 #include "neutron/detail/ecs/bundle.hpp"
 #include "neutron/detail/ecs/slice.hpp"

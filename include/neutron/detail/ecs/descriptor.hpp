@@ -1,6 +1,7 @@
 #pragma once
 #include <array>
 #include <concepts>
+#include <cstddef>
 #include <cstdint>
 #include "neutron/detail/metafn/definition.hpp"
 #include "neutron/detail/metafn/element.hpp"
@@ -52,6 +53,20 @@ consteval auto operator|(Desc1, Desc2) noexcept {
     return _description_compose<Desc1, Desc2>{};
 }
 
+enum class stage : std::uint8_t {
+    prestartup,
+    startup,
+    poststartup,
+    first,
+    events,
+    preupdate,
+    update,
+    postupdate,
+    render,
+    last,
+    shutdown
+};
+
 inline namespace _metafn {
 
 template <typename, typename>
@@ -71,9 +86,17 @@ template <
 struct _cat_if_same_template<Tmp<Tys...>, Tmp<Args...>> {
     using type = Tmp<Tys..., Args...>;
 };
-template <template <auto...> typename Tmp, auto... Vals, auto... Args>
-struct _cat_if_same_template<Tmp<Vals...>, Tmp<Args...>> {
-    using type = Tmp<Vals..., Args...>;
+template <
+    template <stage, typename...> typename Tmp, stage Stage, typename... Tys,
+    typename... Args>
+struct _cat_if_same_template<Tmp<Stage, Tys...>, Tmp<Stage, Args...>> {
+    using type = Tmp<Stage, Tys..., Args...>;
+};
+template <
+    template <stage, auto...> typename Tmp, stage Stage, auto... Vals,
+    auto... Args>
+struct _cat_if_same_template<Tmp<Stage, Vals...>, Tmp<Stage, Args...>> {
+    using type = Tmp<Stage, Vals..., Args...>;
 };
 
 template <typename TypeList, typename T>
@@ -127,20 +150,6 @@ struct _after_t {};
 template <auto... Fn>
 inline constexpr _after_t<Fn...> after;
 
-enum class stage : std::uint8_t {
-    prestartup,
-    startup,
-    poststartup,
-    first,
-    events,
-    preupdate,
-    update,
-    postupdate,
-    render,
-    last,
-    shutdown
-};
-
 template <typename Fn, auto... Requires>
 struct system_spec;
 template <typename Ret, typename... Args, auto... Requires>
@@ -183,6 +192,13 @@ consteval bool _task_spec_matches() {
         return false;
     }
 }
+
+namespace internal {
+
+template <std::size_t, typename T>
+constexpr void _add_requirement(auto&&, T) noexcept {}
+
+} // namespace internal
 
 template <stage Stage, system_spec... Spec>
 class graph_builder<_add_systems_t<Stage, Spec...>> {
@@ -232,6 +248,7 @@ class graph_builder<_add_systems_t<Stage, Spec...>> {
     template <std::size_t Task, typename Fn, auto... Req>
     static constexpr void
         _add_task_edges(graph_t& graph, system_spec<Fn, Req...>) noexcept {
+        using ::neutron::internal::_add_requirement;
         (_add_requirement<Task>(graph, Req), ...);
     }
 

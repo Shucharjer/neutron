@@ -2,7 +2,7 @@
 #pragma once
 #include <tuple>
 #include <type_traits>
-#include "neutron/detail/ecs/world_descriptor/fwd.hpp"
+#include "neutron/detail/ecs/descriptor.hpp"
 
 namespace neutron {
 
@@ -10,8 +10,7 @@ template <typename Tuple, auto... Worlds>
 class run_worlds_fn;
 
 template <auto... Worlds>
-class run_worlds_fn<std::tuple<>, Worlds...> :
-    public descriptor_adaptor_closure<run_worlds_fn<std::tuple<>, Worlds...>> {
+class run_worlds_fn<std::tuple<>, Worlds...> : public description_tag {
 
 public:
     constexpr run_worlds_fn() noexcept = default;
@@ -25,9 +24,7 @@ public:
 };
 
 template <typename... Args, auto... Worlds>
-class run_worlds_fn<std::tuple<Args...>, Worlds...> :
-    public descriptor_adaptor_closure<
-        run_worlds_fn<std::tuple<Args...>, Worlds...>> {
+class run_worlds_fn<std::tuple<Args...>, Worlds...> : public description_tag {
     using tuple_type = std::tuple<Args...>;
     std::tuple<Args...> tup_;
 

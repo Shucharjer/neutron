@@ -9,7 +9,6 @@
 #include <tuple>
 #include <type_traits>
 #include "neutron/detail/ecs/querior.hpp"
-#include "neutron/detail/ecs/world_accessor.hpp"
 #include "neutron/detail/macros.hpp"
 #include "neutron/detail/metafn/convert.hpp"
 #include "neutron/detail/tuple/shared_tuple.hpp"

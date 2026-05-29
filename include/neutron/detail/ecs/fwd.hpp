@@ -1,5 +1,7 @@
 #pragma once
 
+#include <cstddef>
+#include <memory>
 namespace neutron {
 
 template <typename Alloc>
@@ -34,5 +36,11 @@ template <typename World>
 concept world = _is_world<World>;
 
 } // namespace internal
+namespace _world_base {
+
+template <typename>
+class world_base;
+
+}
 
 } // namespace neutron

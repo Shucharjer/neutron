@@ -1,5 +1,7 @@
 // IWYU pragma: private, include <neutron/ecs.hpp>
 #pragma once
+#include "neutron/detail/ecs/fwd.hpp"
+
 #include <algorithm>
 #include <array>
 #include <cassert>
@@ -72,7 +74,7 @@ using _buffer_ptr = std::unique_ptr<std::byte[], _buffer_deletor>;
  * and cache-friendly access.
  * @tparam Alloc Allocator type conforming to `std_simple_allocator` concept.
  */
-template <typename Alloc>
+template <typename Alloc = std::allocator<std::byte>>
 class archetype : public archetype<rebind_alloc_t<Alloc, std::byte>> {};
 
 template <std_simple_allocator Alloc>
@@ -81,8 +83,8 @@ class archetype<Alloc> {
 
     template <component...>
     friend class slice;
-    template <std_simple_allocator>
-    friend class world_base;
+    template <typename>
+    friend class _world_base::world_base;
 
     template <typename Ty>
     using _allocator_t = rebind_alloc_t<Alloc, Ty>;

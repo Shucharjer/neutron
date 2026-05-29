@@ -65,9 +65,9 @@ ATOM_NODISCARD ATOM_FORCE_INLINE constexpr static entity_t
     return (static_cast<entity_t>(gen) << 32UL) | index;
 }
 
-template <std_simple_allocator Alloc>
+template <typename Alloc>
 class _spawn_n_result {
-    template <std_simple_allocator>
+    template <typename>
     friend class _entity_slots_base;
 
     using allocator_type   = neutron::rebind_alloc_t<Alloc, entity_t>;
@@ -195,7 +195,7 @@ private:
     ATOM_NO_UNIQUE_ADDR allocator_type allocator_;
 };
 
-template <std_simple_allocator Alloc>
+template <typename Alloc>
 class _entity_slots_base {
     friend struct ::neutron::world_accessor;
 
@@ -339,9 +339,9 @@ protected:
  * library. Default is `std::allocator<std::byte>`. The container would rebind
  * allocator automatically.
  */
-template <std_simple_allocator Alloc>
+template <typename Alloc>
 class world_base : private _entity_slots_base<Alloc> {
-    template <typename, std_simple_allocator>
+    template <typename, typename>
     friend class basic_world;
     template <typename>
     friend class snapshot;
@@ -462,17 +462,17 @@ private:
     _flat_hash_map<_hash_transition, _transition_target> transitions_;
 };
 
-template <std_simple_allocator Alloc>
+template <typename Alloc>
 constexpr entity_t world_base<Alloc>::spawn() {
     return _get_new_entity();
 }
 
-template <std_simple_allocator Alloc>
+template <typename Alloc>
 constexpr auto world_base<Alloc>::spawn_n(size_type n) {
     return _entity_slots::_get_new_entities(n);
 }
 
-template <std_simple_allocator Alloc>
+template <typename Alloc>
 template <component... Components>
 constexpr void world_base<Alloc>::_emplace_new_entity(entity_t entity) {
     using namespace neutron;
@@ -494,7 +494,7 @@ constexpr void world_base<Alloc>::_emplace_new_entity(entity_t entity) {
     }
 }
 
-template <std_simple_allocator Alloc>
+template <typename Alloc>
 template <component... Components, compatible_range<entity_t> Rng>
 constexpr void world_base<Alloc>::_emplace_new_entities(Rng& range) {
     using namespace neutron;
@@ -525,7 +525,7 @@ constexpr void world_base<Alloc>::_emplace_new_entities(Rng& range) {
     }
 }
 
-template <std_simple_allocator Alloc>
+template <typename Alloc>
 template <component... Components>
 constexpr entity_t world_base<Alloc>::spawn() {
     const auto entity = _get_new_entity();
@@ -533,7 +533,7 @@ constexpr entity_t world_base<Alloc>::spawn() {
     return entity;
 }
 
-template <std_simple_allocator Alloc>
+template <typename Alloc>
 template <component... Components>
 constexpr auto world_base<Alloc>::spawn_n(size_type n) {
     auto range = _entity_slots::_get_new_entities(n);
@@ -545,7 +545,7 @@ constexpr auto world_base<Alloc>::spawn_n(size_type n) {
     return range;
 }
 
-template <std_simple_allocator Alloc>
+template <typename Alloc>
 template <component... Components>
 constexpr void world_base<Alloc>::_emplace_new_entity(
     entity_t entity, Components&&... components) {
@@ -568,7 +568,7 @@ constexpr void world_base<Alloc>::_emplace_new_entity(
     }
 }
 
-template <std_simple_allocator Alloc>
+template <typename Alloc>
 template <component... Components, compatible_range<entity_t> Rng>
 constexpr void world_base<Alloc>::_emplace_new_entities(
     Rng& range, Components&&... components) {
@@ -602,7 +602,7 @@ constexpr void world_base<Alloc>::_emplace_new_entities(
     }
 }
 
-template <std_simple_allocator Alloc>
+template <typename Alloc>
 template <component... Components>
 constexpr entity_t world_base<Alloc>::spawn(Components&&... components) {
     const auto entity = _get_new_entity();
@@ -610,7 +610,7 @@ constexpr entity_t world_base<Alloc>::spawn(Components&&... components) {
     return entity;
 }
 
-template <std_simple_allocator Alloc>
+template <typename Alloc>
 template <component... Components>
 constexpr auto
     world_base<Alloc>::spawn_n(size_type n, Components&&... components) {
@@ -623,7 +623,7 @@ constexpr auto
     return range;
 }
 
-template <std_simple_allocator Alloc>
+template <typename Alloc>
 template <component... Components>
 auto world_base<Alloc>::_dst_transition_add(
     archetype* archetype, uint64_t delta) -> _transition_target& {
@@ -652,7 +652,7 @@ auto world_base<Alloc>::_dst_transition_add(
     return trans->second;
 }
 
-template <std_simple_allocator Alloc>
+template <typename Alloc>
 template <component... Components>
 auto world_base<Alloc>::_dst_transition_remove(
     archetype* archetype, uint64_t delta) -> _transition_target& {
@@ -680,7 +680,7 @@ auto world_base<Alloc>::_dst_transition_remove(
     return trans->second;
 }
 
-template <std_simple_allocator Alloc>
+template <typename Alloc>
 template <component... Components>
 constexpr void world_base<Alloc>::add_components(entity_t entity) {
     using namespace neutron;
@@ -723,7 +723,7 @@ constexpr void world_base<Alloc>::add_components(entity_t entity) {
     slot.second = target;
 }
 
-template <std_simple_allocator Alloc>
+template <typename Alloc>
 template <component... Components>
 constexpr void world_base<Alloc>::add_components(
     entity_t entity, Components&&... components) {
@@ -764,7 +764,7 @@ constexpr void world_base<Alloc>::add_components(
     slot.second = target;
 }
 
-template <std_simple_allocator Alloc>
+template <typename Alloc>
 template <component... Components>
 constexpr void world_base<Alloc>::remove_components(entity_t entity) {
     using namespace neutron;
@@ -807,7 +807,7 @@ constexpr void world_base<Alloc>::remove_components(entity_t entity) {
     slot.second = target;
 }
 
-template <std_simple_allocator Alloc>
+template <typename Alloc>
 constexpr void world_base<Alloc>::kill(entity_t entity) {
     const auto index = _get_index(entity);
     auto& slot       = _entity_slot(index);
@@ -821,7 +821,7 @@ constexpr void world_base<Alloc>::kill(entity_t entity) {
     _release_entity(index);
 }
 
-template <std_simple_allocator Alloc>
+template <typename Alloc>
 template <compatible_range<entity_t> Rng>
 constexpr void world_base<Alloc>::kill(Rng&& range) {
     for (entity_t entity : range) {
@@ -829,12 +829,12 @@ constexpr void world_base<Alloc>::kill(Rng&& range) {
     }
 }
 
-template <std_simple_allocator Alloc>
+template <typename Alloc>
 constexpr void world_base<Alloc>::reserve(size_type n) {
     _reserve_entities(n);
 }
 
-template <std_simple_allocator Alloc>
+template <typename Alloc>
 template <component... Components>
 constexpr void world_base<Alloc>::reserve(size_type n) {
     using namespace neutron;
@@ -852,12 +852,12 @@ constexpr void world_base<Alloc>::reserve(size_type n) {
     _reserve_entities(n);
 }
 
-template <std_simple_allocator Alloc>
+template <typename Alloc>
 constexpr bool world_base<Alloc>::is_alive(entity_t entity) noexcept {
     return _is_alive(entity);
 }
 
-template <std_simple_allocator Alloc>
+template <typename Alloc>
 void world_base<Alloc>::clear() {
     for (auto& [_, archetype] : archetypes_) {
         archetype.clear();
@@ -869,7 +869,10 @@ void world_base<Alloc>::clear() {
 } // namespace _world_base
 
 template <typename Alloc = std::allocator<std::byte>>
-class world_base : public _world_base::world_base<Alloc> {};
+class world_base : public _world_base::world_base<Alloc> {
+public:
+    using _world_base::world_base<Alloc>::world_base;
+};
 
 } // namespace neutron
 

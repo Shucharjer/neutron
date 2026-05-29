@@ -1,10 +1,11 @@
 #pragma once
+#include "neutron/detail/ecs/fwd.hpp"
+
 #include <cstddef>
 #include <memory>
 #include <memory_resource>
 #include "neutron/detail/ecs/component.hpp"
 #include "neutron/detail/ecs/entity.hpp"
-#include "neutron/detail/ecs/executor.hpp"
 
 namespace neutron {
 

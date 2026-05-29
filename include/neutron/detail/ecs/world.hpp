@@ -9,6 +9,7 @@
 #include <vector>
 #include "neutron/detail/ecs/archetype.hpp"
 #include "neutron/detail/ecs/command_buffer.hpp"
+#include "neutron/detail/ecs/descriptor.hpp"
 #include "neutron/detail/ecs/query.hpp"
 #include "neutron/detail/ecs/world_base.hpp"
 #include "neutron/detail/memory/rebind_alloc.hpp"
@@ -17,7 +18,7 @@
 
 namespace neutron {
 
-template <std_simple_allocator Alloc>
+template <typename Alloc>
 class basic_world<world_descriptor_t<>, Alloc> : public world_base<Alloc> {
     template <auto, typename>
     friend struct construct_from_world_t;
@@ -64,7 +65,7 @@ private:
     type_list_rebind_t<neutron::shared_tuple, queries> queries_{};
 };
 
-template <typename Descriptor, typename Alloc>
+template <typename Descriptor, typename Alloc = std::allocator<std::byte>>
 class basic_world : public world_base<Alloc> {
     template <auto, typename>
     friend struct construct_from_world_t;
@@ -91,117 +92,34 @@ public:
     using archetype       = ::neutron::archetype<_byte_alloc>;
     using command_buffer  = ::neutron::command_buffer<_byte_alloc>;
 
-    using desc_traits    = descriptor_traits<Descriptor>;
-    using execute_traits = execute_info<Descriptor>;
-    using sysinfo        = typename desc_traits::sysinfo;
-    using grouped        = typename desc_traits::grouped;
-    using run_lists      = typename desc_traits::runlists;
-    using components     = typename desc_traits::components;
-    using locals         = typename desc_traits::locals;
-    using queries        = typename desc_traits::queries;
-    using resources      = typename desc_traits::resources;
-    using clock_type     = std::chrono::steady_clock;
-
     template <typename Al = Alloc>
     constexpr explicit basic_world(const Al& alloc = {})
         : world_base<Alloc>(alloc) /*, resources_(), locals_()*/ {}
 
     template <stage Stage>
-    static consteval auto get_tasks() noexcept {
-        return _world_task_set<Stage, descriptor_type>{};
-    }
+    static consteval auto get_tasks() noexcept;
 
-    void set_dynamic_update_interval(double seconds) noexcept {
-        if (seconds > 0.0) {
-            dynamic_update_interval_     = seconds;
-            has_dynamic_update_interval_ = true;
-        } else {
-            dynamic_update_interval_     = 0.0;
-            has_dynamic_update_interval_ = false;
-        }
-    }
-
-    [[nodiscard]] double dynamic_update_interval() const noexcept {
-        return dynamic_update_interval_;
-    }
-
-    [[nodiscard]] bool has_dynamic_update_interval() const noexcept {
-        return has_dynamic_update_interval_;
-    }
-
-    [[nodiscard]] bool should_call_update() noexcept {
-        if constexpr (execute_traits::is_always) {
-            return true;
-        }
-
-        const auto interval = _update_interval();
-        if (interval <= 0.0) {
-            return false;
-        }
-
-        const auto now = clock_type::now();
-        if (!has_last_update_ ||
-            std::chrono::duration<double>(now - last_update_).count() >=
-                interval) {
-            last_update_     = now;
-            has_last_update_ = true;
-            return true;
-        }
-        return false;
-    }
+    void set_dynamic_update_interval(double seconds) noexcept {}
 
 private:
-    // static constexpr auto _hash_array() noexcept {
-    //     return neutron::make_hash_array<components>();
-    // }
-
-    // template <component Component>
-    // static consteval index_t _static_index() {
-    //     static_assert(std::same_as<Component,
-    //     std::remove_cvref_t<Component>>);
-
-    //     constexpr auto array = _hash_array();
-    //     constexpr auto hash  = neutron::hash_of<Component>();
-    //     auto it = std::lower_bound(array.begin(), array.end(), hash);
-    //     if (it != array.end()) {
-    //         return *it;
-    //     }
-    //     throw std::invalid_argument("Component not exists");
-    // }
-
-    [[nodiscard]] double _update_interval() const noexcept {
-        if constexpr (execute_traits::is_always) {
-            return 0.0;
-        } else if constexpr (execute_traits::has_dynamic_interval) {
-            return has_dynamic_update_interval_ ? dynamic_update_interval_
-                                                : 0.0;
-        } else if constexpr (execute_traits::has_interval) {
-            return execute_traits::execution_interval;
-        } else {
-            return 0.0;
-        }
-    }
-
     /// variables could be use in only one specific system
     /// Locals are _sys_tuple, a tuple with system info, used to get the correct
     /// local for each sys
-    type_list_rebind_t<neutron::shared_tuple, locals> locals_;
-    type_list_rebind_t<neutron::shared_tuple, queries> queries_;
+    // type_list_rebind_t<neutron::shared_tuple, locals> locals_;
+    // type_list_rebind_t<neutron::shared_tuple, queries> queries_;
     //  variables could be pass between each systems
-    type_list_rebind_t<neutron::shared_tuple, resources> resources_;
+    // type_list_rebind_t<neutron::shared_tuple, resources> resources_;
 };
 
 template <
-    world_descriptor auto Descriptor,
-    typename Alloc = std::allocator<std::byte>>
+    descriptor auto Descriptor, typename Alloc = std::allocator<std::byte>>
 auto make_world(const Alloc& alloc = {})
     -> basic_world<decltype(Descriptor), Alloc> {
     return basic_world<decltype(Descriptor), Alloc>(alloc);
 }
 
 template <
-    world_descriptor auto... Descriptors,
-    typename Alloc = std::allocator<std::byte>>
+    descriptor auto... Descriptors, typename Alloc = std::allocator<std::byte>>
 auto make_worlds(const Alloc& alloc = {}) -> std::tuple<
     basic_world<decltype(Descriptors), rebind_alloc_t<Alloc, std::byte>>...> {
     return {
