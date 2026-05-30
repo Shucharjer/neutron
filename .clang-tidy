@@ -103,3 +103,5 @@ CheckOptions:
     value:  '^_[a-z0-9][a-z0-9_]+$'
   - key:    readability-identifier-naming.VariableCase
     value:  lower_case
+  - key:    readability-identifier-naming.VariableIgnoredCase
+    value:  '^_[a-z0-9][a-z0-9_]+$'
