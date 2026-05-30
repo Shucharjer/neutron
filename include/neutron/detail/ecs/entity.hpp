@@ -2,8 +2,7 @@
 #pragma once
 #include <cstdint>
 #include <format>
-#include <neutron/detail/macros.hpp>
-
+#include "neutron/detail/macros.hpp"
 
 namespace neutron {
 
@@ -17,7 +16,7 @@ using index_t      = uint32_t;
  */
 class future_entity_t {
 public:
-    constexpr explicit future_entity_t(index_t inframe_index)
+    constexpr explicit future_entity_t(index_t inframe_index) noexcept
         : identity_(inframe_index) {}
 
     ATOM_NODISCARD constexpr index_t get() const noexcept { return identity_; }
@@ -35,8 +34,8 @@ struct formatter<neutron::future_entity_t, CharT> {
     formatter<neutron::entity_t, CharT> underlying;
     constexpr auto parse(auto& ctx) { return underlying.parse(ctx); }
     template <typename FormatContext>
-    constexpr auto
-        format(const neutron::future_entity_t entity, FormatContext& ctx) const {
+    constexpr auto format(
+        const neutron::future_entity_t entity, FormatContext& ctx) const {
         return underlying.format(entity.get(), ctx);
     }
 };
