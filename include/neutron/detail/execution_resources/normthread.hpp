@@ -7,7 +7,7 @@ namespace neutron {
 
 class normthread {
 public:
-    normthread() : loop_(), thread_([this] { loop_.run(); }) {}
+    normthread() : thread_([this] { loop_.run(); }) {}
 
     normthread(const normthread&)            = delete;
     normthread& operator=(const normthread&) = delete;

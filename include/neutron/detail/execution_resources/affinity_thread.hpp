@@ -215,14 +215,14 @@ class affinity_thread {
 
 public:
     explicit affinity_thread(uint32_t core, uint32_t numa = 0)
-        : affinity_{ core, numa }, loop_(), thread_([this] {
+        : affinity_{ core, numa }, thread_([this] {
               consistancy_ =
                   set_affinity(affinity_.get_core(), affinity_.get_numa());
               loop_.run();
           }) {}
 
     affinity_thread(uint32_t core, uint32_t numa, std::nothrow_t)
-        : affinity_{ core, numa }, loop_(), thread_([this] {
+        : affinity_{ core, numa }, thread_([this] {
               consistancy_ = set_affinity(
                   affinity_.get_core(), affinity_.get_numa(), std::nothrow);
               loop_.run();
