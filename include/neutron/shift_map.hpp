@@ -246,7 +246,7 @@ public:
             make_exception_guard([this, size] { dense_.resize(size); });
         dense_.insert_range(std::forward<Rng>(range));
         _set_sparse(size); // elements may not differs from elements in range
-        dense_guard.mark_complete();
+        dense_guard.dismiss();
     }
 #endif
 
@@ -530,7 +530,8 @@ private:
     constexpr std::pair<iterator, bool> _emplace_one_at_back(
         key_type key, _kept_type kept, size_type page, size_type offset,
         Args&&... args) {
-        auto dense_guard = make_exception_guard([this] { dense_.pop_back(); });
+        auto dense_guard =
+            make_exception_guard([this]() noexcept { dense_.pop_back(); });
         const auto index = dense_.size();
         if constexpr (std::is_constructible_v<value_type, key_type, Args...>) {
             dense_.emplace_back(key, std::forward<Args>(args)...);
@@ -540,18 +541,20 @@ private:
                 std::forward_as_tuple(std::forward<Args>(args)...));
         }
         _set_index(kept, page, offset, index);
-        dense_guard.mark_complete();
+        dense_guard.dismiss();
         return std::make_pair(dense_.begin() + index, true);
     }
 
     constexpr void _set_index(
         _kept_type kept, size_type page, size_type offset, size_type index) {
         const auto current_page_count = sparse_.size();
-        auto sparse_guard             = make_exception_guard(
-            [this, current_page_count] { _pop_page_to(current_page_count); });
+        auto sparse_guard =
+            make_exception_guard([this, current_page_count]() noexcept {
+                _pop_page_to(current_page_count);
+            });
         _check_page(page);
         sparse_[page]->at(offset) = index;
-        sparse_guard.mark_complete();
+        sparse_guard.dismiss();
     }
 
     constexpr iterator

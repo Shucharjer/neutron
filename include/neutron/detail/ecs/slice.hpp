@@ -3,8 +3,8 @@
 #include <array>
 #include <type_traits>
 #include <neutron/concepts.hpp>
-#include <neutron/detail/ecs/fwd.hpp>
 #include "neutron/detail/ecs/archetype.hpp"
+#include "neutron/detail/ecs/fwd.hpp"
 #include "neutron/detail/macros.hpp"
 
 namespace neutron {
@@ -26,8 +26,7 @@ public:
 
     template <typename Alloc>
     slice(archetype<Alloc>& archetype) noexcept
-        : size_(&archetype.size()),
-          entities_(&archetype._entities()),
+        : size_(&archetype.size()), entities_(&archetype._entities()),
           bufs_([&archetype]<size_t... Is>(std::index_sequence<Is...>) {
               const auto buffers =
                   archetype.template view_buffers<Components...>();

@@ -114,7 +114,7 @@ inline constexpr struct start_detached_t {
         });
         alloc_traits_t::construct(
             alloc, op, std::forward<Sndr>(sndr), std::forward<Env>(env));
-        guard.mark_complete();
+        guard.dismiss();
         start(op->op);
     }
 

@@ -5,7 +5,7 @@
 #include "neutron/detail/concepts/allocator.hpp"
 #include "neutron/detail/macros.hpp"
 #include "neutron/detail/memory/using_allocator.hpp"
-#include "neutron/detail/utility/exception_guard.hpp"
+#include "neutron/detail/utility/completion_guard.hpp"
 #include "neutron/detail/utility/immediately.hpp"
 #include "neutron/metafn.hpp"
 
@@ -49,12 +49,12 @@ class unique_storage :
     template <typename... Args>
     constexpr void _construct_it(Args&&... args) noexcept(
         std::is_nothrow_constructible_v<Ty, Args...>) {
-        auto guard = make_exception_guard([this] {
+        auto guard = make_exception_guard([this]() noexcept {
             deallocate(get_allocator(), ptr_);
             ptr_ = nullptr;
         });
         construct(get_allocator(), ptr_, std::forward<Args>(args)...);
-        guard.mark_complete();
+        guard.dismiss();
     }
 
     constexpr void _erase_without_clean() noexcept {
@@ -131,17 +131,18 @@ public:
             pointer old_ptr   = std::exchange(ptr_, nullptr);
             alloc_t old_alloc = get_allocator();
 
-            auto guard = make_exception_guard([&] { ptr_ = old_ptr; });
+            auto guard =
+                make_exception_guard([&]() noexcept { ptr_ = old_ptr; });
 
             if constexpr (traits_t::propagate_on_container_move_assignment::
                               value) {
                 get_allocator() = std::move(that.get_allocator());
-                guard.mark_complete();
+                guard.dismiss();
                 std::swap(ptr_, that.ptr_);
             } else {
                 if (get_allocator() == that.get_allocator()) {
                     std::swap(ptr_, that.ptr_);
-                    guard.mark_complete();
+                    guard.dismiss();
                 } else if (that.ptr_) {
                     if (old_ptr) {
                         std::swap(ptr_, old_ptr);

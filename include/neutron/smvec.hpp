@@ -15,7 +15,7 @@
 #include "neutron/detail/iterator/iter_wrapper.hpp"
 #include "neutron/detail/macros.hpp"
 #include "neutron/detail/memory/using_allocator.hpp"
-#include "neutron/detail/utility/exception_guard.hpp"
+#include "neutron/detail/utility/completion_guard.hpp"
 
 namespace neutron {
 
@@ -69,13 +69,13 @@ public:
         }
         if (count > Count) {
             data_      = alloc_.allocate(count);
-            auto guard = make_exception_guard([this, count] {
+            auto guard = make_exception_guard([this, count]() noexcept {
                 alloc_.deallocate(data_, count);
                 _reset_data_ptr();
             });
             uninitialized_value_construct_n_using_allocator(
                 alloc_, data_, count);
-            guard.mark_complete();
+            guard.dismiss();
             capacity_ = count;
         } else {
             uninitialized_value_construct_n_using_allocator(
@@ -94,12 +94,12 @@ public:
         }
         if (count > Count) {
             data_      = alloc_.allocate(count);
-            auto guard = make_exception_guard([this, count] {
+            auto guard = make_exception_guard([this, count]() noexcept {
                 alloc_.deallocate(data_, count);
                 _reset_data_ptr();
             });
             uninitialized_fill_n_using_allocator(alloc_, data_, count, value);
-            guard.mark_complete();
+            guard.dismiss();
             capacity_ = count;
         } else {
             uninitialized_fill_n_using_allocator(alloc_, data_, count, value);
@@ -136,14 +136,14 @@ public:
             size_ = that.size_;
         } else {
             data_      = alloc_.allocate(that.size_);
-            auto guard = make_exception_guard([this] {
+            auto guard = make_exception_guard([this]() noexcept {
                 alloc_.deallocate(data_, capacity_);
                 _reset_data_ptr();
                 capacity_ = Count;
             });
             uninitialized_copy_n_using_allocator(
                 alloc_, that.data_, that.size_, data_);
-            guard.mark_complete();
+            guard.dismiss();
             capacity_ = that.size_;
             size_     = that.size_;
         }
@@ -198,7 +198,7 @@ public:
                 });
                 uninitialized_move_if_noexcept_n_using_allocator(
                     that.data_, that.size_, data_);
-                guard.mark_complete();
+                guard.dismiss();
                 capacity_ = that.size_;
             }
             size_ = that.size_;
@@ -217,7 +217,8 @@ public:
     }
 
     smvec& operator=(smvec&& that) noexcept(
-        std::is_nothrow_destructible_v<Ty> && nothrow_conditional_move_constrctible<Ty>) {
+        std::is_nothrow_destructible_v<Ty> &&
+        nothrow_conditional_move_constrctible<Ty>) {
         if (this == &that) {
             return *this;
         }
@@ -492,7 +493,7 @@ public:
                     });
                 uninitialized_fill_n_using_allocator(
                     alloc_, data_, count, value);
-                guard.mark_complete();
+                guard.dismiss();
                 std::destroy_n(data_, size_);
                 if (!_uses_buffer()) {
                     alloc_.deallocate(data_, capacity_);
@@ -575,7 +576,7 @@ private:
         });
         uninitialized_move_if_noexcept_n_using_allocator(
             alloc_, data_, size_, ptr);
-        guard.mark_complete();
+        guard.dismiss();
         std::destroy_n(data_, size_);
         if (!_uses_buffer()) {
             alloc_.deallocate(data_, capacity_);
@@ -622,7 +623,7 @@ private:
                 alloc_.deallocate(ptr, count);
             });
             uninitialized_copy_using_allocator(alloc_, first, last, ptr);
-            guard.mark_complete();
+            guard.dismiss();
             data_     = ptr;
             capacity_ = count;
         } else {
@@ -702,15 +703,16 @@ private:
         size_type index, size_type count, Iter first, Iter last) {
         const size_type capacity = (std::max)(capacity_ << 1, size_ + count);
         Ty* const ptr            = alloc_.allocate(capacity);
-        auto guard               = make_exception_guard(
-            [this, ptr, capacity] { alloc_.deallocate(ptr, capacity); });
+        auto guard = make_exception_guard([this, ptr, capacity]() noexcept {
+            alloc_.deallocate(ptr, capacity);
+        });
         uninitialized_move_if_noexcept_n_using_allocator(
             alloc_, data_, index, ptr);
         auto it = uninitialized_copy_using_allocator(
             alloc_, first, last, ptr + index);
         uninitialized_move_if_noexcept_n_using_allocator(
             alloc_, data_ + index, size_ - index, it);
-        guard.mark_complete();
+        guard.dismiss();
         std::destroy_n(data_, size_);
         if (!_uses_buffer()) {
             alloc_.deallocate(data_, capacity_);
@@ -724,14 +726,15 @@ private:
         size_type index, size_type count, const Ty& value) {
         const size_type capacity = (std::max)(capacity_ << 1, size_ + count);
         Ty* const ptr            = alloc_.allocate(capacity);
-        auto guard               = make_exception_guard(
-            [this, ptr, capacity] { alloc_.deallocate(ptr, capacity); });
+        auto guard = make_exception_guard([this, ptr, capacity]() noexcept {
+            alloc_.deallocate(ptr, capacity);
+        });
         uninitialized_move_if_noexcept_n_using_allocator(
             alloc_, data_, index, ptr);
         uninitialized_fill_n_using_allocator(alloc_, ptr + index, count, value);
         uninitialized_move_if_noexcept_n_using_allocator(
             alloc_, data_ + index, size_ - index, ptr + index + count);
-        guard.mark_complete();
+        guard.dismiss();
         std::destroy_n(data_, size_);
         if (!_uses_buffer()) {
             alloc_.deallocate(data_, capacity_);

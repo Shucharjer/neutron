@@ -416,8 +416,10 @@ private:
         }
 
         const auto current_page_count = sparse_.size();
-        auto sparse_guard             = make_exception_guard(
-            [this, current_page_count] { _pop_page_to(current_page_count); });
+        auto sparse_guard =
+            make_exception_guard([this, current_page_count]() noexcept {
+                _pop_page_to(current_page_count);
+            });
 
         if (sparse_.size() < page) {
             sparse_.resize(page); // default construct to page
@@ -425,7 +427,7 @@ private:
 
         sparse_.emplace_back(immediately); // make sure page is accessible
 
-        sparse_guard.mark_complete();
+        sparse_guard.dismiss();
     }
 
     constexpr void _pop_page_to(const size_type page) noexcept {
@@ -448,13 +450,14 @@ private:
     constexpr std::pair<iterator, bool> _emplace_one_at_back(
         const key_type key, const size_type page, const size_type offset,
         Args&&... args) {
-        auto dense_guard = make_exception_guard([this] { dense_.pop_back(); });
+        auto dense_guard =
+            make_exception_guard([this]() noexcept { dense_.pop_back(); });
         const auto index = dense_.size();
         dense_.emplace_back(
             std::piecewise_construct, std::forward_as_tuple(key),
             std::forward_as_tuple(std::forward<Args>(args)...));
         _set_index(page, offset, index);
-        dense_guard.mark_complete();
+        dense_guard.dismiss();
         return std::make_pair(dense_.begin() + (dense_.size() - 1), true);
     }
 

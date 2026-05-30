@@ -8,7 +8,7 @@
 #include "neutron/detail/iterator/iter_wrapper.hpp"
 #include "neutron/detail/macros.hpp"
 #include "neutron/detail/memory/using_allocator.hpp"
-#include "neutron/detail/utility/exception_guard.hpp"
+#include "neutron/detail/utility/completion_guard.hpp"
 
 namespace neutron {
 
@@ -148,7 +148,7 @@ public:
 
         uninitialized_move_if_noexcept_n_using_allocator(
             alloc_, data_, size_, next);
-        guard.mark_complete();
+        guard.dismiss();
 
         _destroy_n(data_, size_);
         _deallocate_storage();

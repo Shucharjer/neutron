@@ -51,7 +51,7 @@ public:
             data_ = _allocator_traits<Alloc>::allocate(alloc, n);
             std::uninitialized_construct_using_allocator(data_, alloc);
         }
-        guard.mark_complete();
+        guard.dismiss();
     }
 
     template <std::input_iterator Iter, typename Sentinel, typename Alloc>
@@ -263,7 +263,7 @@ private:
         for (; first != last; ++first) {
             emplace_back(*first);
         }
-        guard.mark_complete();
+        guard.dismiss();
     }
 
     template <typename Alloc, std::input_iterator Iter, typename Sentinel>
@@ -273,7 +273,7 @@ private:
         for (; first != last; ++first) {
             emplace_back(*first);
         }
-        guard.mark_complete();
+        guard.dismiss();
     }
 
     template <typename Alloc, std::input_iterator Iter, typename Sentinel>

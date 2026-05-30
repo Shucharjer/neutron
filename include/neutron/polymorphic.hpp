@@ -8,7 +8,7 @@
 #include "neutron/detail/reflection/legacy/hash_of.hpp"
 // #include "neutron/detail/reflection/meta/hash_of.hpp"
 #include "neutron/detail/tuple/first.hpp"
-#include "neutron/detail/utility/exception_guard.hpp"
+#include "neutron/detail/utility/completion_guard.hpp"
 #include "neutron/detail/utility/spreader.hpp"
 #include "neutron/metafn.hpp"
 
@@ -236,7 +236,7 @@ public:
           vtable_(spread_type<Impl>), ops_(_operations<Impl>()), storage_() {
         auto guard = make_exception_guard([this] { _destroy(); });
         _construct(std::forward<Impl>(impl));
-        guard.mark_complete();
+        guard.dismiss();
     }
 
     constexpr poly(const poly& that)
