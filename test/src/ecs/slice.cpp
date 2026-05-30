@@ -17,10 +17,10 @@ int test_slice(const T& val) {
 
     archetype<> archetype{ spread_type<T> };
     for (entity_t i = 1; i <= count; ++i) {
-        archetype.emplace(i);
+        archetype.emplace(i, val);
     }
     require_or_return(archetype.size() == count, 1);
-    auto slice = slice_of<int>(archetype);
+    auto slice = slice_of<T>(archetype);
     require_or_return(slice.size() == archetype.size(), 1);
 
     const auto& bufs  = slice.buffers();
@@ -33,8 +33,8 @@ int test_slice(const T& val) {
 }
 
 int main() {
-    require_or_return(test_slice<int>(32), 1);
-    require_or_return(
+    require_false_or_return(test_slice<int>(32), 1);
+    require_false_or_return(
         test_slice<std::string>(
             "this is a std::string that needs heap allocation"),
         1);

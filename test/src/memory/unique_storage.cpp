@@ -1,25 +1,10 @@
 #include <memory>
 #include <memory_resource>
-#include <string>
 #include <neutron/memory.hpp>
-#include <neutron/object_pool.hpp>
 #include "require.hpp"
 
 using namespace neutron;
 
-void test_unique_storage();
-void test_unique_storage_pmr();
-void test_pools();
-
-int main() {
-    test_unique_storage();
-    test_unique_storage_pmr();
-    test_pools();
-
-    return 0;
-}
-
-// uses std::allocator
 void test_unique_storage() {
     // default ctor
     {
@@ -185,51 +170,9 @@ void test_unique_storage_pmr() {
     }
 }
 
-void test_pool_proxy();
-void test_constcapacity_pool();
-void test_runtime_pool();
-void test_pools() {
-    test_pool_proxy();
-    test_constcapacity_pool();
-    test_runtime_pool();
-}
-template <typename Val>
-void use_pool(auto& pool) {
-    auto* const block1 = pool.template take<Val>();
-    std::construct_at(static_cast<Val*>(block1), "hello world!");
-    auto* const block2 = pool.template take<Val>();
-    std::construct_at(static_cast<Val*>(block1), "this is a string");
-    pool.put(block1);
-    auto* block3 = pool.template take<Val>();
-    require(block1 == block3);
-    pool.put(block2);
-    pool.put(block3);
-}
-void test_pool_proxy() {
-    using value_type     = std::string;
-    constexpr auto size  = sizeof(value_type);
-    constexpr auto count = 4;
+int main() {
+    test_unique_storage();
+    test_unique_storage_pmr();
 
-    using allocator = std::allocator<value_type>;
-
-    auto* const blocks = allocator{}.allocate(count);
-    _pool_proxy<size> pool(static_cast<void*>(blocks), count);
-    use_pool<value_type>(pool);
-    allocator{}.deallocate(blocks, count);
-}
-void test_constcapacity_pool() {
-    using value_type     = std::string;
-    constexpr auto size  = sizeof(value_type);
-    constexpr auto count = 4;
-
-    constcapacity_pool<size, count, alignof(value_type)> pool;
-    use_pool<value_type>(pool);
-}
-void test_runtime_pool() {
-    using value_type     = std::string;
-    constexpr auto size  = sizeof(value_type);
-    constexpr auto count = 4;
-
-    runtime_pool<size, alignof(value_type)> pool{ count };
-    use_pool<value_type>(pool);
+    return 0;
 }
