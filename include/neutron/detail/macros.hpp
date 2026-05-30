@@ -177,6 +177,10 @@
     #endif
 #endif
 
+#ifndef ATOM_NORETURN
+    #define ATOM_NORETURN [[noreturn]]
+#endif
+
 #ifndef ATOM_INDETERMINATE
     #if HAS_INDETERMINATE
         #define ATOM_INDETERMINATE [[indeterminate]]
