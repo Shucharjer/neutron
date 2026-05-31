@@ -61,9 +61,7 @@ public:
     // size constructors
     template <typename Al = Alloc>
     requires std::convertible_to<Al, allocator_type>
-    explicit smvec(size_type count, const Al& alloc = {})
-    requires(std::same_as<std::remove_cvref_t<Al>, Alloc>)
-        : alloc_(alloc) {
+    explicit smvec(size_type count, const Al& alloc = {}) : alloc_(alloc) {
         if (count == 0) {
             return;
         }
@@ -87,7 +85,6 @@ public:
     template <typename Al = Alloc>
     requires std::convertible_to<Al, allocator_type>
     smvec(size_type count, const Ty& value, const Al& alloc = {})
-    requires(std::same_as<std::remove_cvref_t<Al>, Alloc>)
         : alloc_(alloc) {
         if (count == 0) {
             return;
@@ -110,7 +107,6 @@ public:
     template <std::input_iterator InputIter, typename Al = Alloc>
     requires std::convertible_to<Al, allocator_type>
     smvec(InputIter first, InputIter last, const Al& alloc = {})
-    requires(std::same_as<std::remove_cvref_t<Al>, Alloc>)
         : alloc_(allocator_type(alloc)) {
         if (std::forward_iterator<InputIter>) {
             _init_with_size(first, last);
@@ -171,7 +167,6 @@ public:
     template <typename Al = Alloc>
     requires std::convertible_to<Al, allocator_type>
     smvec(smvec&& that, const Al& alloc)
-    requires(std::same_as<std::remove_cvref_t<Al>, Alloc>)
         : alloc_(allocator_type(alloc)) {
         if (that.size_ == 0) {
             return;
