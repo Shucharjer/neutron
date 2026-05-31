@@ -35,6 +35,7 @@
 #include "neutron/detail/utility/spreader.hpp"
 #include "neutron/metafn.hpp"
 #include "neutron/shift_map.hpp"
+#include "neutron/smvec.hpp"
 #include "neutron/utility.hpp"
 
 namespace neutron {
@@ -87,6 +88,7 @@ namespace _archetype {
 // clang-format off
 
 constexpr std::size_t _default_alignment = 32U;
+constexpr std::size_t _initial_capacity  = 64U;
 
 template <typename T>
 constexpr std::size_t _align_of = std::max<std::size_t>(alignof(T), _default_alignment);
@@ -94,8 +96,17 @@ constexpr std::size_t _align_of = std::max<std::size_t>(alignof(T), _default_ali
 template <typename T>
 constexpr std::align_val_t _alignval_of = static_cast<std::align_val_t>(_align_of<T>);
 
+static ATOM_CONSTEXPR_SINCE_CXX26 _buffer_ptr _new_ptr(std::size_t size, std::size_t count, std::align_val_t align ) {
+    auto* const pbase = ::operator new(size*count, align);
+    return _buffer_ptr{ static_cast<std::byte*>(pbase), _buffer_deletor{ .align= align } };
+}
+
+static ATOM_CONSTEXPR_SINCE_CXX26 _buffer_ptr _new_ptr(std::size_t size, std::size_t count, std::size_t align ) {
+    return _new_ptr(size, count, static_cast<std::align_val_t>(align));
+}
+
 template <std::size_t Index, typename Components>
-static constexpr auto _prepare_for_relocation_impl(std::array<_buffer_ptr, type_list_size_v<Components>>& nbufs, std::size_t nsize) {
+static ATOM_CONSTEXPR_SINCE_CXX26 auto _prepare_for_relocation_impl(std::array<_buffer_ptr, type_list_size_v<Components>>& nbufs, std::size_t ncap) {
     using comp_t = type_list_element_t<Index, Components>;
 
     if constexpr (std::is_empty_v<comp_t>) {
@@ -103,15 +114,13 @@ static constexpr auto _prepare_for_relocation_impl(std::array<_buffer_ptr, type_
     }
 
     _buffer_ptr& buf  = nbufs[Index];
-    auto* const pbase = static_cast<std::byte*>(
-        ::operator new(sizeof(comp_t) * nsize, _alignval_of<comp_t>));
-    buf = _buffer_ptr(pbase, _buffer_deletor{ .align = _alignval_of<comp_t> });
+    buf = _new_ptr(sizeof(comp_t), ncap, _align_of<comp_t>);
 }
 
 template <typename Components>
-static constexpr void _prepare_for_relocation(std::array<_buffer_ptr, type_list_size_v<Components>>& nbufs, std::size_t nsize) {
-    [&nbufs, nsize]<std::size_t...Is>(std::index_sequence<Is...>) {
-        (_prepare_for_relocation_impl<Is, Components>(nbufs, nsize), ...);
+static ATOM_CONSTEXPR_SINCE_CXX26 void _prepare_for_relocation(std::array<_buffer_ptr, type_list_size_v<Components>>& nbufs, std::size_t ncap) {
+    [&nbufs, ncap]<std::size_t...Is>(std::index_sequence<Is...>) {
+        (_prepare_for_relocation_impl<Is, Components>(nbufs, ncap), ...);
     }(std::make_index_sequence<type_list_size_v<Components>>());
 }
 
@@ -208,25 +217,25 @@ noexcept(_nothrow_relocatible<Components>)
 }
 
 template <std::size_t Size>
-static constexpr void _apply_relocation(std::span<_buffer_ptr, Size>& bufs, std::array<_buffer_ptr, Size>& nbufs) noexcept {
+static constexpr void _apply_relocation(std::span<_buffer_ptr, Size> bufs, std::array<_buffer_ptr, Size>& nbufs) noexcept {
     for (std::size_t i = 0; i < Size; ++i) {
         bufs[i] = std::move(nbufs[i]);
     }
 }
 
 template <component... Components>
-static constexpr void _relocate(std::span<_buffer_ptr, sizeof...(Components)> bufs, std::size_t size, std::size_t nsize) {
+static ATOM_CONSTEXPR_SINCE_CXX26 void _relocate(std::span<_buffer_ptr, sizeof...(Components)> bufs, std::size_t size, std::size_t ncap) {
     using list_t = hash_list_t<type_list<std::remove_cvref_t<Components>...>>;
     using iseq_t = std::index_sequence_for<Components...>;
 
     std::array<_buffer_ptr, sizeof...(Components)> nbufs{};
-    _prepare_for_relocation<list_t>(nbufs, nsize);
+    _prepare_for_relocation<list_t>(nbufs, ncap);
     _relocate_data<list_t>(bufs, nbufs, size);
     _apply_relocation<type_list_size_v<list_t>>(bufs, nbufs);
 }
 
 template <std::size_t Index, typename Components, std::size_t Size = type_list_size_v<Components>>
-static constexpr bool _clean_for_emplace_one(std::span<_buffer_ptr, Size> bufs, std::size_t size, std::size_t succ)
+static bool _clean_for_emplace_one(std::span<_buffer_ptr, Size> bufs, std::size_t size, std::size_t succ)
 noexcept
 {
     using comp_t = type_list_element_t<Index, Components>;
@@ -245,7 +254,7 @@ noexcept
 }
 
 template <std::size_t Index, typename Components, std::size_t Size = type_list_size_v<Components>>
-static constexpr void _emplace_one_normally_impl(std::span<_buffer_ptr, Size> bufs, std::size_t size, std::size_t& succ)
+static void _emplace_one_normally_impl(std::span<_buffer_ptr, Size> bufs, std::size_t size, std::size_t& succ)
 noexcept(std::is_nothrow_default_constructible_v<type_list_element_t<Index, Components>>)
 {
     using comp_t = type_list_element_t<Index, Components>;
@@ -263,7 +272,7 @@ noexcept(std::is_nothrow_default_constructible_v<type_list_element_t<Index, Comp
 }
 
 template <component... Components>
-static constexpr void _emplace_one_normally(std::span<_buffer_ptr, sizeof...(Components)> bufs, std::size_t size)
+static void _emplace_one_normally(std::span<_buffer_ptr, sizeof...(Components)> bufs, std::size_t size)
 noexcept((std::is_nothrow_default_constructible_v<Components> && ...))
 {
     using list_t = hash_list_t<type_list<Components...>>;
@@ -271,8 +280,8 @@ noexcept((std::is_nothrow_default_constructible_v<Components> && ...))
 
     constexpr auto nothrow = (std::is_nothrow_default_constructible_v<Components> && ...);
 
-    std::size_t succ = 0;
-    auto guard = make_exception_guard<nothrow>([bufs, &succ, size]() noexcept {
+    [[maybe_unused]] std::size_t succ = 0;
+    [[maybe_unused]] auto guard = make_exception_guard<nothrow>([bufs, &succ, size]() noexcept {
         [bufs, size, succ]<std::size_t... Is>(std::index_sequence<Is...>) {
             (_clean_for_emplace_one<Is, list_t>(bufs, size, succ) && ...);
         }(iseq_t());
@@ -286,7 +295,7 @@ noexcept((std::is_nothrow_default_constructible_v<Components> && ...))
 }
 
 template <std::size_t Index, typename Components, typename Tup, std::size_t Size = type_list_size_v<Components>>
-static constexpr void _emplace_one_normally_impl(std::span<_buffer_ptr, Size> bufs, std::size_t size, std::size_t& succ, Tup&& vals)
+static void _emplace_one_normally_impl(std::span<_buffer_ptr, Size> bufs, std::size_t size, std::size_t& succ, Tup&& vals)
 noexcept(std::is_nothrow_constructible_v<std::remove_cvref_t<type_list_element_t<Index, Components>>, type_list_element_t<Index, Components>>)
 {
     using comp_t = std::remove_cvref_t<type_list_element_t<Index, Components>>;
@@ -305,7 +314,7 @@ noexcept(std::is_nothrow_constructible_v<std::remove_cvref_t<type_list_element_t
 
 
 template <component... Components, typename Tup>
-static constexpr void _emplace_one_normally(std::span<_buffer_ptr, sizeof...(Components)> bufs, std::size_t size, Tup&& vals)
+static void _emplace_one_normally(std::span<_buffer_ptr, sizeof...(Components)> bufs, std::size_t size, Tup&& vals)
 noexcept((std::is_nothrow_constructible_v<std::decay_t<Components>, Components> && ...))
 {
     using list_t = hash_list_t<type_list<std::remove_cvref_t<Components>...>>;
@@ -313,8 +322,8 @@ noexcept((std::is_nothrow_constructible_v<std::decay_t<Components>, Components> 
 
     constexpr bool nothrow = (std::is_nothrow_constructible_v<std::decay_t<Components>, Components> && ...);
 
-    std::size_t succ = 0;
-    auto guard = make_exception_guard<nothrow>([bufs, &succ, size]() noexcept {
+    [[maybe_unused]] std::size_t succ = 0;
+    [[maybe_unused]] auto guard = make_exception_guard<nothrow>([bufs, &succ, size]() noexcept {
         [bufs, size, succ]<std::size_t... Is>(std::index_sequence<Is...>) {
             (_clean_for_emplace_one<Is, list_t>(bufs, size, succ) && ...);
         }(iseq_t());
@@ -330,10 +339,62 @@ noexcept((std::is_nothrow_constructible_v<std::decay_t<Components>, Components> 
 }
 
 template <component... Components>
-static constexpr void _emplace_one_normally(std::span<_buffer_ptr, sizeof...(Components)> bufs, std::size_t size, Components&&... vals)
+static void _emplace_one_normally(std::span<_buffer_ptr, sizeof...(Components)> bufs, std::size_t size, Components&&... vals)
 noexcept((std::is_nothrow_constructible_v<std::decay_t<Components>, Components> && ...))
 {
     _emplace_one_normally<Components...>(bufs, size, std::forward_as_tuple(std::forward<Components>(vals)...));
+}
+
+template <std::size_t Index, typename Components, std::size_t Size = type_list_size_v<Components>>
+static bool _clean_for_emplace_n(std::span<_buffer_ptr, Size> bufs, std::size_t size, std::size_t count, std::size_t succ) noexcept {
+    using comp_t = type_list_element_t<Index, Components>;
+
+    if (Index >= succ) {
+        return false;
+    }
+
+    if constexpr (!std::is_empty_v<comp_t>) {
+        auto* pbase = reinterpret_cast<comp_t*>(bufs[Index].get());
+        std::destroy_n(pbase + size, count);
+    }
+
+    return true;
+}
+
+template <std::size_t Index, typename Components, std::size_t Size = type_list_size_v<Components>>
+static void _emplace_n_normally_impl(std::span<_buffer_ptr, Size> bufs, std::size_t size, std::size_t count, std::size_t& succ) noexcept {
+    using comp_t = type_list_element_t<Index, Components>;
+
+    if constexpr (std::is_empty_v<comp_t>) {
+        ++succ;
+        return;
+    }
+
+    auto* pbase = reinterpret_cast<comp_t*>(bufs[Index].get());
+    std::uninitialized_value_construct_n(pbase + size, count);
+
+    ++succ;
+}
+
+template <component... Components>
+static void _emplace_n_normally(std::span<_buffer_ptr, sizeof...(Components)> bufs, std::size_t size, std::size_t count)
+noexcept((std::is_nothrow_default_constructible_v<Components> && ...))
+{
+    using list_t = hash_list_t<type_list<Components...>>;
+    using iseq_t = std::index_sequence_for<Components...>;
+
+    constexpr bool nothrow = (std::is_nothrow_default_constructible_v<Components> && ...);
+
+    [[maybe_unused]] std::size_t succ = 0;
+    [[maybe_unused]] auto guard = make_exception_guard<nothrow>([bufs, size, count, &succ]() noexcept{
+        [bufs, size, count, succ]<std::size_t... Is>(std::index_sequence<Is...>) {
+            (_clean_for_emplace_n<Is, list_t>(bufs, size, count, succ) && ...);
+        }(iseq_t());
+    });
+
+    [bufs, size, count, &succ]<std::size_t... Is>(std::index_sequence<Is...>) {
+        (_emplace_n_normally_impl<Is, list_t>(bufs, size, count, succ), ...);
+    }(iseq_t());
 }
 
 // clang-format on
@@ -384,7 +445,11 @@ public:
     ATOM_CONSTEXPR_SINCE_CXX23
         archetype(immediately_t, type_list<Components...>, const Al& alloc = {})
         : relocate_fn_([](archetype* self, size_type capacity) {
-              self->_relocate<Components...>(capacity);
+              std::span<_buffer_ptr, sizeof...(Components)> buf{
+                  self->storage_
+              };
+              _archetype::_relocate<Components...>(buf, self->size_, capacity);
+              self->size_ = capacity;
           }),
           hash_list_(
               std::initializer_list<std::uint32_t>{ hash_of<Components>()... },
@@ -1164,167 +1229,62 @@ private:
         guard.dismiss();
     }
 
-    auto _prepare_for_relocation(
-        const size_type kinds, _vector_t<_buffer_ptr>& buffers,
-        size_type capacity) {
-        for (size_type i = 0; i < kinds; ++i) {
+    ATOM_CONSTEXPR_SINCE_CXX26 void _prepare_for_relocation(
+        smvec<_buffer_ptr, 64, _allocator_t<_buffer_ptr>>& nbufs,
+        size_type ncap) {
+        for (size_type i = 0; i < kinds(); ++i) {
             const type_traits info = comp_traits_[i];
             if (info.size == 0) {
                 continue;
             }
 
-            const auto align = _get_align(info.align);
-            buffers[i]       = _get_buffer(info.size, capacity, align);
+            nbufs[i] = _archetype::_new_ptr(info.size, ncap, info.align);
         }
     }
 
-    auto
-        _relocate_data(const size_type kinds, _vector_t<_buffer_ptr>& buffers) {
-        auto idx = static_cast<int64_t>(kinds);
-        auto guard =
-            make_exception_guard([this, kinds, &idx, &buffers]() noexcept {
-                for (size_type i = idx + 1; i < kinds; ++i) {
-                    const type_traits info = comp_traits_[i];
-                    if (info.size == 0) {
-                        continue;
-                    }
-                    destructors_[i](buffers[i].get(), size_);
+    constexpr void _relocate_data(
+        smvec<_buffer_ptr, 64, _allocator_t<_buffer_ptr>>& nbufs) {
+        size_type idx = kinds();
+        auto guard    = make_exception_guard([this, &nbufs, &idx]() noexcept {
+            for (size_type i = idx + 1; i < kinds(); ++i) {
+                const type_traits info = comp_traits_[idx];
+                if (info.size == 0) {
+                    continue;
                 }
-            });
+
+                destructors_[i](nbufs[i].get(), size_);
+            }
+        });
+
         for (; idx-- > 0;) {
             const type_traits info = comp_traits_[idx];
             if (info.size == 0) {
                 continue;
             }
 
-            // NOTE: move_constructors_ uses uninitialized_move_if_noexcept_n
             move_constructors_[idx](
-                storage_[idx].get(), size_, buffers[idx].get());
+                storage_[idx].get(), size_, nbufs[idx].get());
         }
+
         guard.dismiss();
-        for (size_type i = 0; i < kinds; ++i) {
-            destructors_[i](storage_[i].get(), size_);
+
+        for (; idx < kinds(); ++idx) {
+            destructors_[idx](storage_[idx].get(), size_);
+            storage_[idx] = std::move(nbufs[idx]);
         }
-        _commit_relocation(buffers);
     }
 
-    auto _relocate(size_type capacity) {
+    ATOM_CONSTEXPR_SINCE_CXX26 void _relocate(size_type capacity) {
+        // jump to inline version
         if (relocate_fn_ != nullptr) {
             relocate_fn_(this, capacity);
             return;
         }
-        const auto kinds = hash_list_.size();
-        _vector_t<_buffer_ptr> buffers{ kinds, entity2index_.get_allocator() };
-        _prepare_for_relocation(kinds, buffers, capacity);
-        _relocate_data(kinds, buffers);
-        capacity_ = capacity;
-    }
 
-    // relocation
-
-    template <
-        size_t Index, typename TypeList,
-        typename Ty = type_list_element_t<Index, TypeList>>
-    void _prepare_for_relocation(
-        _vector_t<_buffer_ptr>& buffers,
-        size_type capacity) noexcept(std::is_empty_v<Ty>) {
-        if constexpr (std::is_empty_v<Ty>) {
-            return;
-        }
-
-        constexpr auto align = _get_align(alignof(Ty));
-        buffers[Index]       = _get_buffer(sizeof(Ty), capacity, align);
-    }
-
-    template <
-        size_t Index, typename TypeList,
-        typename Ty = type_list_element_t<Index, TypeList>>
-    void _relocate_data(
-        _vector_t<_buffer_ptr>& buffers,
-        size_type& succ) noexcept(nothrow_conditional_move_constrctible<Ty>) {
-        if constexpr (std::is_empty_v<Ty>) {
-            return;
-        }
-
-        constexpr auto align = _get_align(alignof(Ty));
-        constexpr auto alg   = static_cast<size_t>(align);
-
-        _buffer_ptr& data = storage_[Index];
-        auto* const src   = reinterpret_cast<Ty*>(data.get());
-        auto* const dst   = reinterpret_cast<Ty*>(buffers[Index].get());
-        uninitialized_move_if_noexcept_n(
-            std::assume_aligned<alg>(src), size_,
-            std::assume_aligned<alg>(dst));
-        ++succ;
-    }
-
-    template <
-        size_t Index, typename TypeList,
-        typename Ty = type_list_element_t<Index, TypeList>>
-    auto _clean_for_relocation(
-        _vector_t<_buffer_ptr>& buffers, size_type succ) noexcept {
-        if constexpr (std::is_empty_v<Ty>) {
-            return;
-        }
-
-        constexpr auto align = _get_align(alignof(Ty));
-        constexpr auto alg   = static_cast<size_t>(align);
-
-        if (Index < succ) {
-            _buffer_ptr& data = buffers[Index];
-            auto* const ptr   = reinterpret_cast<Ty*>(data.get());
-            std::destroy_n(std::assume_aligned<alg>(ptr), size_);
-        }
-    }
-
-    template <
-        size_t Index, typename TypeList,
-        typename Ty = type_list_element_t<Index, TypeList>>
-    auto _apply_relocation() noexcept {
-        constexpr auto align = _get_align(alignof(Ty));
-        constexpr auto alg   = static_cast<size_t>(align);
-
-        auto* const ptr = reinterpret_cast<Ty*>(storage_[Index].get());
-        std::destroy_n(std::assume_aligned<alg>(ptr), size_);
-    }
-
-    template <component... Components>
-    requires(nothrow_conditional_move_constrctible<Components> && ...)
-    auto _relocate(size_type capacity) {
-        using tlist          = type_list<Components...>;
-        constexpr auto count = sizeof...(Components);
-        _vector_t<_buffer_ptr> buffers(count, storage_.get_allocator());
-        [this, &buffers, capacity]<size_t... Is>(std::index_sequence<Is...>) {
-            (_prepare_for_relocation<Is, tlist>(buffers, capacity), ...);
-            [[maybe_unused]] size_type succ = 0;
-            (..., _relocate_data<Is, tlist>(buffers, succ));
-            (_apply_relocation<Is, tlist>(), ...);
-        }(std::index_sequence_for<Components...>());
-        _commit_relocation(buffers);
-        capacity_ = capacity;
-    }
-
-    template <component... Components>
-    requires(!(nothrow_conditional_move_constrctible<Components> && ...))
-    void _relocate(size_type capacity) {
-        using tlist        = type_list<Components...>;
-        constexpr auto num = sizeof...(Components);
-
-        [this, capacity]<size_t... Is>(std::index_sequence<Is...>) {
-            _vector_t<_buffer_ptr> buffers(num, storage_.get_allocator());
-            (_prepare_for_relocation<Is, tlist>(buffers), ...);
-            size_type succ = 0;
-            auto guard     = make_exception_guard([this, &buffers,
-                                               &succ]() noexcept {
-                if (succ != num) [[unlikely]] {
-                    ((_clean_for_relocation<Is, tlist>(buffers, succ)), ...);
-                }
-            });
-            (_relocate_data<Is, tlist>(buffers, succ), ...);
-            (_apply_relocation<Is, tlist>(), ...);
-            _commit_relocation(buffers);
-            guard.dismiss();
-        }(std::index_sequence_for<Components...>());
+        smvec<_buffer_ptr, 64, _allocator_t<_buffer_ptr>> nbufs(
+            kinds(), entity2index_.get_allocator());
+        _prepare_for_relocation(nbufs, capacity);
+        _relocate_data(nbufs);
         capacity_ = capacity;
     }
 
@@ -1461,7 +1421,11 @@ private:
             entity2index_.reserve(final_size);
             index2entity_.reserve(final_size);
             if (final_size > capacity_) {
-                _relocate<Components...>(std::max(final_size, capacity_));
+                std::span<_buffer_ptr, sizeof...(Components)> bufs{ storage_ };
+                const auto ncap = std::max(final_size, capacity_ << 1);
+                _archetype::_relocate<Components...>(bufs, size_, ncap);
+                capacity_ = ncap;
+                // _relocate<Components...>(std::max(final_size, capacity_));
             }
             _emplace_with_entity_binding(
                 std::forward<Rng>(range), append, tl,
@@ -1587,7 +1551,10 @@ private:
             entity2index_.reserve(final_size);
             index2entity_.reserve(final_size);
             if (final_size > capacity_) {
-                _relocate<std::remove_cvref_t<Components>...>(final_size);
+                const auto ncap = std::max(final_size, capacity_ << 1);
+                std::span<_buffer_ptr, sizeof...(Components)> bufs{ storage_ };
+                _archetype::_relocate<Components...>(bufs, size_, ncap);
+                capacity_ = ncap;
             }
         }
 
