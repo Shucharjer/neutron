@@ -1,3 +1,4 @@
+// IWYU pragma: private, include <neutron/ecs.hpp>
 #pragma once
 #include "neutron/detail/ecs/fwd.hpp"
 

@@ -1,7 +1,6 @@
+// IWYU pragma: private, include <neutron/ecs.hpp>
 #pragma once
 
-#include <cstddef>
-#include <memory>
 namespace neutron {
 
 template <typename Alloc>
