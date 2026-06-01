@@ -1,3 +1,4 @@
+// IWYU pragma: private, include <neutron/ecs.hpp>
 #pragma once
 #include <cstddef>
 #include "neutron/detail/ecs/descriptor.hpp"
@@ -33,5 +34,13 @@ public:
     template <stage Stage>
     auto get_tasks();
 };
+
+template <typename Alloc, auto... Worlds>
+struct _run_envs_for_impl {
+    using type = std::tuple<Alloc>;
+};
+
+template <typename Alloc, auto... Worlds>
+using run_envs_for = _run_envs_for_impl<Alloc, Worlds...>::type;
 
 } // namespace neutron
