@@ -4,6 +4,8 @@
 #include <concepts>
 #include <cstddef>
 #include <cstdint>
+#include <type_traits>
+#include <utility>
 #include "neutron/detail/metafn/definition.hpp"
 #include "neutron/detail/metafn/element.hpp"
 #include "neutron/inplace_vector.hpp"
@@ -419,12 +421,34 @@ struct _execute_t : description_tag {
         (_individual_count + _group_count) <= 1,
         "'individual' and 'group' could not appear at same time");
 
-    static constexpr double _interval = []() -> double {
-        if (_individual_count == 0) {
-            return 0.0;
-        }
-        //
+    static constexpr bool _has_interval = []() -> bool {
+        return (
+            std::same_as<std::remove_cvref_t<decltype(Args)>, interval> || ...);
     }();
+
+    static constexpr double _interval = []() -> double {
+        using namespace std;
+        double val = 0.0;
+        if constexpr (_has_interval) {
+            constexpr auto index = []<size_t... Is>(index_sequence<Is...>) {
+                constexpr auto num = sizeof...(Args);
+                auto index         = num;
+                auto curr          = 0;
+                ((index == num &&
+                          same_as<remove_cvref_t<decltype(Args)>, interval>
+                      ? index = curr
+                      : 0,
+                  ++curr),
+                 ...);
+                return index;
+            }(std::make_index_sequence<sizeof...(Args)>());
+            val = value_list_element_v<index, value_list<Args...>>.val;
+        }
+
+        return val;
+    }();
+
+    static constexpr bool _has_dynamic_interval = _interval < 0.0;
 
     template <descriptor Desc>
     consteval auto operator()(Desc) const noexcept {
