@@ -65,8 +65,9 @@
 #include "neutron/detail/ecs/snapshot.hpp"
 
 // startup
+#include "neutron/detail/ecs/executor.hpp"
+#include "neutron/detail/ecs/queries.hpp"
 #include "neutron/detail/ecs/run.hpp"
 #include "neutron/detail/ecs/run_env.hpp"
-#include "neutron/detail/ecs/executor.hpp"
 
 // IWYU pragma: end_exports
