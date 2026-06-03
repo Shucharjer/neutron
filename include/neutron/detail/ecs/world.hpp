@@ -5,7 +5,6 @@
 #include <chrono>
 #include <cstddef>
 #include <memory>
-#include <type_traits>
 #include <vector>
 #include "neutron/detail/ecs/archetype.hpp"
 #include "neutron/detail/ecs/command_buffer.hpp"
@@ -48,18 +47,6 @@ public:
     static consteval auto get_tasks() noexcept {
         // return _world_task_set<Stage, descriptor_type>{};
     }
-
-    void set_dynamic_update_interval(double) noexcept {}
-
-    [[nodiscard]] constexpr double dynamic_update_interval() const noexcept {
-        return 0.0;
-    }
-
-    [[nodiscard]] constexpr bool has_dynamic_update_interval() const noexcept {
-        return false;
-    }
-
-    [[nodiscard]] constexpr bool should_call_update() noexcept { return true; }
 
 private:
     type_list_rebind_t<neutron::shared_tuple, queries> queries_{};
