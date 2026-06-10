@@ -197,13 +197,13 @@ public:
     }
 
     constexpr reference operator[](size_type index) noexcept {
-        assert(index < storage_size() && "Index out of bounds");
+        assert(index < N && "Index out of bounds");
         return storage_data()[index];
     }
 
     ATOM_NODISCARD constexpr const_reference
         operator[](size_type index) const noexcept {
-        assert(index < storage_size() && "Index out of bounds");
+        assert(index < N && "Index out of bounds");
         return storage_data()[index];
     }
 
