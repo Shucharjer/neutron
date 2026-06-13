@@ -63,7 +63,7 @@ struct _buffer_deletor {
      * @brief Deallocates memory with the stored alignment.
      * @param ptr Pointer to deallocate.
      */
-    ATOM_CONSTEXPR_SINCE_CXX20 void operator()(std::byte* ptr) const noexcept {
+    ATOM_CONSTEXPR_SINCE_CXX26 void operator()(std::byte* ptr) const noexcept {
         ::operator delete(ptr, align);
     }
 };
