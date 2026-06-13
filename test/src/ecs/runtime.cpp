@@ -20,7 +20,10 @@ class app {
     struct payload {
         std::uint8_t ticks = 0;
 
-        bool poll_events() { ++ticks; }
+        bool poll_events() noexcept {
+            ++ticks;
+            return false;
+        }
 
         [[nodiscard]] bool is_running() const noexcept {
             return ticks < total_ticks;
@@ -47,7 +50,7 @@ private:
 };
 
 template <>
-constexpr bool as_resource<std::atomic<int>> = true;
+constexpr bool ::neutron::as_resource<std::atomic<int>> = true;
 
 void fetch_add(global<std::atomic<int>&> res) {
     auto& [atomic] = res;

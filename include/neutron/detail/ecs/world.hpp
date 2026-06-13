@@ -9,6 +9,7 @@
 #include "neutron/detail/ecs/archetype.hpp"
 #include "neutron/detail/ecs/command_buffer.hpp"
 #include "neutron/detail/ecs/descriptor.hpp"
+#include "neutron/detail/ecs/queries.hpp"
 #include "neutron/detail/ecs/query.hpp"
 #include "neutron/detail/ecs/world_base.hpp"
 #include "neutron/detail/memory/rebind_alloc.hpp"
@@ -17,43 +18,67 @@
 
 namespace neutron {
 
-template <typename Alloc>
-class basic_world<world_descriptor_t<>, Alloc> : public world_base<Alloc> {
-    template <auto, typename>
-    friend struct construct_from_world_t;
-    friend struct world_accessor;
+using time_point_t = std::chrono::system_clock::time_point;
 
-    template <typename Ty>
-    using _allocator_t = rebind_alloc_t<Alloc, Ty>;
-
-    template <typename Ty>
-    using _vector_t = std::vector<Ty, _allocator_t<Ty>>;
-
-public:
-    using descriptor_type = world_descriptor_t<>;
-    using allocator_type  = Alloc;
-    using command_buffer  = ::neutron::command_buffer<Alloc>;
-    template <typename... Filters>
-    using query_type    = query<Filters...>;
-    using commands_type = basic_commands<Alloc>;
-    using queries       = type_list<>;
-    // using systems        = world_descriptor_t<>::systems;
-
-    template <typename Al = Alloc>
-    constexpr explicit basic_world(const Al& alloc = {})
-        : world_base<Alloc>(alloc) {}
-
-    template <stage Stage>
-    static consteval auto get_tasks() noexcept {
-        // return _world_task_set<Stage, descriptor_type>{};
+struct _interval_base {
+    void set_last_update(time_point_t time) noexcept { _last_update = time; }
+    ATOM_NODISCARD time_point_t get_last_update() const noexcept {
+        return _last_update;
     }
+    time_point_t _last_update;
+};
+
+template <typename Descriptor>
+class _basic_world_interval_t : public _interval_base {
+public:
+    ATOM_NODISCARD bool should_update(time_point_t time) const noexcept {
+        using namespace std::chrono;
+        constexpr double forward_interval = get_forward_interval(Descriptor());
+        if constexpr (forward_interval == 0.0) {
+            return true;
+        } else {
+            return time >= _last_update + duration<double>(forward_interval);
+        }
+    }
+};
+template <typename Descriptor>
+requires(get_forward_interval(Descriptor()) < 0.0)
+class _basic_world_interval_t<Descriptor> : public _interval_base {
+public:
+    ATOM_NODISCARD bool should_update(time_point_t time) const noexcept {
+        using namespace std::chrono;
+        return time >= _last_update + duration<double>(interval_);
+    }
+    ATOM_NODISCARD double get_interval() const noexcept { return interval_; }
+    void set_interval(double interval) noexcept { this->interval_ = interval; }
 
 private:
-    type_list_rebind_t<neutron::shared_tuple, queries> queries_{};
+    double interval_ = 1.0 / 120.0; // NOLINT
+};
+
+template <typename Descriptor>
+class _basic_world_task_base : public _basic_world_interval_t<Descriptor> {
+public:
+    template <stage Stage>
+    auto get_tasks() const noexcept /* the result of get_tasks should be a inplace_vector */ {
+        //    
+    }
+};
+
+template <typename Descriptor>
+requires(get_forward_interval(Descriptor()) == 0.0)
+class _basic_world_task_base<Descriptor> : public _basic_world_interval_t<Descriptor> {
+public:
+    template <stage Stage>
+    constexpr auto get_tasks() const noexcept /* the result of get_tasks should be a inplace_vector */ {
+        // return get_systems<Stage>(Descriptor());
+    }
 };
 
 template <typename Descriptor, typename Alloc = std::allocator<std::byte>>
-class basic_world : public world_base<Alloc> {
+class basic_world :
+    public _basic_world_task_base<Descriptor>,
+    public world_base<Alloc> {
     template <auto, typename>
     friend struct construct_from_world_t;
     friend struct world_accessor;
@@ -85,8 +110,6 @@ public:
 
     template <stage Stage>
     static consteval auto get_tasks() noexcept;
-
-    void set_dynamic_update_interval(double seconds) noexcept {}
 
 private:
     /// variables could be use in only one specific system

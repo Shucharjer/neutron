@@ -359,6 +359,8 @@ class _add_systems_t : public description_tag {
                       "use of 'before' and 'after'");
 
 public:
+    using spec_list = value_list<Specs...>;
+
     template <typename Desc>
     consteval auto operator()(Desc) const noexcept {
         static_assert(

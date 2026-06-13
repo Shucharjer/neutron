@@ -7,6 +7,7 @@
 #include <utility>
 #include "neutron/detail/ecs/run_env.hpp"
 #include "neutron/detail/macros.hpp"
+#include "neutron/detail/ecs/descriptor.hpp"
 #include "neutron/execution.hpp" // IWYU pragma: keep
 
 namespace neutron {
@@ -47,46 +48,88 @@ public:
     constexpr int run() {
         using namespace ::neutron::execution;
 
-        // scheduler auto sch = get_scheduler(sp_);
         scheduler auto sch = sp_.get_scheduler();
-        run_envs_for<Alloc, Worlds...> envs{ alloc_ };
-
-        if constexpr (parallelism_scheduler_provider<Sp>) {
-            if (sp_.available_parallelism() == 1) [[unlikely]] {
-                return _run_weak_parallel(envs, sch);
-            }
-        }
+        using run_envs_t   = run_envs_for<Alloc, Worlds...>;
+        run_envs_t envs{ alloc_ };
 
         forward_progress_guarantee guarantee =
             get_forward_progress_guarantee(sch);
 
-        if (guarantee != forward_progress_guarantee::weakly_parallel) {
-            return _run(envs, sch);
+        if (guarantee == forward_progress_guarantee::weakly_parallel) {
+            return _run_weak_parallel(envs, sch);
         }
 
-        return _run_weak_parallel(envs, sch);
+        if constexpr (parallelism_scheduler_provider<Sp>) {
+            if (sp_.available_parallelism() < std::tuple_size_v<run_envs_t>) {
+                return _run_weak_parallel(envs, sch);
+            }
+        }
+
+        return _run_parallel(envs, sch);
     }
 
 private:
     template <typename Envs, execution::scheduler Scheduler>
     constexpr int _run_weak_parallel(Envs& envs, Scheduler& scheduler) {
-        [&envs]<std::size_t... Is>(std::index_sequence<Is...>) {
+        using enum stage;
+        [this, &envs,
+         &scheduler]<std::size_t... Is>(std::index_sequence<Is...>) {
             // step until done
+            (_step_stage<prestartup>(get<Is>(envs), scheduler), ...);
+            (_step_stage<startup>(get<Is>(envs), scheduler), ...);
+            (_step_stage<poststartup>(get<Is>(envs), scheduler), ...);
+            while (true) {
+                if (payload_->poll_events()) {
+                    continue;
+                }
+                if (!payload_->is_running()) [[unlikely]] {
+                    break;
+                }
+                (_step_stage<preupdate>(get<Is>(envs), scheduler), ...);
+                (_step_stage<update>(get<Is>(envs), scheduler), ...);
+                (_step_stage<postupdate>(get<Is>(envs), scheduler), ...);
+            }
+            (_step_stage<last>(get<Is>(envs), scheduler), ...);
+            (_step_stage<shutdown>(get<Is>(envs), scheduler), ...);
         }(std::make_index_sequence<std::tuple_size_v<Envs>>());
 
         return 0;
     }
 
     template <typename Envs, execution::scheduler Scheduler>
-    constexpr int _run(Envs& envs, Scheduler& scheduler) {
-        [&envs]<std::size_t... Is>(std::index_sequence<Is...>) {
-            // run until done
+    constexpr int _run_parallel(Envs& envs, Scheduler& scheduler) {
+        using enum stage;
+        [this, &envs,
+         &scheduler]<std::size_t... Is>(std::index_sequence<Is...>) {
+            (_run_stage<preupdate>(get<Is>(envs), scheduler), ...);
+            (_run_stage<update>(get<Is>(envs), scheduler), ...);
+            (_run_stage<postupdate>(get<Is>(envs), scheduler), ...);
+            (_run_stage<first>(get<Is>(envs), scheduler), ...);
+            (_run_stages(get<Is>(envs), scheduler), ...);
+            (_run_stage<last>(get<Is>(envs), scheduler), ...);
+            (_run_stage<shutdown>(get<Is>(envs), scheduler), ...);
         }(std::make_index_sequence<std::tuple_size_v<Envs>>());
 
         return 0;
     }
 
+    template <stage Stage, typename Env, execution::scheduler Scheduler>
+    void _step_stage(Env& env, Scheduler& scheduler) {
+        //
+    }
+
+    template <stage Stage, typename Env, execution::scheduler Scheduler>
+    void _run_stage(Env& env, Scheduler& scheduler) {
+        //
+    }
+
+    template <typename Env, execution::scheduler Scheduler>
+    void _run_stages(Env& env, Scheduler& scheduler) {
+        //
+    }
+
     ATOM_NO_UNIQUE_ADDR Alloc alloc_;
+    Payload* payload_;
     Sp& sp_; // NOLINT
 };
 
