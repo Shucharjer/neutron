@@ -1,6 +1,7 @@
 // IWYU pragma: private, include <neutron/metafn.hpp>
 #pragma once
 #include "neutron/detail/metafn/cat.hpp"
+#include "neutron/detail/metafn/rebind.hpp"
 
 namespace neutron {
 
@@ -30,6 +31,18 @@ struct type_list_export<Tmp, Template<Tys...>> {
 };
 template <template <typename...> typename Tmp, typename TypeList>
 using type_list_export_t = typename type_list_export<Tmp, TypeList>::type;
+
+template <
+    template <typename...> typename Tmp, typename TypeList,
+    template <typename...> typename List = type_list>
+struct type_list_export_as {
+    using type = type_list_rebind_t<List, type_list_export_t<Tmp, TypeList>>;
+};
+template <
+    template <typename...> typename Tmp, typename TypeList,
+    template <typename...> typename List = type_list>
+using type_list_export_as_t =
+    typename type_list_export_as<Tmp, TypeList, List>::type;
 
 // value_list_export
 
