@@ -7,6 +7,12 @@ namespace neutron {
 template <auto Next>
 class intrusive_mpsc_queue;
 
+template <typename Node, std::atomic<Node*> Node::* Next>
+requires(!std::default_initializable<Node>)
+class intrusive_mpsc_queue<Next> {
+    static_assert(false, "the node type should satisfy default_initializable");
+};
+
 /**
  * @brief An intrusive, wait-free Multi-Producer Single Consumer (MPSC)
  * lock-free queue.

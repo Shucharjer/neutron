@@ -1,3 +1,4 @@
+// IWYU pragma: private, include <neutron/lockfree.hpp>
 #pragma once
 #include <atomic>
 #include <cassert>
