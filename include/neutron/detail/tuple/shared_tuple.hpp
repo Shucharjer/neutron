@@ -61,7 +61,7 @@ public:
         : current_(std::forward<Arg>(arg)),
           others_(std::forward<Others>(others)...) {}
 
-    template <size_t Index>
+    template <std::size_t Index>
     requires(Index <= sizeof...(Rest))
     constexpr auto& get() & noexcept {
         if constexpr (Index == 0) {
@@ -71,7 +71,7 @@ public:
         }
     }
 
-    template <size_t Index>
+    template <std::size_t Index>
     requires(Index <= sizeof...(Rest))
     constexpr const auto& get() const& noexcept {
         if constexpr (Index == 0) {
@@ -81,7 +81,7 @@ public:
         }
     }
 
-    template <size_t Index>
+    template <std::size_t Index>
     requires(Index <= sizeof...(Rest))
     constexpr auto&& get() && noexcept {
         if constexpr (Index == 0) {
@@ -91,7 +91,7 @@ public:
         }
     }
 
-    template <size_t Index>
+    template <std::size_t Index>
     requires(Index <= sizeof...(Rest))
     constexpr const auto&& get() const&& noexcept {
         if constexpr (Index == 0) {
@@ -119,25 +119,25 @@ public:
         std::is_nothrow_constructible_v<T, Arg>)
         : value_(std::forward<Arg>(arg)) {}
 
-    template <size_t Index>
+    template <std::size_t Index>
     requires(Index == 0)
     constexpr T& get() & noexcept {
         return value_;
     }
 
-    template <size_t Index>
+    template <std::size_t Index>
     requires(Index == 0)
     constexpr const T& get() const& noexcept {
         return value_;
     }
 
-    template <size_t Index>
+    template <std::size_t Index>
     requires(Index == 0)
     constexpr T&& get() && noexcept {
         return std::move(value_);
     }
 
-    template <size_t Index>
+    template <std::size_t Index>
     requires(Index == 0)
     constexpr const T&& get() const&& noexcept {
         return std::move(value_);
@@ -145,39 +145,39 @@ public:
 };
 
 template <typename Ty, typename... Tys>
-requires(tuple_first_v<Ty, shared_tuple<Tys...>> != static_cast<size_t>(-1))
+requires(tuple_first_v<Ty, shared_tuple<Tys...>> != static_cast<std::size_t>(-1))
 constexpr Ty& get_first(shared_tuple<Tys...>&& tup) noexcept {
     return std::move(tup)
         .template get<tuple_first_v<Ty, shared_tuple<Tys...>>>();
 }
 
 template <typename Ty, typename... Tys>
-requires(tuple_first_v<Ty, shared_tuple<Tys...>> != static_cast<size_t>(-1))
+requires(tuple_first_v<Ty, shared_tuple<Tys...>> != static_cast<std::size_t>(-1))
 constexpr Ty& get_first(shared_tuple<Tys...>& tup) noexcept {
     return tup.template get<tuple_first_v<Ty, shared_tuple<Tys...>>>();
 }
 
 template <typename Ty, typename... Tys>
-requires(tuple_first_v<Ty, shared_tuple<Tys...>> != static_cast<size_t>(-1))
+requires(tuple_first_v<Ty, shared_tuple<Tys...>> != static_cast<std::size_t>(-1))
 constexpr const Ty& get_first(const shared_tuple<Tys...>& tup) noexcept {
     return tup.template get<tuple_first_v<Ty, shared_tuple<Tys...>>>();
 }
 
 template <typename Ty, typename... Tys>
-requires(tuple_last_v<Ty, shared_tuple<Tys...>> != static_cast<size_t>(-1))
+requires(tuple_last_v<Ty, shared_tuple<Tys...>> != static_cast<std::size_t>(-1))
 constexpr Ty& get_last(shared_tuple<Tys...>&& tup) noexcept {
     return std::move(tup)
         .template get<tuple_last_v<Ty, shared_tuple<Tys...>>>();
 }
 
 template <typename Ty, typename... Tys>
-requires(tuple_last_v<Ty, shared_tuple<Tys...>> != static_cast<size_t>(-1))
+requires(tuple_last_v<Ty, shared_tuple<Tys...>> != static_cast<std::size_t>(-1))
 constexpr Ty& get_last(shared_tuple<Tys...>& tup) noexcept {
     return tup.template get<tuple_last_v<Ty, shared_tuple<Tys...>>>();
 }
 
 template <typename Ty, typename... Tys>
-requires(tuple_last_v<Ty, shared_tuple<Tys...>> != static_cast<size_t>(-1))
+requires(tuple_last_v<Ty, shared_tuple<Tys...>> != static_cast<std::size_t>(-1))
 constexpr const Ty& get_last(const shared_tuple<Tys...>& tup) noexcept {
     return tup.template get<tuple_last_v<Ty, shared_tuple<Tys...>>>();
 }
@@ -188,10 +188,10 @@ namespace std {
 
 template <typename... Tys>
 struct tuple_size<neutron::shared_tuple<Tys...>> {
-    constexpr static size_t value = sizeof...(Tys);
+    constexpr static std::size_t value = sizeof...(Tys);
 };
 
-template <size_t Index, typename... Tys>
+template <std::size_t Index, typename... Tys>
 struct tuple_element<Index, neutron::shared_tuple<Tys...>> {
     using type = std::tuple_element_t<Index, std::tuple<Tys...>>;
 };

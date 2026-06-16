@@ -1,6 +1,7 @@
 // IWYU pragma: private, include <neutron/metafn.hpp>
 #pragma once
 #include <type_traits>
+#include <cstddef>
 #include <utility>
 #include "neutron/detail/metafn/size.hpp"
 #include "neutron/detail/utility/get.hpp"
@@ -8,12 +9,12 @@
 namespace neutron {
 
 template <typename Ty, typename Tup>
-constexpr size_t _rmcvref_last = static_cast<size_t>(-1);
+constexpr std::size_t _rmcvref_last = static_cast<std::size_t>(-1);
 template <
     typename Ty, template <typename...> typename Template, typename... Tys>
-constexpr size_t _rmcvref_last<Ty, Template<Tys...>> =
-    []<size_t... Is>(std::index_sequence<Is...>) {
-        auto index = static_cast<size_t>(sizeof...(Tys));
+constexpr std::size_t _rmcvref_last<Ty, Template<Tys...>> =
+    []<std::size_t... Is>(std::index_sequence<Is...>) {
+        auto index = static_cast<std::size_t>(sizeof...(Tys));
         ((index = std::is_same_v<std::remove_cvref_t<Tys>, Ty> ? Is : index),
          ...);
         return index;
