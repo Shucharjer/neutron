@@ -1,4 +1,6 @@
+#include <atomic>
 #include <cstdint>
+#include <thread>
 
 #include <benchmark/benchmark.h>
 #include <neutron/lockfree.hpp>
@@ -11,18 +13,22 @@ using neutron_inplace_spsc_queue = inplace_spsc_queue<value_type, 32>;
 template <typename SpscQueue>
 void bm_spsc_queue_push_back(benchmark::State& state) {
     SpscQueue queue;
-    value_type value = 0;
 
-    queue.push_back(value++);
+    std::atomic_bool run = true;
+    std::jthread jt([&queue, &run] {
+        while (run.load(std::memory_order_acquire)) {
+            if (!queue.empty()) {
+                queue.pop_front();
+            }
+        }
+    });
 
+    value_type val = 0;
     for (auto _ : state) {
-        benchmark::DoNotOptimize(value);
-        queue.push_back(value++);
-        benchmark::ClobberMemory();
-
-        benchmark::DoNotOptimize(queue.front());
-        queue.pop_front();
+        queue.push_back(val++);
     }
+
+    run.store(false, std::memory_order_release);
 
     state.SetItemsProcessed(state.iterations());
 }
@@ -30,18 +36,22 @@ void bm_spsc_queue_push_back(benchmark::State& state) {
 template <typename SpscQueue>
 void bm_spsc_queue_pop_front(benchmark::State& state) {
     SpscQueue queue;
-    value_type value = 0;
 
-    queue.push_back(value++);
+    std::atomic_bool run = true;
+    std::jthread jt([&queue, &run] {
+        value_type value = 0;
+        while (run.load(std::memory_order_acquire)) {
+            queue.push_back(value);
+        }
+    });
 
     for (auto _ : state) {
-        queue.push_back(value++);
-
-        benchmark::DoNotOptimize(queue.front());
-        queue.pop_front();
-        benchmark::ClobberMemory();
+        if (!queue.empty()) {
+            queue.pop_front();
+        }
     }
 
+    run.store(false, std::memory_order_release);
     state.SetItemsProcessed(state.iterations());
 }
 
