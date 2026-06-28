@@ -1,7 +1,7 @@
 // IWYU pragma: private, include <neutron/ecs.hpp>
 #pragma once
 #include <concepts>
-#include "neutron/detail/ecs/bundle.hpp"
+#include "neutron/detail/ecs/concepts/bundle.hpp"
 #include "neutron/detail/metafn/requires.hpp"
 
 namespace neutron {

@@ -5,8 +5,8 @@
 #include <cstddef>
 #include <memory>
 #include <memory_resource>
-#include "neutron/detail/ecs/component.hpp"
-#include "neutron/detail/ecs/entity.hpp"
+#include "neutron/detail/ecs/concepts/component.hpp"
+#include "neutron/detail/ecs/concepts/entity.hpp"
 
 namespace neutron {
 

@@ -1,5 +1,6 @@
 // IWYU pragma: private, include <neutron/ecs.hpp>
 #pragma once
+#include "neutron/detail/concepts/nonempty.hpp"
 #include "neutron/detail/ecs/fwd.hpp"
 
 #include <cstddef>
@@ -8,7 +9,8 @@
 #include <span>
 #include <tuple>
 #include <type_traits>
-#include "neutron/detail/ecs/querior.hpp"
+#include "neutron/detail/ecs/compile-time/descriptor.hpp"
+#include "neutron/detail/ecs/core/querior.hpp"
 #include "neutron/detail/macros.hpp"
 #include "neutron/detail/metafn/convert.hpp"
 #include "neutron/detail/tuple/shared_tuple.hpp"
@@ -427,7 +429,8 @@ public:
         bundle,
         type_list_expose_t<with, type_list_filt_t<_is_with, filters_type>>,
         same_cvref>;
-    using nempty_comp_list    = type_list_filt_t<_not_empty, component_list>;
+    using nempty_comp_list =
+        type_list_filt_t<_concepts::nonempty, component_list>;
     using manual_querior_type = _manual_querior_t<std::allocator<std::byte>>;
     using cached_querior_type = _cached_querior_t<std::allocator<std::byte>>;
     using fetchable_filters   = typename _cached_querior_t<
@@ -494,8 +497,19 @@ public:
 private:
     std::span<const slice_t> slices_{};
 
-    template <auto Sys, typename Argument>
+    template <stage Stage, auto Sys, typename Argument>
     friend struct construct_from_world_t;
+};
+
+template <typename... Filters>
+struct param_spec<query<Filters...>> {
+    using with_comps    = type_list_export_as_t<with, type_list<Filters...>>;
+    using withany_comps = type_list_export_as_t<withany, type_list<Filters...>>;
+
+    using may_with_comps = type_list_cat_t<with_comps, withany_comps>;
+
+    using accessibilities =
+        type_list_convert_t<requested_accessibility, may_with_comps>;
 };
 
 } // namespace neutron

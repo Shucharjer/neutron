@@ -6,25 +6,32 @@
 #include <cstddef>
 #include <memory>
 #include <vector>
-#include "neutron/detail/ecs/archetype.hpp"
-#include "neutron/detail/ecs/command_buffer.hpp"
-#include "neutron/detail/ecs/descriptor.hpp"
-#include "neutron/detail/ecs/queries.hpp"
-#include "neutron/detail/ecs/query.hpp"
-#include "neutron/detail/ecs/world_base.hpp"
+#include "neutron/detail/ecs/compile-time/collect_params/local.hpp"
+#include "neutron/detail/ecs/compile-time/collect_params/query.hpp"
+#include "neutron/detail/ecs/compile-time/collect_params/res.hpp"
+#include "neutron/detail/ecs/compile-time/descriptor.hpp"
+#include "neutron/detail/ecs/compile-time/queries.hpp"
+#include "neutron/detail/ecs/core/archetype.hpp"
+#include "neutron/detail/ecs/core/command_buffer.hpp"
+#include "neutron/detail/ecs/core/world_base.hpp"
 #include "neutron/detail/memory/rebind_alloc.hpp"
+#include "neutron/detail/tuple/shared_tuple.hpp"
 #include "neutron/memory.hpp"
+#include "neutron/metafn.hpp"
 #include "neutron/tuple.hpp"
 
 namespace neutron {
 
 using time_point_t = std::chrono::system_clock::time_point;
 
-struct _interval_base {
+class _interval_base {
+public:
     void set_last_update(time_point_t time) noexcept { _last_update = time; }
     ATOM_NODISCARD time_point_t get_last_update() const noexcept {
         return _last_update;
     }
+
+protected:
     time_point_t _last_update;
 };
 
@@ -60,17 +67,20 @@ template <typename Descriptor>
 class _basic_world_task_base : public _basic_world_interval_t<Descriptor> {
 public:
     template <stage Stage>
-    auto get_tasks() const noexcept /* the result of get_tasks should be a inplace_vector */ {
-        //    
+    auto get_tasks() const noexcept
+    /* the result of get_tasks should be a inplace_vector */ {
+        //
     }
 };
 
 template <typename Descriptor>
 requires(get_forward_interval(Descriptor()) == 0.0)
-class _basic_world_task_base<Descriptor> : public _basic_world_interval_t<Descriptor> {
+class _basic_world_task_base<Descriptor> :
+    public _basic_world_interval_t<Descriptor> {
 public:
     template <stage Stage>
-    constexpr auto get_tasks() const noexcept /* the result of get_tasks should be a inplace_vector */ {
+    constexpr auto get_tasks() const noexcept
+    /* the result of get_tasks should be a inplace_vector */ {
         // return get_systems<Stage>(Descriptor());
     }
 };
@@ -79,9 +89,12 @@ template <typename Descriptor, typename Alloc = std::allocator<std::byte>>
 class basic_world :
     public _basic_world_task_base<Descriptor>,
     public world_base<Alloc> {
-    template <auto, typename>
+    template <stage Stage, auto, typename>
     friend struct construct_from_world_t;
     friend struct world_accessor;
+
+    template <typename TypeList>
+    using _shared_tuple = type_list_rebind_t<shared_tuple, TypeList>;
 
     auto _base() & noexcept -> world_base<Alloc>& {
         return *static_cast<world_base<Alloc>*>(this);
@@ -112,13 +125,9 @@ public:
     static consteval auto get_tasks() noexcept;
 
 private:
-    /// variables could be use in only one specific system
-    /// Locals are _sys_tuple, a tuple with system info, used to get the correct
-    /// local for each sys
-    // type_list_rebind_t<neutron::shared_tuple, locals> locals_;
-    // type_list_rebind_t<neutron::shared_tuple, queries> queries_;
-    //  variables could be pass between each systems
-    // type_list_rebind_t<neutron::shared_tuple, resources> resources_;
+    _shared_tuple<query_cache_of<descriptor_type>> queries_;
+    _shared_tuple<res_of<descriptor_type>> resources_;
+    _shared_tuple<local_of<descriptor_type>> locals_;
 };
 
 template <

@@ -8,10 +8,11 @@
 #include <type_traits>
 #include <vector>
 #include "neutron/concepts.hpp"
-#include "neutron/detail/ecs/archetype.hpp"
-#include "neutron/detail/ecs/bundle.hpp"
-#include "neutron/detail/ecs/slice.hpp"
-#include "neutron/detail/ecs/world_accessor.hpp"
+#include "neutron/detail/concepts/nonempty.hpp"
+#include "neutron/detail/ecs/concepts/bundle.hpp"
+#include "neutron/detail/ecs/core/archetype.hpp"
+#include "neutron/detail/ecs/core/slice.hpp"
+#include "neutron/detail/ecs/core/world_accessor.hpp"
 #include "neutron/detail/macros.hpp"
 #include "neutron/detail/type_traits/same_cvref.hpp"
 #include "neutron/metafn.hpp"
@@ -142,9 +143,6 @@ template <typename Filter, typename Alloc>
 concept query_filter = _query_filter::_has_init<Filter, Alloc> ||
                        _query_filter::_has_fetch<Filter, Alloc>;
 
-template <typename T>
-using _not_empty = std::negation<std::is_empty<T>>;
-
 namespace _basic_querior {
 
 template <std_simple_allocator Alloc, typename... Filters>
@@ -180,7 +178,8 @@ struct _basic_querior_base {
         same_cvref>;
     using initable_filters  = type_list_filt_t<_has_init, filters_type>;
     using fetchable_filters = type_list_filt_t<_has_fetch, filters_type>;
-    using nempty_comp_list  = type_list_filt_t<_not_empty, component_list>;
+    using nempty_comp_list =
+        type_list_filt_t<_concepts::nonempty, component_list>;
     using rnempty_comp_list =
         type_list_convert_t<std::remove_cvref, nempty_comp_list>;
     using slice_t        = type_list_rebind_t<slice, rnempty_comp_list>;

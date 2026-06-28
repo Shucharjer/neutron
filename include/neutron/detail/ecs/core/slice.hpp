@@ -3,7 +3,7 @@
 #include <array>
 #include <type_traits>
 #include <neutron/concepts.hpp>
-#include "neutron/detail/ecs/archetype.hpp"
+#include "neutron/detail/ecs/core/archetype.hpp"
 #include "neutron/detail/ecs/fwd.hpp"
 #include "neutron/detail/macros.hpp"
 

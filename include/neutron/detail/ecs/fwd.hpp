@@ -1,5 +1,6 @@
 // IWYU pragma: private, include <neutron/ecs.hpp>
 #pragma once
+#include <type_traits>
 
 namespace neutron {
 
@@ -32,7 +33,7 @@ template <typename Descriptor, typename Alloc>
 constexpr bool _is_world<basic_world<Descriptor, Alloc>> = true;
 
 template <typename World>
-concept world = _is_world<World>;
+concept world = _is_world<std::remove_cvref_t<World>>;
 
 } // namespace internal
 namespace _world_base {

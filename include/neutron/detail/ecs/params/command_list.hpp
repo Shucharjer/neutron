@@ -4,8 +4,8 @@
 
 #include <cstddef>
 #include <memory>
-#include "neutron/detail/ecs/command_buffer.hpp"
-#include "neutron/detail/ecs/component.hpp"
+#include "neutron/detail/ecs/concepts/component.hpp"
+#include "neutron/detail/ecs/core/command_buffer.hpp"
 
 namespace neutron {
 

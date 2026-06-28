@@ -6,7 +6,8 @@
 #include <cstdint>
 #include <tuple>
 #include "neutron/detail/concepts/one_of.hpp"
-#include "neutron/detail/ecs/fwd.hpp"
+#include "neutron/detail/ecs/compile-time/descriptor.hpp"
+#include "neutron/detail/lockfree/spsc_queue.hpp"
 #include "neutron/detail/metafn/cat.hpp"
 #include "neutron/detail/metafn/definition.hpp"
 #include "neutron/detail/metafn/element.hpp"
@@ -24,11 +25,13 @@ enum class strategy : uint8_t {
 
     // stream sync
     ring_buffer,
-    event_queue,
+    spsc_queue,
+    mpsc_queue,
+    mpmc_queue,
     broadcast
 };
 
-enum expire : uint8_t {
+enum class expire : uint8_t {
     frame,
     full,
     never
@@ -223,37 +226,81 @@ public:
 };
 
 template <typename Ty>
-class _sync_accessor<strategy::event_queue, input, Ty> {
+class _sync_accessor<strategy::spsc_queue, input, Ty> {
 public:
     template <typename... Args>
     requires std::constructible_from<Ty, Args...>
     void push(Args&&... args, expire exp = expire::frame);
 };
 template <typename Ty>
-class _sync_accessor<strategy::event_queue, output, Ty> {
+class _sync_accessor<strategy::spsc_queue, output, Ty> {
 public:
     Ty pop();
 };
 
 } // namespace _sync
 
-// sync should satify construct_from_world
-template <_sync_scope Scope, strategy Strategy, _sync_access... Access>
-requires(sizeof...(Access) != 0)
-class sync_point :
-    private _sync::_sync_storage<Scope>,
-    public std::tuple<_sync::_sync_access<Strategy, Access>...> {
+/*
+
+- sync_scope
+if sync scope is single, we store data in `basic_world`;
+otherwise store it static.
+- sync_strategy
+if sync strategy is
+
+
+*/
+
+template <_sync_scope Scope, strategy Strategy, typename T>
+class _sync_point_storage;
+
+template <_sync_scope Scope, typename T>
+class _sync_point_storage<Scope, strategy::spsc_queue, T> {
+    inline static spsc_queue<T> data;
+
 public:
-    using access_types = type_list_cat_t<typename Access::access_types...>;
-    using data_types   = type_list_cat_t<typename Access::data_types...>;
+    _sync_point_storage() {}
 
-    using std::tuple<_sync::_sync_access<Strategy, Access>...>::tuple;
+private:
+};
 
-    sync_point(const sync_point&)            = delete;
-    sync_point& operator=(const sync_point&) = delete;
-    sync_point(sync_point&&)                 = delete;
-    sync_point& operator=(sync_point&&)      = delete;
-    ~sync_point()                            = default;
+template <strategy Strategy, typename T>
+class _sync_point_storage<single, Strategy, T> {
+public:
+    //
+private:
+};
+
+// template <strategy Strategy, sync_scope Scope, typename... T>
+// class sync_point_accesses;
+
+template <_sync_scope Scope, strategy Strategy, _sync_access... Access>
+class sync_point {};
+
+// template <_sync_scope Scope, strategy Strategy, _sync_access... Access>
+// class sync_point :
+
+//     public std::tuple<_sync::_sync_access<Strategy, Access>...> {
+// public:
+//     static_assert(
+//         sizeof...(Access) != 0,
+//         "useless sync_point with empty data access list, try remove it?");
+
+//     using access_types = type_list_cat_t<typename Access::access_types...>;
+//     using data_types   = type_list_cat_t<typename Access::data_types...>;
+
+//     using std::tuple<_sync::_sync_access<Strategy, Access>...>::tuple;
+
+//     sync_point(const sync_point&)            = delete;
+//     sync_point& operator=(const sync_point&) = delete;
+//     sync_point(sync_point&&)                 = delete;
+//     sync_point& operator=(sync_point&&)      = delete;
+//     ~sync_point()                            = default;
+// };
+
+template <_sync_scope Scope, strategy Strategy, _sync_access... Accesses>
+struct param_spec<sync_point<Scope, Strategy, Accesses...>> {
+    using accessibility = type_list<>;
 };
 
 } // namespace neutron
