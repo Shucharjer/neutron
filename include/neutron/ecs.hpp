@@ -1,73 +1,40 @@
 #pragma once
 // IWYU pragma: begin_exports
 
-//////////////////////////////////////////
-// ECS concept
-//////////////////////////////////////////
-
-// Entity
-#include "neutron/detail/ecs/entity.hpp"
-
-// Component
-#include "neutron/detail/ecs/bundle.hpp"
-#include "neutron/detail/ecs/component.hpp"
-
-// System
-
-// auto fn(...);
-
-//////////////////////////////////////////
-// Forward declaration
-//////////////////////////////////////////
 #include "neutron/detail/ecs/fwd.hpp"
 
-//////////////////////////////////////////
-// System params
-//////////////////////////////////////////
+#include "neutron/detail/ecs/concepts/bundle.hpp"
+#include "neutron/detail/ecs/concepts/component.hpp"
+#include "neutron/detail/ecs/concepts/entity.hpp"
+#include "neutron/detail/ecs/concepts/resource.hpp"
 
-// query
-#include "neutron/detail/ecs/anchor.hpp"
-#include "neutron/detail/ecs/archetype.hpp"
-#include "neutron/detail/ecs/querior.hpp"
-#include "neutron/detail/ecs/query.hpp"
-#include "neutron/detail/ecs/slice.hpp"
-#include "neutron/detail/ecs/world_base.hpp"
+#include "neutron/detail/ecs/utility/anchor.hpp"
+#include "neutron/detail/ecs/utility/systuple.hpp"
 
-// utility
-#include "neutron/detail/ecs/world_accessor.hpp"
+#include "neutron/detail/ecs/core/archetype.hpp"
+#include "neutron/detail/ecs/core/command_buffer.hpp"
+#include "neutron/detail/ecs/core/querior.hpp"
+#include "neutron/detail/ecs/core/slice.hpp"
+#include "neutron/detail/ecs/core/world_accessor.hpp"
+#include "neutron/detail/ecs/core/world_base.hpp"
 
-// commands, command_list
-#include "neutron/detail/ecs/command_buffer.hpp"
-#include "neutron/detail/ecs/command_list.hpp"
-#include "neutron/detail/ecs/commands.hpp"
+#include "neutron/detail/ecs/compile-time/queries.hpp"
 
-// data for single system
-#include "neutron/detail/ecs/local.hpp"
-#include "neutron/detail/ecs/systuple.hpp"
+#include "neutron/detail/ecs/core/world.hpp"
 
-// data for a world
-#include "neutron/detail/ecs/res.hpp"
-#include "neutron/detail/ecs/resource.hpp"
+#include "neutron/detail/ecs/params/command_list.hpp"
+#include "neutron/detail/ecs/params/commands.hpp"
+#include "neutron/detail/ecs/params/global.hpp"
+#include "neutron/detail/ecs/params/local.hpp"
+#include "neutron/detail/ecs/params/meta_accessor.hpp"
+#include "neutron/detail/ecs/params/query.hpp"
+#include "neutron/detail/ecs/params/res.hpp"
+#include "neutron/detail/ecs/params/sync_point.hpp"
 
-// cross world data
-#include "neutron/detail/ecs/global.hpp"
-
-// type erased
-#include "neutron/detail/ecs/meta_accessor.hpp"
-
-// sync point
-#include "neutron/detail/ecs/sync_point.hpp"
-
-// world
-#include "neutron/detail/ecs/world.hpp"
-
-// snapshot
 #include "neutron/detail/ecs/snapshot.hpp"
 
-// startup
 #include "neutron/detail/ecs/executor.hpp"
-#include "neutron/detail/ecs/queries.hpp"
-#include "neutron/detail/ecs/run.hpp"
-#include "neutron/detail/ecs/run_env.hpp"
+#include "neutron/detail/ecs/runtime/run.hpp"
+#include "neutron/detail/ecs/runtime/run_env.hpp"
 
 // IWYU pragma: end_exports

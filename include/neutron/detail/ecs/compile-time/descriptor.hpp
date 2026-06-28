@@ -6,8 +6,10 @@
 #include <cstdint>
 #include <type_traits>
 #include <utility>
+#include "neutron/detail/ecs/concepts/stage.hpp"
 #include "neutron/detail/metafn/definition.hpp"
 #include "neutron/detail/metafn/element.hpp"
+#include "neutron/detail/utility/enum_anyof.hpp"
 #include "neutron/inplace_vector.hpp"
 
 namespace neutron {
@@ -55,20 +57,6 @@ template <description Desc1, description Desc2>
 consteval auto operator|(Desc1, Desc2) noexcept {
     return _description_compose<Desc1, Desc2>{};
 }
-
-enum class stage : std::uint8_t {
-    prestartup,
-    startup,
-    poststartup,
-    first,
-    events,
-    preupdate,
-    update,
-    postupdate,
-    render,
-    last,
-    shutdown
-};
 
 inline namespace _metafn {
 
@@ -157,13 +145,15 @@ template <typename Fn, auto... Requires>
 struct system_spec;
 template <typename Ret, typename... Args, auto... Requires>
 struct system_spec<Ret (*)(Args...), Requires...> {
-    using fn_t = Ret (*)(Args...);
+    using fn_t    = Ret (*)(Args...);
+    using fn_args = type_list<Args...>;
     fn_t fn;
     consteval system_spec(fn_t fn, decltype(Requires)...) noexcept : fn(fn) {}
 };
 template <typename Ret, typename... Args, auto... Requires>
 struct system_spec<Ret (*)(Args...) noexcept, Requires...> {
-    using fn_t = Ret (*)(Args...) noexcept;
+    using fn_t    = Ret (*)(Args...) noexcept;
+    using fn_args = type_list<Args...>;
     fn_t fn;
     consteval system_spec(fn_t fn, decltype(Requires)...) noexcept : fn(fn) {}
 };
@@ -292,6 +282,12 @@ struct request_accessibility<T&> {
     using type                             = T;
     static constexpr accessibility ability = accessibility::write;
 };
+
+template <typename T>
+struct requested_accessibility {
+    using type = request_accessibility<T>;
+};
+
 template <typename T>
 struct param_spec {
     using accessibilities = type_list<>;
@@ -489,5 +485,10 @@ struct _execute_t : description_tag {
 
 template <auto... Args>
 inline constexpr _execute_t<Args...> execute;
+
+constexpr bool is_hifreq_stage(stage stage) noexcept {
+    using enum ::neutron::stage;
+    return enum_anyof(stage, { events, preupdate, update, postupdate, render });
+}
 
 } // namespace neutron

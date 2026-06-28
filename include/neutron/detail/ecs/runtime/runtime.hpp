@@ -5,9 +5,9 @@
 #include <memory>
 #include <tuple>
 #include <utility>
-#include "neutron/detail/ecs/run_env.hpp"
+#include "neutron/detail/ecs/compile-time/descriptor.hpp"
+#include "neutron/detail/ecs/runtime/run_env.hpp"
 #include "neutron/detail/macros.hpp"
-#include "neutron/detail/ecs/descriptor.hpp"
 #include "neutron/execution.hpp" // IWYU pragma: keep
 
 namespace neutron {
@@ -35,6 +35,15 @@ concept valid_payload = requires(Payload& payload) {
     payload.render_begin();
     payload.render_end();
 };
+
+template <stage Stage, typename Env>
+static inline auto gather_tasks(Env& env) noexcept
+// gather tasks should return a inplace_vector or sndr
+{
+    [&env]<std::size_t... Is>(std::index_sequence<Is...>) {
+        (get<Is>(env), ...);
+    }(std::make_index_sequence<std::tuple_size_v<Env>>());
+}
 
 template <
     scheduler_provider Sp, valid_payload Payload, typename Alloc,
@@ -115,7 +124,9 @@ private:
 
     template <stage Stage, typename Env, execution::scheduler Scheduler>
     void _step_stage(Env& env, Scheduler& scheduler) {
-        //
+        [&env, scheduler]<std::size_t... Is>(std::index_sequence<Is...>) {
+            auto task = (get<Is>(env), ...);
+        }(std::make_index_sequence<std::tuple_size_v<Env>>());
     }
 
     template <stage Stage, typename Env, execution::scheduler Scheduler>
@@ -125,7 +136,21 @@ private:
 
     template <typename Env, execution::scheduler Scheduler>
     void _run_stages(Env& env, Scheduler& scheduler) {
-        //
+        using namespace execution;
+        auto fn = [&env, &scheduler] {
+            [&env, scheduler]<std::size_t... Is>(std::index_sequence<Is...>) {
+                while (true) {
+                    // if constexpr (Env::enabled_events) {
+                    //     //
+                    // }
+                    // sync_wait(schedule(scheduler) | then([] {}));
+                    // if constexpr (Env::enabled_render) {
+                    //     //
+                    // }
+                }
+            }(std::make_index_sequence<std::tuple_size_v<Env>>());
+        };
+        sync_wait(schedule(scheduler) | then(fn));
     }
 
     ATOM_NO_UNIQUE_ADDR Alloc alloc_;
@@ -137,7 +162,7 @@ template <
     auto... Worlds, scheduler_provider Sp, valid_payload Payload,
     typename Alloc = std::allocator<std::byte>>
 constexpr auto make_runtime(Sp& sp, Payload* payload, const Alloc& alloc = {}) {
-    return runtime<Sp, Payload, Alloc>(sp, payload, alloc);
+    return runtime<Sp, Payload, Alloc, Worlds...>(sp, payload, alloc);
 }
 
 } // namespace neutron

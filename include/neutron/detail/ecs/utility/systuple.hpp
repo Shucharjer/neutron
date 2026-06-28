@@ -2,10 +2,11 @@
 #pragma once
 #include <tuple>
 #include <type_traits>
+#include "neutron/detail/ecs/concepts/stage.hpp"
 
 namespace neutron {
 
-template <auto Sys, typename... Args>
+template <stage Stage, auto Sys, typename... Args>
 class systuple : public std::tuple<Args...> {
 public:
     using tuple_type = std::tuple<Args...>;
@@ -23,28 +24,5 @@ public:
         std::is_nothrow_move_constructible_v<tuple_type>)
         : tuple_type(std::move(tup)) {}
 };
-
-/*! @cond TURN_OFF_DOXYGEN */
-namespace internal {
-
-template <auto Sys, typename>
-struct _is_relevant_sys_tuple : std::false_type {};
-template <auto Sys, typename... Args>
-struct _is_relevant_sys_tuple<Sys, systuple<Sys, Args...>> : std::true_type {};
-
-template <typename>
-struct _is_empty_sys_tuple : std::false_type {};
-template <auto Sys>
-struct _is_empty_sys_tuple<systuple<Sys>> : std::true_type {};
-
-} // namespace internal
-/*! @endcond */
-
-template <auto Sys, typename... Args>
-struct to_systuple {
-    using type = systuple<Sys, Args...>;
-};
-template <auto Sys, typename... Args>
-using to_systuple_t = typename to_systuple<Sys, Args...>::type;
 
 } // namespace neutron

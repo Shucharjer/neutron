@@ -11,7 +11,7 @@
 #include <string_view>
 #include <type_traits>
 #include <utility>
-#include "neutron/detail/ecs/commands.hpp" // IWYU pragma: keep
+#include "neutron/detail/ecs/params/commands.hpp" // IWYU pragma: keep
 #include "neutron/detail/macros.hpp"
 #include "neutron/detail/metafn/rebind.hpp"
 #include "neutron/reflection.hpp"

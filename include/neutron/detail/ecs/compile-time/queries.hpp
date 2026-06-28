@@ -3,7 +3,7 @@
 #include <concepts>
 #include <cstddef>
 #include <utility>
-#include "neutron/detail/ecs/descriptor.hpp"
+#include "neutron/detail/ecs/compile-time/descriptor.hpp"
 #include "neutron/detail/metafn/element.hpp"
 
 namespace neutron {
@@ -19,13 +19,14 @@ struct get_systems_t {
             constexpr std::size_t num = sizeof...(Args);
             std::size_t idx           = num;
             std::size_t cur           = 0;
-            ((idx == num && _has_same_template<
-                                _add_systems_t<Stage>,
-                                type_list_element_t<Is, type_list<Args...>>>
-                  ? idx = cur
-                  : 0,
-              ++cur) &&
-             ...);
+            std::ignore =
+                ((idx == num && _has_same_template<
+                                    _add_systems_t<Stage>,
+                                    type_list_element_t<Is, type_list<Args...>>>
+                      ? idx = cur
+                      : 0,
+                  ++cur) &&
+                 ...);
             return idx;
         }(std::index_sequence_for<Args...>());
         if constexpr (pos == sizeof...(Args)) {

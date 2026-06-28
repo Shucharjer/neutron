@@ -2,7 +2,7 @@
 #pragma once
 #include <tuple>
 #include <type_traits>
-#include "neutron/detail/ecs/descriptor.hpp"
+#include "neutron/detail/ecs/compile-time/descriptor.hpp"
 
 namespace neutron {
 

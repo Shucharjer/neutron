@@ -9,7 +9,7 @@
 #include <new>
 #include <type_traits>
 #include <vector>
-#include "neutron/detail/ecs/world_base.hpp"
+#include "neutron/detail/ecs/core/world_base.hpp"
 
 #ifdef __clang__
 #elif defined(__GNUC__)

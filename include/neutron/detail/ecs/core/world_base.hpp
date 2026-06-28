@@ -15,8 +15,8 @@
 #include <vector>
 #include <neutron/concepts.hpp>
 #include <neutron/reflection.hpp>
-#include "neutron/detail/ecs/archetype.hpp"
-#include "neutron/detail/ecs/component.hpp"
+#include "neutron/detail/ecs/concepts/component.hpp"
+#include "neutron/detail/ecs/core/archetype.hpp"
 #include "neutron/detail/ranges/concepts.hpp"
 #include "neutron/detail/reflection/refl.hpp"
 #include "neutron/flat_hash_map.hpp"

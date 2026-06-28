@@ -5,8 +5,8 @@
 #include <vector>
 #include <neutron/ecs.hpp>
 #include <neutron/memory.hpp>
-#include "neutron/detail/ecs/archetype.hpp"
-#include "neutron/detail/ecs/world_base.hpp"
+#include "neutron/detail/ecs/core/archetype.hpp"
+#include "neutron/detail/ecs/core/world_base.hpp"
 
 namespace neutron {
 

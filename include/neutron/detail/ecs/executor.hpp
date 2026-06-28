@@ -2,7 +2,7 @@
 #include <algorithm>
 #include <atomic>
 #include <cstddef>
-#include "neutron/detail/ecs/descriptor.hpp"
+#include "neutron/detail/ecs/compile-time/descriptor.hpp"
 #include "neutron/detail/execution/start_detached.hpp"
 #include "neutron/execution.hpp"
 #include "neutron/inplace_vector.hpp"

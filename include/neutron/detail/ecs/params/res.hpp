@@ -3,8 +3,8 @@
 #include <cstddef>
 #include <tuple>
 #include <type_traits>
-#include "neutron/detail/ecs/resource.hpp"
-#include "neutron/detail/ecs/world_accessor.hpp"
+#include "neutron/detail/ecs/concepts/resource.hpp"
+#include "neutron/detail/ecs/core/world_accessor.hpp"
 #include "neutron/detail/tuple/rmcvref_first.hpp"
 
 namespace neutron {

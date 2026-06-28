@@ -1,7 +1,8 @@
 // IWYU pragma: private, include <neutron/ecs.hpp>
 #pragma once
 #include <cstddef>
-#include "neutron/detail/ecs/descriptor.hpp"
+#include "neutron/detail/ecs/compile-time/descriptor.hpp"
+#include "neutron/detail/ecs/core/world.hpp"
 
 namespace neutron {
 
@@ -37,7 +38,7 @@ public:
 
 template <typename Alloc, auto... Worlds>
 struct _run_envs_for_impl {
-    using type = std::tuple<Alloc>;
+    using type = std::tuple<std::tuple<Alloc>>;
 };
 
 template <typename Alloc, auto... Worlds>
