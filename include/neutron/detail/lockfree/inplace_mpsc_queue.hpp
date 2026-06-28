@@ -3,6 +3,7 @@
 #include <cassert>
 #include <cstddef>
 #include <memory>
+#include <thread>
 #include <type_traits>
 #include <utility>
 #include "neutron/detail/lockfree/hardware_destructive_interference_size.hpp"
