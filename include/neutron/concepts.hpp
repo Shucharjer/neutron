@@ -5,6 +5,7 @@
 #include "neutron/detail/concepts/excluding.hpp"
 #include "neutron/detail/concepts/instance_of.hpp"
 #include "neutron/detail/concepts/map_like.hpp"
+#include "neutron/detail/concepts/nonempty.hpp"
 #include "neutron/detail/concepts/nothrow_conditional_movable.hpp"
 #include "neutron/detail/concepts/one_of.hpp"
 #include "neutron/detail/concepts/pair.hpp"

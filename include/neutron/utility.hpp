@@ -9,4 +9,5 @@
 #include "neutron/detail/utility/none_such.hpp"
 #include "neutron/detail/utility/packed_uint.hpp"
 #include "neutron/detail/utility/spreader.hpp"
+#include "neutron/detail/utility/enum_anyof.hpp"
 // IWYU pragma: end_exports
