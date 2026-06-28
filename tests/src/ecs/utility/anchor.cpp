@@ -2,7 +2,7 @@
 #include <ranges>
 #include <span>
 #include <type_traits>
-#include <neutron/detail/ecs/anchor.hpp>
+#include <neutron/detail/ecs/utility/anchor.hpp>
 
 using namespace neutron;
 

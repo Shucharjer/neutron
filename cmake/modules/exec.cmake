@@ -11,8 +11,7 @@ function(exec_dir dir prefix output_dir as_test)
     target_link_libraries(${exec_name} PRIVATE ${libs})
     set_target_properties(${exec_name} PROPERTIES
       RUNTIME_OUTPUT_DIRECTORY ${output_dir}
-      RUNTIME_OUTPUT_DIRECTORY_DEBUG ${output_dir}/Debug
-      RUNTIME_OUTPUT_DIRECTORY_RELEASE ${output_dir}/Release)
+    )
     if(as_test)
       add_test(NAME ${exec_name} COMMAND $<TARGET_FILE:${exec_name}>)
       set_tests_properties(${exec_name} PROPERTIES TIMEOUT 30)

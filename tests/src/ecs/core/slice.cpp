@@ -1,4 +1,4 @@
-#include "neutron/detail/ecs/slice.hpp"
+#include "neutron/detail/ecs/core/slice.hpp"
 #include <string>
 #include <neutron/ecs.hpp>
 #include <neutron/utility.hpp>

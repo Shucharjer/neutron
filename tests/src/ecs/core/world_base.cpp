@@ -2,7 +2,7 @@
 #include <cstddef>
 #include <stdexcept>
 #include <neutron/ecs.hpp>
-#include "neutron/detail/ecs/world_accessor.hpp"
+#include "neutron/detail/ecs/core/world_accessor.hpp"
 #include "require.hpp"
 
 using namespace neutron;
