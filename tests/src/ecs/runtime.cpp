@@ -2,7 +2,7 @@
 #include <cstdint>
 #include <stdexcept>
 #include <string>
-#include <neutron/detail/ecs/runtime.hpp>
+#include <neutron/detail/ecs/runtime/runtime.hpp>
 #include <neutron/ecs.hpp>
 #include <neutron/execution.hpp>
 #include "neutron/print.hpp"

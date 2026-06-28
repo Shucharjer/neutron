@@ -1,6 +1,6 @@
 #include <cstddef>
 #include <memory>
-#include <neutron/detail/ecs/run_env.hpp>
+#include <neutron/detail/ecs/runtime/run_env.hpp>
 #include <neutron/ecs.hpp>
 
 using namespace neutron;
