@@ -1,8 +1,10 @@
+// IWYU pragma: private, include <neutron/algorithm.hpp>
 #pragma once
 #include <bit>
 #include <concepts>
 #include <functional>
 #include <iterator>
+#include <ranges>
 
 namespace neutron {
 
@@ -39,5 +41,20 @@ constexpr auto branchless_lower_bound(
     RandomAccessIter first, RandomAccessIter last, const Val& val) noexcept {
     return branchless_lower_bound(first, last, val, std::less<>{});
 }
+
+namespace ranges {
+
+struct _branchless_lower_bound_t {
+    template <std::ranges::random_access_range Rng, typename Comp = std::less<>>
+    constexpr auto operator()(const Rng& range, Comp&& comp = {}) const {
+        using namespace std::ranges;
+        return ::neutron::branchless_lower_bound(
+            begin(range), end(range), std::forward<Comp>(comp));
+    }
+};
+
+inline constexpr _branchless_lower_bound_t branchless_lower_bound;
+
+} // namespace ranges
 
 } // namespace neutron
