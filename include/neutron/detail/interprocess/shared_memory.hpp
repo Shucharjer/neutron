@@ -166,7 +166,7 @@ shared_memory::~shared_memory() noexcept {
     }
 }
 
-#elif defined()
+#elif defined(_WIN32) || defined(_WIN64)
 #else
 #endif
 

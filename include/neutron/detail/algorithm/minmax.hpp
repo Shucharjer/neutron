@@ -1,3 +1,4 @@
+// IWYU pragma: private, include <neutron/algorithm.hpp>
 #pragma once
 #include <type_traits>
 
