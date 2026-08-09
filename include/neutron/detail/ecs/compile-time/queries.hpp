@@ -62,9 +62,18 @@ inline constexpr struct get_execution_policy_t {
     consteval policy operator()(world_descriptor_t<Args...>) const noexcept {
         using desc_t = world_descriptor_t<Args...>;
         if constexpr (requires { desc_t::_is_individual; }) {
-            return policy{ .is_individual = desc_t::_is_individual };
+            if constexpr (desc_t::_is_individual) {
+                return policy{ .is_individual = true, .id = 0 };
+            } else if constexpr (requires { desc_t::_group_id; }) {
+                return policy{
+                    .is_individual = false, .id = desc_t::_group_id
+                };
+            } else {
+                return policy{ .is_individual = false, .id = 0 };
+            }
         } else {
-            return policy{ .is_individual = false, .id = desc_t::_group_id };
+            // No `execute<>` clause was piped through — default to group<0>.
+            return policy{ .is_individual = false, .id = 0 };
         }
     }
 } get_execution_policy;
