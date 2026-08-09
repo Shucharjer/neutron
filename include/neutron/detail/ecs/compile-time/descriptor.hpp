@@ -11,6 +11,7 @@
 #include "neutron/detail/metafn/element.hpp"
 #include "neutron/detail/utility/enum_anyof.hpp"
 #include "neutron/inplace_vector.hpp"
+#include "neutron/tstring.hpp"
 
 namespace neutron {
 
@@ -431,21 +432,26 @@ struct _execute_t : description_tag {
     static constexpr bool _is_in_group   = _group_count != 0;
 
     static constexpr std::size_t _group_id = [] {
-        constexpr auto pos = []<std::size_t... Is>(std::index_sequence<Is...>) {
-            constexpr std::size_t num = sizeof...(Args);
-            std::size_t index         = num;
-            std::size_t curr          = 0;
-            ((index == num &&
-                      _has_same_template<
-                          std::remove_cvref_t<decltype(Args)>, _group_t<0>>
-                  ? index = curr
-                  : 0,
-              ++curr) &&
-             ...);
-            return index;
-        }();
-        return std::remove_cvref_t<
-            decltype(value_list_element_v<pos, value_list<Args...>>)>::id;
+        if constexpr (_group_count == 0) {
+            return std::size_t{ 0 };
+        } else {
+            constexpr auto pos = []<std::size_t... Is>(
+                                     std::index_sequence<Is...>) {
+                constexpr std::size_t num = sizeof...(Args);
+                std::size_t index         = num;
+                std::size_t curr          = 0;
+                ((index == num &&
+                          _has_same_template<
+                              std::remove_cvref_t<decltype(Args)>, _group_t<0>>
+                      ? index = curr
+                      : 0,
+                  ++curr) &&
+                 ...);
+                return index;
+            }(std::make_index_sequence<sizeof...(Args)>());
+            return std::remove_cvref_t<
+                decltype(value_list_element_v<pos, value_list<Args...>>)>::id;
+        }
     }();
 
     static constexpr bool _has_interval = []() -> bool {
@@ -490,5 +496,20 @@ constexpr bool is_hifreq_stage(stage stage) noexcept {
     using enum ::neutron::stage;
     return enum_anyof(stage, { events, preupdate, update, postupdate, render });
 }
+
+template <tstring Identifier>
+struct _set_identifier_t : description_tag {
+    static constexpr std::string_view identifier = Identifier.view();
+
+    template <descriptor Desc>
+    consteval auto operator()(Desc) const noexcept {
+        constexpr bool set = requires() { Desc::identifier; };
+        static_assert(!set, "the world has already have a identifier");
+        return cat_or_insert_t<Desc, _set_identifier_t>{};
+    }
+};
+
+template <tstring Identifier>
+inline constexpr _set_identifier_t<Identifier> set_identifier;
 
 } // namespace neutron

@@ -42,9 +42,12 @@ int main() {
                            execute<group<1>, interval{ 1.0 / 30 }> |
                            add_systems<update, { &bar }>;
 
+    constexpr auto desc6 = world_desc | set_identifier<"the sixth">;
+    static_assert(decltype(desc6)::identifier == "the sixth");
+
     // This file is a descriptor-syntax smoke test.
     empty_application::create() |
-        run_worlds<desc1, desc2, desc3, desc4, desc5>();
+        run_worlds<desc1, desc2, desc3, desc4, desc5, desc6>();
 
     return 0;
 }
