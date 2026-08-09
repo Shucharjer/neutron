@@ -24,6 +24,9 @@
 
 #include "neutron/detail/ecs/params/command_list.hpp"
 #include "neutron/detail/ecs/params/commands.hpp"
+#include "neutron/detail/ecs/params/construct.hpp"
+#include "neutron/detail/ecs/params/construct/local.hpp"
+#include "neutron/detail/ecs/params/construct/query.hpp"
 #include "neutron/detail/ecs/params/global.hpp"
 #include "neutron/detail/ecs/params/local.hpp"
 #include "neutron/detail/ecs/params/meta_accessor.hpp"
