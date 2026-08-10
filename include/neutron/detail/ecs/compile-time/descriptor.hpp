@@ -6,6 +6,7 @@
 #include <cstdint>
 #include <type_traits>
 #include <utility>
+#include <neutron/metafn.hpp>
 #include "neutron/detail/ecs/concepts/stage.hpp"
 #include "neutron/detail/metafn/definition.hpp"
 #include "neutron/detail/metafn/element.hpp"
@@ -167,10 +168,6 @@ system_spec(Fn) -> system_spec<Fn>;
 
 struct _individual_t {};
 inline constexpr _individual_t individual;
-
-struct interval {
-    double val = 0.0;
-};
 
 template <typename Tasks>
 struct graph_builder;
@@ -387,7 +384,13 @@ struct _count_if_is_type<Tmp<Args...>, T> {
         (std::same_as<std::remove_cvref_t<decltype(Args)>, T> + ...);
 };
 
-inline constexpr auto dynamic_interval = interval{ -1.0 };
+template <int Ticks>
+struct _tick_rate_t {};
+
+template <int Ticks>
+inline constexpr _tick_rate_t<Ticks> tick_rate;
+
+inline constexpr auto dynamic_tick_rate = tick_rate<-1>;
 
 template <std::size_t I>
 struct _group_t {
@@ -396,19 +399,47 @@ struct _group_t {
 template <std::size_t I>
 inline constexpr _group_t<I> group;
 
+template <typename Val>
+using _is_tick_rate = is_specific_value_list<_tick_rate_t, Val>;
+
 template <auto... Args>
 struct _execute_t : description_tag {
 
-    /* no or only one interval spec
+    /* no or only one tick rate spec
      * execute individual or in group, defaultly in group<0>
      */
 
-    using list_t = value_list<Args...>;
+    using list_t  = value_list<Args...>;
+    using tlist_t = type_list<decltype(Args)...>;
 
-    // 0 or 1 if well-formed
-    static_assert(
-        _count_if_is_type<list_t, interval>::value <= 1,
-        "has already existed an interval spec");
+    static constexpr std::size_t _num_tick_rate =
+        type_list_size_v<type_list_filt_t<_is_tick_rate, tlist_t>>;
+
+    static_assert(_num_tick_rate <= 1, "could only specify tick rate once");
+
+    static constexpr int _tick_rate = []() -> int {
+        using namespace std;
+        if constexpr (_num_tick_rate == 0) {
+            return 0;
+        } else {
+            int val              = sizeof...(Args);
+            constexpr auto index = []<size_t... Is>(index_sequence<Is...>) {
+                constexpr auto num = sizeof...(Args);
+                auto index         = num;
+                auto curr          = 0;
+                ((index == num &&
+                          _is_tick_rate<remove_cvref_t<decltype(Args)>>::value
+                      ? index = curr
+                      : 0,
+                  ++curr),
+                 ...);
+                return index;
+            }(std::make_index_sequence<sizeof...(Args)>());
+            val = value_list_element_v<index, value_list<Args...>>.val;
+        }
+    }();
+
+    static constexpr bool _has_dynamic_tick_rate = _tick_rate < 0;
 
     // 0 or 1 if well-formed
     static constexpr std::size_t _individual_count =
@@ -453,35 +484,6 @@ struct _execute_t : description_tag {
                 decltype(value_list_element_v<pos, value_list<Args...>>)>::id;
         }
     }();
-
-    static constexpr bool _has_interval = []() -> bool {
-        return (
-            std::same_as<std::remove_cvref_t<decltype(Args)>, interval> || ...);
-    }();
-
-    static constexpr double _interval = []() -> double {
-        using namespace std;
-        double val = 0.0;
-        if constexpr (_has_interval) {
-            constexpr auto index = []<size_t... Is>(index_sequence<Is...>) {
-                constexpr auto num = sizeof...(Args);
-                auto index         = num;
-                auto curr          = 0;
-                ((index == num &&
-                          same_as<remove_cvref_t<decltype(Args)>, interval>
-                      ? index = curr
-                      : 0,
-                  ++curr),
-                 ...);
-                return index;
-            }(std::make_index_sequence<sizeof...(Args)>());
-            val = value_list_element_v<index, value_list<Args...>>.val;
-        }
-
-        return val;
-    }();
-
-    static constexpr bool _has_dynamic_interval = _interval < 0.0;
 
     template <descriptor Desc>
     consteval auto operator()(Desc) const noexcept {

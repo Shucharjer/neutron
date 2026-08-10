@@ -40,17 +40,17 @@ struct get_systems_t {
 template <stage Stage>
 constexpr get_systems_t<Stage> get_systems;
 
-inline constexpr struct get_forward_interval_t {
+inline constexpr struct get_forward_tick_rate_t {
     template <typename... Args>
     consteval double operator()(world_descriptor_t<Args...>) const noexcept {
         using desc_t = world_descriptor_t<Args...>;
-        if constexpr (requires { desc_t::_interval; }) {
-            return desc_t::_interval;
+        if constexpr (requires { desc_t::_tick_rate; }) {
+            return desc_t::_tick_rate;
         } else {
             return 0.0;
         }
     }
-} get_forward_interval;
+} get_forward_tick_rate;
 
 inline constexpr struct get_execution_policy_t {
     struct policy {
@@ -65,9 +65,8 @@ inline constexpr struct get_execution_policy_t {
             if constexpr (desc_t::_is_individual) {
                 return policy{ .is_individual = true, .id = 0 };
             } else if constexpr (requires { desc_t::_group_id; }) {
-                return policy{
-                    .is_individual = false, .id = desc_t::_group_id
-                };
+                return policy{ .is_individual = false,
+                               .id            = desc_t::_group_id };
             } else {
                 return policy{ .is_individual = false, .id = 0 };
             }
@@ -92,7 +91,7 @@ inline constexpr _get_enabled_feature_t<_enable_render_t> get_enabled_render;
 } // namespace queries
 
 using queries::get_systems;
-using queries::get_forward_interval;
+using queries::get_forward_tick_rate;
 using queries::get_execution_policy;
 using queries::get_enabled_events;
 using queries::get_enabled_render;
