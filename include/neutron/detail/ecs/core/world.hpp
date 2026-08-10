@@ -14,6 +14,7 @@
 #include "neutron/detail/ecs/core/archetype.hpp"
 #include "neutron/detail/ecs/core/command_buffer.hpp"
 #include "neutron/detail/ecs/core/world_base.hpp"
+#include "neutron/detail/ecs/utility/byte_allocator.hpp"
 #include "neutron/detail/memory/rebind_alloc.hpp"
 #include "neutron/detail/tuple/shared_tuple.hpp"
 #include "neutron/memory.hpp"
@@ -24,7 +25,7 @@ namespace neutron {
 
 using time_point_t = std::chrono::system_clock::time_point;
 
-class _interval_base {
+class _tick_rate_base {
 public:
     void set_last_update(time_point_t time) noexcept { _last_update = time; }
     ATOM_NODISCARD time_point_t get_last_update() const noexcept {
@@ -36,35 +37,41 @@ protected:
 };
 
 template <typename Descriptor>
-class _basic_world_interval_t : public _interval_base {
+class _basic_world_tick_rate_t : public _tick_rate_base {
 public:
     ATOM_NODISCARD bool should_update(time_point_t time) const noexcept {
         using namespace std::chrono;
-        constexpr double forward_interval = get_forward_interval(Descriptor());
-        if constexpr (forward_interval == 0.0) {
+        constexpr double forward_tick_rate =
+            get_forward_tick_rate(Descriptor());
+        if constexpr (forward_tick_rate == 0.0) {
             return true;
         } else {
-            return time >= _last_update + duration<double>(forward_interval);
+            const auto dur = duration<double>(1 / forward_tick_rate);
+            return time >= _last_update + dur;
         }
     }
 };
 template <typename Descriptor>
-requires(get_forward_interval(Descriptor()) < 0.0)
-class _basic_world_interval_t<Descriptor> : public _interval_base {
+requires(get_forward_tick_rate(Descriptor()) < 0.0)
+class _basic_world_tick_rate_t<Descriptor> : public _tick_rate_base {
 public:
     ATOM_NODISCARD bool should_update(time_point_t time) const noexcept {
         using namespace std::chrono;
-        return time >= _last_update + duration<double>(interval_);
+        return time >= _last_update + interval_;
     }
-    ATOM_NODISCARD double get_interval() const noexcept { return interval_; }
-    void set_interval(double interval) noexcept { this->interval_ = interval; }
+    ATOM_NODISCARD int get_tick_rate() const noexcept {
+        return 1 / interval_.count();
+    }
+    void set_tick_rate(int tick_rate) noexcept {
+        interval_ = std::chrono::duration<double>(1.0 / tick_rate);
+    }
 
 private:
-    double interval_ = 1.0 / 120.0; // NOLINT
+    std::chrono::duration<double> interval_{ 1.0 / 120.0 }; // NOLINT
 };
 
 template <typename Descriptor>
-class _basic_world_task_base : public _basic_world_interval_t<Descriptor> {
+class _basic_world_task_base : public _basic_world_tick_rate_t<Descriptor> {
 public:
     template <stage Stage>
     auto get_tasks() const noexcept
@@ -74,9 +81,9 @@ public:
 };
 
 template <typename Descriptor>
-requires(get_forward_interval(Descriptor()) == 0.0)
+requires(get_forward_tick_rate(Descriptor()) == 0.0)
 class _basic_world_task_base<Descriptor> :
-    public _basic_world_interval_t<Descriptor> {
+    public _basic_world_tick_rate_t<Descriptor> {
 public:
     template <stage Stage>
     constexpr auto get_tasks() const noexcept
@@ -85,8 +92,16 @@ public:
     }
 };
 
-template <typename Descriptor, typename Alloc = std::allocator<std::byte>>
-class basic_world :
+template <typename Desc, typename Alloc = std::allocator<std::byte>>
+class basic_world;
+
+template <typename Alloc>
+constexpr bool _is_byte_allocator =
+    std::same_as<typename std::allocator_traits<Alloc>::value_type, std::byte>;
+
+template <typename Descriptor, typename Alloc>
+requires internal::byte_allocator<Alloc>
+class basic_world<Descriptor, Alloc> :
     public _basic_world_task_base<Descriptor>,
     public world_base<Alloc> {
     template <stage Stage, auto, typename>
@@ -106,7 +121,6 @@ class basic_world :
 
     template <typename Ty>
     using _allocator_t = rebind_alloc_t<Alloc, Ty>;
-    using _byte_alloc  = _allocator_t<::std::byte>;
 
     template <typename Ty>
     using _vector_t = ::std::vector<Ty, _allocator_t<Ty>>;
@@ -114,8 +128,8 @@ class basic_world :
 public:
     using descriptor_type = Descriptor;
     using allocator_type  = Alloc;
-    using archetype       = ::neutron::archetype<_byte_alloc>;
-    using command_buffer  = ::neutron::command_buffer<_byte_alloc>;
+    using archetype       = ::neutron::archetype<Alloc>;
+    using command_buffer  = ::neutron::command_buffer<Alloc>;
 
     template <typename Al = Alloc>
     constexpr explicit basic_world(const Al& alloc = {})
@@ -128,6 +142,12 @@ private:
     _shared_tuple<query_cache_of<descriptor_type>> queries_;
     _shared_tuple<res_of<descriptor_type>> resources_;
     _shared_tuple<local_of<descriptor_type>> locals_;
+};
+
+template <typename Desc, typename Alloc>
+class basic_world : public basic_world<Desc, rebind_alloc_t<Alloc, std::byte>> {
+public:
+    using basic_world<Desc, rebind_alloc_t<Alloc, std::byte>>::basic_world;
 };
 
 template <
