@@ -1,0 +1,8 @@
+prefix=@CMAKE_INSTALL_PREFIX@
+includedir=@NEUTRON_PKGCONFIG_INCLUDEDIR@
+
+Name: neutron
+Description: Gaming meets modern C++
+Url: https://github.com/Shucharjer/neutron
+Version: @NEUTRON_VERSION@
+Cflags: -I${includedir}
