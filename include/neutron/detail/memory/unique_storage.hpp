@@ -5,6 +5,7 @@
 #include "neutron/detail/concepts/allocator.hpp"
 #include "neutron/detail/macros.hpp"
 #include "neutron/detail/memory/using_allocator.hpp"
+#include "neutron/detail/utility/assert.hpp"
 #include "neutron/detail/utility/completion_guard.hpp"
 #include "neutron/detail/utility/immediately.hpp"
 #include "neutron/metafn.hpp"
@@ -300,7 +301,7 @@ public:
         if constexpr (traits_t::propagate_on_container_swap::value) {
             std::swap(get_allocator(), that.get_allocator());
         } else {
-            assert(get_allocator() == that.get_allocator());
+            NEUTRON_ASSERT(get_allocator() == that.get_allocator());
         }
         std::swap(ptr_, that.ptr_);
     }

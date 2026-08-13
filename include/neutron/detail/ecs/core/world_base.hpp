@@ -19,6 +19,7 @@
 #include "neutron/detail/ecs/core/archetype.hpp"
 #include "neutron/detail/ranges/concepts.hpp"
 #include "neutron/detail/reflection/refl.hpp"
+#include "neutron/detail/utility/assert.hpp"
 #include "neutron/flat_hash_map.hpp"
 #include "neutron/memory.hpp"
 #include "neutron/metafn.hpp"
@@ -811,7 +812,7 @@ template <typename Alloc>
 constexpr void world_base<Alloc>::kill(entity_t entity) {
     const auto index = _get_index(entity);
     auto& slot       = _entity_slot(index);
-    assert(entity == slot.first);
+    NEUTRON_ASSERT(entity == slot.first);
 
     auto*& arche = slot.second;
     if (arche != nullptr) {

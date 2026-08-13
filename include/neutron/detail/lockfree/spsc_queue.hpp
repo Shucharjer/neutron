@@ -9,6 +9,7 @@
 #include "neutron/detail/lockfree/intrusive_spsc_queue.hpp"
 #include "neutron/detail/memory/object_pool.hpp"
 #include "neutron/detail/memory/rebind_alloc.hpp"
+#include "neutron/detail/utility/assert.hpp"
 
 namespace neutron {
 
@@ -62,7 +63,7 @@ public:
     }
 
     void pop_front() {
-        assert(!empty());
+        NEUTRON_ASSERT(!empty());
         auto head = head_.load(std::memory_order_relaxed);
         auto next = (head + 1) % capacity_;
         while (tail_.load(std::memory_order_acquire) == next) {}
