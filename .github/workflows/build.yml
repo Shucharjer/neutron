@@ -1,0 +1,369 @@
+name: Build
+
+on:
+  push:
+  pull_request:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+defaults:
+  run:
+    shell: bash
+
+jobs:
+  linux:
+    name: ${{ matrix.distro.name }} ${{ matrix.arch.name }} ${{ matrix.compiler.name }} C++${{ matrix.config.cxx_standard }} ${{ matrix.config.name }}
+    runs-on: ${{ matrix.arch.runner }}
+    container: ${{ matrix.distro.container }}
+    strategy:
+      fail-fast: false
+      matrix:
+        distro:
+          - name: ubuntu
+            container: ubuntu:24.04
+            install: apt-get update && apt-get install -y --no-install-recommends ca-certificates git ninja-build cmake
+            gxx_package: g++
+            clang_package: clang
+          - name: fedora
+            container: fedora:latest
+            install: dnf install -y ca-certificates git ninja-build cmake
+            gxx_package: gcc-c++
+            clang_package: clang
+        arch:
+          - name: x64
+            runner: ubuntu-24.04
+          - name: arm64
+            runner: ubuntu-24.04-arm
+        compiler:
+          - name: g++
+            cc: gcc
+            cxx: g++
+            package_key: gxx_package
+          - name: clang++
+            cc: clang
+            cxx: clang++
+            package_key: clang_package
+        config:
+          - name: stdexec
+            cxx_standard: 20
+            stdexec: "ON"
+            beman: "OFF"
+            aligned_allocation: "ON"
+          - name: stdexec-no-aligned-allocation
+            cxx_standard: 20
+            stdexec: "ON"
+            beman: "OFF"
+            aligned_allocation: "OFF"
+          - name: stdexec
+            cxx_standard: 23
+            stdexec: "ON"
+            beman: "OFF"
+            aligned_allocation: "ON"
+          - name: beman
+            cxx_standard: 23
+            stdexec: "OFF"
+            beman: "ON"
+            aligned_allocation: "ON"
+          - name: stdexec
+            cxx_standard: 26
+            stdexec: "ON"
+            beman: "OFF"
+            aligned_allocation: "ON"
+          - name: beman
+            cxx_standard: 26
+            stdexec: "OFF"
+            beman: "ON"
+            aligned_allocation: "ON"
+
+    steps:
+      - name: Install dependencies
+        run: |
+          ${{ matrix.distro.install }}
+          if [ "${{ matrix.compiler.package_key }}" = "gxx_package" ]; then
+            if [ "${{ matrix.distro.name }}" = "ubuntu" ]; then
+              apt-get install -y --no-install-recommends ${{ matrix.distro.gxx_package }}
+            else
+              dnf install -y ${{ matrix.distro.gxx_package }}
+            fi
+          else
+            if [ "${{ matrix.distro.name }}" = "ubuntu" ]; then
+              apt-get install -y --no-install-recommends ${{ matrix.distro.clang_package }}
+            else
+              dnf install -y ${{ matrix.distro.clang_package }}
+            fi
+          fi
+
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Configure
+        run: |
+          cmake -S . -B build \
+            -G Ninja \
+            -DCMAKE_BUILD_TYPE=Release \
+            -DCMAKE_CXX_STANDARD=${{ matrix.config.cxx_standard }} \
+            -DCMAKE_CXX_STANDARD_REQUIRED=ON \
+            -DCMAKE_CXX_EXTENSIONS=OFF \
+            -DCMAKE_C_COMPILER=${{ matrix.compiler.cc }} \
+            -DCMAKE_CXX_COMPILER=${{ matrix.compiler.cxx }} \
+            -DNEUTRON_INSTALL=OFF \
+            -DBUILD_NEUTRON_TESTING=ON \
+            -DNEUTRON_ALIGNED_ALLOCATION=${{ matrix.config.aligned_allocation }} \
+            -DNEUTRON_USES_STDEXEC=${{ matrix.config.stdexec }} \
+            -DNEUTRON_USES_BEMAN_EXECUTION=${{ matrix.config.beman }}
+
+      - name: Build
+        run: cmake --build build --parallel
+
+      - name: Test
+        run: ctest --test-dir build --output-on-failure --parallel 2
+
+  linux-mingw:
+    name: ${{ matrix.distro.name }} ${{ matrix.arch.name }} MinGW ${{ matrix.target }} C++${{ matrix.config.cxx_standard }} ${{ matrix.config.name }}
+    runs-on: ${{ matrix.arch.runner }}
+    container: ${{ matrix.distro.container }}
+    strategy:
+      fail-fast: false
+      matrix:
+        distro:
+          - name: ubuntu
+            container: ubuntu:24.04
+            install: apt-get update && apt-get install -y --no-install-recommends ca-certificates git ninja-build cmake g++-mingw-w64-x86-64
+          - name: fedora
+            container: fedora:latest
+            install: dnf install -y ca-certificates git ninja-build cmake mingw64-gcc-c++
+        arch:
+          - name: x64
+            runner: ubuntu-24.04
+          - name: arm64
+            runner: ubuntu-24.04-arm
+        target:
+          - x86_64-w64-mingw32
+        config:
+          - name: stdexec
+            cxx_standard: 20
+            stdexec: "ON"
+            beman: "OFF"
+          - name: stdexec
+            cxx_standard: 23
+            stdexec: "ON"
+            beman: "OFF"
+          - name: beman
+            cxx_standard: 23
+            stdexec: "OFF"
+            beman: "ON"
+          - name: stdexec
+            cxx_standard: 26
+            stdexec: "ON"
+            beman: "OFF"
+          - name: beman
+            cxx_standard: 26
+            stdexec: "OFF"
+            beman: "ON"
+        aligned_allocation: ["ON", "OFF"]
+
+    steps:
+      - name: Install dependencies
+        run: ${{ matrix.distro.install }}
+
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Configure
+        run: |
+          cmake -S . -B build \
+            -G Ninja \
+            -DCMAKE_BUILD_TYPE=Release \
+            -DCMAKE_SYSTEM_NAME=Windows \
+            -DCMAKE_C_COMPILER=${{ matrix.target }}-gcc \
+            -DCMAKE_CXX_COMPILER=${{ matrix.target }}-g++ \
+            -DCMAKE_CXX_STANDARD=${{ matrix.config.cxx_standard }} \
+            -DCMAKE_CXX_STANDARD_REQUIRED=ON \
+            -DCMAKE_CXX_EXTENSIONS=OFF \
+            -DNEUTRON_INSTALL=OFF \
+            -DBUILD_NEUTRON_TESTING=ON \
+            -DNEUTRON_ALIGNED_ALLOCATION=${{ matrix.aligned_allocation }} \
+            -DNEUTRON_USES_STDEXEC=${{ matrix.config.stdexec }} \
+            -DNEUTRON_USES_BEMAN_EXECUTION=${{ matrix.config.beman }}
+
+      - name: Build
+        run: cmake --build build --parallel
+
+  windows:
+    name: windows ${{ matrix.compiler.name }} C++${{ matrix.config.cxx_standard }} ${{ matrix.config.name }}
+    runs-on: windows-2025-vs2026
+    defaults:
+      run:
+        shell: pwsh
+    strategy:
+      fail-fast: false
+      matrix:
+        compiler:
+          - name: msvc
+            generator: "Visual Studio 18 2026"
+            architecture: x64
+          - name: gcc-mcf
+            generator: Ninja
+            architecture: ""
+        config:
+          - name: stdexec
+            cxx_standard: 20
+            stdexec: "ON"
+            beman: "OFF"
+            aligned_allocation: "ON"
+          - name: stdexec-no-aligned-allocation
+            cxx_standard: 20
+            stdexec: "ON"
+            beman: "OFF"
+            aligned_allocation: "OFF"
+          - name: stdexec
+            cxx_standard: 23
+            stdexec: "ON"
+            beman: "OFF"
+            aligned_allocation: "ON"
+          - name: beman
+            cxx_standard: 23
+            stdexec: "OFF"
+            beman: "ON"
+            aligned_allocation: "ON"
+          - name: stdexec
+            cxx_standard: 26
+            stdexec: "ON"
+            beman: "OFF"
+            aligned_allocation: "ON"
+          - name: beman
+            cxx_standard: 26
+            stdexec: "OFF"
+            beman: "ON"
+            aligned_allocation: "ON"
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup gcc-mcf
+        if: matrix.compiler.name == 'gcc-mcf'
+        run: |
+          $ErrorActionPreference = "Stop"
+          $index = Invoke-WebRequest -Uri "https://gcc-mcf.lhmouse.com/"
+          $archive = $index.Links |
+            Where-Object { $_.href -match '^mingw-w64-gcc-mcf_.*_x64-ucrt_.*\.7z$' } |
+            Select-Object -First 1
+          if ($null -eq $archive) {
+            throw "No x64-ucrt gcc-mcf archive found"
+          }
+          $url = [System.Uri]::new([System.Uri]"https://gcc-mcf.lhmouse.com/", $archive.href).AbsoluteUri
+          Invoke-WebRequest -Uri $url -OutFile gcc-mcf.7z
+          7z x gcc-mcf.7z -ogcc-mcf
+          $bin = Get-ChildItem gcc-mcf -Recurse -Directory -Filter bin |
+            Where-Object { Test-Path (Join-Path $_.FullName "g++.exe") } |
+            Select-Object -First 1
+          if ($null -eq $bin) {
+            throw "No gcc-mcf bin directory found"
+          }
+          $bin.FullName | Out-File -FilePath $env:GITHUB_PATH -Encoding utf8 -Append
+          & (Join-Path $bin.FullName "g++.exe") --version
+
+      - name: Configure MSVC
+        if: matrix.compiler.name == 'msvc'
+        run: |
+          cmake -S . -B build `
+            -G "${{ matrix.compiler.generator }}" `
+            -A ${{ matrix.compiler.architecture }} `
+            -DCMAKE_CXX_STANDARD=${{ matrix.config.cxx_standard }} `
+            -DCMAKE_CXX_STANDARD_REQUIRED=ON `
+            -DCMAKE_CXX_EXTENSIONS=OFF `
+            -DNEUTRON_INSTALL=OFF `
+            -DBUILD_NEUTRON_TESTING=ON `
+            -DNEUTRON_ALIGNED_ALLOCATION=${{ matrix.config.aligned_allocation }} `
+            -DNEUTRON_USES_STDEXEC=${{ matrix.config.stdexec }} `
+            -DNEUTRON_USES_BEMAN_EXECUTION=${{ matrix.config.beman }}
+
+      - name: Configure gcc-mcf
+        if: matrix.compiler.name == 'gcc-mcf'
+        run: |
+          cmake -S . -B build `
+            -G Ninja `
+            -DCMAKE_BUILD_TYPE=Release `
+            -DCMAKE_C_COMPILER=gcc `
+            -DCMAKE_CXX_COMPILER=g++ `
+            -DCMAKE_CXX_STANDARD=${{ matrix.config.cxx_standard }} `
+            -DCMAKE_CXX_STANDARD_REQUIRED=ON `
+            -DCMAKE_CXX_EXTENSIONS=OFF `
+            -DNEUTRON_INSTALL=OFF `
+            -DBUILD_NEUTRON_TESTING=ON `
+            -DNEUTRON_ALIGNED_ALLOCATION=${{ matrix.config.aligned_allocation }} `
+            -DNEUTRON_USES_STDEXEC=${{ matrix.config.stdexec }} `
+            -DNEUTRON_USES_BEMAN_EXECUTION=${{ matrix.config.beman }}
+
+      - name: Build
+        run: cmake --build build --config Release --parallel
+
+      - name: Test
+        run: ctest --test-dir build -C Release --output-on-failure --parallel 2
+
+  macos:
+    name: macos clang++ C++${{ matrix.config.cxx_standard }} ${{ matrix.config.name }}
+    runs-on: macos-14
+    strategy:
+      fail-fast: false
+      matrix:
+        config:
+          - name: stdexec
+            cxx_standard: 20
+            stdexec: "ON"
+            beman: "OFF"
+            aligned_allocation: "ON"
+          - name: stdexec-no-aligned-allocation
+            cxx_standard: 20
+            stdexec: "ON"
+            beman: "OFF"
+            aligned_allocation: "OFF"
+          - name: stdexec
+            cxx_standard: 23
+            stdexec: "ON"
+            beman: "OFF"
+            aligned_allocation: "ON"
+          - name: beman
+            cxx_standard: 23
+            stdexec: "OFF"
+            beman: "ON"
+            aligned_allocation: "ON"
+          - name: stdexec
+            cxx_standard: 26
+            stdexec: "ON"
+            beman: "OFF"
+            aligned_allocation: "ON"
+          - name: beman
+            cxx_standard: 26
+            stdexec: "OFF"
+            beman: "ON"
+            aligned_allocation: "ON"
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Configure
+        run: |
+          cmake -S . -B build \
+            -G Ninja \
+            -DCMAKE_BUILD_TYPE=Release \
+            -DCMAKE_C_COMPILER=clang \
+            -DCMAKE_CXX_COMPILER=clang++ \
+            -DCMAKE_CXX_STANDARD=${{ matrix.config.cxx_standard }} \
+            -DCMAKE_CXX_STANDARD_REQUIRED=ON \
+            -DCMAKE_CXX_EXTENSIONS=OFF \
+            -DNEUTRON_INSTALL=OFF \
+            -DBUILD_NEUTRON_TESTING=ON \
+            -DNEUTRON_ALIGNED_ALLOCATION=${{ matrix.config.aligned_allocation }} \
+            -DNEUTRON_USES_STDEXEC=${{ matrix.config.stdexec }} \
+            -DNEUTRON_USES_BEMAN_EXECUTION=${{ matrix.config.beman }}
+
+      - name: Build
+        run: cmake --build build --parallel
+
+      - name: Test
+        run: ctest --test-dir build --output-on-failure --parallel 2
