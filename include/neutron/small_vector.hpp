@@ -15,6 +15,7 @@
 #include "neutron/detail/iterator/iter_wrapper.hpp"
 #include "neutron/detail/macros.hpp"
 #include "neutron/detail/memory/using_allocator.hpp"
+#include "neutron/detail/utility/assert.hpp"
 #include "neutron/detail/utility/completion_guard.hpp"
 
 namespace neutron {
@@ -22,13 +23,13 @@ namespace neutron {
 template <
     typename Ty, size_t Count = 4,
     std_simple_allocator Alloc = std::allocator<Ty>>
-class smvec;
+class small_vector;
 
 template <typename Ty, size_t Count, std_simple_allocator Alloc>
 requires std::same_as<
     typename std::allocator_traits<Alloc>::value_type*,
     typename std::allocator_traits<Alloc>::pointer>
-class smvec<Ty, Count, Alloc> {
+class small_vector<Ty, Count, Alloc> {
     static_assert(Count != 0, "Count must be non-zero");
 
     template <typename T>
@@ -49,19 +50,19 @@ public:
     using const_iterator  = _iter_wrapper<const Ty*>;
 
     // default and allocator constructors
-    smvec() noexcept(std::is_nothrow_default_constructible_v<allocator_type>) =
+    small_vector() noexcept(std::is_nothrow_default_constructible_v<allocator_type>) =
         default;
 
     template <typename Al = Alloc>
     requires std::convertible_to<Al, allocator_type>
-    explicit smvec(const Al& alloc) noexcept
+    explicit small_vector(const Al& alloc) noexcept
     requires(std::same_as<std::remove_cvref_t<Al>, Alloc>)
         : alloc_(alloc) {}
 
     // size constructors
     template <typename Al = Alloc>
     requires std::convertible_to<Al, allocator_type>
-    explicit smvec(size_type count, const Al& alloc = {}) : alloc_(alloc) {
+    explicit small_vector(size_type count, const Al& alloc = {}) : alloc_(alloc) {
         if (count == 0) {
             return;
         }
@@ -84,7 +85,7 @@ public:
 
     template <typename Al = Alloc>
     requires std::convertible_to<Al, allocator_type>
-    smvec(size_type count, const Ty& value, const Al& alloc = {})
+    small_vector(size_type count, const Ty& value, const Al& alloc = {})
         : alloc_(alloc) {
         if (count == 0) {
             return;
@@ -106,7 +107,7 @@ public:
 
     template <std::input_iterator InputIter, typename Al = Alloc>
     requires std::convertible_to<Al, allocator_type>
-    smvec(InputIter first, InputIter last, const Al& alloc = {})
+    small_vector(InputIter first, InputIter last, const Al& alloc = {})
         : alloc_(allocator_type(alloc)) {
         if (std::forward_iterator<InputIter>) {
             _init_with_size(first, last);
@@ -117,12 +118,12 @@ public:
 
     template <typename Al = Alloc>
     requires std::convertible_to<Al, allocator_type>
-    smvec(std::initializer_list<Ty> ilist, const Al& alloc = {})
+    small_vector(std::initializer_list<Ty> ilist, const Al& alloc = {})
         : alloc_(allocator_type(alloc)) {
         _init_with_size(ilist.begin(), ilist.end());
     }
 
-    smvec(const smvec& that) : alloc_(that.alloc_) {
+    small_vector(const small_vector& that) : alloc_(that.alloc_) {
         if (that.size_ == 0) {
             return;
         }
@@ -145,7 +146,7 @@ public:
         }
     }
 
-    smvec(smvec&& that) noexcept(
+    small_vector(small_vector&& that) noexcept(
         std::is_nothrow_move_constructible_v<Ty> ||
         std::is_nothrow_copy_constructible_v<Ty>)
         : alloc_(that.alloc_) {
@@ -166,8 +167,7 @@ public:
 
     template <typename Al = Alloc>
     requires std::convertible_to<Al, allocator_type>
-    smvec(smvec&& that, const Al& alloc)
-        : alloc_(allocator_type(alloc)) {
+    small_vector(small_vector&& that, const Al& alloc) : alloc_(allocator_type(alloc)) {
         if (that.size_ == 0) {
             return;
         }
@@ -200,18 +200,18 @@ public:
         }
     }
 
-    smvec& operator=(const smvec& that) {
+    small_vector& operator=(const small_vector& that) {
         if (this == &that) {
             return *this;
         }
 
-        smvec temp = that;
+        small_vector temp = that;
         swap(temp);
 
         return *this;
     }
 
-    smvec& operator=(smvec&& that) noexcept(
+    small_vector& operator=(small_vector&& that) noexcept(
         std::is_nothrow_destructible_v<Ty> &&
         nothrow_conditional_move_constrctible<Ty>) {
         if (this == &that) {
@@ -248,7 +248,7 @@ public:
         return *this;
     }
 
-    ~smvec() noexcept(std::is_nothrow_destructible_v<Ty>) {
+    ~small_vector() noexcept(std::is_nothrow_destructible_v<Ty>) {
         if (size_ != 0) {
             std::destroy_n(data_, size_);
             if (!_uses_buffer()) {
@@ -322,7 +322,7 @@ public:
     }
 
     void pop_back() noexcept(std::is_nothrow_destructible_v<Ty>) {
-        assert(size_ != 0);
+        NEUTRON_ASSERT(size_ != 0);
         (data_ + size_ - 1)->~Ty();
         --size_;
     }
@@ -506,7 +506,7 @@ public:
 
     template <std::input_iterator InputIt>
     void assign(InputIt first, InputIt last) {
-        smvec temp{ first, last, alloc_ };
+        small_vector temp{ first, last, alloc_ };
         swap(temp);
     }
 
@@ -515,7 +515,7 @@ public:
     }
 
     // swap; prefers pointer swap when not using SBO for both
-    void swap(smvec& that) noexcept(
+    void swap(small_vector& that) noexcept(
         std::is_nothrow_move_constructible_v<Ty> &&
         std::is_nothrow_swappable_v<Ty>) {
         if (this == &that) {
@@ -534,7 +534,7 @@ public:
             return;
         }
         // Fallback: move-swap via temporary
-        smvec tmp = std::move(*this);
+        small_vector tmp = std::move(*this);
         *this     = std::move(that);
         that      = std::move(tmp);
     }
