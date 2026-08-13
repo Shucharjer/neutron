@@ -39,5 +39,6 @@
 #include "neutron/detail/ecs/executor.hpp"
 #include "neutron/detail/ecs/runtime/run.hpp"
 #include "neutron/detail/ecs/runtime/run_env.hpp"
+#include "neutron/detail/ecs/runtime/runtime.hpp"
 
 // IWYU pragma: end_exports

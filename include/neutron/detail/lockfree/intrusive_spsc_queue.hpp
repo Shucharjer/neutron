@@ -18,6 +18,7 @@ public:
         // auto* prev = tail_.exchange(node, std::memory_order_acq_rel);
         // (prev->*Next).store(node, std::memory_order_release);
         // return prev == &stub_;
+        return false;
     }
 
     Node* pop_front() noexcept {
@@ -30,6 +31,7 @@ public:
 
         //     head_ =
         // }
+        return nullptr;
     }
 
 private:

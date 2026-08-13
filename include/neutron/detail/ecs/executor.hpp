@@ -3,10 +3,9 @@
 #include <atomic>
 #include <cstddef>
 #include "neutron/detail/ecs/compile-time/descriptor.hpp"
-#include "neutron/detail/execution/start_detached.hpp"
+#include "neutron/detail/ecs/fwd.hpp"
 #include "neutron/execution.hpp"
 #include "neutron/inplace_vector.hpp"
-#include "neutron/detail/ecs/fwd.hpp"
 // #include "neutron/stop_token.hpp"
 
 namespace neutron {
@@ -179,7 +178,7 @@ constexpr void execute_until_done(Executor& executor, Scheduler& scheduler) {
             auto sndr = schedule(scheduler) |
                         then([&task]() noexcept { task.execute(); });
             // execution::spawn(std::move(sndr), null_scope_token{});
-            ::neutron::execution::start_detached(std::move(sndr));
+            // ::neutron::execution::start_detached(std::move(sndr));
         }
     }
 }

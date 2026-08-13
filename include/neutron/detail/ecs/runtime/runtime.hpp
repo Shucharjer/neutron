@@ -55,26 +55,27 @@ public:
         : sp_(sp), alloc_(alloc) {}
 
     constexpr int run() {
-        using namespace ::neutron::execution;
+        return 0;
+        // using namespace ::neutron::execution;
 
-        scheduler auto sch = sp_.get_scheduler();
-        using run_envs_t   = run_envs_for<Alloc, Worlds...>;
-        run_envs_t envs{ alloc_ };
+        // scheduler auto sch = sp_.get_scheduler();
+        // using run_envs_t   = run_envs_for<Alloc, Worlds...>;
+        // run_envs_t envs{ alloc_ };
 
-        forward_progress_guarantee guarantee =
-            get_forward_progress_guarantee(sch);
+        // forward_progress_guarantee guarantee =
+        //     get_forward_progress_guarantee(sch);
 
-        if (guarantee == forward_progress_guarantee::weakly_parallel) {
-            return _run_weak_parallel(envs, sch);
-        }
+        // if (guarantee == forward_progress_guarantee::weakly_parallel) {
+        //     return _run_weak_parallel(envs, sch);
+        // }
 
-        if constexpr (parallelism_scheduler_provider<Sp>) {
-            if (sp_.available_parallelism() < std::tuple_size_v<run_envs_t>) {
-                return _run_weak_parallel(envs, sch);
-            }
-        }
+        // if constexpr (parallelism_scheduler_provider<Sp>) {
+        //     if (sp_.available_parallelism() < std::tuple_size_v<run_envs_t>) {
+        //         return _run_weak_parallel(envs, sch);
+        //     }
+        // }
 
-        return _run_parallel(envs, sch);
+        // return _run_parallel(envs, sch);
     }
 
 private:
