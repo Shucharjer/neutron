@@ -16,11 +16,12 @@ list(INSERT CMAKE_MODULE_PATH 0 ${CMAKE_CURRENT_SOURCE_DIR}/cmake/modules)
 
 # options
 
-option(NEUTRON_INCLUDE_HEADERS OFF)
-option(NEUTRON_INSTALL ON)
+option(NEUTRON_INCLUDE_HEADERS "View header files as source files" OFF)
+option(NEUTRON_INSTALL "Install neutron" ON)
 option(NEUTRON_BUILD_DOCS "Build documentation for neutron" OFF)
 option(NEUTRON_USES_STDEXEC "uses stdexec as execution control library implementation, which supports c++20" OFF)
 option(NEUTRON_USES_BEMAN_EXECUTION "uses beman::execution as execution control library implementation, which needs a compiler that supports at least c++23" OFF)
+option(NEUTRON_ALIGNED_ALLOCATION "specify whether containers like 'archetype' uses ::operator new(size, align), if set OFF, allocate via allocator" ON)
 option(BUILD_NEUTRON_TESTING "Build test for neutron" OFF)
 option(BUILD_NEUTRON_BENCHMARK "Build benchmark for neutron" OFF)
 
@@ -49,41 +50,11 @@ endif()
 
 # options support
 
-if (false)
 if(NEUTRON_INCLUDE_HEADERS)
-  set(inc_dir ${CMAKE_CURRENT_SOURCE_DIR}/include)
-  target_sources(
-    Utils
-    INTERFACE
-      # the fellow line is a template
-      # $<BUILD_INTERFACE:${inc_dir}>
-      $<BUILD_INTERFACE:${inc_dir}/auxiliary.hpp>
-      $<BUILD_INTERFACE:${inc_dir}/auxiliary/singleton.hpp>
-      $<BUILD_INTERFACE:${inc_dir}/concepts/ranges.hpp>
-      $<BUILD_INTERFACE:${inc_dir}/concepts/type.hpp>
-      $<BUILD_INTERFACE:${inc_dir}/core.hpp>
-      $<BUILD_INTERFACE:${inc_dir}/core/type_traits.hpp>
-      $<BUILD_INTERFACE:${inc_dir}/memory.hpp>
-      $<BUILD_INTERFACE:${inc_dir}/memory/storage.hpp>
-      $<BUILD_INTERFACE:${inc_dir}/misc/timer.hpp>
-      $<BUILD_INTERFACE:${inc_dir}/ranges.hpp>
-      $<BUILD_INTERFACE:${inc_dir}/ranges/iterator.hpp>
-      $<BUILD_INTERFACE:${inc_dir}/ranges/to.hpp>
-      $<BUILD_INTERFACE:${inc_dir}/reflection.hpp>
-      $<BUILD_INTERFACE:${inc_dir}/signal.hpp>
-      $<BUILD_INTERFACE:${inc_dir}/signal/sink.hpp>
-      $<BUILD_INTERFACE:${inc_dir}/signal/dispatcher.hpp>
-      $<BUILD_INTERFACE:${inc_dir}/structures.hpp>
-      $<BUILD_INTERFACE:${inc_dir}/structures/dense_map.hpp>
-      $<BUILD_INTERFACE:${inc_dir}/structures/dense_set.hpp>
-      $<BUILD_INTERFACE:${inc_dir}/structures/tstring.hpp>
-      $<BUILD_INTERFACE:${inc_dir}/thread.hpp>
-      $<BUILD_INTERFACE:${inc_dir}/thread/coroutine.hpp>
-      $<BUILD_INTERFACE:${inc_dir}/thread/lock_keeper.hpp>
-      $<BUILD_INTERFACE:${inc_dir}/thread/lock.hpp>
-      $<BUILD_INTERFACE:${inc_dir}/thread/thread_pool.hpp>
-      )
-endif()
+  file(GLIB_RECURSE NEUTRON_SRC_FILES ${CMAKE_CURRENT_SOURCE_DIR}/include/*.hpp)
+  foreach(src_file ${NEUTRON_SRC_FILES})
+    target_sources(neutron INTERFACE $<BUILD_INTERFACE:${src_file}>)
+  endforeach()
 endif()
 
 if(NEUTRON_BUILD_DOCS)
@@ -121,6 +92,9 @@ elseif(NEUTRON_USES_BEMAN_EXECUTION)
   FetchContent_MakeAvailable(beman_execution)
   target_link_libraries(neutron INTERFACE beman::execution_headers)
 endif()
+
+target_compile_definitions(neutron INTERFACE
+  $<$<BOOL:${NEUTRON_ALIGNED_ALLOCATION}>:NEUTRON_ALIGNED_ALLOCATION>)
 
 include(exec)
 
