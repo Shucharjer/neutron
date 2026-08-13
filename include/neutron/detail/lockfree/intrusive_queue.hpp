@@ -2,6 +2,7 @@
 #include <cassert>
 #include <utility>
 #include "neutron/detail/macros.hpp"
+#include "neutron/detail/utility/assert.hpp"
 
 namespace neutron {
 
@@ -29,7 +30,7 @@ public:
         return *this;
     }
 
-    constexpr ~intrusive_queue() noexcept { assert(empty()); }
+    constexpr ~intrusive_queue() noexcept { NEUTRON_ASSERT(empty()); }
 
     ATOM_NODISCARD constexpr bool empty() const noexcept {
         return head_ == tail_;

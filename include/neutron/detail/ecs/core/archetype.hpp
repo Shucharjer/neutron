@@ -4,7 +4,6 @@
 
 #include <algorithm>
 #include <array>
-#include <cassert>
 #include <concepts>
 #include <cstddef>
 #include <cstdint>
@@ -32,10 +31,11 @@
 #include "neutron/detail/reflection/hash.hpp"
 #include "neutron/detail/reflection/type_traits.hpp"
 #include "neutron/detail/tuple/rmcvref_first.hpp"
+#include "neutron/detail/utility/assert.hpp"
 #include "neutron/detail/utility/spreader.hpp"
 #include "neutron/metafn.hpp"
 #include "neutron/shift_map.hpp"
-#include "neutron/smvec.hpp"
+#include "neutron/small_vector.hpp"
 #include "neutron/utility.hpp"
 
 namespace neutron {
@@ -726,7 +726,7 @@ public:
         using type_list                       = type_list<Components...>;
         using hash_list                       = hash_list_t<type_list>;
         constexpr std::uint64_t combined_hash = make_array_hash<type_list>();
-        assert(combined_hash == hash_);
+        NEUTRON_ASSERT(combined_hash == hash_);
 
         _emplace(entity, hash_list{});
     }
@@ -738,7 +738,7 @@ public:
         using type_list                       = type_list<Components...>;
         using hash_list                       = hash_list_t<type_list>;
         constexpr std::uint64_t combined_hash = make_array_hash<type_list>();
-        assert(combined_hash == hash_);
+        NEUTRON_ASSERT(combined_hash == hash_);
 
         _emplace(std::forward<decltype(range)>(range), hash_list{});
     }
@@ -748,7 +748,7 @@ public:
         emplace(entity_t entity, Components&&... components) {
         constexpr std::uint64_t combined_hash =
             make_array_hash<type_list<std::remove_cvref_t<Components>...>>();
-        assert(combined_hash == hash_);
+        NEUTRON_ASSERT(combined_hash == hash_);
 
         _emplace(entity, std::forward<Components>(components)...);
     }
@@ -760,7 +760,7 @@ public:
     {
         constexpr std::uint64_t combined_hash =
             make_array_hash<type_list<std::remove_cvref_t<Components>...>>();
-        assert(combined_hash == hash_);
+        NEUTRON_ASSERT(combined_hash == hash_);
 
         _emplace(
             std::forward<decltype(range)>(range),
@@ -848,7 +848,7 @@ public:
 
     constexpr void transfer(entity_t entity, archetype& target) {
         _transfer(entity, target, [](size_type, size_type, std::uint32_t) {
-            assert(
+            NEUTRON_ASSERT(
                 false &&
                 "target archetype unexpectedly requires new components");
         });
@@ -1230,7 +1230,7 @@ private:
     }
 
     ATOM_CONSTEXPR_SINCE_CXX26 void _prepare_for_relocation(
-        smvec<_buffer_ptr, 64, _allocator_t<_buffer_ptr>>& nbufs,
+        small_vector<_buffer_ptr, 64, _allocator_t<_buffer_ptr>>& nbufs,
         size_type ncap) {
         for (size_type i = 0; i < kinds(); ++i) {
             const type_traits info = comp_traits_[i];
@@ -1243,7 +1243,7 @@ private:
     }
 
     constexpr void _relocate_data(
-        smvec<_buffer_ptr, 64, _allocator_t<_buffer_ptr>>& nbufs) {
+        small_vector<_buffer_ptr, 64, _allocator_t<_buffer_ptr>>& nbufs) {
         size_type idx = kinds();
         auto guard    = make_exception_guard([this, &nbufs, &idx]() noexcept {
             for (size_type i = idx + 1; i < kinds(); ++i) {
@@ -1281,7 +1281,7 @@ private:
             return;
         }
 
-        smvec<_buffer_ptr, 64, _allocator_t<_buffer_ptr>> nbufs(
+        small_vector<_buffer_ptr, 64, _allocator_t<_buffer_ptr>> nbufs(
             kinds(), entity2index_.get_allocator());
         _prepare_for_relocation(nbufs, capacity);
         _relocate_data(nbufs);

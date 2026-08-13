@@ -100,7 +100,7 @@ public:
     }
 
     constexpr ~bare_vector() noexcept(std::is_nothrow_destructible_v<Ty>) {
-        // assert(data_ != nullptr);
+        // NEUTRON_ASSERT(data_ != nullptr);
     }
 
     template <typename Alloc>

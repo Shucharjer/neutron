@@ -16,7 +16,6 @@ using inplace_vector = std::inplace_vector<T, N>;
 
     #include <algorithm>
     #include <array>
-    #include <cassert>
     #include <cstddef>
     #include <initializer_list>
     #include <iterator>
@@ -27,6 +26,7 @@ using inplace_vector = std::inplace_vector<T, N>;
     #include "neutron/detail/concepts/nothrow_conditional_movable.hpp"
     #include "neutron/detail/macros.hpp"
     #include "neutron/detail/memory/uninitialized_algorithms.hpp"
+    #include "neutron/detail/utility/assert.hpp"
     #include "neutron/detail/utility/packed_uint.hpp"
 
     #if defined(__cpp_lib_containers_ranges) &&                                \
@@ -197,13 +197,13 @@ public:
     }
 
     constexpr reference operator[](size_type index) noexcept {
-        assert(index < N && "Index out of bounds");
+        NEUTRON_ASSERT(index < N && "Index out of bounds");
         return storage_data()[index];
     }
 
     ATOM_NODISCARD constexpr const_reference
         operator[](size_type index) const noexcept {
-        assert(index < N && "Index out of bounds");
+        NEUTRON_ASSERT(index < N && "Index out of bounds");
         return storage_data()[index];
     }
 
