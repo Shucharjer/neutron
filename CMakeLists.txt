@@ -108,6 +108,18 @@ if(BUILD_NEUTRON_TESTING)
   if(ATOM_TEST_SEE_ALL_TEMPLATE_BACKTRACE)
     exec_dir_options(${tests_dir} "tests." -ftemplate-backtrace-limit=0)
   endif()
+
+  option(BUILD_NEUTRON_SIMDJSON_COMPAT OFF)
+  if (BUILD_NEUTRON_SIMDJSON_COMPAT)
+    FetchContent_Declare(
+      simdjson
+      GIT_REPOSITORY https://github.com/simdjson/simdjson.git
+      GIT_TAG master
+      GIT_SHALLOW 1
+    )
+    FetchContent_MakeAvailable(simdjson)
+    target_link_libraries(tests.reflection.serialize.simdjson PRIVATE simdjson)
+  endif()
 endif()
 
 if(BUILD_NEUTRON_BENCHMARK)
