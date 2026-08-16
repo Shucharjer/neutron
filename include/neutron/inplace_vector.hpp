@@ -197,13 +197,13 @@ public:
     }
 
     constexpr reference operator[](size_type index) noexcept {
-        NEUTRON_ASSERT(index < N && "Index out of bounds");
+        NEUTRON_ASSERT(index < N);
         return storage_data()[index];
     }
 
     ATOM_NODISCARD constexpr const_reference
         operator[](size_type index) const noexcept {
-        NEUTRON_ASSERT(index < N && "Index out of bounds");
+        NEUTRON_ASSERT(index < N);
         return storage_data()[index];
     }
 
