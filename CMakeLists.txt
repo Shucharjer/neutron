@@ -72,6 +72,7 @@ if(NEUTRON_BUILD_DOCS)
 endif()
 
 if(NEUTRON_USES_STDEXEC)
+  set(STDEXEC_BUILD_EXAMPLES OFF)
   include(FetchContent)
   FetchContent_Declare(
     stdexec
@@ -110,6 +111,10 @@ if(BUILD_NEUTRON_TESTING)
 endif()
 
 if(BUILD_NEUTRON_BENCHMARK)
+  set(BENCHMARK_ENABLE_TESTING OFF)
+  set(BENCHMARK_INSTALL_DOCS OFF)
+  set(BENCHMARK_INSTALL_TOOLS OFF)
+  set(INSTALL_GTEST OFF)
   include(FetchContent)
   # set(FETCHCONTENT_FULLY_DISCONNECTED ON)
   FetchContent_Declare(
