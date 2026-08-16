@@ -33,6 +33,8 @@ public:
     spsc_queue(spsc_queue&&) noexcept;
     spsc_queue& operator=(spsc_queue&&) noexcept;
 
+    bool empty() { return true; }
+
     ~spsc_queue() noexcept(std::is_nothrow_destructible_v<T>) {
         auto head = head_.load(std::memory_order_relaxed);
         auto tail = tail_.load(std::memory_order_relaxed);
