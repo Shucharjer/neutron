@@ -1,5 +1,6 @@
 #include <cstdint>
 #include <iostream>
+#include <thread>
 #include <neutron/execution.hpp>
 #include <neutron/execution_resources.hpp>
 
@@ -8,7 +9,12 @@ using namespace neutron::execution;
 using namespace neutron::this_thread;
 
 int main() {
-    affinity_thread thread(16);
+    auto concurrency = std::thread::hardware_concurrency();
+    if (concurrency == 0) {
+        concurrency = 1;
+    }
+
+    affinity_thread thread(concurrency - 1);
     scheduler auto sch = thread.get_scheduler();
     auto sndr = just(1024 * 64ULL) // run for a while, check cpu use percentage
                 | continues_on(sch) | then([](uint64_t val) {
