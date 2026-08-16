@@ -32,6 +32,7 @@ using inplace_vector = std::inplace_vector<T, N>;
     #if defined(__cpp_lib_containers_ranges) &&                                \
         __cpp_lib_containers_ranges >= 202202L
         #include <ranges>
+        #include "neutron/detail/ranges/concepts.hpp"
     #endif
 
 namespace neutron {
