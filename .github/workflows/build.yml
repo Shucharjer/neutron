@@ -2,7 +2,9 @@ name: Build
 
 on:
   push:
+    branches: [latest]
   pull_request:
+    branches: [latest]
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
