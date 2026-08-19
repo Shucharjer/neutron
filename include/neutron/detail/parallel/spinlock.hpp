@@ -19,7 +19,7 @@ public:
      *
      */
     auto try_lock() noexcept -> bool {
-        return flag_.test_and_set(std::memory_order_acquire);
+        return !flag_.test_and_set(std::memory_order_acquire);
     }
 
     void lock() noexcept {

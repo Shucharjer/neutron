@@ -16,13 +16,12 @@ public:
     ~spin_mutex() noexcept                   = default;
 
     auto try_lock() noexcept -> bool {
-        return flag_.test_and_set(std::memory_order_acquire);
+        return !flag_.test_and_set(std::memory_order_acquire);
     }
 
     void lock() noexcept {
         for (std::size_t i = 0;
-             i < SpinCount && flag_.test_and_set(std::memory_order_acquire);
-             ++i) {
+             i < SpinCount && flag_.test(std::memory_order_acquire); ++i) {
             cpu_relax();
         }
 
