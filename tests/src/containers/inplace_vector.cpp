@@ -1,3 +1,4 @@
+#include <array>
 #include <stdexcept>
 #include <string>
 #include <vector>
@@ -40,9 +41,9 @@ void test_trivial() {
 
     {
         constexpr auto ivec = [] {
-            std::vector<int> vec{ 1, 2, 3, 4 };
-            inplace_vector<int, 4> ivec{ std::from_range, std::move(vec) };
-            return vec;
+            std::array<int, 4> arr{ 1, 2, 3, 4 };
+            inplace_vector<int, 4> ivec{ std::from_range, std::move(arr) };
+            return ivec;
         }();
         static_assert(ivec[0] == 1);
         static_assert(ivec[1] == 2);

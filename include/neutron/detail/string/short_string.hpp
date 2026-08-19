@@ -11,6 +11,12 @@
 #include "neutron/detail/memory/inplace.hpp"
 #include "neutron/detail/string/string_view_like.hpp"
 
+#include <version>
+#if __cpp_lib_containers_ranges >= 202202L
+    #include <ranges>
+    #include "neutron/detail/ranges/concepts.hpp"
+#endif
+
 namespace neutron {
 
 template <
@@ -68,9 +74,9 @@ public:
     template <typename Input>
     constexpr basic_short_string(Input first, Input last, const Alloc& = {});
 
-#if __cplusplus >= 202302L
+#if __cpp_lib_containers_ranges >= 202202L
     template <compatible_range<CharT> Rng>
-    constexpr basic_string(
+    constexpr basic_short_string(
         std::from_range_t, Rng&& range, const allocator_type& alloc = {});
 #endif
 
