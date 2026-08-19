@@ -449,7 +449,7 @@ public:
                   self->storage_
               };
               _archetype::_relocate<Components...>(buf, self->size_, capacity);
-              self->size_ = capacity;
+              self->capacity_ = capacity;
           }),
           hash_list_(
               std::initializer_list<std::uint32_t>{ hash_of<Components>()... },
