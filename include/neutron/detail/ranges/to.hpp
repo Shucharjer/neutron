@@ -1,8 +1,9 @@
 // IWYU pragma: private, include <neutron/ranges.hpp>
 #pragma once
 #include <ranges>
+#include <version>
 
-#if ATOM_HAS_CXX23
+#if __cpp_lib_ranges_to_container >= 202202L
 
 namespace neutron::ranges {
 

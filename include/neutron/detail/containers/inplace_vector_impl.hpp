@@ -132,7 +132,9 @@ public:
 
     #if ATOM_HAS_CXX23
     template <compatible_range<T> Rng>
-    constexpr inplace_vector(std::from_range_t, Rng&& range);
+    constexpr inplace_vector(std::from_range_t, Rng&& range) noexcept(noexcept(
+        inplace_vector(std::ranges::begin(range), std::ranges::end(range))))
+        : inplace_vector(std::ranges::begin(range), std::ranges::end(range)) {}
     #endif
 
     constexpr inplace_vector(const inplace_vector& that)
