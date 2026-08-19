@@ -51,13 +51,13 @@ namespace neutron {
 
 namespace this_thread {
 
-using ::beman::this_thread;
+using namespace ::beman::this_thread;
 
 }
 
 namespace execution {
 
-using ::beman::execution;
+using namespace ::beman::execution;
 
 }
 
