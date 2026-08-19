@@ -2,16 +2,28 @@
 #pragma once
 #include <tuple>
 #include <type_traits>
-#include "neutron/detail/ecs/compile-time/descriptor.hpp"
+#include <utility>
 
 namespace neutron {
 
 template <typename Tuple, auto... Worlds>
 class run_worlds_fn;
 
-template <auto... Worlds>
-class run_worlds_fn<std::tuple<>, Worlds...> : public description_tag {
+template <>
+class run_worlds_fn<std::tuple<>> {
+public:
+    constexpr run_worlds_fn() noexcept = default;
 
+    template <typename App>
+    constexpr decltype(auto) operator()(App&& app) const
+    requires requires { std::forward<App>(app).run(); }
+    {
+        return std::forward<App>(app).run();
+    }
+};
+
+template <auto... Worlds>
+class run_worlds_fn<std::tuple<>, Worlds...> {
 public:
     constexpr run_worlds_fn() noexcept = default;
 
@@ -23,8 +35,62 @@ public:
     }
 };
 
+template <typename... Args>
+class run_worlds_fn<std::tuple<Args...>> {
+    using tuple_type = std::tuple<Args...>;
+    std::tuple<Args...> tup_;
+
+public:
+    template <typename... ArgTys>
+    constexpr run_worlds_fn(ArgTys&&... args) noexcept(
+        std::is_nothrow_constructible_v<tuple_type, ArgTys...>)
+        : tup_(std::forward<ArgTys>(args)...) {}
+
+    template <typename App>
+    constexpr auto operator()(App&& app) const&
+    requires requires { std::forward<App>(app).run(tup_); }
+    {
+        return std::forward<App>(app).run(tup_);
+    }
+
+    template <typename App>
+    constexpr auto operator()(App&& app) const&
+    requires(
+        !requires { std::forward<App>(app).run(tup_); } &&
+        requires(Args&... args) { std::forward<App>(app).run(args...); })
+    {
+        return std::apply(
+            [&app](auto&&... args) {
+                return std::forward<App>(app).run(args...);
+            },
+            tup_);
+    }
+
+    template <typename App>
+    constexpr auto operator()(App&& app) &&
+    requires requires { std::forward<App>(app).run(std::move(tup_)); }
+    {
+        return std::forward<App>(app).run(std::move(tup_));
+    }
+
+    template <typename App>
+    constexpr auto operator()(App&& app) &&
+    requires(
+        !requires { std::forward<App>(app).run(std::move(tup_)); } &&
+        requires(Args&... args) {
+            std::forward<App>(app).run(std::move(args)...);
+        })
+    {
+        return std::apply(
+            [&app](auto&&... args) {
+                return std::forward<App>(app).run(std::move(args)...);
+            },
+            tup_);
+    }
+};
+
 template <typename... Args, auto... Worlds>
-class run_worlds_fn<std::tuple<Args...>, Worlds...> : public description_tag {
+class run_worlds_fn<std::tuple<Args...>, Worlds...> {
     using tuple_type = std::tuple<Args...>;
     std::tuple<Args...> tup_;
 
@@ -42,12 +108,45 @@ public:
     }
 
     template <typename App>
+    constexpr auto operator()(App&& app) const&
+    requires(
+        !requires { std::forward<App>(app).template run<Worlds...>(tup_); } &&
+        requires(Args&... args) {
+            std::forward<App>(app).template run<Worlds...>(args...);
+        })
+    {
+        return std::apply(
+            [&app](auto&&... args) {
+                return std::forward<App>(app).template run<Worlds...>(args...);
+            },
+            tup_);
+    }
+
+    template <typename App>
     constexpr auto operator()(App&& app) &&
     requires requires {
         std::forward<App>(app).template run<Worlds...>(std::move(tup_));
     }
     {
         return std::forward<App>(app).template run<Worlds...>(std::move(tup_));
+    }
+
+    template <typename App>
+    constexpr auto operator()(App&& app) &&
+    requires(
+        !requires {
+            std::forward<App>(app).template run<Worlds...>(std::move(tup_));
+        } &&
+        requires(Args&... args) {
+            std::forward<App>(app).template run<Worlds...>(std::move(args)...);
+        })
+    {
+        return std::apply(
+            [&app](auto&&... args) {
+                std::forward<App>(app).template run<Worlds...>(
+                    std::move(args)...);
+            },
+            tup_);
     }
 };
 
@@ -66,9 +165,10 @@ constexpr decltype(auto)
 template <auto... Worlds>
 struct _run_worlds_wrapper {
     template <typename... Args>
-    constexpr auto operator()(Args&&... args) const noexcept(
-        std::is_nothrow_constructible_v<std::tuple<Args...>, Args...>) {
-        return run_worlds_fn<std::tuple<Args...>, Worlds...>(
+    constexpr auto operator()(Args&&... args) const
+        noexcept(std::is_nothrow_constructible_v<
+                 std::tuple<std::decay_t<Args>...>, Args...>) {
+        return run_worlds_fn<std::tuple<std::decay_t<Args>...>, Worlds...>(
             std::forward<Args>(args)...);
     }
 };
