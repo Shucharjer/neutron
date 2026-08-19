@@ -5,6 +5,7 @@
 #include <tuple>
 #include <type_traits>
 #include <utility>
+#include "neutron/detail/lockfree/hardware_destructive_interference_size.hpp"
 #include "neutron/detail/tuple/first.hpp"
 #include "neutron/detail/tuple/last.hpp"
 
@@ -31,7 +32,7 @@ class shared_tuple<> {};
 template <typename T, typename... Rest>
 requires(sizeof...(Rest) != 0)
 class shared_tuple<T, Rest...> {
-    struct alignas(std::hardware_destructive_interference_size) _aligned_t {
+    struct alignas(hdi_size) _aligned_t {
         T value;
 
         constexpr _aligned_t() noexcept(
@@ -106,7 +107,7 @@ public:
 // so we need specifiy it.
 
 template <typename T>
-class alignas(std::hardware_destructive_interference_size) shared_tuple<T> {
+class alignas(hdi_size) shared_tuple<T> {
     T value_;
 
 public:
@@ -145,20 +146,23 @@ public:
 };
 
 template <typename Ty, typename... Tys>
-requires(tuple_first_v<Ty, shared_tuple<Tys...>> != static_cast<std::size_t>(-1))
+requires(
+    tuple_first_v<Ty, shared_tuple<Tys...>> != static_cast<std::size_t>(-1))
 constexpr Ty& get_first(shared_tuple<Tys...>&& tup) noexcept {
     return std::move(tup)
         .template get<tuple_first_v<Ty, shared_tuple<Tys...>>>();
 }
 
 template <typename Ty, typename... Tys>
-requires(tuple_first_v<Ty, shared_tuple<Tys...>> != static_cast<std::size_t>(-1))
+requires(
+    tuple_first_v<Ty, shared_tuple<Tys...>> != static_cast<std::size_t>(-1))
 constexpr Ty& get_first(shared_tuple<Tys...>& tup) noexcept {
     return tup.template get<tuple_first_v<Ty, shared_tuple<Tys...>>>();
 }
 
 template <typename Ty, typename... Tys>
-requires(tuple_first_v<Ty, shared_tuple<Tys...>> != static_cast<std::size_t>(-1))
+requires(
+    tuple_first_v<Ty, shared_tuple<Tys...>> != static_cast<std::size_t>(-1))
 constexpr const Ty& get_first(const shared_tuple<Tys...>& tup) noexcept {
     return tup.template get<tuple_first_v<Ty, shared_tuple<Tys...>>>();
 }
