@@ -57,14 +57,20 @@ struct _construct {
         [[maybe_unused]] Alloc& alloc, pointer ptr,
         size_type n) noexcept(std::is_nothrow_default_constructible_v<Ty>) {
         size_type curr = 0;
-        ATOM_TRY {
+        if constexpr (std::is_nothrow_default_constructible_v<Ty>) {
             for (; curr < n; ++curr) {
                 ::new (std::to_address(ptr + curr)) Ty;
             }
-        }
-        ATOM_CATCH(...) {
-            for (size_type i = curr; i-- > 0;) {
-                std::destroy_at(std::to_address(ptr + i));
+        } else {
+            ATOM_TRY {
+                for (; curr < n; ++curr) {
+                    ::new (std::to_address(ptr + curr)) Ty;
+                }
+            }
+            ATOM_CATCH(...) {
+                for (size_type i = curr; i-- > 0;) {
+                    std::destroy_at(std::to_address(ptr + i));
+                }
             }
         }
         return ptr + n;
@@ -196,25 +202,23 @@ ATOM_CONSTEXPR_SINCE_CXX20 Pointer uninitialized_copy_n_using_allocator(
     using traits_t = std::allocator_traits<Alloc>;
     SizeT curr     = 0;
     InputIter it   = src;
-    ATOM_TRY {
+    if constexpr (std::is_nothrow_constructible_v<
+                      Ty, decltype(*std::declval<InputIter>())>) {
         for (; curr != n; ++curr, ++it) {
             traits_t::construct(alloc, std::to_address(dst + curr), *it);
         }
-    }
-    ATOM_CATCH(...) {
-        for (SizeT i = curr; i-- > 0;) {
-            traits_t::destroy(alloc, std::to_address(dst + i));
+    } else {
+        ATOM_TRY {
+            for (; curr != n; ++curr, ++it) {
+                traits_t::construct(alloc, std::to_address(dst + curr), *it);
+            }
         }
-#if defined(__clang__)
-#elif defined(__GNUC__)
-    #pragma GCC diagnostic push
-    #pragma GCC diagnostic ignored "-Wterminate"
-#endif
-        ATOM_RETHROW;
-#if defined(__clang__)
-#elif defined(__GNUC__)
-    #pragma GCC diagnostic pop
-#endif
+        ATOM_CATCH(...) {
+            for (SizeT i = curr; i-- > 0;) {
+                traits_t::destroy(alloc, std::to_address(dst + i));
+            }
+            ATOM_RETHROW;
+        }
     }
     return dst + n;
 }
@@ -234,26 +238,26 @@ ATOM_CONSTEXPR_SINCE_CXX20 Pointer uninitialized_move_n_using_allocator(
     using traits_t = std::allocator_traits<Alloc>;
     SizeT curr     = 0;
     InputIter it   = src;
-    ATOM_TRY {
+    if constexpr (std::is_nothrow_constructible_v<
+                      Ty, decltype(std::move(*std::declval<InputIter>()))>) {
         for (; curr != n; ++curr) {
             traits_t::construct(
                 alloc, std::to_address(dst + curr), std::move(*(src + curr)));
         }
-    }
-    ATOM_CATCH(...) {
-        for (SizeT i = curr; i-- > 0;) {
-            traits_t::destroy(alloc, std::to_address(dst + i));
+    } else {
+        ATOM_TRY {
+            for (; curr != n; ++curr) {
+                traits_t::construct(
+                    alloc, std::to_address(dst + curr),
+                    std::move(*(src + curr)));
+            }
         }
-#if defined(__clang__)
-#elif defined(__GNUC__)
-    #pragma GCC diagnostic push
-    #pragma GCC diagnostic ignored "-Wterminate"
-#endif
-        ATOM_RETHROW;
-#if defined(__clang__)
-#elif defined(__GNUC__)
-    #pragma GCC diagnostic pop
-#endif
+        ATOM_CATCH(...) {
+            for (SizeT i = curr; i-- > 0;) {
+                traits_t::destroy(alloc, std::to_address(dst + i));
+            }
+            ATOM_RETHROW;
+        }
     }
     return dst + n;
 }
