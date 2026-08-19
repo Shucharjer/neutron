@@ -21,6 +21,7 @@
 #include "neutron/detail/utility/packed_uint.hpp"
 
 #if ATOM_HAS_CXX23
+    #include <ranges>
     #include "neutron/detail/concepts/map_like.hpp"
 #endif
 

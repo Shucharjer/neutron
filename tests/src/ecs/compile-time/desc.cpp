@@ -35,6 +35,7 @@ int main() {
     // Group and interval can be combined at world scope.
     constexpr auto desc4 = world_desc | add_systems<update, &foo> |
                            execute<group<1>, tick_rate<30>>;
+    static_assert(decltype(desc4)::_tick_rate == 30); // NOLINT
 
     // Additional systems inherit the normalized world execute metadata.
     constexpr auto desc5 = world_desc | add_systems<update, &foo> |

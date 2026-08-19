@@ -33,7 +33,8 @@ int main() {
         {
             auto string = ranges::to<std::string>(array);
             auto sit    = string.begin();
-            auto* ait   = array.begin();
+            // NOLINTNEXTLINE, compat for MSVC (std::_Array_iterator)
+            auto ait = array.begin();
             for (; sit != string.end() && ait != array.end(); ++sit, ++ait) {
                 require_or_return(*sit == *ait, 1);
             }
@@ -42,7 +43,8 @@ int main() {
         {
             auto list = ranges::to<std::list>(array);
             auto lit  = list.begin();
-            auto* ait = array.begin();
+            // NOLINTNEXTLINE, compat for MSVC (std::_Array_iterator)
+            auto ait = array.begin();
             for (; lit != list.end() && ait != array.end(); ++lit, ++ait) {
                 require_or_return(*lit == *ait, 1);
             }

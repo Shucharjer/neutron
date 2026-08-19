@@ -385,7 +385,9 @@ struct _count_if_is_type<Tmp<Args...>, T> {
 };
 
 template <int Ticks>
-struct _tick_rate_t {};
+struct _tick_rate_t {
+    int value = Ticks;
+};
 
 template <int Ticks>
 inline constexpr _tick_rate_t<Ticks> tick_rate;
@@ -435,7 +437,8 @@ struct _execute_t : description_tag {
                  ...);
                 return index;
             }(std::make_index_sequence<sizeof...(Args)>());
-            val = value_list_element_v<index, value_list<Args...>>.val;
+            val = value_list_element_v<index, value_list<Args...>>.value;
+            return val;
         }
     }();
 

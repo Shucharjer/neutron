@@ -24,7 +24,7 @@ jobs:
       matrix:
         distro:
           - name: ubuntu
-            container: ubuntu:24.04
+            container: ubuntu:26.04
             install: apt-get update && apt-get install -y --no-install-recommends ca-certificates git ninja-build cmake
             gxx_package: g++
             clang_package: clang
@@ -35,9 +35,9 @@ jobs:
             clang_package: clang
         arch:
           - name: x64
-            runner: ubuntu-24.04
+            runner: ubuntu-26.04
           - name: arm64
-            runner: ubuntu-24.04-arm
+            runner: ubuntu-26.04-arm
         compiler:
           - name: g++
             cc: gcc
