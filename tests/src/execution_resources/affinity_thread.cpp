@@ -16,7 +16,7 @@ int main() {
 
     affinity_thread thread(concurrency - 1);
     scheduler auto sch = thread.get_scheduler();
-    auto sndr = just(1024 * 64ULL) // run for a while, check cpu use percentage
+    auto sndr = just(1024 * 32ULL) // run for a while, check cpu use percentage
                 | continues_on(sch) | then([](uint64_t val) {
                       uint64_t num{};
                       srand(time(nullptr));

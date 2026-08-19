@@ -46,6 +46,8 @@ set_target_properties(
 
 if(MINGW AND CMAKE_CXX_COMPILER_ID MATCHES GNU)
   target_link_libraries(neutron INTERFACE stdc++exp)
+elseif(MSVC)
+  target_compile_options(neutron INTERFACE /permissive- /Zc:__cplusplus)
 endif()
 
 # options support
