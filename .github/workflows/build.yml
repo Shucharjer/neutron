@@ -131,16 +131,16 @@ jobs:
       matrix:
         distro:
           - name: ubuntu
-            container: ubuntu:24.04
+            container: ubuntu:26.04
             install: apt-get update && apt-get install -y --no-install-recommends ca-certificates git ninja-build cmake g++-mingw-w64-x86-64
           - name: fedora
             container: fedora:latest
             install: dnf install -y ca-certificates git ninja-build cmake mingw64-gcc-c++
         arch:
           - name: x64
-            runner: ubuntu-24.04
+            runner: ubuntu-26.04
           - name: arm64
-            runner: ubuntu-24.04-arm
+            runner: ubuntu-26.04-arm
         target:
           - x86_64-w64-mingw32
         config:
