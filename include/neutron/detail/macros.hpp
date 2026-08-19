@@ -1,7 +1,8 @@
 // IWYU pragma: private
 #pragma once
 
-#if defined(__i386__) || defined(__x86_64__)
+#if defined(__i386__) || defined(__x86_64__) || defined(_M_IX86) ||            \
+    defined(_M_X64)
     #define ATOM_TARGET_X86
     #include <immintrin.h>
 #elif defined(__arm__) || defined(__aarch64__) || defined(__arm64ec__)
