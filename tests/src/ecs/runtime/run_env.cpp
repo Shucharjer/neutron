@@ -1,30 +1,28 @@
 #include <cstddef>
 #include <memory>
-#include <neutron/detail/ecs/runtime/run_env.hpp>
+#include <tuple>
+#include <type_traits>
 #include <neutron/ecs.hpp>
 
 using namespace neutron;
 using enum stage;
 
+using alloc_t = std::allocator<std::byte>;
+
+template <auto Desc>
+using world_of = basic_world<std::remove_cvref_t<decltype(Desc)>, alloc_t>;
+
 void test_individual_env() {
     constexpr auto desc =
         world_desc | add_systems<update> | execute<individual>;
 
-    //
-}
-
-void test_env_for_group_with_single_world() {
-    //
-}
-
-void test_env_for_group_with_multi_worlds() {
-    //
+    // using run_envs = run_envs_for<alloc_t, desc>;
+    // run_envs envs;
+    // auto& [env] = envs;
 }
 
 int main() {
     test_individual_env();
-    test_env_for_group_with_single_world();
-    test_env_for_group_with_multi_worlds();
 
     return 0;
 }
