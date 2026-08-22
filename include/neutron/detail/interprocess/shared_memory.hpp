@@ -17,6 +17,7 @@
     #include <unistd.h>
 
 #elif defined(_WIN32)
+    #include <windows.h>
 
 #else
 
@@ -59,8 +60,12 @@ public:
     }
 
 private:
-    bool keep_        = false;
-    int fd_           = -1;
+    bool keep_ = false;
+#if defined(__linux) || defined(__linux__)
+    int fd_ = -1;
+#elif defined(_WIN32) || defined(_WIN64)
+    HANDLE h_mapping_ = nullptr;
+#endif
     void* addr_       = nullptr;
     std::size_t size_ = 0;
     std::string name_;
@@ -155,6 +160,8 @@ shared_memory::shared_memory(
 
     guard.dismiss();
     memguard.dismiss();
+
+    keep_ = keep;
 }
 
 shared_memory::~shared_memory() noexcept {
@@ -167,6 +174,52 @@ shared_memory::~shared_memory() noexcept {
 }
 
 #elif defined(_WIN32) || defined(_WIN64)
+
+shared_memory::shared_memory(
+    std::string_view filename, std::size_t size, read_only_t)
+    : h_mapping_(OpenFileMapping(0, 0, filename.data())) // NOLINT
+{
+    if (h_mapping_ == INVALID_HANDLE_VALUE) {
+        _throw_last_system_error();
+    }
+}
+
+shared_memory::shared_memory(
+    std::string_view filename, std::size_t size, read_write_t, bool keep) {
+    constexpr std::uint32_t mask = 0xFFFFFFFFU;
+
+    h_mapping_ = CreateFileMapping(
+        nullptr,        // mem
+        nullptr,        // attributes
+        PAGE_READWRITE, // prot
+        size >> 32U,    // high 32 bits
+        size & mask,    // low 32 bits
+        filename.data() // NOLINT
+    );
+    if (h_mapping_ == nullptr) {
+        _throw_last_system_error("CreateFileMapping error");
+    }
+
+    addr_ = MapViewOfFile(h_mapping_, FILE_MAP_ALL_ACCESS, 0, 0, size);
+    if (addr_ == nullptr) {
+        CloseHandle(h_mapping_);
+        h_mapping_ = nullptr;
+        _throw_last_system_error();
+    }
+
+    size_ = size;
+}
+
+shared_memory::~shared_memory() noexcept {
+    if (addr_ != nullptr) {
+        UnmapViewOfFile(addr_);
+    }
+
+    if (h_mapping_ != nullptr) {
+        CloseHandle(h_mapping_);
+    }
+}
+
 #else
 #endif
 
