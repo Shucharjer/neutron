@@ -174,12 +174,12 @@ struct _basic_querior_base {
     using component_list = type_list_recurse_expose_t<
         bundle,
         type_list_expose_t<
-            with, type_list_filt_t<_is_with, type_list<Filters...>>>,
+            with, type_list_filter_t<_is_with, type_list<Filters...>>>,
         same_cvref>;
-    using initable_filters  = type_list_filt_t<_has_init, filters_type>;
-    using fetchable_filters = type_list_filt_t<_has_fetch, filters_type>;
+    using initable_filters  = type_list_filter_t<_has_init, filters_type>;
+    using fetchable_filters = type_list_filter_t<_has_fetch, filters_type>;
     using nempty_comp_list =
-        type_list_filt_t<_concepts::nonempty, component_list>;
+        type_list_filter_t<_concepts::nonempty, component_list>;
     using rnempty_comp_list =
         type_list_convert_t<std::remove_cvref, nempty_comp_list>;
     using slice_t        = type_list_rebind_t<slice, rnempty_comp_list>;

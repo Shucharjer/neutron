@@ -415,7 +415,7 @@ struct _execute_t : description_tag {
     using tlist_t = type_list<decltype(Args)...>;
 
     static constexpr std::size_t _num_tick_rate =
-        type_list_size_v<type_list_filt_t<_is_tick_rate, tlist_t>>;
+        type_list_size_v<type_list_filter_t<_is_tick_rate, tlist_t>>;
 
     static_assert(_num_tick_rate <= 1, "could only specify tick rate once");
 

@@ -33,7 +33,7 @@ struct type_list_filt<Predicate, Template<Tys...>> {
     using type = typename filt<Template<>, Tys...>::type;
 };
 template <template <typename> typename Predicate, typename Template>
-using type_list_filt_t = typename type_list_filt<Predicate, Template>::type;
+using type_list_filter_t = typename type_list_filt<Predicate, Template>::type;
 
 // value_list_filt
 
@@ -66,7 +66,7 @@ template <
     typename TyIfEmpty>
 struct type_list_filt_nempty {
     using type = std::remove_pointer_t<decltype([] {
-        using filted_type = type_list_filt_t<Predicate, TypeList>;
+        using filted_type = type_list_filter_t<Predicate, TypeList>;
         if constexpr (is_empty_template_v<filted_type>) {
             return static_cast<TyIfEmpty*>(nullptr);
         } else {
@@ -84,7 +84,7 @@ template <typename Tag, typename TypeList>
 struct type_list_filt_tagged {
     template <typename T>
     using predicate_type = tagged_list_has_tag<T, Tag>;
-    using type           = type_list_filt_t<predicate_type, TypeList>;
+    using type           = type_list_filter_t<predicate_type, TypeList>;
 };
 template <typename Tag, typename TypeList>
 using type_list_filt_tagged_t =

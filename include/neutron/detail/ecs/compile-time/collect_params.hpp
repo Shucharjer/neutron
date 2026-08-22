@@ -23,7 +23,7 @@ struct _collect_impl {
     template <auto SysSpec>
     struct _to_param_list {
         using type =
-            type_list_filt_t<_is_tmp, typename decltype(SysSpec)::fn_args>;
+            type_list_filter_t<_is_tmp, typename decltype(SysSpec)::fn_args>;
     };
 
     using spec_list  = decltype(get_systems<Stage>(Desc()))::spec_list;
@@ -63,7 +63,7 @@ struct _collect_with_sys_impl {
     template <auto SysSpec>
     struct _to_param_list {
         using param_list =
-            type_list_filt_t<_is_tmp, typename decltype(SysSpec)::fn_args>;
+            type_list_filter_t<_is_tmp, typename decltype(SysSpec)::fn_args>;
 
         template <typename T>
         struct _to_systuple;

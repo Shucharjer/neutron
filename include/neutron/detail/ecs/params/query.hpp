@@ -427,10 +427,10 @@ public:
         type_list<typename _query::_storage_filter<Filters>::type...>;
     using component_list = type_list_recurse_expose_t<
         bundle,
-        type_list_expose_t<with, type_list_filt_t<_is_with, filters_type>>,
+        type_list_expose_t<with, type_list_filter_t<_is_with, filters_type>>,
         same_cvref>;
     using nempty_comp_list =
-        type_list_filt_t<_concepts::nonempty, component_list>;
+        type_list_filter_t<_concepts::nonempty, component_list>;
     using manual_querior_type = _manual_querior_t<std::allocator<std::byte>>;
     using cached_querior_type = _cached_querior_t<std::allocator<std::byte>>;
     using fetchable_filters   = typename _cached_querior_t<

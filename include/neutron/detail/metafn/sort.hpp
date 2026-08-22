@@ -2,7 +2,7 @@
 #pragma once
 #include "neutron/detail/metafn/cat.hpp"
 #include "neutron/detail/metafn/erase.hpp"
-#include "neutron/detail/metafn/filt.hpp"
+#include "neutron/detail/metafn/filter.hpp"
 #include "neutron/detail/metafn/first_last.hpp"
 #include "neutron/detail/metafn/pop.hpp"
 
@@ -42,7 +42,7 @@ struct type_list_sort<Predicate, Template<Tys...>> {
     };
 
     using left = typename type_list_sort<
-        Predicate, type_list_filt_t<comp, pop_first_t>>::type;
+        Predicate, type_list_filter_t<comp, pop_first_t>>::type;
     using right = typename type_list_sort<
         Predicate, type_list_erase_in_t<pop_first_t, left>>::type;
     using type = type_list_cat_t<left, Template<pivot_t>, right>;

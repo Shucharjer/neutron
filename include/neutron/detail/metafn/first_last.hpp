@@ -26,7 +26,7 @@ struct type_list_last<Template<Ty>> {
 template <
     template <typename...> typename Template, typename Ty, typename... Others>
 struct type_list_last<Template<Ty, Others...>> {
-    using type = typename type_list_last<Others...>::type;
+    using type = typename type_list_last<Template<Others...>>::type;
 };
 template <typename Tl>
 using type_list_last_t = typename type_list_last<Tl>::type;

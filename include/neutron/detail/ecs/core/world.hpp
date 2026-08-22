@@ -131,6 +131,11 @@ public:
     using archetype       = ::neutron::archetype<Alloc>;
     using command_buffer  = ::neutron::command_buffer<Alloc>;
 
+    static constexpr bool individual =
+        get_execution_policy(Descriptor()).is_individual;
+    static constexpr std::size_t group_id =
+        get_execution_policy(Descriptor()).id;
+
     template <typename Al = Alloc>
     constexpr explicit basic_world(const Al& alloc = {})
         : world_base<Alloc>(alloc) /*, resources_(), locals_()*/ {}

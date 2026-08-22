@@ -11,7 +11,7 @@
 #include "neutron/detail/metafn/erase.hpp"
 #include "neutron/detail/metafn/export.hpp"
 #include "neutron/detail/metafn/expose.hpp"
-#include "neutron/detail/metafn/filt.hpp"
+#include "neutron/detail/metafn/filter.hpp"
 #include "neutron/detail/metafn/first_last.hpp"
 #include "neutron/detail/metafn/from.hpp"
 #include "neutron/detail/metafn/has.hpp"
