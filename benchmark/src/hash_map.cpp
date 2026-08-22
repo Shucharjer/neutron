@@ -40,7 +40,7 @@ template <typename HashMap>
 static void bm_hash_map_insert(benchmark::State& state) {
     HashMap map;
     map.reserve(static_cast<std::size_t>(state.max_iterations));
-    key_t index = 1;
+    key_type index = 1;
     for (auto _ : state) {
         const auto key = mix_key(index++);
         benchmark::DoNotOptimize(map.emplace(key, key));
