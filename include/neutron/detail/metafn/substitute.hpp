@@ -40,17 +40,13 @@ struct type_list_substitute<Template<Tys...>, Old, New> {
     struct substitute<Template<Curr...>> {
         using type = Template<Curr...>;
     };
-    template <typename... Curr, typename Ty>
-    struct substitute<Template<Curr...>, Ty> {
-        using type = std::conditional_t<
-            std::is_same_v<Ty, Old>, Template<Curr..., New>,
-            Template<Curr..., Ty>>;
-    };
     template <typename... Curr, typename Ty, typename... Others>
     struct substitute<Template<Curr...>, Ty, Others...> {
-        using type = std::conditional_t<
-            std::is_same_v<Ty, Old>, Template<Curr..., New, Others...>,
-            typename substitute<Template<Curr..., Ty>, Others...>::type>;
+        using type = typename substitute<
+            std::conditional_t<
+                std::is_same_v<Ty, Old>, Template<Curr..., New>,
+                Template<Curr..., Ty>>,
+            Others...>::type;
     };
     using type = typename substitute<Template<>, Tys...>::type;
 };
