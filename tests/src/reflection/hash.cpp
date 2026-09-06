@@ -4,11 +4,6 @@
 
 using namespace neutron;
 
-template <typename...>
-constexpr bool same = false;
-template <typename T, typename... Others>
-constexpr bool same<T, Others...> = (std::same_as<T, Others> && ...);
-
 int main() {
 
     {

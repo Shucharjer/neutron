@@ -4,8 +4,8 @@
 
 #if ATOM_HAS_REFLECTION
 
-#include "neutron/detail/reflection/hash_fn.hpp"
-#include "neutron/detail/reflection/meta/name_of.hpp"
+    #include "neutron/detail/reflection/hash_fn.hpp"
+    #include "neutron/detail/reflection/meta/name_of.hpp"
 
 namespace neutron {
 

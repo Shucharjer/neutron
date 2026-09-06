@@ -5,7 +5,6 @@
 #include "neutron/detail/ranges/adaptor_closure.hpp"
 #include "../../utility/get.hpp"
 
-
 namespace neutron::ranges::views {
 
 template <std::ranges::range Rng, size_t Index, bool IsConst>

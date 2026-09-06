@@ -85,16 +85,14 @@ constexpr auto operator+(
 
 template <typename It>
 constexpr auto operator-(
-    const _iter_wrapper<It>& lhs,
-    const _iter_wrapper<It>& rhs) noexcept
-    -> typename _iter_wrapper<It>::difference_type {
+    const _iter_wrapper<It>& lhs, const _iter_wrapper<It>& rhs) noexcept ->
+    typename _iter_wrapper<It>::difference_type {
     return lhs.base() - rhs.base();
 }
 
 template <typename It1, typename It2>
 constexpr auto operator-(
-    const _iter_wrapper<It1>& lhs,
-    const _iter_wrapper<It2>& rhs) noexcept
+    const _iter_wrapper<It1>& lhs, const _iter_wrapper<It2>& rhs) noexcept
     -> std::common_type_t<
         typename _iter_wrapper<It1>::difference_type,
         typename _iter_wrapper<It2>::difference_type> {

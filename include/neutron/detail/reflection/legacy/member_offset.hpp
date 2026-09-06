@@ -10,7 +10,6 @@
 #include "neutron/detail/reflection/legacy/tuple_view.hpp"
 #include "neutron/tstring.hpp"
 
-
 namespace neutron::_refl_legacy {
 
 const auto offset_count = 2048;

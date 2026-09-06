@@ -9,7 +9,8 @@ namespace neutron {
 
 template <typename Ty>
 concept await_suspend_result =
-    one_of<Ty, void, bool> || is_specific_type_list_v<std::coroutine_handle, Ty>;
+    one_of<Ty, void, bool> ||
+    is_specific_type_list_v<std::coroutine_handle, Ty>;
 
 template <typename Awaiter, typename Promise>
 concept awaiter =

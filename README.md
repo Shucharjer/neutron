@@ -239,7 +239,7 @@ Useful entry points include:
 Neutron can be configured as a standalone CMake project:
 
 ```bash
-cmake -S third_party/neutron -B build/neutron -DBUILD_NEUTRON_TESTING=ON
+cmake -S third_party/neutron -B build/neutron -DBUILD_NEUTRON_TESTING=ON -DNEUTRON_USES_STDEXEC=ON
 cmake --build build/neutron
 ctest --test-dir build/neutron
 ```

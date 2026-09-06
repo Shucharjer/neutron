@@ -3,6 +3,7 @@
 #include <memory>
 #include "neutron/detail/functional/sink.hpp"
 #include "neutron/detail/memory/rebind_alloc.hpp"
+#include "neutron/detail/containers/flat_hash_map_impl.hpp"
 
 namespace neutron {
 

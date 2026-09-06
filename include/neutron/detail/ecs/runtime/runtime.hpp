@@ -70,7 +70,8 @@ public:
         // }
 
         // if constexpr (parallelism_scheduler_provider<Sp>) {
-        //     if (sp_.available_parallelism() < std::tuple_size_v<run_envs_t>) {
+        //     if (sp_.available_parallelism() < std::tuple_size_v<run_envs_t>)
+        //     {
         //         return _run_weak_parallel(envs, sch);
         //     }
         // }

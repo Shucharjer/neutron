@@ -11,7 +11,8 @@
 namespace neutron {
 
 template <typename Ty>
-using trivially_relocatable = std::is_trivially_relocatable_v<Ty>; // the prossible interface
+using trivially_relocatable =
+    std::is_trivially_relocatable_v<Ty>; // the prossible interface
 
 }
 
