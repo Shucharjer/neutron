@@ -12,4 +12,4 @@ concept value_list_with_tag = tagged_value_list_has_tag_v<T, Tag>;
 template <typename T, typename Tag>
 concept list_with_tag = tagged_list_has_tag_v<T, Tag>;
 
-}
+} // namespace neutron

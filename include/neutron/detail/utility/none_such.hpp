@@ -4,6 +4,6 @@
 namespace neutron {
 
 // not specified type.
-struct none_such; 
+struct none_such;
 
 } // namespace neutron

@@ -18,4 +18,3 @@ constexpr std::size_t hdi_size = std::hardware_destructive_interference_size;
 #endif
 
 } // namespace neutron
-

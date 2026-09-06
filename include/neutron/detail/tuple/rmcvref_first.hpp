@@ -1,7 +1,7 @@
 // IWYU pragma: private, include <neutron/metafn.hpp>
 #pragma once
-#include <type_traits>
 #include <cstddef>
+#include <type_traits>
 #include <utility>
 #include "neutron/detail/metafn/size.hpp"
 #include "neutron/detail/utility/get.hpp"

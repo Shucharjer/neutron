@@ -240,7 +240,7 @@ public:
     }
 
     constexpr poly(const poly& that)
-    requires type_list_has_v<ops_t,poly_op_copy_construct>
+    requires type_list_has_v<ops_t, poly_op_copy_construct>
         : ptr_(nullptr), hash_code_(that.hash_code_), vtable_(that.vtable_),
           ops_(that.ops_), storage_() {
         if (that.ptr_ != nullptr) {

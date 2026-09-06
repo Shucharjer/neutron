@@ -141,22 +141,21 @@ public:
     ATOM_NODISCARD constexpr auto
         operator()(Arg&& arg) && noexcept(noexcept(std::move(pair_.second())(
             std::move(pair_.first())(std::forward<Arg>(arg)))))
-        -> _invoke_result_t<self_type&&, Arg> {
+            -> _invoke_result_t<self_type&&, Arg> {
         return std::move(pair_.second())(
             std::move(pair_.first())(std::forward<Arg>(arg)));
     }
 
     template <typename Arg>
-    requires std::is_invocable_v<
-                 same_cvref_t<First, const self_type&&>, Arg> &&
+    requires std::is_invocable_v<same_cvref_t<First, const self_type&&>, Arg> &&
              std::is_invocable_v<
                  same_cvref_t<Second, const self_type&&>,
                  std::invoke_result_t<
                      same_cvref_t<First, const self_type&&>, Arg>>
-    ATOM_NODISCARD constexpr auto operator()(Arg&& arg) const&& noexcept(
-        noexcept(std::move(pair_.second())(
-            std::move(pair_.first())(std::forward<Arg>(arg)))))
-        -> _invoke_result_t<const self_type&&, Arg> {
+    ATOM_NODISCARD constexpr auto
+        operator()(Arg&& arg) const&& noexcept(noexcept(std::move(
+            pair_.second())(std::move(pair_.first())(std::forward<Arg>(arg)))))
+            -> _invoke_result_t<const self_type&&, Arg> {
         return std::move(pair_.second())(
             std::move(pair_.first())(std::forward<Arg>(arg)));
     }

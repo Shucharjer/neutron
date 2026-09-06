@@ -12,17 +12,19 @@ namespace _refl_legacy {
  * @brief Universal type for deducing.
  *
  * If you define the operator, you may make things confusing!
- * like this: std::vector<int> vec(universal{});
+ * like this: std::vector<int> vec(universal<std::vector<int>>{});
  */
+template <typename T>
 struct universal {
     template <typename Ty>
+    requires(!std::same_as<std::remove_cvref_t<Ty>, T>)
     operator Ty();
 };
 
 template <typename Ty, typename... Args>
 constexpr auto member_count_of_impl() noexcept {
-    if constexpr (std::constructible_from<Ty, Args..., universal>) {
-        return member_count_of_impl<Ty, Args..., universal>();
+    if constexpr (std::constructible_from<Ty, Args..., universal<Ty>>) {
+        return member_count_of_impl<Ty, Args..., universal<Ty>>();
     } else {
         return sizeof...(Args);
     }
