@@ -184,8 +184,7 @@ struct serialize_t<bitstream, std::tuple<Args...>> {
 template <typename... Args>
 struct deserialize_t<bitstream, std::tuple<Args...>> {
     void operator()(bitstream& bs, std::tuple<Args...>& val) const noexcept {
-        std::apply(
-            [&bs](auto&... elem) { (deserialize(bs, elem), ...); }, val);
+        std::apply([&bs](auto&... elem) { (deserialize(bs, elem), ...); }, val);
     }
 };
 
@@ -270,7 +269,7 @@ template <_refl_legacy::aggregate T>
 requires(!fixed_array<T>)
 struct serialize_t<bitstream, T> {
     void operator()(bitstream& bs, const T& val) const noexcept {
-        if constexpr (member_count_of<T> != 0) {
+        if constexpr (member_count_of<T>() != 0) {
             auto tup = _refl_legacy::object_to_tuple_view(val);
             std::apply(
                 [&bs](const auto&... val) { (serialize(bs, val), ...); }, tup);
@@ -282,7 +281,7 @@ template <_refl_legacy::aggregate T>
 requires(!fixed_array<T>)
 struct deserialize_t<bitstream, T> {
     void operator()(bitstream& bs, T& val) const noexcept {
-        if constexpr (member_count_of<T> != 0) {
+        if constexpr (member_count_of<T>() != 0) {
             auto tup = _refl_legacy::object_to_tuple_view(val);
             std::apply(
                 [&bs](auto&... elems) { (deserialize(bs, elems), ...); }, tup);

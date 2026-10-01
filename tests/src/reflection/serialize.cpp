@@ -33,7 +33,7 @@ int main() {
         std::array<std::byte, sizeof(type)> buf{};                             \
         bitstream bit{ buf.data(), sizeof(type) };                             \
         serialize(bit, val);                                                   \
-        bit = bitstream{ buf.data(), sizeof(type) };                            \
+        bit = bitstream{ buf.data(), sizeof(type) };                           \
         type another;                                                          \
         deserialize(bit, another);                                             \
         require_or_return(val == another, 1);                                  \
