@@ -5,6 +5,7 @@
 #if ATOM_HAS_REFLECTION
 
     #include <meta>
+    #include <ranges>
     #include <vector>
 
 namespace neutron {
@@ -43,8 +44,7 @@ static consteval auto expand(Rng range) {
 }
 
 consteval auto constructors_of(
-    std::meta::info info, std::meta::access_context ctx) noexcept
-    -> std::meta::info {
+    std::meta::info info, std::meta::access_context ctx) noexcept {
     using namespace std::meta;
     return std::define_static_array(
         members_of(info, ctx) | std::views::filter([](std::meta::info info) {

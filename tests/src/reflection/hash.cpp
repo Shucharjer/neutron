@@ -25,8 +25,8 @@ int main() {
     }
 
     {
-        using list_t =
-            hash_list_t<type_list<char, int>>; // type_list<int, char>
+        using list_t = hash_list_t<type_list<char, int>>;
+        static_assert(same<list_t, type_list<int, char>>);
         static_assert(same<
                       hash_sequence_t<type_list<char, int>>,
                       std::index_sequence<1, 0>>);

@@ -4,7 +4,7 @@
 
 #include "neutron/detail/macros.hpp"
 
-#if ATOM_HAS_REFLECTION && false
+#if ATOM_HAS_REFLECTION
     #include "neutron/detail/reflection/meta/hash_of.hpp"
     #include "neutron/detail/reflection/meta/name_of.hpp"
     #include "neutron/detail/reflection/meta/reserve.hpp"

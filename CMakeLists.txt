@@ -27,8 +27,53 @@ option(BUILD_NEUTRON_BENCHMARK "Build benchmark for neutron" OFF)
 
 # configurate options
 
-include(CMakePushCheckState)
-include(CheckCXXSourceCompiles)
+include(CheckCXXCompilerFlag)
+
+set(NEUTRON_REFLECTION_FLAGS "")
+
+if(CMAKE_CXX_COMPILER_ID STREQUAL "GNU")
+  set(NEUTRON_REFLECTION_OPTION "-freflection")
+elseif(CMAKE_CXX_COMPILER_ID MATCHES "Clang")
+  set(NEUTRON_REFLECTION_OPTION "-freflection-latest")
+endif()
+
+check_cxx_compiler_flag("-std=c++26" NEUTRON_CXX26_SUPPORTED)
+
+if(NEUTRON_CXX26_SUPPORTED AND NEUTRON_REFLECTION_OPTION)
+  set(NEUTRON_REFLECTION_CHECK_SOURCE_DIR
+      "${CMAKE_CURRENT_BINARY_DIR}/neutron_reflection_check_source")
+  file(MAKE_DIRECTORY "${NEUTRON_REFLECTION_CHECK_SOURCE_DIR}")
+  file(WRITE "${NEUTRON_REFLECTION_CHECK_SOURCE_DIR}/CMakeLists.txt"
+    "cmake_minimum_required(VERSION 3.21)\n"
+    "project(neutron_reflection_check LANGUAGES CXX)\n"
+    "set(CMAKE_CXX_STANDARD 26)\n"
+    "set(CMAKE_CXX_STANDARD_REQUIRED ON)\n"
+    "set(CMAKE_CXX_EXTENSIONS OFF)\n"
+    "add_executable(neutron_reflection_check neutron_reflection_check.cpp)\n"
+    "target_compile_options(neutron_reflection_check PRIVATE ${NEUTRON_REFLECTION_OPTION} -include meta)\n")
+  file(WRITE "${NEUTRON_REFLECTION_CHECK_SOURCE_DIR}/neutron_reflection_check.cpp"
+    "#include <meta>\n"
+    "#if !((defined(__cpp_lib_reflection) && __cpp_lib_reflection >= 202506L) || (defined(__has_feature) && __has_feature(reflection) && __cplusplus >= 202502L))\n"
+    "#error compiler reflection is not enabled\n"
+    "#endif\n"
+    "int main() { constexpr auto info = ^^int; }\n")
+  try_compile(
+    NEUTRON_REFLECTION_CHECK
+    "${CMAKE_CURRENT_BINARY_DIR}/neutron_reflection_check"
+    "${NEUTRON_REFLECTION_CHECK_SOURCE_DIR}"
+    neutron_reflection_check
+    OUTPUT_VARIABLE NEUTRON_REFLECTION_CHECK_OUTPUT)
+  if(NEUTRON_REFLECTION_CHECK)
+    set(NEUTRON_REFLECTION_FLAGS
+        "${NEUTRON_REFLECTION_OPTION};-include;meta")
+  endif()
+endif()
+
+if(NEUTRON_REFLECTION_FLAGS)
+  set(NEUTRON_REFLECTION_SUPPORTED ON)
+else()
+  set(NEUTRON_REFLECTION_SUPPORTED OFF)
+endif()
 
 # project source
 
@@ -109,6 +154,30 @@ if(BUILD_NEUTRON_TESTING)
   exec_standard_dir(${tests_dir} "tests." ${tests_output_dir} true neutron)
   if(ATOM_TEST_SEE_ALL_TEMPLATE_BACKTRACE)
     exec_dir_options(${tests_dir} "tests." -ftemplate-backtrace-limit=0)
+  endif()
+  add_executable(tests.reflection.name_of-cxx20 ${tests_dir}/ver/reflection/name_of.cpp)
+  target_link_libraries(tests.reflection.name_of-cxx20 PRIVATE neutron)
+  set_target_properties(
+    tests.reflection.name_of-cxx20
+    PROPERTIES CXX_STANDARD 20 CXX_STANDARD_REQUIRED ON CXX_EXTENSIONS OFF)
+  if(NEUTRON_REFLECTION_SUPPORTED)
+    add_executable(tests.reflection.name_of-cxx26
+                   ${tests_dir}/ver/reflection/name_of.cpp)
+    target_link_libraries(tests.reflection.name_of-cxx26 PRIVATE neutron)
+    set_target_properties(
+      tests.reflection.name_of-cxx26
+      PROPERTIES CXX_STANDARD 26 CXX_STANDARD_REQUIRED ON CXX_EXTENSIONS OFF)
+    target_compile_options(tests.reflection.name_of-cxx26
+                           PRIVATE ${NEUTRON_REFLECTION_FLAGS})
+
+    add_custom_target(tests.reflection.name_of.compare
+      COMMAND ${CMAKE_COMMAND}
+        -DCXX20=$<TARGET_FILE:tests.reflection.name_of-cxx20>
+        -DCXX26=$<TARGET_FILE:tests.reflection.name_of-cxx26>
+        -P ${CMAKE_CURRENT_SOURCE_DIR}/cmake/compare_reflection_name_of.cmake
+      DEPENDS tests.reflection.name_of-cxx20
+              tests.reflection.name_of-cxx26
+      USES_TERMINAL)
   endif()
 
   option(BUILD_NEUTRON_SIMDJSON_COMPAT OFF)
