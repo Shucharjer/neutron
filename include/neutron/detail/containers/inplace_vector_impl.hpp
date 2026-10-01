@@ -130,7 +130,8 @@ public:
         std::is_nothrow_copy_constructible_v<T>)
         : inplace_vector(il.begin(), il.end()) {}
 
-    #if ATOM_HAS_CXX23
+    #if defined(__cpp_lib_containers_ranges) &&                                \
+        __cpp_lib_containers_ranges >= 202202L
     template <compatible_range<T> Rng>
     constexpr inplace_vector(std::from_range_t, Rng&& range) noexcept(noexcept(
         inplace_vector(std::ranges::begin(range), std::ranges::end(range))))

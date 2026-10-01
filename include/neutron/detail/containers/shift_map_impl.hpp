@@ -166,7 +166,8 @@ public:
         std::initializer_list<Pair> list)
         : shift_map(list, alloc) {}
 
-#if ATOM_HAS_CXX23
+#if defined(__cpp_lib_containers_ranges) &&                                    \
+    __cpp_lib_containers_ranges >= 202202L
     template <std::ranges::range Rng>
     constexpr shift_map(
         [[maybe_unused]] std::from_range_t, Rng&& range,
