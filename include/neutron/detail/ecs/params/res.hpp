@@ -9,13 +9,12 @@
 
 namespace neutron {
 
-template <resource_like... Resources>
-struct res : public std::tuple<Resources...> {
+template <resource_like... Rsc>
+struct res : public std::tuple<Rsc&...> {
     template <internal::world World>
     res(World& world)
-        : std::tuple<Resources...>(
-              neutron::rmcvref_first<std::remove_cvref_t<Resources>>(
-                  world_accessor::resources(world))...) {}
+        : std::tuple<Rsc&...>(rmcvref_first<std::remove_cvref_t<Rsc>>(
+              world_accessor::resources(world))...) {}
 };
 
 namespace internal {

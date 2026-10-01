@@ -32,7 +32,6 @@
 #include "neutron/detail/ecs/params/meta_accessor.hpp"
 #include "neutron/detail/ecs/params/query.hpp"
 #include "neutron/detail/ecs/params/res.hpp"
-#include "neutron/detail/ecs/params/sync_point.hpp"
 
 #include "neutron/detail/ecs/snapshot.hpp"
 
