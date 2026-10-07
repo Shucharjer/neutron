@@ -42,7 +42,7 @@ class runtime {
 public:
     template <typename Al = Alloc>
     constexpr runtime(Sp& sp, Payload* payload, const Al& alloc = {})
-        : sp_(sp), alloc_(alloc) {}
+        : alloc_(alloc), payload_(payload), sp_(sp) {}
 
     constexpr int run() {
         using namespace ::neutron::execution;
@@ -71,26 +71,20 @@ private:
     template <typename Envs, execution::scheduler Scheduler>
     constexpr int _run_weak_parallel(Envs& envs, Scheduler scheduler) {
         using enum stage;
-        [this, &envs,
-         &scheduler]<std::size_t... Is>(std::index_sequence<Is...>) {
-            // step until done
-            (_step_stage<prestartup>(get<Is>(envs), scheduler), ...);
-            (_step_stage<startup>(get<Is>(envs), scheduler), ...);
-            (_step_stage<poststartup>(get<Is>(envs), scheduler), ...);
-            while (true) {
-                if (payload_->poll_events()) {
-                    continue;
-                }
-                if (!payload_->is_running()) [[unlikely]] {
-                    break;
-                }
-                (_step_stage<preupdate>(get<Is>(envs), scheduler), ...);
-                (_step_stage<update>(get<Is>(envs), scheduler), ...);
-                (_step_stage<postupdate>(get<Is>(envs), scheduler), ...);
+        _sync_run_stage<prestartup>(envs, scheduler);
+        _sync_run_stage<startup>(envs, scheduler);
+        _sync_run_stage<poststartup>(envs, scheduler);
+        while (payload_->is_running()) {
+            if (payload_->poll_events()) {
+                continue;
             }
-            (_step_stage<last>(get<Is>(envs), scheduler), ...);
-            (_step_stage<shutdown>(get<Is>(envs), scheduler), ...);
-        }(std::make_index_sequence<std::tuple_size_v<Envs>>());
+            _sync_run_stage<events>(envs, scheduler);
+            _sync_run_stage<preupdate>(envs, scheduler);
+            _sync_run_stage<update>(envs, scheduler);
+            _sync_run_stage<postupdate>(envs, scheduler);
+        }
+        _sync_run_stage<last>(envs, scheduler);
+        _sync_run_stage<shutdown>(envs, scheduler);
 
         return 0;
     }
@@ -98,49 +92,29 @@ private:
     template <typename Envs, execution::scheduler Scheduler>
     constexpr int _run_parallel(Envs& envs, Scheduler scheduler) {
         using enum stage;
-        [this, &envs,
-         scheduler]<std::size_t... Is>(std::index_sequence<Is...>) {
-            (_run_stage<preupdate>(get<Is>(envs), scheduler), ...);
-            (_run_stage<update>(get<Is>(envs), scheduler), ...);
-            (_run_stage<postupdate>(get<Is>(envs), scheduler), ...);
-            (_run_stage<first>(get<Is>(envs), scheduler), ...);
-            (_run_stages(get<Is>(envs), scheduler), ...);
-            (_run_stage<last>(get<Is>(envs), scheduler), ...);
-            (_run_stage<shutdown>(get<Is>(envs), scheduler), ...);
-        }(std::make_index_sequence<std::tuple_size_v<Envs>>());
+        _sync_run_stage<prestartup>(envs, scheduler);
+        _sync_run_stage<startup>(envs, scheduler);
+        _sync_run_stage<poststartup>(envs, scheduler);
+        while (payload_->is_running()) {
+            if (payload_->poll_events()) {
+                continue;
+            }
+            _sync_run_stage<events>(envs, scheduler);
+            _sync_run_stage<preupdate>(envs, scheduler);
+            _sync_run_stage<update>(envs, scheduler);
+            _sync_run_stage<postupdate>(envs, scheduler);
+        }
+        _sync_run_stage<last>(envs, scheduler);
+        _sync_run_stage<shutdown>(envs, scheduler);
 
         return 0;
     }
 
-    template <stage Stage, typename Env, execution::scheduler Scheduler>
-    void _step_stage(Env& env, Scheduler scheduler) {
-        [&env, scheduler]<std::size_t... Is>(std::index_sequence<Is...>) {
-            auto task = (get<Is>(env), ...);
-        }(std::make_index_sequence<std::tuple_size_v<Env>>());
-    }
-
-    template <stage Stage, typename Env, execution::scheduler Scheduler>
-    void _run_stage(Env& env, Scheduler scheduler) {
-        //
-    }
-
-    template <typename Env, execution::scheduler Scheduler>
-    void _run_stages(Env& env, Scheduler scheduler) {
+    template <stage Stage, typename Envs, execution::scheduler Scheduler>
+    void _sync_run_stage(Envs& envs, Scheduler scheduler) {
         using namespace execution;
-        auto fn = [&env, scheduler] {
-            [&env, scheduler]<std::size_t... Is>(std::index_sequence<Is...>) {
-                while (true) {
-                    // if constexpr (Env::enabled_events) {
-                    //     //
-                    // }
-                    // sync_wait(schedule(scheduler) | then([] {}));
-                    // if constexpr (Env::enabled_render) {
-                    //     //
-                    // }
-                }
-            }(std::make_index_sequence<std::tuple_size_v<Env>>());
-        };
-        sync_wait(schedule(scheduler) | then(fn));
+        this_thread::sync_wait(envs.template run<Stage>(
+            scheduler, std::chrono::system_clock::now()));
     }
 
     ATOM_NO_UNIQUE_ADDR Alloc alloc_;

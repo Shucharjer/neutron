@@ -10,7 +10,6 @@
 #include "neutron/detail/ecs/concepts/stage.hpp"
 #include "neutron/detail/metafn/definition.hpp"
 #include "neutron/detail/metafn/element.hpp"
-#include "neutron/detail/utility/enum_anyof.hpp"
 #include "neutron/inplace_vector.hpp"
 #include "neutron/tstring.hpp"
 
@@ -184,23 +183,30 @@ constexpr bool _has_same_template<
 template <system_spec Spec, auto Fn>
 consteval bool _task_spec_matches() {
     if constexpr (requires { Spec.fn == Fn; }) {
-        return Spec.fn == Fn;
+        using function_type =
+            std::common_type_t<decltype(Spec.fn), decltype(Fn)>;
+        return std::same_as<
+            std::integral_constant<function_type, Spec.fn>,
+            std::integral_constant<function_type, Fn>>;
     } else {
         return false;
     }
 }
 
-namespace internal {
-
-template <std::size_t, typename T>
-constexpr void _add_requirement(auto&&, T) noexcept {}
-
-} // namespace internal
-
 template <stage Stage, system_spec... Spec>
 class graph_builder<_add_systems_t<Stage, Spec...>> {
     static constexpr std::size_t count = sizeof...(Spec);
     using graph_t = std::array<inplace_vector<std::size_t, count>, count>;
+
+    static constexpr void _add_edge(
+        graph_t& graph, std::size_t task, std::size_t dependency) noexcept {
+        for (auto existing : graph[task]) {
+            if (existing == dependency) {
+                return;
+            }
+        }
+        graph[task].emplace_back(dependency);
+    }
 
     template <auto Fn>
     static consteval std::size_t _task_index() noexcept {
@@ -219,7 +225,9 @@ class graph_builder<_add_systems_t<Stage, Spec...>> {
         constexpr auto dependency = _task_index<Fn>();
         static_assert(
             dependency < count, "after() references a task that was not added");
-        graph[Task].emplace_back(dependency);
+        if constexpr (dependency < count) {
+            _add_edge(graph, Task, dependency);
+        }
     }
 
     template <std::size_t Task, auto Fn>
@@ -227,7 +235,9 @@ class graph_builder<_add_systems_t<Stage, Spec...>> {
         constexpr auto dependent = _task_index<Fn>();
         static_assert(
             dependent < count, "before() references a task that was not added");
-        graph[dependent].emplace_back(Task);
+        if constexpr (dependent < count) {
+            _add_edge(graph, dependent, Task);
+        }
     }
 
     template <std::size_t Task, auto... Fn>
@@ -242,10 +252,12 @@ class graph_builder<_add_systems_t<Stage, Spec...>> {
         (_add_before_edge<Task, Fn>(graph), ...);
     }
 
+    template <std::size_t, typename Requirement>
+    static constexpr void _add_requirement(graph_t&, Requirement) noexcept {}
+
     template <std::size_t Task, typename Fn, auto... Req>
     static constexpr void
         _add_task_edges(graph_t& graph, system_spec<Fn, Req...>) noexcept {
-        using ::neutron::internal::_add_requirement;
         (_add_requirement<Task>(graph, Req), ...);
     }
 
@@ -499,7 +511,7 @@ inline constexpr _execute_t<Args...> execute;
 
 constexpr bool is_hifreq_stage(stage stage) noexcept {
     using enum ::neutron::stage;
-    return enum_anyof(stage, { events, preupdate, update, postupdate, render });
+    return stage >= events && stage <= render;
 }
 
 template <tstring Identifier>

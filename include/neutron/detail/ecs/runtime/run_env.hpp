@@ -1,6 +1,8 @@
 // IWYU pragma: private, include <neutron/ecs.hpp>
 #pragma once
+#include <chrono>
 #include <cstddef>
+#include <memory>
 #include <tuple>
 #include <type_traits>
 #include <utility>
@@ -14,7 +16,10 @@
 namespace neutron {
 
 template <typename T>
-concept run_env = requires(T& env) { env.get_tasks(); };
+concept run_env = requires(T& env) {
+    typename T::policy_type;
+    env.template get<0>();
+};
 
 template <std::size_t GroupId, typename... Worlds>
 class run_env_for_group;
@@ -30,6 +35,18 @@ public:
 
     template <typename Alloc = allocator_type>
     run_env_for_group(const Alloc& alloc = {}) : world_(alloc) {}
+
+    template <std::size_t Index>
+    requires(Index == 0)
+    auto& get() & noexcept {
+        return world_;
+    }
+
+    template <stage Stage, execution::scheduler Scheduler>
+    ATOM_NODISCARD execution::sender auto
+        run(Scheduler scheduler, _time_point_t time) & {
+        return world_.template run<Stage>(scheduler, time);
+    }
 
 private:
     World world_;
@@ -50,10 +67,34 @@ public:
         : run_env_for_group(
               std::index_sequence_for<World, Others...>{}, alloc) {}
 
+    template <std::size_t Index>
+    auto& get() & noexcept {
+        return worlds_.template get<Index>();
+    }
+
+    template <stage Stage, execution::scheduler Scheduler>
+    ATOM_NODISCARD execution::sender auto
+        run(Scheduler scheduler, _time_point_t time) & {
+        return _run<Stage, 0>(scheduler, time);
+    }
+
 private:
+    template <stage Stage, std::size_t Index, execution::scheduler Scheduler>
+    auto _run(Scheduler scheduler, _time_point_t time) {
+        auto sender = get<Index>().template run<Stage>(scheduler, time);
+        if constexpr (Index == sizeof...(Others)) {
+            return sender;
+        } else {
+            return std::move(sender) |
+                   execution::let_value([this, scheduler, time] {
+                       return _run<Stage, Index + 1>(scheduler, time);
+                   });
+        }
+    }
+
     template <std::size_t... Is, typename Alloc>
     run_env_for_group(std::index_sequence<Is...>, const Alloc& alloc)
-        : worlds_((Is, alloc)...) {}
+        : worlds_((static_cast<void>(Is), alloc)...) {}
 
     shared_tuple<World, Others...> worlds_;
 };
@@ -69,6 +110,18 @@ public:
 
     template <typename Alloc = allocator_type>
     explicit run_env_for_individual(const Alloc& alloc = {}) : world_(alloc) {}
+
+    template <std::size_t Index>
+    requires(Index == 0)
+    auto& get() & noexcept {
+        return world_;
+    }
+
+    template <stage Stage, execution::scheduler Scheduler>
+    ATOM_NODISCARD execution::sender auto
+        run(Scheduler scheduler, _time_point_t time) & {
+        return world_.template run<Stage>(scheduler, time);
+    }
 
 private:
     World world_;
@@ -154,6 +207,21 @@ struct _run_envs_combine<Tmp<Envs...>> {
 template <typename... Envs>
 class run_envs;
 
+template <>
+class run_envs<> : public std::tuple<> {
+public:
+    using allocator_type = std::allocator<std::byte>;
+
+    template <typename Alloc = allocator_type>
+    explicit run_envs(const Alloc& = {}) {}
+
+    template <stage Stage, execution::scheduler Scheduler>
+    ATOM_NODISCARD execution::sender auto
+        run(Scheduler, _time_point_t = std::chrono::system_clock::now()) & {
+        return execution::just();
+    }
+};
+
 template <typename Env, typename... Others>
 class run_envs<Env, Others...> : public std::tuple<Env, Others...> {
 public:
@@ -163,17 +231,26 @@ public:
     explicit run_envs(const Alloc& alloc = {})
         : run_envs(std::index_sequence_for<Env, Others...>{}, alloc) {}
 
-    template <stage Stage>
-    execution::sender auto run(auto scheduler) {
-        using namespace execution;
-
-        // return when_all(...);
+    template <stage Stage, execution::scheduler Scheduler>
+    ATOM_NODISCARD execution::sender auto
+        run(Scheduler scheduler,
+            _time_point_t time = std::chrono::system_clock::now()) & {
+        if constexpr (sizeof...(Others) == 0) {
+            return std::get<0>(*this).template run<Stage>(scheduler, time);
+        } else {
+            return [this, scheduler, time]<std::size_t... Indices>(
+                       std::index_sequence<Indices...>) {
+                return execution::when_all(
+                    std::get<Indices>(*this).template run<Stage>(
+                        scheduler, time)...);
+            }(std::index_sequence_for<Env, Others...>{});
+        }
     }
 
 private:
     template <typename Alloc, std::size_t... Is>
     run_envs(std::index_sequence<Is...>, const Alloc& alloc = {})
-        : std::tuple<Env, Others...>((Is, alloc)...) {}
+        : std::tuple<Env, Others...>((static_cast<void>(Is), alloc)...) {}
 };
 
 template <typename Alloc, auto... Worlds>
@@ -193,6 +270,15 @@ struct tuple_size<::neutron::run_env_for_group<GroupId, Worlds...>> {
 template <std::size_t Index, std::size_t GroupId, typename... Worlds>
 struct tuple_element<Index, ::neutron::run_env_for_group<GroupId, Worlds...>> :
     ::neutron::type_list_element<Index, ::neutron::type_list<Worlds...>> {};
+
+template <typename World>
+struct tuple_size<::neutron::run_env_for_individual<World>> :
+    integral_constant<size_t, 1> {};
+
+template <typename World>
+struct tuple_element<0, ::neutron::run_env_for_individual<World>> {
+    using type = World;
+};
 
 template <typename... Envs>
 struct tuple_size<::neutron::run_envs<Envs...>> {
