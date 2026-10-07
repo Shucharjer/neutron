@@ -23,23 +23,23 @@
 
 namespace neutron {
 
-using time_point_t = std::chrono::system_clock::time_point;
+using _time_point_t = std::chrono::system_clock::time_point;
 
 class _tick_rate_base {
 public:
-    void set_last_update(time_point_t time) noexcept { _last_update = time; }
-    ATOM_NODISCARD time_point_t get_last_update() const noexcept {
+    void set_last_update(_time_point_t time) noexcept { _last_update = time; }
+    ATOM_NODISCARD _time_point_t get_last_update() const noexcept {
         return _last_update;
     }
 
 protected:
-    time_point_t _last_update;
+    _time_point_t _last_update;
 };
 
 template <typename Descriptor>
 class _basic_world_tick_rate_t : public _tick_rate_base {
 public:
-    ATOM_NODISCARD bool should_update(time_point_t time) const noexcept {
+    ATOM_NODISCARD bool should_update(_time_point_t time) const noexcept {
         using namespace std::chrono;
         constexpr double forward_tick_rate =
             get_forward_tick_rate(Descriptor());
@@ -55,7 +55,7 @@ template <typename Descriptor>
 requires(get_forward_tick_rate(Descriptor()) < 0.0)
 class _basic_world_tick_rate_t<Descriptor> : public _tick_rate_base {
 public:
-    ATOM_NODISCARD bool should_update(time_point_t time) const noexcept {
+    ATOM_NODISCARD bool should_update(_time_point_t time) const noexcept {
         using namespace std::chrono;
         return time >= _last_update + interval_;
     }
@@ -154,6 +154,9 @@ class basic_world : public basic_world<Desc, rebind_alloc_t<Alloc, std::byte>> {
 public:
     using basic_world<Desc, rebind_alloc_t<Alloc, std::byte>>::basic_world;
 };
+
+template <auto Desc, typename Alloc = std::allocator<std::byte>>
+using world_of = basic_world<std::remove_cvref_t<decltype(Desc)>, Alloc>;
 
 template <
     descriptor auto Descriptor, typename Alloc = std::allocator<std::byte>>
