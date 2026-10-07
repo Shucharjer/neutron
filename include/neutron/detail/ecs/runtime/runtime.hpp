@@ -29,25 +29,15 @@ concept parallelism_scheduler_provider =
     };
 
 template <typename Payload>
-concept valid_payload = requires(Payload& payload) {
+concept run_payloay = requires(Payload& payload) {
     { payload.poll_events() } -> std::same_as<bool>;
     { payload.is_running() } -> std::same_as<bool>;
     payload.render_begin();
     payload.render_end();
 };
 
-template <stage Stage, typename Env>
-static inline auto gather_tasks(Env& env) noexcept
-// gather tasks should return a inplace_vector or sndr
-{
-    [&env]<std::size_t... Is>(std::index_sequence<Is...>) {
-        (get<Is>(env), ...);
-    }(std::make_index_sequence<std::tuple_size_v<Env>>());
-}
-
 template <
-    scheduler_provider Sp, valid_payload Payload, typename Alloc,
-    auto... Worlds>
+    scheduler_provider Sp, run_payloay Payload, typename Alloc, auto... Worlds>
 class runtime {
 public:
     template <typename Al = Alloc>
@@ -55,33 +45,31 @@ public:
         : sp_(sp), alloc_(alloc) {}
 
     constexpr int run() {
-        return 0;
-        // using namespace ::neutron::execution;
+        using namespace ::neutron::execution;
 
-        // scheduler auto sch = sp_.get_scheduler();
-        // using run_envs_t   = run_envs_for<Alloc, Worlds...>;
-        // run_envs_t envs{ alloc_ };
+        scheduler auto sch = sp_.get_scheduler();
+        using run_envs_t   = run_envs_for<Alloc, Worlds...>;
+        run_envs_t envs{ alloc_ };
 
-        // forward_progress_guarantee guarantee =
-        //     get_forward_progress_guarantee(sch);
+        forward_progress_guarantee guarantee =
+            get_forward_progress_guarantee(sch);
 
-        // if (guarantee == forward_progress_guarantee::weakly_parallel) {
-        //     return _run_weak_parallel(envs, sch);
-        // }
+        if (guarantee == forward_progress_guarantee::weakly_parallel) {
+            return _run_weak_parallel(envs, sch);
+        }
 
-        // if constexpr (parallelism_scheduler_provider<Sp>) {
-        //     if (sp_.available_parallelism() < std::tuple_size_v<run_envs_t>)
-        //     {
-        //         return _run_weak_parallel(envs, sch);
-        //     }
-        // }
+        if constexpr (parallelism_scheduler_provider<Sp>) {
+            if (sp_.available_parallelism() < std::tuple_size_v<run_envs_t>) {
+                return _run_weak_parallel(envs, sch);
+            }
+        }
 
-        // return _run_parallel(envs, sch);
+        return _run_parallel(envs, sch);
     }
 
 private:
     template <typename Envs, execution::scheduler Scheduler>
-    constexpr int _run_weak_parallel(Envs& envs, Scheduler& scheduler) {
+    constexpr int _run_weak_parallel(Envs& envs, Scheduler scheduler) {
         using enum stage;
         [this, &envs,
          &scheduler]<std::size_t... Is>(std::index_sequence<Is...>) {
@@ -108,10 +96,10 @@ private:
     }
 
     template <typename Envs, execution::scheduler Scheduler>
-    constexpr int _run_parallel(Envs& envs, Scheduler& scheduler) {
+    constexpr int _run_parallel(Envs& envs, Scheduler scheduler) {
         using enum stage;
         [this, &envs,
-         &scheduler]<std::size_t... Is>(std::index_sequence<Is...>) {
+         scheduler]<std::size_t... Is>(std::index_sequence<Is...>) {
             (_run_stage<preupdate>(get<Is>(envs), scheduler), ...);
             (_run_stage<update>(get<Is>(envs), scheduler), ...);
             (_run_stage<postupdate>(get<Is>(envs), scheduler), ...);
@@ -125,21 +113,21 @@ private:
     }
 
     template <stage Stage, typename Env, execution::scheduler Scheduler>
-    void _step_stage(Env& env, Scheduler& scheduler) {
+    void _step_stage(Env& env, Scheduler scheduler) {
         [&env, scheduler]<std::size_t... Is>(std::index_sequence<Is...>) {
             auto task = (get<Is>(env), ...);
         }(std::make_index_sequence<std::tuple_size_v<Env>>());
     }
 
     template <stage Stage, typename Env, execution::scheduler Scheduler>
-    void _run_stage(Env& env, Scheduler& scheduler) {
+    void _run_stage(Env& env, Scheduler scheduler) {
         //
     }
 
     template <typename Env, execution::scheduler Scheduler>
-    void _run_stages(Env& env, Scheduler& scheduler) {
+    void _run_stages(Env& env, Scheduler scheduler) {
         using namespace execution;
-        auto fn = [&env, &scheduler] {
+        auto fn = [&env, scheduler] {
             [&env, scheduler]<std::size_t... Is>(std::index_sequence<Is...>) {
                 while (true) {
                     // if constexpr (Env::enabled_events) {
@@ -161,9 +149,10 @@ private:
 };
 
 template <
-    auto... Worlds, scheduler_provider Sp, valid_payload Payload,
+    auto... Worlds, scheduler_provider Sp, run_payloay Payload,
     typename Alloc = std::allocator<std::byte>>
-constexpr auto make_runtime(Sp& sp, Payload* payload, const Alloc& alloc = {}) {
+ATOM_NODISCARD constexpr auto
+    make_runtime(Sp& sp, Payload* payload, const Alloc& alloc = {}) {
     return runtime<Sp, Payload, Alloc, Worlds...>(sp, payload, alloc);
 }
 

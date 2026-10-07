@@ -51,7 +51,7 @@ namespace neutron {
 
 namespace this_thread {
 
-using namespace ::beman::this_thread;
+using ::beman::execution::sync_wait;
 
 }
 
