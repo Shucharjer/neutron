@@ -5,6 +5,8 @@
 #include <chrono>
 #include <cstddef>
 #include <memory>
+#include <stdexcept>
+#include <tuple>
 #include <vector>
 #include "neutron/detail/ecs/compile-time/collect_params/local.hpp"
 #include "neutron/detail/ecs/compile-time/collect_params/query.hpp"
@@ -14,6 +16,7 @@
 #include "neutron/detail/ecs/core/archetype.hpp"
 #include "neutron/detail/ecs/core/command_buffer.hpp"
 #include "neutron/detail/ecs/core/world_base.hpp"
+#include "neutron/detail/ecs/runtime/tasks.hpp"
 #include "neutron/detail/ecs/utility/byte_allocator.hpp"
 #include "neutron/detail/memory/rebind_alloc.hpp"
 #include "neutron/detail/tuple/shared_tuple.hpp"
@@ -23,8 +26,6 @@
 
 namespace neutron {
 
-using _time_point_t = std::chrono::system_clock::time_point;
-
 class _tick_rate_base {
 public:
     void set_last_update(_time_point_t time) noexcept { _last_update = time; }
@@ -33,12 +34,17 @@ public:
     }
 
 protected:
-    _time_point_t _last_update;
+    _time_point_t _last_update{};
 };
 
 template <typename Descriptor>
 class _basic_world_tick_rate_t : public _tick_rate_base {
 public:
+    static constexpr auto get_tick_interval() noexcept {
+        constexpr auto rate = get_forward_tick_rate(Descriptor());
+        return std::chrono::duration<double>{ rate == 0.0 ? 0.0 : 1.0 / rate };
+    }
+
     ATOM_NODISCARD bool should_update(_time_point_t time) const noexcept {
         using namespace std::chrono;
         constexpr double forward_tick_rate =
@@ -59,37 +65,26 @@ public:
         using namespace std::chrono;
         return time >= _last_update + interval_;
     }
-    ATOM_NODISCARD int get_tick_rate() const noexcept {
-        return 1 / interval_.count();
-    }
-    void set_tick_rate(int tick_rate) noexcept {
-        interval_ = std::chrono::duration<double>(1.0 / tick_rate);
+    ATOM_NODISCARD int get_tick_rate() const noexcept { return rate_; }
+    ATOM_NODISCARD auto get_tick_interval() const noexcept { return interval_; }
+    void set_tick_rate(int tick_rate) {
+        if (tick_rate < 0) {
+            throw std::invalid_argument("tick rate must be nonnegative");
+        }
+        rate_     = tick_rate;
+        interval_ = std::chrono::duration<double>(
+            tick_rate == 0 ? 0.0 : 1.0 / tick_rate);
     }
 
 private:
+    int rate_ = 120;
     std::chrono::duration<double> interval_{ 1.0 / 120.0 }; // NOLINT
 };
 
 template <typename Descriptor>
 class _basic_world_task_base : public _basic_world_tick_rate_t<Descriptor> {
-public:
-    template <stage Stage>
-    auto get_tasks() const noexcept
-    /* the result of get_tasks should be a inplace_vector */ {
-        //
-    }
-};
-
-template <typename Descriptor>
-requires(get_forward_tick_rate(Descriptor()) == 0.0)
-class _basic_world_task_base<Descriptor> :
-    public _basic_world_tick_rate_t<Descriptor> {
-public:
-    template <stage Stage>
-    constexpr auto get_tasks() const noexcept
-    /* the result of get_tasks should be a inplace_vector */ {
-        // return get_systems<Stage>(Descriptor());
-    }
+protected:
+    ATOM_NO_UNIQUE_ADDR internal::world_tasks<Descriptor> tasks_;
 };
 
 template <typename Desc, typename Alloc = std::allocator<std::byte>>
@@ -141,12 +136,72 @@ public:
         : world_base<Alloc>(alloc) /*, resources_(), locals_()*/ {}
 
     template <stage Stage>
-    static consteval auto get_tasks() noexcept;
+    static consteval auto get_tasks() noexcept {
+        return get_systems<Stage>(Descriptor{});
+    }
+
+    template <stage Stage, execution::scheduler Scheduler>
+    ATOM_NODISCARD execution::sender auto
+        run(Scheduler scheduler,
+            _time_point_t time = std::chrono::system_clock::now()) & {
+        auto& tasks = std::get<static_cast<std::size_t>(Stage)>(this->tasks_);
+        if constexpr (
+            std::remove_reference_t<decltype(tasks)>::plan::count == 0) {
+            return execution::just();
+        } else {
+            auto sender = tasks.run(*this, scheduler, time);
+            if constexpr (
+                is_hifreq_stage(Stage) &&
+                get_forward_tick_rate(Descriptor{}) != 0.0) {
+                return internal::conditional_sender{
+                    tasks.clock.due(time, this->get_tick_interval()),
+                    std::move(sender) | execution::then([&tasks, time] {
+                        tasks.clock.complete(time);
+                    })
+                };
+            } else {
+                return sender;
+            }
+        }
+    }
+
+    template <stage Stage, auto Function>
+    void set_system_tick_rate(int rate) {
+        using plan = internal::task_plan<decltype(get_tasks<Stage>())>;
+        constexpr auto index =
+            []<std::size_t... Indices>(std::index_sequence<Indices...>) {
+                std::size_t result = plan::count;
+                ((_task_spec_matches<
+                      value_list_element_v<Indices, typename plan::specs>,
+                      Function>()
+                      ? result = Indices
+                      : result),
+                 ...);
+                return result;
+            }(std::make_index_sequence<plan::count>{});
+        static_assert(
+            index < plan::count, "system was not added to this stage");
+        if constexpr (index < plan::count) {
+            static_assert(
+                is_hifreq_stage(Stage) && plan::tick_rates[index] < 0,
+                "system requires dynamic_tick_rate in a high-frequency stage");
+            auto& tasks =
+                std::get<static_cast<std::size_t>(Stage)>(this->tasks_);
+            std::get<index>(tasks.clocks).set_tick_rate(rate);
+        }
+    }
 
 private:
-    _shared_tuple<query_cache_of<descriptor_type>> queries_;
-    _shared_tuple<res_of<descriptor_type>> resources_;
-    _shared_tuple<local_of<descriptor_type>> locals_;
+    using resources_type = unique_type_list_t<type_list_convert_t<
+        std::remove_cvref,
+        type_list_export_as_t<
+            res, collect_params_of<descriptor_type, res, false>>>>;
+    using locals_type =
+        collect_params_with_sys_of<descriptor_type, local, false>;
+
+    ATOM_NO_UNIQUE_ADDR _shared_tuple<query_cache_of<descriptor_type>> queries_;
+    ATOM_NO_UNIQUE_ADDR _shared_tuple<resources_type> resources_;
+    ATOM_NO_UNIQUE_ADDR _shared_tuple<locals_type> locals_;
 };
 
 template <typename Desc, typename Alloc>

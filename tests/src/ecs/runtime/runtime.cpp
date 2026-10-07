@@ -13,8 +13,8 @@ using namespace std::chrono_literals;
 using namespace neutron;
 using enum stage;
 
-static_assert(scheduler_provider<static_thread_pool>);
-static_assert(parallelism_scheduler_provider<static_thread_pool>);
+static_assert(scheduler_provider<thread_pool>);
+static_assert(parallelism_scheduler_provider<thread_pool>);
 
 using alloc_t = std::allocator<std::byte>;
 
@@ -52,9 +52,9 @@ constexpr auto main_world = world_desc | add_systems<preupdate, &tick> |
                             add_systems<shutdown, &println_ticks>;
 
 void test_runtime() {
-    static_thread_pool pool;
+    thread_pool pool;
     payload payload(3s);
-    auto rt = make_runtime<main_world, idvj_world>(pool, &payload);
+    auto rt = make_runtime<main_world>(pool, &payload);
     rt.run();
 }
 
@@ -63,7 +63,7 @@ void test_individual() {
                                 add_systems<shutdown, &println_ticks> |
                                 execute<individual, tick_rate<128>>;
 
-    static_thread_pool pool;
+    thread_pool pool;
     payload payload(3s);
     auto rt = make_runtime<main_world, idvj_world>(pool, &payload);
     rt.run();
@@ -74,7 +74,7 @@ void test_same_group() {
                                 add_systems<shutdown, &println_ticks> |
                                 execute<tick_rate<128>>;
 
-    static_thread_pool pool;
+    thread_pool pool;
     payload payload(3s);
     auto rt = make_runtime<main_world, same_group>(pool, &payload);
     rt.run();
@@ -85,7 +85,7 @@ void test_another_group() {
                                    add_systems<shutdown, &println_ticks> |
                                    execute<group<1>, tick_rate<128>>;
 
-    static_thread_pool pool;
+    thread_pool pool;
     payload payload(3s);
     auto rt = make_runtime<main_world, another_group>(pool, &payload);
     rt.run();
