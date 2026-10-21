@@ -1,5 +1,6 @@
 #pragma once
 // IWYU pragma: begin_exports
+
 #include "neutron/detail/metafn/append.hpp"
 #include "neutron/detail/metafn/cat.hpp"
 #include "neutron/detail/metafn/combine.hpp"
@@ -16,6 +17,7 @@
 #include "neutron/detail/metafn/from.hpp"
 #include "neutron/detail/metafn/has.hpp"
 #include "neutron/detail/metafn/insert_inplace.hpp"
+#include "neutron/detail/metafn/make.hpp"
 #include "neutron/detail/metafn/pop.hpp"
 #include "neutron/detail/metafn/rebind.hpp"
 #include "neutron/detail/metafn/requires.hpp"
@@ -23,6 +25,8 @@
 #include "neutron/detail/metafn/size.hpp"
 #include "neutron/detail/metafn/sort.hpp"
 #include "neutron/detail/metafn/specific.hpp"
+#include "neutron/detail/metafn/split.hpp"
 #include "neutron/detail/metafn/substitute.hpp"
 #include "neutron/detail/metafn/unique.hpp"
+
 // IWYU pragma: end_exports

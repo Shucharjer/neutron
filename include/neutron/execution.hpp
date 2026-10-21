@@ -1,5 +1,4 @@
 #pragma once
-
 // IWYU pragma: begin_exports
 
 #include "neutron/detail/execution/core.hpp"

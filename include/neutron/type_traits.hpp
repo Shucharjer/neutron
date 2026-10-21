@@ -1,5 +1,8 @@
 #pragma once
 // IWYU pragma: begin_exports
+
+#include "neutron/detail/type_traits/is_convertible_to_function_pointer.hpp"
+#include "neutron/detail/type_traits/is_function_pointer.hpp"
 #include "neutron/detail/type_traits/same_constness.hpp"
 #include "neutron/detail/type_traits/same_cv.hpp"
 #include "neutron/detail/type_traits/same_cvref.hpp"
