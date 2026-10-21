@@ -125,7 +125,7 @@ AllowShortEnumsOnASingleLine: false
 # 不允许短if语句单行存在
 AllowShortIfStatementsOnASingleLine: false
 # 不允许短lambda表达式单行存在
-AllowShortLambdasOnASingleLine: true
+AllowShortLambdasOnASingleLine: false
 # 不允许短循环单行存在
 AllowShortLoopsOnASingleLine: false
 

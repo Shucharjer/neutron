@@ -1,10 +1,14 @@
 #pragma once
 // IWYU pragma: begin_exports
+
 #include "neutron/detail/memory/align.hpp"
 #include "neutron/detail/memory/freeable_bytes.hpp"
+#include "neutron/detail/memory/inplace.hpp"
+#include "neutron/detail/memory/object_pool.hpp"
 #include "neutron/detail/memory/rebind_alloc.hpp"
 #include "neutron/detail/memory/uninitialized_algorithms.hpp"
 #include "neutron/detail/memory/uninitialized_move_if_noexcept.hpp"
 #include "neutron/detail/memory/unique_storage.hpp"
 #include "neutron/detail/memory/using_allocator.hpp"
+
 // IWYU pragma: end_exports
