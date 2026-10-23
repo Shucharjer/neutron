@@ -33,7 +33,7 @@
 // Compiler-specific attribute macros
 
 #if defined(__GNUC__) || defined(__clang__)
-    #define ATOM_FORCE_INLINE                                                  \
+    #define ATOM_ALWAYS_INLINE                                                  \
         inline __attribute__((__always_inline__)) ///< Force inline (GCC/Clang)
     #define ATOM_NOINLINE                                                      \
         __attribute__((__noinline__)) ///< Prevent inlining (GCC/Clang)
@@ -41,14 +41,14 @@
         __attribute__((malloc))       ///< Returns allocated memory (GCC/Clang)
     #define ATOM_NOVTABLE             ///< Empty for GCC/Clang
 #elif defined(_MSC_VER)
-    #define ATOM_FORCE_INLINE __forceinline ///< Force inline expansion (MSVC)
+    #define ATOM_ALWAYS_INLINE __forceinline ///< Force inline expansion (MSVC)
     #define ATOM_FORCE_NOINLINE                                                \
         __declspec(noinline)                ///< Prevent inlining (MSVC)
     #define ATOM_ALLOCATOR                                                     \
         __declspec(allocator) ///< Function returns allocated memory (MSVC)
     #define ATOM_NOVTABLE __declspec(novtable) ///< No vtable generation (MSVC)
 #else
-    #define ATOM_FORCE_INLINE inline           ///< Fallback inline
+    #define ATOM_ALWAYS_INLINE inline           ///< Fallback inline
     #define ATOM_NOINLINE                      ///< Fallback noinline
     #define ATOM_ALLOCATOR                     ///< Fallback allocator
     #define ATOM_NOVTABLE                      ///< Fallback novtable
@@ -68,7 +68,7 @@
         constexpr std::string_view _this_func =                                \
             ATOM_FUNCNAME;                        ///< Store function name
 #else
-    #define ATOM_RELEASE_INLINE ATOM_FORCE_INLINE ///< Force inline in release
+    #define ATOM_RELEASE_INLINE ATOM_ALWAYS_INLINE ///< Force inline in release
     #define ATOM_DEBUG_SHOW_FUNC                  ///< Empty in release
 #endif
 

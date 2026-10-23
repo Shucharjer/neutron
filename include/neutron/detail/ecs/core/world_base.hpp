@@ -46,22 +46,22 @@ struct _hash_transition {
     }
 };
 
-ATOM_FORCE_INLINE static constexpr generation_t
+ATOM_ALWAYS_INLINE static constexpr generation_t
     _get_gen(entity_t entity) noexcept {
     return static_cast<generation_t>(entity >> 32U);
 }
 
-ATOM_FORCE_INLINE static constexpr index_t
+ATOM_ALWAYS_INLINE static constexpr index_t
     _get_index(entity_t entity) noexcept {
     return static_cast<index_t>(entity);
 }
 
-ATOM_FORCE_INLINE static constexpr void
+ATOM_ALWAYS_INLINE static constexpr void
     _reset_index(entity_t& entity) noexcept {
     entity = ((entity >> 32) << 32);
 }
 
-ATOM_NODISCARD ATOM_FORCE_INLINE constexpr static entity_t
+ATOM_NODISCARD ATOM_ALWAYS_INLINE constexpr static entity_t
     _make_entity(generation_t gen, index_t index) noexcept {
     return (static_cast<entity_t>(gen) << 32UL) | index;
 }

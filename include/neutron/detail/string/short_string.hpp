@@ -1,6 +1,9 @@
 // IWYU pragma: private, include <neutron/string.hpp>
 #pragma once
+#include <algorithm>
 #include <cstddef>
+#include <cstring>
+#include <format>
 #include <initializer_list>
 #include <iterator>
 #include <memory>
@@ -9,9 +12,11 @@
 #include "neutron/detail/iterator/iter_wrapper.hpp"
 #include "neutron/detail/macros.hpp"
 #include "neutron/detail/memory/inplace.hpp"
+#include "neutron/detail/memory/raw_memory.hpp"
 #include "neutron/detail/string/string_view_like.hpp"
 
 #include <version>
+#include <neutron/utility.hpp>
 #if __cpp_lib_containers_ranges >= 202202L
     #include <ranges>
     #include "neutron/detail/ranges/concepts.hpp"
@@ -41,8 +46,8 @@ template <std::size_t Capacity>
 using short_u32string = basic_short_string<Capacity, char32_t>;
 
 template <std::size_t Capacity, typename CharT, typename Traits, typename Alloc>
-class basic_short_string : Alloc, inplace_storage<CharT, Capacity> {
-    using _storage_t = inplace_storage<CharT, Capacity>;
+class basic_short_string : Alloc, inplace_storage<CharT, Capacity, true> {
+    using _storage_t = inplace_storage<CharT, Capacity, true>;
 
 public:
     using traits_type            = Traits;
@@ -71,8 +76,33 @@ public:
     constexpr basic_short_string(
         size_type count, CharT ch, const Alloc& alloc = {});
 
-    template <typename Input>
-    constexpr basic_short_string(Input first, Input last, const Alloc& = {});
+    template <typename InputIter>
+    constexpr basic_short_string(
+        InputIter first, InputIter last, const Alloc& = {}) {
+        if constexpr (std::forward_iterator<InputIter>) {
+            const auto n = static_cast<size_type>(std::distance(first, last));
+            if (n > Capacity - 1) {
+                data_ = alloc_traits::allocate(*this, n);
+            }
+            size_ = uninitialized_copy_n(first, last, data_) - data_;
+            _set_tail_zero();
+        } else {
+            auto guard = make_exception_guard([this]() noexcept {
+                if (!_is_short()) {
+                    alloc_traits(*this, data_);
+                    data_     = _storage_t::data();
+                    capacity_ = Capacity;
+                }
+            });
+            for (; first != last; ++first, ++size_) {
+                if (_need_grow()) {
+                    _grow_to(capacity_ << 1);
+                }
+
+                data_[size_] = *first;
+            }
+        }
+    }
 
 #if __cpp_lib_containers_ranges >= 202202L
     template <compatible_range<CharT> Rng>
@@ -81,25 +111,55 @@ public:
 #endif
 
     constexpr basic_short_string(
-        const CharT* string, size_type count, const allocator_type& alloc = {});
+        const CharT* str, size_type count, const allocator_type& alloc = {}) {
+        if (count > Capacity - 1) {
+            data_     = alloc_traits::allocate(*this, count + 1);
+            capacity_ = count + 1;
+        }
+        uninitialized_copy_n(str, count, data_);
+        size_ = count;
+        _set_tail_zero();
+    }
+
+    template <std::size_t Cap>
+    constexpr basic_short_string(
+        const char (&literal)[Cap], const allocator_type& alloc = {}) {
+        if constexpr (Cap > Capacity) {
+            data_     = alloc_traits::allocate(*this, Cap);
+            capacity_ = Cap;
+        }
+        uninitialized_copy_n(literal, Cap, data_);
+        size_ = Cap - 1;
+        _set_tail_zero();
+    }
 
     basic_short_string(std::nullptr_t) = delete;
 
     template <string_view_like StringViewLike>
     explicit basic_short_string(
-        const StringViewLike& sv, const allocator_type& alloc = {});
+        const StringViewLike& sv, const allocator_type& alloc = {})
+        : basic_short_string(sv.begin(), sv.end(), alloc) {}
 
     template <string_view_like StringViewLike>
     constexpr basic_short_string(
         const StringViewLike& sv, size_type pos, size_type count,
-        const allocator_type& alloc = {});
+        const allocator_type& alloc = {})
+        : basic_short_string(
+              sv.begin() + pos, sv.begin() + pos + count, alloc) {}
 
-    constexpr basic_short_string(const basic_short_string& other);
+    constexpr basic_short_string(const basic_short_string& other) {
+        if (!other._is_short()) {
+            data_     = alloc_traits::allocate(*this, other.capacity_);
+            capacity_ = other.capacity_;
+        }
+        uninitialized_copy_n(other.data_, other.size_ + 1, data_);
+        size_ = other.size_;
+    }
 
     constexpr basic_short_string(basic_short_string&& other) noexcept;
 
     constexpr basic_short_string(
-        const basic_short_string& other, const allocator_type& alloc = {});
+        const basic_short_string& other, const allocator_type& alloc);
 
     constexpr basic_short_string(
         basic_short_string&& other,
@@ -228,9 +288,75 @@ public:
     constexpr void swap(basic_short_string& other) noexcept;
 
 private:
+    ATOM_NODISCARD ATOM_ALWAYS_INLINE constexpr bool
+        _is_short() const noexcept {
+        return data_ == _storage_t::data();
+    }
+
+    ATOM_NODISCARD ATOM_ALWAYS_INLINE constexpr bool
+        _need_grow() const noexcept {
+        return size_ == capacity_ - 1;
+    }
+
+    ATOM_ALWAYS_INLINE constexpr void _set_tail_zero() noexcept {
+        data_[size_] = 0;
+    }
+
+    ATOM_ALWAYS_INLINE constexpr void _grow_to(size_type n) {
+        pointer p = alloc_traits::allocate(*this, n);
+        uninitialized_copy_n(data_, size_ + 1, p);
+        if (_is_short()) {
+            alloc_traits::deallocate(*this, data_);
+        }
+        data_     = p;
+        capacity_ = n;
+    }
+
     pointer data_{ _storage_t::data() };
     size_type size_{};
     size_type capacity_{ Capacity };
 };
 
+// NOLINTBEGIN(modernize-avoid-c-arrays)
+
+template <std::size_t Size>
+basic_short_string(const char (&)[Size]) -> basic_short_string<Size, char>;
+
+template <std::size_t Size>
+basic_short_string(const wchar_t (&)[Size])
+    -> basic_short_string<Size, wchar_t>;
+
+template <std::size_t Size>
+basic_short_string(const char8_t (&)[Size])
+    -> basic_short_string<Size, char8_t>;
+
+template <std::size_t Size>
+basic_short_string(const char16_t (&)[Size])
+    -> basic_short_string<Size, char16_t>;
+
+template <std::size_t Size>
+basic_short_string(const char32_t (&)[Size])
+    -> basic_short_string<Size, char32_t>;
+
+// NOLINTEND(modernize-avoid-c-arrays)
+
 } // namespace neutron
+
+namespace std {
+
+template <size_t Capacity, typename CharT, typename Traits, typename Alloc>
+struct formatter<
+    neutron::basic_short_string<Capacity, CharT, Traits, Alloc>, CharT> {
+    using short_string_t =
+        neutron::basic_short_string<Capacity, CharT, Traits, Alloc>;
+
+    constexpr auto parse(basic_format_parse_context<CharT>& pc) {
+        return formatter<string_view, CharT>{}.parse(pc);
+    }
+
+    auto format(const short_string_t& ss, format_context& ctx) const {
+        return formatter<string_view, CharT>::format(ss, ctx);
+    }
+};
+
+} // namespace std

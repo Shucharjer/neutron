@@ -13,7 +13,7 @@ struct null_gurad {
     template <excluding<null_gurad> Ignored>
     constexpr null_gurad(Ignored&&) noexcept {}
 
-    ATOM_FORCE_INLINE constexpr void dismiss() noexcept {}
+    ATOM_ALWAYS_INLINE constexpr void dismiss() noexcept {}
 };
 
 template <typename Rollback>
