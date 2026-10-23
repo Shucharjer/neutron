@@ -547,7 +547,7 @@ private:
         return data_ == reinterpret_cast<const Ty*>(std::addressof(storage_));
     }
 
-    ATOM_FORCE_INLINE void _reset_data_ptr() noexcept {
+    ATOM_ALWAYS_INLINE void _reset_data_ptr() noexcept {
         data_ = reinterpret_cast<pointer>(storage_);
     }
 

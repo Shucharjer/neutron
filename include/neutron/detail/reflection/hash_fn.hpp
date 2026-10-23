@@ -24,7 +24,7 @@ constexpr hash_t hash(std::string_view string) noexcept {
 
 template <std::ranges::range Rng>
 requires std::same_as<std::ranges::range_value_t<Rng>, uint32_t>
-ATOM_FORCE_INLINE constexpr long_hash_t
+ATOM_ALWAYS_INLINE constexpr long_hash_t
     hash_combine(const Rng& range) noexcept {
     constexpr long_hash_t magic  = 0xcbf29ce484222325;
     constexpr long_hash_t prime  = 0x100000001b3;

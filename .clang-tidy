@@ -16,6 +16,7 @@ Checks: >
   performance-*,
   portability-*,
   readability-*,
+  -readability-identifier-length,
   -readability-named-parameter
 
 HeaderFilterRegex: '.*'

@@ -26,7 +26,7 @@ using inplace_vector = std::inplace_vector<T, N>;
     #include <utility>
     #include "neutron/detail/concepts/nothrow_conditional_movable.hpp"
     #include "neutron/detail/macros.hpp"
-    #include "neutron/detail/memory/uninitialized_algorithms.hpp"
+    #include "neutron/detail/memory/raw_memory.hpp"
     #include "neutron/detail/utility/assert.hpp"
     #include "neutron/detail/utility/packed_uint.hpp"
 
@@ -48,11 +48,11 @@ template <typename T, std::size_t N>
 struct inplace_vector_trivial_storage {
     using size_type = packed_uint_t<N>;
 
-    ATOM_FORCE_INLINE constexpr T* storage_data() noexcept {
+    ATOM_ALWAYS_INLINE constexpr T* storage_data() noexcept {
         return _storage.data();
     }
 
-    ATOM_FORCE_INLINE constexpr const T* storage_data() const noexcept {
+    ATOM_ALWAYS_INLINE constexpr const T* storage_data() const noexcept {
         return _storage.data();
     }
 
@@ -64,11 +64,11 @@ template <typename T, std::size_t N>
 struct inplace_vector_non_trivial_storage { // NOLINT
     using size_type = packed_uint_t<N>;
 
-    ATOM_FORCE_INLINE constexpr T* storage_data() noexcept {
+    ATOM_ALWAYS_INLINE constexpr T* storage_data() noexcept {
         return reinterpret_cast<T*>(_storage);
     }
 
-    ATOM_FORCE_INLINE constexpr const T* storage_data() const noexcept {
+    ATOM_ALWAYS_INLINE constexpr const T* storage_data() const noexcept {
         return reinterpret_cast<T*>(_storage);
     }
 
@@ -83,17 +83,17 @@ using storage_for_inplace_vector = typename std::conditional_t<
 
 template <std::size_t N>
 struct inplace_container_base {
-    ATOM_NODISCARD ATOM_FORCE_INLINE constexpr std::size_t
+    ATOM_NODISCARD ATOM_ALWAYS_INLINE constexpr std::size_t
         capacity() const noexcept {
         return N;
     }
 
-    ATOM_NODISCARD ATOM_FORCE_INLINE constexpr std::size_t
+    ATOM_NODISCARD ATOM_ALWAYS_INLINE constexpr std::size_t
         max_size() const noexcept {
         return N;
     }
 
-    ATOM_FORCE_INLINE constexpr void shrink_to_fit() noexcept {}
+    ATOM_ALWAYS_INLINE constexpr void shrink_to_fit() noexcept {}
 };
 
 } // namespace internal
