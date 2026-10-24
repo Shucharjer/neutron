@@ -7,7 +7,7 @@
 #include <string_view>
 #include <system_error>
 #include <neutron/utility.hpp>
-#include "neutron/detail/macros.hpp"
+#include "neutron/detail/utility/macros.hpp"
 
 #if defined(__linux) || defined(__linux__)
     #include <fcntl.h>

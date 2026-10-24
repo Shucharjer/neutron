@@ -5,5 +5,6 @@
 #include "neutron/detail/ranges/closure.hpp"
 #include "neutron/detail/ranges/concepts.hpp"
 #include "neutron/detail/ranges/to.hpp"
+#include "neutron/detail/ranges/views.hpp"
 
 // IWYU pragma: end_exports

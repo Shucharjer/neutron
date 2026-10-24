@@ -2,7 +2,7 @@
 #pragma once
 #include <cstddef>
 #include <type_traits>
-#include "neutron/detail/macros.hpp"
+#include "neutron/detail/utility/macros.hpp"
 
 namespace neutron {
 

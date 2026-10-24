@@ -3,7 +3,7 @@
 #include <array>
 #include <cstdint>
 #include "neutron/detail/concepts/value.hpp"
-#include "neutron/detail/macros.hpp"
+#include "neutron/detail/utility/macros.hpp"
 #include "neutron/detail/reflection/legacy/access.hpp"
 #include "neutron/detail/reflection/legacy/concepts.hpp"
 #include "neutron/detail/reflection/legacy/member_count.hpp"

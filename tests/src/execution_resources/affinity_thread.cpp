@@ -2,7 +2,7 @@
 #include <iostream>
 #include <thread>
 #include <neutron/execution.hpp>
-#include <neutron/execution_resources.hpp>
+#include <neutron/execution_resource.hpp>
 
 using namespace neutron;
 using namespace neutron::execution;

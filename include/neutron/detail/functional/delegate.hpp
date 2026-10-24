@@ -7,7 +7,7 @@
 #include <type_traits>
 #include <utility>
 #include <neutron/memory.hpp>
-#include "neutron/detail/macros.hpp"
+#include "neutron/detail/utility/macros.hpp"
 #include "neutron/detail/reflection/refl.hpp"
 #include "neutron/detail/utility/spreader.hpp"
 #include "neutron/type_traits.hpp"

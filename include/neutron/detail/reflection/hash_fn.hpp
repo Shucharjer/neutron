@@ -2,7 +2,7 @@
 #pragma once
 #include <cstdint>
 #include <string_view>
-#include "neutron/detail/macros.hpp"
+#include "neutron/detail/utility/macros.hpp"
 #include "neutron/detail/reflection/hash_t.hpp"
 
 /*! @cond TURN_OFF_DOXYGEN */

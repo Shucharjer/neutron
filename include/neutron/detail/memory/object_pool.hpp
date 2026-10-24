@@ -2,7 +2,7 @@
 #include <cstddef>
 #include <memory>
 #include <utility>
-#include "neutron/detail/macros.hpp"
+#include "neutron/detail/utility/macros.hpp"
 #include "neutron/detail/mask.hpp"
 #include "neutron/detail/memory/freeable_bytes.hpp"
 

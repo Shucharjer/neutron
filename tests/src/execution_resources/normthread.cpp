@@ -1,7 +1,7 @@
 #include <cstdint>
 #include <iostream>
 #include <neutron/execution.hpp>
-#include <neutron/execution_resources.hpp>
+#include <neutron/execution_resource.hpp>
 
 using namespace neutron;
 using namespace neutron::execution;
@@ -23,7 +23,9 @@ int main() {
                     }
                     return num;
                 }) |
-                then([](uint64_t num) { std::cout << num << '\n'; });
+                then([](uint64_t num) {
+                    std::cout << num << '\n';
+                });
 
     this_thread::sync_wait(std::move(sndr));
 

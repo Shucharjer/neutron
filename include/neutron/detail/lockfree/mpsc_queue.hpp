@@ -7,7 +7,7 @@
 #include <neutron/memory.hpp>
 #include "neutron/detail/lockfree/intrusive_mpsc_queue.hpp"
 #include "neutron/detail/lockfree/node.hpp"
-#include "neutron/detail/macros.hpp"
+#include "neutron/detail/utility/macros.hpp"
 #include "neutron/detail/memory/rebind_alloc.hpp"
 
 namespace neutron {

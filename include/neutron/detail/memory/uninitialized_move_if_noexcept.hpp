@@ -7,7 +7,7 @@
 #include <type_traits>
 #include <neutron/concepts.hpp>
 #include "neutron/detail/concepts/trivially_relocatable.hpp"
-#include "neutron/detail/macros.hpp"
+#include "neutron/detail/utility/macros.hpp"
 
 namespace neutron {
 

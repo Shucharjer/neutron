@@ -7,7 +7,7 @@
 #include <neutron/concepts.hpp>
 #include <neutron/utility.hpp>
 #include "neutron/detail/concepts/allocator.hpp"
-#include "neutron/detail/macros.hpp"
+#include "neutron/detail/utility/macros.hpp"
 
 namespace neutron {
 

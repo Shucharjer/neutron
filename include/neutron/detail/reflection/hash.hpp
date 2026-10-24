@@ -2,7 +2,7 @@
 #pragma once
 #include <concepts>
 #include <ranges>
-#include "neutron/detail/macros.hpp"
+#include "neutron/detail/utility/macros.hpp"
 #include "neutron/detail/metafn/convert.hpp"
 #include "neutron/detail/metafn/element.hpp"
 #include "neutron/detail/metafn/make.hpp"

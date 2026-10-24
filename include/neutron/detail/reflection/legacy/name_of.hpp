@@ -6,7 +6,7 @@
 #include <string_view>
 #include <tuple>
 #include <utility>
-#include "neutron/detail/macros.hpp"
+#include "neutron/detail/utility/macros.hpp"
 
 namespace neutron::_refl_legacy {
 

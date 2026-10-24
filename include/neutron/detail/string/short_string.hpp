@@ -10,7 +10,7 @@
 #include <stdexcept>
 #include <string_view>
 #include "neutron/detail/iterator/iter_wrapper.hpp"
-#include "neutron/detail/macros.hpp"
+#include "neutron/detail/utility/macros.hpp"
 #include "neutron/detail/memory/inplace.hpp"
 #include "neutron/detail/memory/raw_memory.hpp"
 #include "neutron/detail/string/string_view_like.hpp"
@@ -355,7 +355,7 @@ struct formatter<
     }
 
     auto format(const short_string_t& ss, format_context& ctx) const {
-        return formatter<string_view, CharT>::format(ss, ctx);
+        return formatter<string_view, CharT>{}.format(ss, ctx);
     }
 };
 

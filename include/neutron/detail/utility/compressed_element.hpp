@@ -3,7 +3,7 @@
 #include <cstddef>
 #include <type_traits>
 #include <utility>
-#include "../macros.hpp"
+#include "neutron/detail/utility/macros.hpp"
 
 namespace neutron {
 

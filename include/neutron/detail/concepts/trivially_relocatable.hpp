@@ -18,7 +18,7 @@ using trivially_relocatable =
 
 #else
 
-    #include "neutron/detail/macros.hpp"
+    #include "neutron/detail/utility/macros.hpp"
 
     #if ATOM_HAS_REFLECTION
 

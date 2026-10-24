@@ -13,7 +13,7 @@
 #include "neutron/detail/ecs/core/archetype.hpp"
 #include "neutron/detail/ecs/core/slice.hpp"
 #include "neutron/detail/ecs/core/world_accessor.hpp"
-#include "neutron/detail/macros.hpp"
+#include "neutron/detail/utility/macros.hpp"
 #include "neutron/detail/type_traits/same_cvref.hpp"
 #include "neutron/metafn.hpp"
 

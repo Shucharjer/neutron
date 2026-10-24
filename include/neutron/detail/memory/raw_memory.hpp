@@ -9,7 +9,7 @@
 
 #if !defined(__cpp_lib_raw_memory_algorithms) ||                               \
     __cpp_lib_raw_memory_algorithms < 202411L
-    #include "neutron/detail/macros.hpp"
+    #include "neutron/detail/utility/macros.hpp"
     #if !defined(__cpp_if_consteval) || __cpp_if_consteval < 202106L
         #include <type_traits> // IWYU pragma: keep, mis-report
     #endif

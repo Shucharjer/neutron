@@ -7,7 +7,7 @@
 #include <utility>
 #include "neutron/detail/ecs/compile-time/descriptor.hpp"
 #include "neutron/detail/ecs/runtime/run_env.hpp"
-#include "neutron/detail/macros.hpp"
+#include "neutron/detail/utility/macros.hpp"
 #include "neutron/execution.hpp" // IWYU pragma: keep
 
 namespace neutron {

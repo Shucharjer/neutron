@@ -25,7 +25,7 @@
 #include "neutron/detail/ecs/concepts/component.hpp"
 #include "neutron/detail/ecs/concepts/entity.hpp"
 #include "neutron/detail/ecs/utility/anchor.hpp"
-#include "neutron/detail/macros.hpp"
+#include "neutron/detail/utility/macros.hpp"
 #include "neutron/detail/memory/uninitialized_move_if_noexcept.hpp"
 #include "neutron/detail/ranges/concepts.hpp"
 #include "neutron/detail/reflection/hash.hpp"

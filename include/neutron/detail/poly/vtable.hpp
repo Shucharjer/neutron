@@ -3,11 +3,11 @@
 #include <cstddef>
 #include <tuple>
 #include <type_traits>
+#include "neutron/detail/member_function_traits.hpp"
+#include "neutron/detail/poly/concepts.hpp"
+#include "neutron/detail/utility/macros.hpp"
+#include "neutron/detail/utility/spreader.hpp"
 #include "neutron/metafn.hpp"
-#include "../macros.hpp"
-#include "../member_function_traits.hpp"
-#include "../utility/spreader.hpp"
-#include "./concepts.hpp"
 
 namespace neutron {
 

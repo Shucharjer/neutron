@@ -15,7 +15,7 @@
 #include <stdexcept>
 #include <type_traits>
 #include <utility>
-#include "neutron/detail/macros.hpp"
+#include "neutron/detail/utility/macros.hpp"
 
 #ifdef _MSC_VER
     #define SKA_NOINLINE(...) __declspec(noinline) __VA_ARGS__

@@ -2,7 +2,7 @@
 #include <type_traits>
 #include <utility>
 #include "neutron/detail/execution/core.hpp"
-#include "neutron/detail/macros.hpp"
+#include "neutron/detail/utility/macros.hpp"
 
 namespace neutron::internal {
 

@@ -57,7 +57,7 @@
 #include <concepts>
 #include <type_traits>
 #include <utility>
-#include "neutron/detail/macros.hpp"
+#include "neutron/detail/utility/macros.hpp"
 #include "neutron/detail/utility/compressed_pair.hpp"
 
 namespace neutron {

@@ -11,7 +11,7 @@
 #include <type_traits>
 #include "neutron/detail/ecs/compile-time/descriptor.hpp"
 #include "neutron/detail/ecs/core/querior.hpp"
-#include "neutron/detail/macros.hpp"
+#include "neutron/detail/utility/macros.hpp"
 #include "neutron/detail/metafn/convert.hpp"
 #include "neutron/detail/tuple/shared_tuple.hpp"
 #include "neutron/detail/type_traits/same_cvref.hpp"

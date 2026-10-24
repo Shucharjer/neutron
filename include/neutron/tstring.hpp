@@ -3,7 +3,7 @@
 #include <cstring>
 #include <format>
 #include <string_view>
-#include "neutron/detail/macros.hpp"
+#include "neutron/detail/utility/macros.hpp"
 
 namespace neutron {
 

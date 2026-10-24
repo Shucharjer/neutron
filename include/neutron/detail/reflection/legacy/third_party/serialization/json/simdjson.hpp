@@ -9,7 +9,7 @@
     #include <type_traits>
     #include <utility>
     #include <simdjson.h>
-    #include "neutron/detail/macros.hpp"
+    #include "neutron/detail/utility/macros.hpp"
     #include "neutron/detail/reflection/refl.hpp"
     #include "neutron/detail/utility/get.hpp"
 

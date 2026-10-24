@@ -15,7 +15,7 @@
 #include <type_traits>
 #include <utility>
 #include <vector>
-#include "neutron/detail/macros.hpp"
+#include "neutron/detail/utility/macros.hpp"
 #include "neutron/flat_hash_map.hpp"
 
 namespace neutron {

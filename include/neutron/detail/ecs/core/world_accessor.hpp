@@ -1,7 +1,7 @@
 // IWYU pragma: private, include <neutron/ecs.hpp>
 #pragma once
 #include "neutron/detail/ecs/fwd.hpp"
-#include "neutron/detail/macros.hpp"
+#include "neutron/detail/utility/macros.hpp"
 
 namespace neutron {
 

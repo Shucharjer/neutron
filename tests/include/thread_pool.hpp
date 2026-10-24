@@ -14,7 +14,7 @@
 #include <type_traits>
 #include <utility>
 #include <vector>
-#include "neutron/detail/macros.hpp"
+#include "neutron/detail/utility/macros.hpp"
 #include "neutron/execution.hpp"
 #include "neutron/stop_token.hpp"
 

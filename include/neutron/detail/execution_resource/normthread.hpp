@@ -1,6 +1,6 @@
 #pragma once
 #include <thread>
-#include "neutron/detail/macros.hpp"
+#include "neutron/detail/utility/macros.hpp"
 #include "neutron/execution.hpp" // IWYU pragma: keep
 
 namespace neutron {

@@ -2,7 +2,7 @@
 
 // IWYU pragma: begin_exports
 
-#include "neutron/detail/macros.hpp"
+#include "neutron/detail/utility/macros.hpp"
 
 #if ATOM_HAS_REFLECTION
     #include "neutron/detail/reflection/meta/hash_of.hpp"

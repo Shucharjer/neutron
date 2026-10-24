@@ -8,7 +8,7 @@
 #include <tuple>
 #include <type_traits>
 #include "neutron/detail/concepts/fixed_array.hpp"
-#include "neutron/detail/macros.hpp"
+#include "neutron/detail/utility/macros.hpp"
 #include "neutron/detail/reflection/refl.hpp"
 #include "neutron/detail/tuple/shared_tuple.hpp"
 

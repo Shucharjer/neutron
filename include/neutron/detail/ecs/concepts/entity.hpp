@@ -2,7 +2,7 @@
 #pragma once
 #include <cstdint>
 #include <format>
-#include "neutron/detail/macros.hpp"
+#include "neutron/detail/utility/macros.hpp"
 
 namespace neutron {
 

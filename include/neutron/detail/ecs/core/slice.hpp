@@ -5,7 +5,7 @@
 #include <neutron/concepts.hpp>
 #include "neutron/detail/ecs/core/archetype.hpp"
 #include "neutron/detail/ecs/fwd.hpp"
-#include "neutron/detail/macros.hpp"
+#include "neutron/detail/utility/macros.hpp"
 
 namespace neutron {
 
