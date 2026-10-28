@@ -13,9 +13,11 @@
 #include "neutron/detail/utility/get.hpp"
 #include "neutron/detail/utility/id_t.hpp"
 #include "neutron/detail/utility/immediately.hpp"
+#include "neutron/detail/utility/macros.hpp"
 #include "neutron/detail/utility/make_array.hpp"
 #include "neutron/detail/utility/none_such.hpp"
 #include "neutron/detail/utility/packed_uint.hpp"
+#include "neutron/detail/utility/pipeline.hpp"
 #include "neutron/detail/utility/spreader.hpp"
 
 // IWYU pragma: end_exports

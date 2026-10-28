@@ -3,5 +3,6 @@
 
 #include "neutron/detail/string/short_string.hpp"
 #include "neutron/detail/string/string_view_like.hpp"
+#include "neutron/detail/string/tstring.hpp"
 
 // IWYU pragma: end_exports

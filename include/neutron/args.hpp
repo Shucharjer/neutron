@@ -4,7 +4,7 @@
 #include <tuple>
 #include <utility>
 #include <vector>
-#include "neutron/tstring.hpp"
+#include "neutron/detail/string/tstring.hpp"
 
 namespace neutron {
 

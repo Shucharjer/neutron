@@ -11,7 +11,7 @@
 #include "neutron/detail/metafn/definition.hpp"
 #include "neutron/detail/metafn/element.hpp"
 #include "neutron/inplace_vector.hpp"
-#include "neutron/tstring.hpp"
+#include "neutron/detail/string/tstring.hpp"
 
 namespace neutron {
 

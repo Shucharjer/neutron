@@ -8,7 +8,7 @@
 #include "neutron/detail/reflection/legacy/concepts.hpp"
 #include "neutron/detail/reflection/legacy/member_count.hpp"
 #include "neutron/detail/reflection/legacy/tuple_view.hpp"
-#include "neutron/tstring.hpp"
+#include "neutron/detail/string/tstring.hpp"
 
 namespace neutron::_refl_legacy {
 

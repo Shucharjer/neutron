@@ -8,7 +8,7 @@
 #include "neutron/detail/reflection/legacy/member_traits.hpp"
 #include "neutron/detail/reflection/legacy/name_of.hpp"
 #include "neutron/detail/reflection/type_traits.hpp"
-#include "neutron/tstring.hpp"
+#include "neutron/detail/string/tstring.hpp"
 
 namespace neutron::_refl_legacy {
 
