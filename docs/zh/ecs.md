@@ -1,341 +1,350 @@
-# ECS 实现
+# ecs
 
-这一页聚焦 `neutron` 的 ECS 本身，默认读者已经看过 [`readme.md`](./readme.md) 中的快速入门.
-与快速入门不同，这里更强调它的实现分层、描述符驱动的调度方式，以及它在 `electron`示例中的行为.
+本文先介绍推荐的应用集成方式, 再展开数据存储、查询、系统调度、直接世界操作和编译期实现.
 
-相关入口仍然是 [`<neutron/ecs.hpp>`](../../include/neutron/ecs.hpp).
+相关头文件为 [`<neutron/ecs.hpp>`](../../include/neutron/ecs.hpp).
 
-## 设计目标
+## 目录
 
-`neutron` 的 ECS 围绕三件事组织：
+- [推荐使用方式](#推荐使用方式)
+- [快速开始](#快速开始)
+- [核心概念](#核心概念)
+  - [实体](#实体)
+  - [组件](#组件)
+  - [系统](#系统)
+    - [commands](#commands-命令)
+    - [query](#query-实体查询)
+    - [command_list](#command_list-命令列表)
+    - [global](#global-全局参数)
+    - [local](#local-系统本地存储)
+    - [res](#res-世界存储)
+    - [meta_accessor](#meta_accessor-元数据访问)
+    - [自定义系统参数](#自定义参数)
+  - [世界描述符](#世界描述符)
+    - [add_systems](#add_systems)
+    - [execute](#execute)
+    - [enable_render & enable_events](#enable_render--enable_events)
+    - [set_identifier](#set_identifier)
+    - [自定义描述符](#自定义描述符)
+- [底层接口](#底层接口)
+- [内部实现](#内部实现)
+- [基准测试](#基准测试)
 
-- 用 archetype 布局把同构实体放到连续存储中，让查询和批量结构编辑尽量保持缓存友好;  
-- 用世界描述符在编译期推导系统元数据、依赖关系和访问冲突，把错误尽量提前到编译期;  
-- 把存储层、延迟结构编辑和多世界调度分开，让调用方可以按成本选择抽象层级.  
+## 推荐使用方式
 
-因此，这套 ECS 并不只有一个“世界”类型，而是拆成了几层：
+推荐应用通过 `app::create() | run_worlds<...>()` 接入 ECS：  
+`app::create()` → `run_worlds<world...>()` → `app::run<world...>()` → `make_runtime<world...>(scheduler_provider, payload)` → `runtime.run()`  
+`app` 负责平台生命周期、事件循环、线程池和内存资源. `runtime` 负责调度 world、执行阶段和控制帧循环.   
 
-- `world_base<>` 提供底层存储和直接结构编辑.
-- `basic_world<Descriptor>` 或 `make_world<Descriptor>()` 在存储层之上叠加描述符、系统图和运行接口.
-- `make_worlds<...>`、`call_update(...)`、`make_world_schedule(...)`和`make_runtime` 负责多世界运行时.
+当然, 您也可以按需使用，引入更为底层的世界、执行环境或 archetype 等底层接口, 集成到自定义的运行环境, 以实现更细粒度的控制.
 
-如果你只是想把实体和组件放进连续内存里，直接使用 `world_base<>` 即可；如果你需要阶段化系统、命令缓冲、查询缓存、频率控制或多世界调度，则使用描述符驱动的 `basic_world` 更合适.
+## 快速开始
 
-## 数据模型
+以下为一个不能编译的接口示例. 示例省略了 `app`、scheduler provider、payload 和内存资源的具体实现, 因此不能直接编译，但展示了各层接口如何衔接：
+
+```cpp
+using namespace neutron;
+
+struct Position {
+    using component_concept = component_tag;
+    float x{};
+    float y{};
+};
+
+void begin_update(commands commands) {
+    commands.spawn(Position{0.0f, 0.0f});
+}
+
+constexpr auto desc =
+    world_desc | add_systems<stage::update, &begin_update>;
+
+struct app {
+    static app create();
+
+    template <auto... Worlds>
+    int run(auto&&... config) {
+        auto provider = /* scheduler provider */;
+        auto payload  = /* frame lifecycle */;
+        auto runtime =
+            make_runtime<Worlds...>(provider, &payload, /* allocator */);
+        return runtime.run();
+    }
+};
+
+int main(int argc, char* argv[]) {
+    return app::create() | run_worlds<desc>(argc, argv);
+}
+```
+
+接口关系如下：
+
+- 组件类型带有 `component_concept` 标记.
+- 系统是普通函数, 可以请求组件数据、命令接口、资源和局部状态等.
+- `add_systems` 把系统注册到阶段, 并组合成 world 描述符.
+- `run_worlds` 把描述符和配置交给 `app::run<Worlds...>()`.
+- `app::run` 准备 scheduler provider、payload 和内存资源, 并创建 `make_runtime<Worlds...>`.
+- `runtime.run()` 驱动帧循环, 按阶段执行 world.
+
+`app` 可以自行决定配置参数、payload 如何结束帧循环, 以及如何管理线程和内存资源. 具体实现可对照
+[`tests/include/app.hpp`](../../tests/include/app.hpp)；
+`run_worlds` 的调用形式见 [`tests/src/ecs/runtime/run.cpp`](../../tests/src/ecs/runtime/run.cpp).
+
+## 核心概念
+
+### 实体
+
+在使用完整 `neutron` 的情况下, 所遇到的实体多为 `entity_t` 或 `future_entity_t`, 它是一个划分实体身份的 id, 除此以外不存储任何具体信息.  
 
 ### 组件
 
-组件是普通 C++ 类型，只要满足 `component_concept` 标记或者特化 `as_component` 即可：
+组件是普通 C++ 类型, 可以通过 `component_concept` 类型成员标记，也可以特化 `as_component` 启用. 组件不需要继承基类或运行时注册，类型信息和描述符元数据都在编译期推导.
+
+以下是一个组件标记示例：
 
 ```cpp
+using namespace neutron;
+
 struct Position {
-    using component_concept = neutron::component_tag;
-    float x{};
-    float y{};
+    using component_concept = component_tag;
+    /* data */
 };
 
-struct Velocity {
-    float x{};
-    float y{};
+struct ExternalType {
+    /* data */
 };
+
 template <>
-constexpr bool ::neutron::as_component<Velocity> = true;
+constexpr bool as_component<ExternalType> = true;
 ```
 
-这意味着 `neutron` 并不强迫你继承某个基类，也不要求运行时注册.组件识别主要依赖类型系统，系统参数和描述符元数据也因此可以在编译期推导。
+空组件不会被存储, 但依旧会参与哈稀计算.  
 
-### 实体与 archetype
+### 系统
 
-实体由 `entity_t` 标识.底层存储不是“每个实体一个对象”，而是把拥有相同组件集合的实体收进同一个archetype。这样做带来两个直接结果：
+系统可以是自由函数或不带有捕获列表的 lambda 表达式, 其参数数量、顺序不固定, 但每一个参数需能通过 `construct_from_world` 进行构造:  
 
-- 查询某一组组件时，遍历的是少量连续缓冲区，而不是离散对象.
-- `add_components` / `remove_components` 的本质是把实体从一个 archetype 迁移到另一个 archetype.
+```c++
+template <stage Stage, auto Sys, typename T>
+struct construct_from_world_t {
+    template <internal::world World>
+    constexpr T operator()(World& world) const
+        noexcept(std::is_nothrow_constructible_v<T, World>) {
+        return T(world);
+    }
+};
 
-[`test/src/ecs/world_base.cpp`](../../test/src/ecs/world_base.cpp) 和
-[`test/src/ecs/archetype.cpp`](../../test/src/ecs/archetype.cpp) 展示了这层语义：
-
-- `spawn(Position{}, Velocity{})` 会把实体放进对应组件集合的 archetype.
-- `add_components(entity, Velocity{})` 会触发结构迁移，但已有组件的重复添加会退化为 no-op.
-- `remove_components<Tag>(entity)` 会迁移到新的 archetype；删除不存在的组件同样是 no-op.
-- `spawn_n(...)`、`kill(...)` 和批量保留容量接口是第一等能力，而不是附加工具函数.
-
-这种设计与以“稀疏索引 + 独立组件池”为核心的 ECS 不同，更偏向于结构稳定后的批量处理.
-
-## 世界分层
-
-### `world_base<>`
-
-`world_base<>` 是最接近存储层的世界类型，适合手写结构编辑或做细粒度控制：
-
-```cpp
-neutron::world_base<> world;
-
-auto entity = world.spawn(Position{1.0f, 2.0f});
-world.add_components(entity, Velocity{3.0f, 4.0f});
-world.remove_components<Velocity>(entity);
-
-auto batch = world.spawn_n(1024, Position{}, Velocity{});
-world.kill(batch);
+template <stage Stage, auto Sys, typename T>
+inline constexpr construct_from_world_t<Stage, Sys, T> construct_from_world;
 ```
 
-这类接口在 [`test/src/ecs/world_base.cpp`](../../test/src/ecs/world_base.cpp) 中覆盖得很完整，
-包括：
+接下来会为您介绍可用的系统参数.
 
-- 单个实体和批量实体创建.
-- 带值和默认构造两种组件添加路径.
-- 重复添加、重复移除、先加后删、先删后加等边界条件.
-- 实体回收与 `is_alive` 语义.
+#### `commands`: 命令
 
-如果你只需要一个“高性能结构化存储”，这一层已经够用.
+`commands` 用于对实体及其组件列表进行修改, 参考以下示例:
 
-### `basic_world<Descriptor>` 与 `make_world<Descriptor>()`
+```c++
+void fn(commands commands) {
+    // spawn a entity
+    auto entity = commands.spawn<Position>();
 
-当你引入系统和阶段时，世界类型会由描述符决定：
+    // get mesh from some place
+    auto mesh = /* ... */;
 
-```cpp
-constexpr auto game_world =
-    neutron::world_desc |
-    neutron::add_systems<neutron::stage::update, &integrate>;
+    // add component for this entity
+    commands.add_components(entity, mesh);
 
-auto world = neutron::make_world<game_world>();
-neutron::call_update(world);
+    // add more componentns for this entity
+    commands.add_components<Velocity, Rotation, Name>(entity);
+
+    // remove a component
+    commands.remove_components<Name>(entity);
+
+    // remove more components
+    commands.remove_components<Velocity, Rotation>(entity);
+
+    // kill the entity
+    commands.kill(entity);
+}
 ```
 
-这个层次除了保留 `spawn`、`add_components` 等底层编辑接口，还会：
+尽管我们支持 `add_components` 或 `remove_components`, 但由于 SoA 批量存储, 进行增删组件总是意味着实体迁移。
 
-- 在编译期生成阶段图和系统调用路径.
-- 把系统参数自动从世界中构造出来.
-- 在调用系统后自动同步查询快照与命令缓冲.
+通过 `commands` 进行的操作都为立即完成, 因此对实体进行组件增删尽量一次性完成, 避免逐个增删组件导致的反复迁移.
 
-[`test/src/ecs/ecs.cpp`](../../test/src/ecs/ecs.cpp) 覆盖了单世界和多世界的 `call` /
-`call_update` 行为，也验证了 grouped world、individual world、动态频率和 render hooks 的区别.
+#### `query`: 实体查询
 
-## 世界描述符与调度
+`query` 用于进行实体查询, 其参数被称为 "查询过滤器".
 
-`neutron` 的 ECS 关键不在“系统列表”，而在 `world_desc` 及其后续组合：
+查询的结果通过成员函数 `get`, `get_with_entities`, `entities` 以范围的形式返回结果.
 
-```cpp
-constexpr auto world =
-    world_desc |
-    enable_render |
-    add_systems<render, &renderHello> |
-    add_systems<pre_update, &observeApp> |
-    add_systems<pre_update, &printFps>;
-```
+```c++
+void fn(query<with<Position&, const Velocity&>> qry, commands cmds) {
+    for (auto [pos, vel] : qry.get()) {
+        pos.x += vel.x;
+        pos.y += vel.y;
+    }
 
-这段代码直接来自 [`electron/example/src/main.cpp`](https://github.com/Shucharjer/electron/blob/main/example/src/main.cpp)，它同时体现了三件事：
-
-- 世界功能通过描述符声明，而不是靠运行时注册.
-- 系统属于明确的阶段，例如 `pre_update` 或 `render`.
-- `enable_render` 这样的标记会在编译期写入描述符元数据，并影响运行时调度.
-
-### `add_systems`
-
-`add_systems<stage, ...>` 用于把系统放到某个阶段，并可以在局部写出额外约束：
-
-```cpp
-constexpr auto desc =
-    world_desc |
-    add_systems<
-        update,
-        { &structural },
-        { &fn },
-        { &after_structural, after<&structural> }>;
-```
-
-这类写法在 [`test/src/ecs/ecs.cpp`](../../test/src/ecs/ecs.cpp)、
-[`test/src/ecs/desc.cpp`](../../test/src/ecs/desc.cpp) 和
-[`test/src/ecs/graph.cpp`](../../test/src/ecs/graph.cpp) 中都有覆盖.`after<&foo>` / `before<&foo>` 不是运行时排序提示，而是编译期图约束的一部分。
-
-### `execute<...>`
-
-`execute<...>` 用来补充世界级执行策略：
-
-- `execute<group<N>>` 指定世界所属的组，决定多世界运行时的组序.
-- `execute<individual>` 让世界走单独的执行路径.
-- `execute<interval<...>>` 指定固定更新间隔.
-- `execute<dynamic_interval<>>` 允许在运行时设置更新间隔.
-- `execute<always>` 表示总是更新；这也是默认描述符的一部分.
-
-[`test/src/ecs/execute.cpp`](../../test/src/ecs/execute.cpp) 验证了这些规则的归一化结果：
-
-- 默认 `world_desc` 会被归一化成 `group<0> + always`.
-- `group` 与 `interval` 可以在世界级别组合.
-- `individual` 会切换执行域.
-- `dynamic_interval<>` 不能与静态 `interval<...>` 混用.
-
-### 编译期验证
-
-这套描述符不是只负责“记配置”，还会做大量编译期检查.
-
-[`test/src/ecs/metainfo.cpp`](../../test/src/ecs/metainfo.cpp) 展示了几类典型验证：
-
-- 组件读写冲突会被拒绝.
-- 资源 `res<T...>` 与全局 `global<T...>` 的读写冲突也会被拒绝.
-- 通过 `after<...>` 建立顺序后，原本冲突的系统可以合法化.
-- 跨 group 的依赖和环状依赖会被识别为非法描述符.
-
-[`test/src/ecs/graph.cpp`](../../test/src/ecs/graph.cpp) 还说明了运行图如何处理带命令缓冲的节点：
-
-- 先收集当前可运行节点.
-- 发现命令节点完成后，标记命令缓冲需要刷新.
-- 刷新完成后再释放后继节点.
-
-换句话说，`basic_commands<>` 带来的结构修改不会在任意时刻穿透系统图，而是在flush时完成.
-
-## 查询与系统参数
-
-### `query` 与 `basic_querior`
-
-查询是系统最常见的输入.一个典型系统如下：
-
-```cpp
-void integrate(query<with<Position&, Velocity&>> movers) {
-    for (auto&& [position, velocity] : movers.get()) {
-        position.x += velocity.x;
-        position.y += velocity.y;
+    for (auto [e, pos, vel] : qry.get_with_entity()) {
+        e.add_component(e);
+        pos.x += vel.x;
+        pos.y += vel.y;
     }
 }
 ```
 
-其中几个细节很重要：
+虽然该参数名为 "query", 但并非每次都会进行查询:  
+我们会通过一些编译期的技巧以事先为高频调用的查询生成可供持续访问的查询结果, 并通过特殊的容器确保查询结果能用于访问当前的最新状况, 所以当一个世界被使用一段时间后, `query` 几乎是没有开销的——这就是模板元编程和 SoA 的潜能.  
 
-- `with<T...>`、`without<T...>` 和 `withany<T...>` 负责过滤;  
-- `query` 遍历的是 archetype 切片，不需要逐实体做类型分派;  
-- 系统被调用时，查询对象会自动从世界构造.  
+#### `command_list`: 命令列表
 
-[`test/src/ecs/query.cpp`](../../test/src/ecs/query.cpp) 还说明了两种不同的查询时机：
+相对于 `commands`, `command_list` 则提供了一种延迟的修改方案, 它会将需要执行的操作记录到预先准备好的命令缓冲区, 并在合适的时候进行真正的修改.
 
-- 手动构造 `basic_querior` 时，查询视图保留构造时刻的快照语义.
-- 系统参数里的缓存查询会在每次系统调用前同步，因此能看到最新世界状态.
+它会使用 `future_entity_t` 来表示即将生成的实体, 除此之外, 其接口与 `commands` 几乎一致:
 
-### `basic_commands<>`
+```c++
+void fn(command_list cl, query<with<Position>> qry) {
+    // spawn a entity
+    auto entity = cl.spawn<Position>();
 
-如果系统需要做结构编辑，推荐请求 `basic_commands<>`，而不是在遍历过程中直接改世界：
+    // get mesh from some place
+    auto mesh = /* ... */;
 
-```cpp
-void structural(neutron::basic_commands<>) {}
-```
+    // add component for this entity
+    cl.add_components(entity, mesh);
 
-这让结构变更进入命令缓冲，等到安全的 flush 点再统一应用.相关行为可见
-[`test/src/ecs/ecs.cpp`](../../test/src/ecs/ecs.cpp) 和
-[`test/src/ecs/graph.cpp`](../../test/src/ecs/graph.cpp).
+    // add more componentns for this entity
+    cl.add_components<Velocity, Rotation, Name>(entity);
 
-### `res<T...>`、`global<T...>`、`local<T...>`、`insertion<T...>`
+    // remove a component
+    cl.remove_components<Name>(entity);
 
-系统参数不只有查询：
+    // remove more components
+    cl.remove_components<Velocity, Rotation>(entity);
 
-- `res<T...>` 访问世界拥有的资源.
-- `global<T...>` 访问外部绑定的共享对象.
-- `local<T...>` 访问某个系统自身的局部状态.
-- `insertion<T...>` 访问当前调用链路临时注入的引用对象.
+    // kill the entity
+    cl.kill(entity);
 
-[`electron/example/include/fps.hpp`](https://github.com/Shucharjer/electron/blob/main/example/include/fps.hpp) 展示了 `local<T...>` 的典型用法：
-
-```cpp
-void printFps(
-    neutron::local<
-        std::chrono::time_point<std::chrono::system_clock>,
-        duration,
-        ticks_t> local) {
-    auto [tp, dur, ticks] = local;
-    // ...
+    // operation on living entity
+    for (auto e : qry.entities()) {
+        cl.remove_components<Position>(e);
+    }
 }
 ```
 
-这个局部状态不需要挂成组件或全局资源，也不需要手写静态变量；它会跟着系统实例存在.
+#### `global`: 全局参数
 
-而 [`electron/example/src/main.cpp`](https://github.com/Shucharjer/electron/blob/main/example/src/main.cpp) 中的：
+在一些情况下, 我们或许需要一些全局存在的参数来实现多世界的数据共享或传输, 因此我们引入了 `global`:
 
-```cpp
-void observeApp(neutron::insertion<const App::insertion&> app) {
-    [[maybe_unused]] auto& [insertion] = app;
+```c++
+void fn(global<std::atomic<uint64_t>&> glob) {
+    auto [atomic] = glob
+    auto v = atomic.load();
 }
 ```
 
-则说明了 `insertion<T...>` 的定位：它不是长期存储，而是把当前运行上下文中的外部引用安全地送进系统.
-这对引擎层桥接窗口、渲染器或应用对象尤其有用.
+`global` 提供了一种全局访问的方式, 其模板参数数量没有限制, 每一个模板参数需满足可默认构造.   
 
-## 延迟结构编辑
+其模板参数所对应实例拥有**静态存储**生命周期.  
 
-除了系统参数里的 `basic_commands<>`，也可以手动使用 `command_buffer<>`：
+#### `local`: 系统本地存储
 
-```cpp
-neutron::world_base<> world;
-neutron::command_buffer<> commands;
+由于 `global` 访问的实例具有静态存储, 同类型变量无法多次声明, 因此, 我们引入了系统本地存储, 多系统间数据访问互不干扰.
 
-auto future = commands.spawn(Position{1.0f, 2.0f});
-commands.add_components(future, Velocity{3.0f, 4.0f});
-commands.apply(world);
+```c++
+void fn(local<int> loc) {
+    auto [i] = loc; // { i } -> int&
+    println("{}", ++i);
+}
 ```
 
-这里的 `future_entity_t` 允许你在实体真正创建之前继续给它追加结构编辑.
-[`test/src/ecs/world_base.cpp`](../../test/src/ecs/world_base.cpp) 已经覆盖了：
+#### `res`: 世界存储
 
-- 先 `spawn` 再 `add_components`;  
-- 先 `spawn` 再 `remove_components`;  
-- 对未来实体的结构命令在 `apply(world)` 后一次性兑现.  
+我们引入 `res` 主要是为了实现世界内的数据共享, 虽然 `global` 已经能做到这一点, 但同步的范围太大了, 而且在多数情况下, 变量可能不需要静态存储.  
 
-这一层通常适合：
-
-- 需要在离线批处理中组织结构修改;  
-- 不想马上把修改应用到世界;  
-- 希望把编辑逻辑与系统执行阶段分离.  
-
-但需要说明的是, 如果能预先确定添加哪些组件, 一次性完成实体生成会比再调用add_components拥有更低的开销.  
-
-## 多世界运行时
-
-单世界场景里，`call<stage>(world)` 和 `call_update(world)` 已经足够.  
-但在真实引擎里，常见情况是多个世界需要共享调度器、命令缓冲和外部 hooks.  
-
-这时可以使用:  
-
-- `make_worlds<...>()`
-- `call<stage>(scheduler, command_buffers, worlds)`
-- `call_update(scheduler, command_buffers, worlds)`
-- `make_world_schedule(...)`
-
-[`test/src/ecs/ecs.cpp`](../../test/src/ecs/ecs.cpp) 验证了几个关键行为：
-
-- grouped world 和 individual world 会走不同的执行路径.
-- group 顺序是确定性的，可以手动 `call_update_group<N>`.
-- render world 在 schedule hooks 存在时会围绕一帧触发 `render_begin` / `render_end`.
-- `global<T...>` 可以跨世界共享外部状态.
-
-这也是 `electron` 示例能把应用生命周期、渲染阶段和 ECS 系统拼到一起的原因.
-
-## `electron/example` 如何使用这套 ECS
-
-[`electron/example/src/main.cpp`](https://github.com/Shucharjer/electron/blob/main/example/src/main.cpp) 是理解这套 ECS 最直接的真实例子：
-
-```cpp
-constexpr auto world = world_desc | enable_render |
-                       add_systems<render, &renderHello> |
-                       add_systems<pre_update, &observeApp> |
-                       add_systems<pre_update, &printFps>;
-
-App::Create() | run_worlds<world>(config);
+```c++
+void fn(res<int&> res) {
+    auto [i] = loc;
+    println("{}", ++i);
+}
 ```
 
-这个例子对应了 ECS 的三个典型角色：
+由于统一时刻可能有多个系统访问世界存储, 所以需要通过值、常量引用、引用来显式声明访问权限 (访问方式).  
 
-- [`example/include/hello_world.h2`](https://github.com/Shucharjer/electron/blob/main/example/include/hello_world.h2)中的 `renderHello` 是渲染阶段系统，说明系统本身可以只是一个普通函数.
-- [`example/include/fps.hpp`](https://github.com/Shucharjer/electron/blob/main/example/include/fps.hpp)中的 `printFps` 使用 `local<T...>` 持有跨帧局部状态.
-- [`example/src/main.cpp`](https://github.com/Shucharjer/electron/blob/main/example/src/main.cpp)中的 `observeApp` 使用 `insertion<const App::insertion&>` 接入外部应用上下文.
+#### `meta_accessor`: 元数据访问
 
-因此，`neutron` 的 ECS 并不是“自己包办一个完整游戏框架”，而是把系统组织、查询和调度能力嵌到
-`electron` 的应用外壳里.引擎壳层负责窗口、渲染器、事件循环和平台对象，ECS 负责把这些能力变成可组合的系统流水线。
+在 `neutron` 中的大部分实体操作都通过模板实现, 这意味着高性能, 但问题是有时我们也需要一定的灵活性, 所以我们提供了 `meta_accessor` 来实现非侵入式的数据交互.  
 
-## Benchmark 结果图
+```c++
+void fn(commands cmds, meta_accessor accessor) {
+    auto it = accessor.find("position");
+    cmds.add_component(cmds, e, it);
+}
+```
 
-下面这些图位于 [`../image`](../image)，在本文中仅作为参考引用.
+`meta_accessor` 提供了基本的实体访问, 但如果需要组件数据访问, 需要更进一步地将数据以类型擦除的方式暴露给外部.   
 
-需要特别说明几件事：
+#### 自定义参数
 
-- benchmark结果是在 MIT协议的开源仓库 [abeimler/ecs_benchmark](https://github.com/abeimler/ecs_benchmark) 的基础上进行更改得到的, 并非本仓库benchmark目录下的得到的结果;  
-- 所用 `neutron` 版本为 `bfa6c9e0cd008d53bb96e02e654a307eff2860e5`, 并非最新版本 (现在加入了查询缓存 `slice`, 应该会在更新上表现更佳);  
-- `ecs_benchmark`缺乏及时维护, benchmark 代码由 AI 完成，结果仅供参考.
+您可通过特化 `construct_from_world_t` 使您的自定义类型满足该约束, 从而实现自定义参数.  
+
+```c++
+template <stage Stage, auto Sys, typename T>
+struct construct_from_world_t {
+    template <internal::world World>
+    constexpr T operator()(World& world) const
+        noexcept(std::is_nothrow_constructible_v<T, World>) {
+        return T(world);
+    }
+};
+
+template <stage Stage, auto Sys, typename T>
+inline constexpr construct_from_world_t<Stage, Sys, T> construct_from_world;
+```
+
+### 世界描述符
+
+#### `add_systems`
+
+#### `execute`
+
+#### `enable_render` & `enable_events`
+
+#### `set_identifier`
+
+#### 自定义描述符 
+
+## 底层接口
+
+在通常情况下优先使用 descriptor / runtime 的高层接口, 但如果为了细粒度控制, neutron 同样提供了支持.  
+
+### `archetype`
+
+### `world_base`
+
+## 底层实现
+
+### `archetype`: 组件连续的存储
+
+### `world_base`: 最基本的世界
+
+### `command_buffer`: 无虚函数的类型擦除存储
+
+### `world_descriptor_t`: 编译期数据推导
+
+### `querior`: 查询复用
+
+### `run_env`: sender / receiver 模型
+
+## 基准测试
+
+下面这些图位于 [`../image`](../image), 仅作参考.
+
+需要说明的是：
+
+- 基准结果基于 MIT 协议仓库 [abeimler/ecs_benchmark](https://github.com/abeimler/ecs_benchmark) 修改得到, 并非本仓库 `benchmark` 目录的输出.
+- 所用 `neutron` 版本为 `bfa6c9e0cd008d53bb96e02e654a307eff2860e5`, 早于当前版本；当前版本已加入查询缓存 `slice`.
+- 测试代码、数据规模和版本均可能与当前实现不同, 结果只用于观察趋势.
 
 ### 实体创建与结构变更
 
@@ -393,7 +402,7 @@ App::Create() | run_worlds<world>(config);
 
 ![Systems update](../image/SystemsUpdate.svg)
 
-两系统更新，实体组件混合：
+两系统更新, 实体组件混合：
 
 ![Systems update mixed entities](../image/SystemsUpdateMixedEntities.svg)
 
@@ -401,8 +410,8 @@ App::Create() | run_worlds<world>(config);
 
 ![Complex systems update](../image/ComplexSystemsUpdate.svg)
 
-七系统更新，实体组件混合：
+七系统更新, 实体组件混合：
 
 ![Complex systems update mixed entities](../image/ComplexSystemsUpdateMixedEntities.svg)
 
-这些图更适合帮助你观察趋势，而不是给出某个绝对结论.若你要分析 `neutron` 的真实表现，最好结合自己的实际系统数量、组件大小和结构变化密度进行判断.
+这些图适合观察趋势, 不能代表绝对性能。要分析 `neutron` 的实际表现，应结合具体的系统数量、组件大小和结构变化密度进行测量.
