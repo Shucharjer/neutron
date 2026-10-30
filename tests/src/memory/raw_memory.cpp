@@ -18,7 +18,7 @@ int main() {
     {
         constexpr auto r = [] {
             array_t u;
-            ::neutron::uninitialized_copy(array.begin(), array.end(), u.begin());
+            uninitialized_copy(array.begin(), array.end(), u.begin());
             return u;
         }();
         static_assert(array == r);
@@ -27,7 +27,7 @@ int main() {
     {
         constexpr auto r = [] {
             array_t u{};
-            ::neutron::uninitialized_copy_n(array.begin(), 4, u.begin());
+            uninitialized_copy_n(array.begin(), 4, u.begin());
             return u;
         }();
         static_assert(r[0] == 't');
@@ -40,7 +40,7 @@ int main() {
     {
         constexpr auto r = [] {
             array_t u{};
-            ::neutron::uninitialized_fill(u.begin(), u.begin() + 4, '4');
+            uninitialized_fill(u.begin(), u.begin() + 4, '4');
             return u;
         }();
         static_assert(r[0] == '4');
@@ -53,7 +53,7 @@ int main() {
     {
         constexpr auto r = [] {
             array_t u{};
-            ::neutron::uninitialized_fill_n(u.begin(), 4, '4');
+            uninitialized_fill_n(u.begin(), 4, '4');
             return u;
         }();
         static_assert(r[0] == '4');
@@ -66,7 +66,7 @@ int main() {
     {
         constexpr auto r = [] {
             array_t u;
-            ::neutron::uninitialized_default_construct(u.begin(), u.end());
+            uninitialized_default_construct(u.begin(), u.end());
             return u;
         }();
         static_assert(r == array_t{});
@@ -75,7 +75,7 @@ int main() {
     {
         constexpr auto r = [] {
             array_t u;
-            ::neutron::uninitialized_value_construct(u.begin(), u.end());
+            uninitialized_value_construct(u.begin(), u.end());
             return u;
         }();
         static_assert(r == array_t{});
@@ -84,7 +84,7 @@ int main() {
     {
         constexpr auto r = [] {
             array_t u;
-            ::neutron::uninitialized_value_construct_n(u.begin(), 32);
+            uninitialized_value_construct_n(u.begin(), 32);
             return u;
         }();
         static_assert(r == array_t{});

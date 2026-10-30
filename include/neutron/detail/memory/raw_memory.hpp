@@ -65,9 +65,11 @@ ATOM_CONSTEXPR_SINCE_CXX20 auto uninitialized_default_construct(
         for (; first != last; ++first) {
             std::construct_at(std::addressof(*first));
         }
-    }
+    } else
 #endif
-    std::uninitialized_default_construct(first, last);
+    {
+        std::uninitialized_default_construct(first, last);
+    }
 }
 
 template <nothrow_forward_iterator NoThrowForwardIt, typename Size>
@@ -82,9 +84,11 @@ ATOM_CONSTEXPR_SINCE_CXX20 auto uninitialized_default_construct_n(
             std::construct_at(std::addressof(*first));
         }
         return first;
-    }
+    } else // NOLINT
 #endif
-    return std::uninitialized_default_construct_n(first, count);
+    {
+        return std::uninitialized_default_construct_n(first, count);
+    }
 }
 
 template <nothrow_forward_iterator NoThrowForwardIt>
@@ -98,9 +102,11 @@ ATOM_CONSTEXPR_SINCE_CXX20 auto uninitialized_value_construct(
         for (; first != last; ++first) {
             std::construct_at(std::addressof(*first));
         }
-    }
+    } else
 #endif
-    std::uninitialized_value_construct(first, last);
+    {
+        std::uninitialized_value_construct(first, last);
+    }
 }
 
 template <nothrow_forward_iterator NoThrowForwardIt, typename Size>
@@ -114,10 +120,12 @@ ATOM_CONSTEXPR_SINCE_CXX20 auto uninitialized_value_construct_n(
             std::construct_at(std::addressof(*first));
         }
         return first;
-    }
+    } else // NOLINT
 #endif
-    return std::uninitialized_value_construct_n(first, count);
-}
+    {
+        return std::uninitialized_value_construct_n(first, count);
+    }
+} // namespace neutron
 
 template <input_iterator InputIt, nothrow_forward_iterator NoThrowForwardIt>
 ATOM_CONSTEXPR_SINCE_CXX20 auto uninitialized_copy(
@@ -131,10 +139,12 @@ ATOM_CONSTEXPR_SINCE_CXX20 auto uninitialized_copy(
             std::construct_at(std::addressof(*d_first), *first);
         }
         return d_first;
-    }
+    } else // NOLINT
 #endif
-    return std::uninitialized_copy(first, last, d_first);
-}
+    {
+        return std::uninitialized_copy(first, last, d_first);
+    }
+} // namespace neutron
 
 template <
     input_iterator InputIt, typename Size,
@@ -150,9 +160,11 @@ ATOM_CONSTEXPR_SINCE_CXX20 auto uninitialized_copy_n(
             std::construct_at(std::addressof(*d_first), *first);
         }
         return d_first;
-    }
+    } else // NOLINT
 #endif
-    return std::uninitialized_copy_n(first, count, d_first);
+    {
+        return std::uninitialized_copy_n(first, count, d_first);
+    }
 }
 
 template <input_iterator InputIt, nothrow_forward_iterator NoThrowForwardIt>
@@ -201,9 +213,11 @@ ATOM_CONSTEXPR_SINCE_CXX20 auto uninitialized_fill_n(
             std::construct_at(std::addressof(*first), value);
         }
         return first;
-    }
+    } else // NOLINT
 #endif
-    return std::uninitialized_fill_n(first, count, value);
+    {
+        return std::uninitialized_fill_n(first, count, value);
+    }
 }
 
 } // namespace neutron
