@@ -1,5 +1,6 @@
 #pragma once
 #include <concepts>
+#include <type_traits>
 
 namespace neutron {
 
@@ -13,40 +14,37 @@ struct is_convertible_to_function_pointer<Ret (*)(Args...)> {
     static constexpr bool value = true;
 };
 
+template <typename T, typename = decltype(&T::operator())>
+struct _is_class_convertible_to_function_pointer : std::false_type {};
+
+template <typename Ret, typename T, typename... Args>
+struct _is_class_convertible_to_function_pointer<T, Ret (T::*)(Args...)> {
+    using free_function_t       = Ret (*)(Args...);
+    static constexpr bool value = std::convertible_to<T, free_function_t>;
+};
+template <typename Ret, typename T, typename... Args>
+struct _is_class_convertible_to_function_pointer<T, Ret (T::*)(Args...) const> {
+    using free_function_t       = Ret (*)(Args...);
+    static constexpr bool value = std::convertible_to<T, free_function_t>;
+};
+template <typename Ret, typename T, typename... Args>
+struct _is_class_convertible_to_function_pointer<
+    T, Ret (T::*)(Args...) noexcept> {
+    using free_function_t       = Ret (*)(Args...);
+    static constexpr bool value = std::convertible_to<T, free_function_t>;
+};
+template <typename Ret, typename T, typename... Args>
+struct _is_class_convertible_to_function_pointer<
+    T, Ret (T::*)(Args...) const noexcept> {
+    using free_function_t       = Ret (*)(Args...);
+    static constexpr bool value = std::convertible_to<T, free_function_t>;
+};
+
 template <typename Ty>
-requires std::is_class_v<Ty>
+requires std::is_class_v<Ty> && requires() { &Ty::operator(); }
 struct is_convertible_to_function_pointer<Ty> {
-    template <typename>
-    static constexpr bool _impl = false;
-
-    static constexpr bool value = requires {
-        &Ty::operator();
-        _impl<decltype(&Ty::operator())>;
-    };
-
-    template <typename Ret, typename... Args>
-    static constexpr bool _impl<Ret (Ty::*)(Args...)> =
-        requires(const Ty& val) {
-            { val } -> std::convertible_to<Ret (*)(Args...)>;
-        };
-
-    template <typename Ret, typename... Args>
-    static constexpr bool _impl<Ret (Ty::*)(Args...) const> =
-        requires(const Ty& val) {
-            { val } -> std::convertible_to<Ret (*)(Args...)>;
-        };
-
-    template <typename Ret, typename... Args>
-    static constexpr bool _impl<Ret (Ty::*)(Args...) noexcept> =
-        requires(const Ty& val) {
-            { val } -> std::convertible_to<Ret (*)(Args...) noexcept>;
-        };
-
-    template <typename Ret, typename... Args>
-    static constexpr bool _impl<Ret (Ty::*)(Args...) const noexcept> =
-        requires(const Ty& val) {
-            { val } -> std::convertible_to<Ret (*)(Args...) noexcept>;
-        };
+    static constexpr bool value =
+        _is_class_convertible_to_function_pointer<Ty>::value;
 };
 
 template <typename Ty>
