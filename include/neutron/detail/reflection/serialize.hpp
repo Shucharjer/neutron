@@ -7,10 +7,11 @@
 #include <ranges>
 #include <tuple>
 #include <type_traits>
+#include <neutron/detail/concepts/one_of.hpp>
 #include "neutron/detail/concepts/fixed_array.hpp"
-#include "neutron/detail/utility/macros.hpp"
 #include "neutron/detail/reflection/refl.hpp"
 #include "neutron/detail/tuple/shared_tuple.hpp"
+#include "neutron/detail/utility/macros.hpp"
 
 namespace neutron {
 
@@ -119,8 +120,18 @@ struct _bitviewer {
 #else
 
 template <std::integral T>
+requires(!one_of<T, __uint128_t, __int128_t>)
 struct serialize_t<bitstream, T> {
-    void operator()(bitstream& bs, const T& val) const noexcept {
+    void operator()(bitstream& bs, T val) const noexcept {
+        *reinterpret_cast<T*>(_bitviewer::data(bs)) = val;
+        _bitviewer::data(bs) += sizeof(T);
+        _bitviewer::length(bs) -= sizeof(T);
+    }
+};
+
+template <one_of<__uint128_t, __int128_t> T>
+struct serialize_t<bitstream, T> {
+    void operator()(bitstream& bs, T val) const noexcept {
         *reinterpret_cast<T*>(_bitviewer::data(bs)) = val;
         _bitviewer::data(bs) += sizeof(T);
         _bitviewer::length(bs) -= sizeof(T);
@@ -128,6 +139,17 @@ struct serialize_t<bitstream, T> {
 };
 
 template <std::integral T>
+requires(!one_of<T, __uint128_t, __int128_t>)
+struct deserialize_t<bitstream, T> {
+    void operator()(bitstream& bs, T& val) const noexcept {
+        auto& data = _bitviewer::data(bs);
+        val        = *reinterpret_cast<T*>(data);
+        data += sizeof(T);
+        _bitviewer::length(bs) -= sizeof(T);
+    }
+};
+
+template <one_of<__uint128_t, __int128_t> T>
 struct deserialize_t<bitstream, T> {
     void operator()(bitstream& bs, T& val) const noexcept {
         auto& data = _bitviewer::data(bs);
@@ -139,7 +161,7 @@ struct deserialize_t<bitstream, T> {
 
 template <std::floating_point T>
 struct serialize_t<bitstream, T> {
-    void operator()(bitstream& bs, const T& val) const noexcept {
+    void operator()(bitstream& bs, T val) const noexcept {
         *reinterpret_cast<T*>(_bitviewer::data(bs)) = val;
         _bitviewer::data(bs) += sizeof(T);
         _bitviewer::length(bs) -= sizeof(T);
@@ -159,16 +181,18 @@ struct deserialize_t<bitstream, T> {
 template <fixed_array T>
 struct serialize_t<bitstream, T> {
     void operator()(bitstream& bs, const T& val) const noexcept {
-        std::ranges::for_each(
-            val, [&bs](const auto& elem) { serialize(bs, elem); });
+        std::ranges::for_each(val, [&bs](const auto& elem) {
+            serialize(bs, elem);
+        });
     }
 };
 
 template <fixed_array T>
 struct deserialize_t<bitstream, T> {
     void operator()(bitstream& bs, T& val) const noexcept {
-        std::ranges::for_each(
-            val, [&bs](auto& elem) { deserialize(bs, elem); });
+        std::ranges::for_each(val, [&bs](auto& elem) {
+            deserialize(bs, elem);
+        });
     }
 };
 
@@ -177,14 +201,21 @@ struct serialize_t<bitstream, std::tuple<Args...>> {
     void operator()(
         bitstream& bs, const std::tuple<Args...>& val) const noexcept {
         std::apply(
-            [&bs](const auto&... elem) { (serialize(bs, elem), ...); }, val);
+            [&bs](const auto&... elem) {
+                (serialize(bs, elem), ...);
+            },
+            val);
     }
 };
 
 template <typename... Args>
 struct deserialize_t<bitstream, std::tuple<Args...>> {
     void operator()(bitstream& bs, std::tuple<Args...>& val) const noexcept {
-        std::apply([&bs](auto&... elem) { (deserialize(bs, elem), ...); }, val);
+        std::apply(
+            [&bs](auto&... elem) {
+                (deserialize(bs, elem), ...);
+            },
+            val);
     }
 };
 
@@ -221,8 +252,9 @@ struct serialize_t<bitstream, Contiguous> {
             _bitviewer::data(bs) += sizeof(tp) * count;
             _bitviewer::length(bs) -= sizeof(tp) * count;
         } else {
-            std::ranges::for_each(
-                range, [&bs](const auto& val) { serialize(bs, val); });
+            std::ranges::for_each(range, [&bs](const auto& val) {
+                serialize(bs, val);
+            });
         }
     }
 };
@@ -242,8 +274,9 @@ struct deserialize_t<bitstream, Contiguous> {
             _bitviewer::data(bs) += sizeof(tp) * count;
             _bitviewer::length(bs) -= sizeof(tp) * count;
         } else {
-            std::ranges::for_each(
-                range, [&bs](auto& val) { deserialize(bs, val); });
+            std::ranges::for_each(range, [&bs](auto& val) {
+                deserialize(bs, val);
+            });
         }
     }
 };
@@ -272,7 +305,10 @@ struct serialize_t<bitstream, T> {
         if constexpr (member_count_of<T>() != 0) {
             auto tup = _refl_legacy::object_to_tuple_view(val);
             std::apply(
-                [&bs](const auto&... val) { (serialize(bs, val), ...); }, tup);
+                [&bs](const auto&... val) {
+                    (serialize(bs, val), ...);
+                },
+                tup);
         }
     }
 };
@@ -284,7 +320,10 @@ struct deserialize_t<bitstream, T> {
         if constexpr (member_count_of<T>() != 0) {
             auto tup = _refl_legacy::object_to_tuple_view(val);
             std::apply(
-                [&bs](auto&... elems) { (deserialize(bs, elems), ...); }, tup);
+                [&bs](auto&... elems) {
+                    (deserialize(bs, elems), ...);
+                },
+                tup);
         }
     }
 };

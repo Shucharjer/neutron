@@ -50,9 +50,7 @@ int main() {
         TEST_SCALAR(std::uint64_t);
         TEST_SCALAR(std::int64_t);
 #if defined(__SIZEOF_INT128__)
-        static_assert(std::integral<__uint128_t>);
         TEST_SCALAR(__uint128_t);
-        static_assert(std::integral<__int128_t>);
         TEST_SCALAR(__int128_t);
 #endif
         TEST_SCALAR(float);
