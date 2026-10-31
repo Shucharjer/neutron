@@ -201,13 +201,15 @@ public:
     }
 
     constexpr reference operator[](size_type index) noexcept {
-        NEUTRON_ASSERT(index < N);
+        ATOM_ASSERT(index < N);
+        ATOM_ASSUME(index < N);
         return storage_data()[index];
     }
 
     ATOM_NODISCARD constexpr const_reference
         operator[](size_type index) const noexcept {
-        NEUTRON_ASSERT(index < N);
+        ATOM_ASSERT(index < N);
+        ATOM_ASSUME(index < N);
         return storage_data()[index];
     }
 

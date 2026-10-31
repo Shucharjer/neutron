@@ -33,9 +33,9 @@ public:
                head + 1;
     }
 
-    template <typename Val>
-    ATOM_CONSTEXPR_SINCE_CXX26 void
-        push_back(Val&& val) noexcept(std::is_nothrow_constructible_v<T, Val>) {
+    template <typename... Args>
+    ATOM_CONSTEXPR_SINCE_CXX26 void push_back(Args&&... args) noexcept(
+        std::is_nothrow_constructible_v<T, Args...>) {
         static_assert(Size != 0);
 
         const auto pos = enqueue_pos_.fetch_add(1, std::memory_order_relaxed);
@@ -44,7 +44,7 @@ public:
             std::this_thread::yield();
         }
         std::construct_at(
-            this->data() + (pos & (Size - 1)), std::forward<Val>(val));
+            this->data() + (pos & (Size - 1)), std::forward<Args>(args)...);
         sequence.store(pos + 1, std::memory_order_release);
     }
 

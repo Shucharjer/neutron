@@ -812,7 +812,8 @@ template <typename Alloc>
 constexpr void world_base<Alloc>::kill(entity_t entity) {
     const auto index = _get_index(entity);
     auto& slot       = _entity_slot(index);
-    NEUTRON_ASSERT(entity == slot.first);
+    ATOM_ASSERT(entity == slot.first);
+    ATOM_ASSUME(entity == slot.first);
 
     auto*& arche = slot.second;
     if (arche != nullptr) {

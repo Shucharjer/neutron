@@ -25,12 +25,12 @@
 #include "neutron/detail/ecs/concepts/component.hpp"
 #include "neutron/detail/ecs/concepts/entity.hpp"
 #include "neutron/detail/ecs/utility/anchor.hpp"
-#include "neutron/detail/utility/macros.hpp"
 #include "neutron/detail/memory/uninitialized_move_if_noexcept.hpp"
 #include "neutron/detail/ranges/concepts.hpp"
 #include "neutron/detail/reflection/hash.hpp"
 #include "neutron/detail/reflection/type_traits.hpp"
 #include "neutron/detail/tuple/rmcvref_first.hpp"
+#include "neutron/detail/utility/macros.hpp"
 #include "neutron/detail/utility/spreader.hpp"
 #include "neutron/metafn.hpp"
 #include "neutron/shift_map.hpp"
@@ -725,7 +725,7 @@ public:
         using type_list                       = type_list<Components...>;
         using hash_list                       = hash_list_t<type_list>;
         constexpr std::uint64_t combined_hash = make_array_hash<type_list>();
-        NEUTRON_ASSERT(combined_hash == hash_);
+        ATOM_ASSUME(combined_hash == hash_);
 
         _emplace(entity, hash_list{});
     }
@@ -737,7 +737,8 @@ public:
         using type_list                       = type_list<Components...>;
         using hash_list                       = hash_list_t<type_list>;
         constexpr std::uint64_t combined_hash = make_array_hash<type_list>();
-        NEUTRON_ASSERT(combined_hash == hash_);
+        ATOM_ASSERT(combined_hash == hash_);
+        ATOM_ASSUME(combined_hash == hash_);
 
         _emplace(std::forward<decltype(range)>(range), hash_list{});
     }
@@ -747,7 +748,8 @@ public:
         emplace(entity_t entity, Components&&... components) {
         constexpr std::uint64_t combined_hash =
             make_array_hash<type_list<std::remove_cvref_t<Components>...>>();
-        NEUTRON_ASSERT(combined_hash == hash_);
+        ATOM_ASSERT(combined_hash == hash_);
+        ATOM_ASSUME(combined_hash == hash_);
 
         _emplace(entity, std::forward<Components>(components)...);
     }
@@ -759,7 +761,8 @@ public:
     {
         constexpr std::uint64_t combined_hash =
             make_array_hash<type_list<std::remove_cvref_t<Components>...>>();
-        NEUTRON_ASSERT(combined_hash == hash_);
+        ATOM_ASSERT(combined_hash == hash_);
+        ATOM_ASSUME(combined_hash == hash_);
 
         _emplace(
             std::forward<decltype(range)>(range),
@@ -847,7 +850,7 @@ public:
 
     constexpr void transfer(entity_t entity, archetype& target) {
         _transfer(entity, target, [](size_type, size_type, std::uint32_t) {
-            NEUTRON_ASSERT(
+            ATOM_ASSERT(
                 false &&
                 "target archetype unexpectedly requires new components");
         });
@@ -1462,7 +1465,8 @@ private:
     template <compatible_range<entity_t> Rng, component... Components>
     auto _emplace(
         Rng&& range, [[maybe_unused]] const type_list<Components...> tl) {
-        auto ignore_entity = [](entity_t) noexcept {};
+        auto ignore_entity = [](entity_t) noexcept {
+        };
         _emplace_with_entity_binding(
             std::forward<Rng>(range), tl, ignore_entity, ignore_entity);
     }
@@ -1578,7 +1582,8 @@ private:
 
     template <compatible_range<entity_t> Rng, component... Components>
     constexpr void _emplace(Rng&& range, Components&&... components) {
-        auto ignore_entity = [](entity_t) noexcept {};
+        auto ignore_entity = [](entity_t) noexcept {
+        };
         _emplace_with_entity_binding(
             std::forward<Rng>(range), ignore_entity, ignore_entity,
             std::forward<Components>(components)...);

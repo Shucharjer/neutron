@@ -14,9 +14,9 @@
 #include "neutron/detail/concepts/allocator.hpp"
 #include "neutron/detail/concepts/nothrow_conditional_movable.hpp"
 #include "neutron/detail/iterator/iter_wrapper.hpp"
-#include "neutron/detail/utility/macros.hpp"
 #include "neutron/detail/memory/using_allocator.hpp"
 #include "neutron/detail/utility/completion_guard.hpp"
+#include "neutron/detail/utility/macros.hpp"
 
 namespace neutron {
 
@@ -324,7 +324,8 @@ public:
     }
 
     void pop_back() noexcept(std::is_nothrow_destructible_v<Ty>) {
-        NEUTRON_ASSERT(size_ != 0);
+        ATOM_ASSERT(size_ != 0);
+        ATOM_ASSUME(size_ != 0);
         (data_ + size_ - 1)->~Ty();
         --size_;
     }

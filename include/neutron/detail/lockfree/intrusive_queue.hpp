@@ -29,7 +29,7 @@ public:
         return *this;
     }
 
-    constexpr ~intrusive_queue() noexcept { NEUTRON_ASSERT(empty()); }
+    constexpr ~intrusive_queue() noexcept { ATOM_ASSERT(empty()); }
 
     ATOM_NODISCARD constexpr bool empty() const noexcept {
         return head_ == tail_;

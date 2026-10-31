@@ -23,7 +23,8 @@ union alignas(Align) freeable_bytes {
 template <size_t Size>
 constexpr void _init_freeable_bytes(
     freeable_bytes<Size>* blocks, size_t capacity) noexcept {
-    NEUTRON_ASSERT(capacity != 0);
+    ATOM_ASSERT(capacity != 0);
+    ATOM_ASSUME(capacity != 0);
     for (size_t i = 0; i < capacity - 1; i++) {
         auto* const block = std::launder(std::next(blocks, i));
         block->next       = std::next(blocks, i + 1);

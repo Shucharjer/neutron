@@ -357,7 +357,8 @@ private:
         // it and recheck the slot, which may have been filled meanwhile.
         [[maybe_unused]] _block_t* const tail =
             tail_block_.load(std::memory_order_acquire);
-        NEUTRON_ASSERT(tail != cons_.block);
+        ATOM_ASSERT(tail != cons_.block);
+        ATOM_ASSUME(tail != cons_.block);
         if (_ready()) {
             return;
         }
@@ -370,7 +371,7 @@ private:
         cons_ = _cursor_t{ next, next->slots, next->mask, next->front,
                            next->front };
         [[maybe_unused]] const bool ready = _ready();
-        NEUTRON_ASSERT(ready);
+        ATOM_ASSERT(ready);
     }
 
     /// @brief Producer-owned state.

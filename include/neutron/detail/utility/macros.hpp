@@ -63,11 +63,13 @@
 // Debug/Release configuration
 
 #if !defined(NDEBUG) || defined(DEBUG) || defined(_DEBUG)
+    #define ATOM_DEBUG_MODE true
     #define ATOM_RELEASE_INLINE ///< No forced inlining in debug
     #define ATOM_DEBUG_SHOW_FUNC                                               \
         constexpr std::string_view _this_func =                                \
-            ATOM_FUNCNAME;                         ///< Store function name
+            ATOM_FUNCNAME; ///< Store function name
 #else
+    #define ATOM_DEBUG_MODE false
     #define ATOM_RELEASE_INLINE ATOM_ALWAYS_INLINE ///< Force inline in release
     #define ATOM_DEBUG_SHOW_FUNC                   ///< Empty in release
 #endif
@@ -208,7 +210,7 @@
 
 #ifndef ATOM_HAS_REFLECTION
     #if (defined(__cpp_lib_reflection) && __cpp_lib_reflection >= 202506L) ||  \
-        (__has_feature(reflection) && __cplusplus >= 202502L)
+        (__has_feature(reflection) && __cplusplus > 202302L)
         #define ATOM_HAS_REFLECTION 1
     #else
         #define ATOM_HAS_REFLECTION 0
@@ -246,17 +248,27 @@
     #endif
 #endif
 
-#if !defined(NDEBUG) || defined(DEBUG) || defined(_DEBUG)
-    #include <cassert>
-    #define NEUTRON_ASSERT(expr) assert(expr)
-#else
-    #ifdef _MSC_VER
-        #define NEUTRON_ASSERT(expr) __assume(expr)
-    #elif defined(__clang__)
-        #define NEUTRON_ASSERT(expr) __builtin_assume(expr)
-    #elif defined(__GNUC__)
-        #define NEUTRON_ASSERT(expr) __attribute__((assume(expr)))
+#ifndef ATOM_ASSUME
+    #if ATOM_DEBUG_MODE
+        #define ATOM_ASSUME(expr)
     #else
-        #define NEUTRON_ASSERT(expr)
+        #ifdef _MSC_VER
+            #define ATOM_ASSUME(expr) __assume(expr)
+        #elif defined(__clang__)
+            #define ATOM_ASSUME(expr) __builtin_assume(expr)
+        #elif defined(__GNUC__)
+            #define ATOM_ASSUME(expr) __attribute__((assume(expr)))
+        #else
+            #define ATOM_ASSUME(expr)
+        #endif
+    #endif
+#endif
+
+#ifndef ATOM_ASSERT
+    #if ATOM_DEBUG_MODE
+        #include <cassert>
+        #define ATOM_ASSERT(expr) assert(expr)
+    #else
+        #define ATOM_ASSERT(expr)
     #endif
 #endif

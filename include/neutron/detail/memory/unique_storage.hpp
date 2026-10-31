@@ -300,7 +300,7 @@ public:
         if constexpr (traits_t::propagate_on_container_swap::value) {
             std::swap(get_allocator(), that.get_allocator());
         } else {
-            NEUTRON_ASSERT(get_allocator() == that.get_allocator());
+            ATOM_ASSERT(get_allocator() == that.get_allocator());
         }
         std::swap(ptr_, that.ptr_);
     }
