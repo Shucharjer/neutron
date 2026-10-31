@@ -2,7 +2,6 @@
 // IWYU pragma: begin_exports
 
 #include "neutron/detail/utility/as_except_ptr.hpp"
-#include "neutron/detail/utility/assert.hpp"
 #include "neutron/detail/utility/completion_guard.hpp"
 #include "neutron/detail/utility/compressed_element.hpp"
 #include "neutron/detail/utility/compressed_pair.hpp"

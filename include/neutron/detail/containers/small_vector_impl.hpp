@@ -16,7 +16,6 @@
 #include "neutron/detail/iterator/iter_wrapper.hpp"
 #include "neutron/detail/utility/macros.hpp"
 #include "neutron/detail/memory/using_allocator.hpp"
-#include "neutron/detail/utility/assert.hpp"
 #include "neutron/detail/utility/completion_guard.hpp"
 
 namespace neutron {

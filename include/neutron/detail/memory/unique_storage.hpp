@@ -5,7 +5,6 @@
 #include "neutron/detail/concepts/allocator.hpp"
 #include "neutron/detail/utility/macros.hpp"
 #include "neutron/detail/memory/using_allocator.hpp"
-#include "neutron/detail/utility/assert.hpp"
 #include "neutron/detail/utility/completion_guard.hpp"
 #include "neutron/detail/utility/immediately.hpp"
 #include "neutron/metafn.hpp"

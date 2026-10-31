@@ -33,7 +33,7 @@
 // Compiler-specific attribute macros
 
 #if defined(__GNUC__) || defined(__clang__)
-    #define ATOM_ALWAYS_INLINE                                                  \
+    #define ATOM_ALWAYS_INLINE                                                 \
         inline __attribute__((__always_inline__)) ///< Force inline (GCC/Clang)
     #define ATOM_NOINLINE                                                      \
         __attribute__((__noinline__)) ///< Prevent inlining (GCC/Clang)
@@ -43,12 +43,12 @@
 #elif defined(_MSC_VER)
     #define ATOM_ALWAYS_INLINE __forceinline ///< Force inline expansion (MSVC)
     #define ATOM_FORCE_NOINLINE                                                \
-        __declspec(noinline)                ///< Prevent inlining (MSVC)
+        __declspec(noinline)                 ///< Prevent inlining (MSVC)
     #define ATOM_ALLOCATOR                                                     \
         __declspec(allocator) ///< Function returns allocated memory (MSVC)
     #define ATOM_NOVTABLE __declspec(novtable) ///< No vtable generation (MSVC)
 #else
-    #define ATOM_ALWAYS_INLINE inline           ///< Fallback inline
+    #define ATOM_ALWAYS_INLINE inline          ///< Fallback inline
     #define ATOM_NOINLINE                      ///< Fallback noinline
     #define ATOM_ALLOCATOR                     ///< Fallback allocator
     #define ATOM_NOVTABLE                      ///< Fallback novtable
@@ -62,14 +62,14 @@
 
 // Debug/Release configuration
 
-#if defined(_DEBUG)
+#if !defined(NDEBUG) || defined(DEBUG) || defined(_DEBUG)
     #define ATOM_RELEASE_INLINE ///< No forced inlining in debug
     #define ATOM_DEBUG_SHOW_FUNC                                               \
         constexpr std::string_view _this_func =                                \
-            ATOM_FUNCNAME;                        ///< Store function name
+            ATOM_FUNCNAME;                         ///< Store function name
 #else
     #define ATOM_RELEASE_INLINE ATOM_ALWAYS_INLINE ///< Force inline in release
-    #define ATOM_DEBUG_SHOW_FUNC                  ///< Empty in release
+    #define ATOM_DEBUG_SHOW_FUNC                   ///< Empty in release
 #endif
 
 #if defined(__i386__) || defined(__x86_64__)
@@ -243,5 +243,20 @@
         #define ATOM_RESTRICT __restrict
     #else
         #define ATOM_RESTRICT
+    #endif
+#endif
+
+#if !defined(NDEBUG) || defined(DEBUG) || defined(_DEBUG)
+    #include <cassert>
+    #define NEUTRON_ASSERT(expr) assert(expr)
+#else
+    #ifdef _MSC_VER
+        #define NEUTRON_ASSERT(expr) __assume(expr)
+    #elif defined(__clang__)
+        #define NEUTRON_ASSERT(expr) __builtin_assume(expr)
+    #elif defined(__GNUC__)
+        #define NEUTRON_ASSERT(expr) __attribute__((assume(expr)))
+    #else
+        #define NEUTRON_ASSERT(expr)
     #endif
 #endif

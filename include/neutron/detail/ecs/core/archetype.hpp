@@ -31,7 +31,6 @@
 #include "neutron/detail/reflection/hash.hpp"
 #include "neutron/detail/reflection/type_traits.hpp"
 #include "neutron/detail/tuple/rmcvref_first.hpp"
-#include "neutron/detail/utility/assert.hpp"
 #include "neutron/detail/utility/spreader.hpp"
 #include "neutron/metafn.hpp"
 #include "neutron/shift_map.hpp"

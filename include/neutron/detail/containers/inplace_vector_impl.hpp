@@ -25,9 +25,8 @@ using inplace_vector = std::inplace_vector<T, N>;
     #include <type_traits>
     #include <utility>
     #include "neutron/detail/concepts/nothrow_conditional_movable.hpp"
-    #include "neutron/detail/utility/macros.hpp"
     #include "neutron/detail/memory/raw_memory.hpp"
-    #include "neutron/detail/utility/assert.hpp"
+    #include "neutron/detail/utility/macros.hpp"
     #include "neutron/detail/utility/packed_uint.hpp"
 
     #if defined(__cpp_lib_containers_ranges) &&                                \

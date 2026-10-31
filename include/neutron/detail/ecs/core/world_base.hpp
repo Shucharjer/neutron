@@ -19,7 +19,7 @@
 #include "neutron/detail/ecs/core/archetype.hpp"
 #include "neutron/detail/ranges/concepts.hpp"
 #include "neutron/detail/reflection/refl.hpp"
-#include "neutron/detail/utility/assert.hpp"
+#include "neutron/detail/utility/macros.hpp"
 #include "neutron/flat_hash_map.hpp"
 #include "neutron/memory.hpp"
 #include "neutron/metafn.hpp"

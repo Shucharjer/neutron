@@ -10,7 +10,6 @@
 #include "neutron/detail/lockfree/hardware_destructive_interference_size.hpp"
 #include "neutron/detail/utility/macros.hpp"
 #include "neutron/detail/memory/inplace.hpp"
-#include "neutron/detail/utility/assert.hpp"
 #include "neutron/detail/utility/packed_uint.hpp"
 
 namespace neutron {

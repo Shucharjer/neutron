@@ -2,7 +2,6 @@
 #include <cassert>
 #include <utility>
 #include "neutron/detail/utility/macros.hpp"
-#include "neutron/detail/utility/assert.hpp"
 
 namespace neutron {
 
