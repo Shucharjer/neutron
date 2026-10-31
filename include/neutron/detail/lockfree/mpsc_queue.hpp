@@ -7,15 +7,15 @@
 #include <neutron/memory.hpp>
 #include "neutron/detail/lockfree/intrusive_mpsc_queue.hpp"
 #include "neutron/detail/lockfree/node.hpp"
-#include "neutron/detail/utility/macros.hpp"
 #include "neutron/detail/memory/rebind_alloc.hpp"
+#include "neutron/detail/utility/macros.hpp"
 
 namespace neutron {
 
 template <typename T, typename Alloc = std::allocator<T>>
 class mpsc_queue :
-    private intrusive_mpsc_queue<&internal::_lockfree_atomic_node<T>::next> {
-    using _node              = internal::_lockfree_atomic_node<T>;
+    private intrusive_mpsc_queue<&internal::_lockfree_node<T>::next> {
+    using _node              = internal::_lockfree_node<T>;
     using _base              = intrusive_mpsc_queue<&_node::next>;
     using _node_alloc        = rebind_alloc_t<Alloc, _node>;
     using _node_alloc_traits = std::allocator_traits<_node_alloc>;
@@ -55,7 +55,7 @@ public:
     requires pass_by_value
     {
         auto* node = _node_alloc_traits::allocate(alloc_, 1);
-        _node_alloc_traits::construct(alloc_, node, val);
+        _node_alloc_traits::construct(alloc_, node);
         return _base::push_back(node);
     }
 
