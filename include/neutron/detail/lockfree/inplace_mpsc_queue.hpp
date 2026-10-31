@@ -8,8 +8,8 @@
 #include <type_traits>
 #include <utility>
 #include "neutron/detail/lockfree/hardware_destructive_interference_size.hpp"
-#include "neutron/detail/utility/macros.hpp"
 #include "neutron/detail/memory/inplace.hpp"
+#include "neutron/detail/utility/macros.hpp"
 #include "neutron/detail/utility/packed_uint.hpp"
 
 namespace neutron {
@@ -59,7 +59,6 @@ public:
     }
 
     ATOM_CONSTEXPR_SINCE_CXX26 void pop_front() noexcept {
-        NEUTRON_ASSERT(!empty());
         const auto head = head_.load(std::memory_order_relaxed);
         std::destroy_at(this->data() + (head & (Size - 1)));
         sequence_[head & (Size - 1)].store(

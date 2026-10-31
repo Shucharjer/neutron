@@ -127,6 +127,8 @@ public:
         front_block_.store(block, std::memory_order_relaxed);
     }
 
+    spsc_queue() : spsc_queue(_min_capacity << 2) {}
+
     spsc_queue(const spsc_queue&)            = delete;
     spsc_queue& operator=(const spsc_queue&) = delete;
     spsc_queue(spsc_queue&&)                 = delete;
