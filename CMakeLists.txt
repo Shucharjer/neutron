@@ -43,6 +43,17 @@ if(NEUTRON_CXX26_SUPPORTED AND NEUTRON_REFLECTION_OPTION)
   set(NEUTRON_REFLECTION_CHECK_SOURCE_DIR
       "${CMAKE_CURRENT_BINARY_DIR}/neutron_reflection_check_source")
   file(MAKE_DIRECTORY "${NEUTRON_REFLECTION_CHECK_SOURCE_DIR}")
+  # The reflection header is <meta> in the standard, but p2996 Clang
+  # toolchains may expose <experimental/meta> instead. Pre-include a shim
+  # that picks whichever is available so one flag works for both layouts.
+  set(NEUTRON_REFLECTION_PREINCLUDE
+      "${CMAKE_CURRENT_BINARY_DIR}/neutron_reflection_preinclude.hpp")
+  file(WRITE "${NEUTRON_REFLECTION_PREINCLUDE}"
+    "#if __has_include(<meta>)\n"
+    "#include <meta>\n"
+    "#elif __has_include(<experimental/meta>)\n"
+    "#include <experimental/meta>\n"
+    "#endif\n")
   file(WRITE "${NEUTRON_REFLECTION_CHECK_SOURCE_DIR}/CMakeLists.txt"
     "cmake_minimum_required(VERSION 3.21)\n"
     "project(neutron_reflection_check LANGUAGES CXX)\n"
@@ -50,10 +61,12 @@ if(NEUTRON_CXX26_SUPPORTED AND NEUTRON_REFLECTION_OPTION)
     "set(CMAKE_CXX_STANDARD_REQUIRED ON)\n"
     "set(CMAKE_CXX_EXTENSIONS OFF)\n"
     "add_executable(neutron_reflection_check neutron_reflection_check.cpp)\n"
-    "target_compile_options(neutron_reflection_check PRIVATE ${NEUTRON_REFLECTION_OPTION} -include meta)\n")
+    "target_compile_options(neutron_reflection_check PRIVATE ${NEUTRON_REFLECTION_OPTION} -include \"${NEUTRON_REFLECTION_PREINCLUDE}\")\n")
   file(WRITE "${NEUTRON_REFLECTION_CHECK_SOURCE_DIR}/neutron_reflection_check.cpp"
-    "#include <meta>\n"
-    "#if !((defined(__cpp_lib_reflection) && __cpp_lib_reflection >= 202506L) || (defined(__has_feature) && __has_feature(reflection) && __cplusplus >= 202502L))\n"
+    "#if !(__has_include(<meta>) || __has_include(<experimental/meta>))\n"
+    "#error no reflection header found\n"
+    "#endif\n"
+    "#if !((defined(__cpp_lib_reflection) && __cpp_lib_reflection >= 202506L) || (defined(__has_feature) && __has_feature(reflection)))\n"
     "#error compiler reflection is not enabled\n"
     "#endif\n"
     "int main() { constexpr auto info = ^^int; }\n")
@@ -62,10 +75,11 @@ if(NEUTRON_CXX26_SUPPORTED AND NEUTRON_REFLECTION_OPTION)
     "${CMAKE_CURRENT_BINARY_DIR}/neutron_reflection_check"
     "${NEUTRON_REFLECTION_CHECK_SOURCE_DIR}"
     neutron_reflection_check
+    CMAKE_FLAGS "-DCMAKE_CXX_FLAGS=${CMAKE_CXX_FLAGS}"
     OUTPUT_VARIABLE NEUTRON_REFLECTION_CHECK_OUTPUT)
   if(NEUTRON_REFLECTION_CHECK)
     set(NEUTRON_REFLECTION_FLAGS
-        "${NEUTRON_REFLECTION_OPTION};-include;meta")
+        "${NEUTRON_REFLECTION_OPTION};-include;${NEUTRON_REFLECTION_PREINCLUDE}")
   endif()
 endif()
 
@@ -161,7 +175,16 @@ if(NEUTRON_USES_STDEXEC)
   FetchContent_MakeAvailable(stdexec)
   target_link_libraries(neutron INTERFACE STDEXEC::stdexec)
 elseif(NEUTRON_USES_BEMAN_EXECUTION)
+  if(CMAKE_CXX_STANDARD LESS 23)
+    message(FATAL_ERROR
+      "NEUTRON_USES_BEMAN_EXECUTION requires C++23 or later, but "
+      "CMAKE_CXX_STANDARD is '${CMAKE_CXX_STANDARD}'. ")
+  endif()
   include(FetchContent)
+  # neutron only consumes beman's header-only target, so do not build its
+  # C++ modules: they are unnecessary here and currently fail to compile
+  # against libc++ (the headers rely on transitive <concepts> declarations).
+  set(BEMAN_USE_MODULES OFF CACHE BOOL "Build beman.execution C++ modules" FORCE)
   FetchContent_Declare(
     beman_execution
     GIT_REPOSITORY https://github.com/bemanproject/execution.git

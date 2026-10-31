@@ -34,18 +34,22 @@ using std::unstoppable_token;
 
 } // namespace neutron
 
-#elif __has_include(<beman/execution/stop_token.hpp>)
+#elif __has_include(<beman/stop_token.hpp>)
+
+    #include <beman/stop_token.hpp>
+    #include <beman/execution/detail/get_stop_token.hpp>
 
 namespace neutron {
 
-using beman::inplace_stop_callback;
-using beman::inplace_stop_source;
-using beman::inplace_stop_token;
-using beman::never_stop_token;
-using beman::stop_source;
-using beman::stop_token;
-using beman::stoppable_token;
-using beman::unstoppable_token;
+using beman::execution::inplace_stop_callback;
+using beman::execution::inplace_stop_source;
+using beman::execution::inplace_stop_token;
+using beman::execution::never_stop_token;
+using beman::execution::stop_source;
+using beman::execution::stop_token;
+using beman::execution::stoppable_token;
+using beman::execution::unstoppable_token;
+using beman::execution::get_stop_token;
 
 } // namespace neutron
 

@@ -13,9 +13,19 @@ struct conditional_sender {
     bool enabled;
     Sender sender;
 
+    // stdexec queries completion signatures through a member function that
+    // takes the environment as an argument.
     template <typename Env>
     auto get_completion_signatures(Env&&) const noexcept
         -> execution::completion_signatures_of_t<Sender, Env> {
+        return {};
+    }
+
+    // beman queries them through a static member template evaluated as a
+    // constant expression; both spellings can coexist.
+    template <typename Self, typename... Env>
+    static consteval auto get_completion_signatures() noexcept
+        -> execution::completion_signatures_of_t<Sender, Env...> {
         return {};
     }
 

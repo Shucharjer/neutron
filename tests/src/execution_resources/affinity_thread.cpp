@@ -31,7 +31,9 @@ int main() {
                       }
                       return num;
                   }) |
-                then([](uint64_t num) { std::cout << num << '\n'; });
+                then([](uint64_t num) {
+                    std::cout << num << '\n';
+                });
 
     sync_wait(std::move(sndr));
 

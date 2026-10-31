@@ -123,6 +123,15 @@ public:
     using completion_signatures = neutron::execution::completion_signatures<
         set_value_t(), set_error_t(std::exception_ptr), set_stopped_t()>;
 
+    // beman resolves completion signatures through a static member template
+    // that must be a constant expression; the member type above is what
+    // stdexec consumes.
+    template <typename Self, typename... Env>
+    static consteval auto get_completion_signatures() noexcept
+        -> completion_signatures {
+        return {};
+    }
+
     explicit _sender(thread_pool* pool) noexcept : pool_(pool) {}
 
     auto get_env() const noexcept { return _env{ pool_ }; }
