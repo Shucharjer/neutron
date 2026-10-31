@@ -249,15 +249,9 @@ jobs:
         if: matrix.compiler.name == 'gcc-mcf'
         run: |
           $ErrorActionPreference = "Stop"
-          $index = Invoke-WebRequest -Uri "https://gcc-mcf.lhmouse.com/"
-          $archive = $index.Links |
-            Where-Object { $_.href -match '^mingw-w64-gcc-mcf_.*_x64-ucrt_.*\.7z$' } |
-            Select-Object -First 1
-          if ($null -eq $archive) {
-            throw "No x64-ucrt gcc-mcf archive found"
-          }
-          $url = [System.Uri]::new([System.Uri]"https://gcc-mcf.lhmouse.com/", $archive.href).AbsoluteUri
-          Invoke-WebRequest -Uri $url -OutFile gcc-mcf.7z
+          # Downloading the archive directly avoids the captcha on the index page.
+          $url = "https://gcc-mcf.lhmouse.com/mingw-w64-gcc-mcf_20261021_16.2.1_x64-ucrt_9d305bff446047a1b1a7bab2924afee83233e77f.7z"
+          curl.exe -fsSL -o gcc-mcf.7z $url
           7z x gcc-mcf.7z -ogcc-mcf
           $bin = Get-ChildItem gcc-mcf -Recurse -Directory -Filter bin |
             Where-Object { Test-Path (Join-Path $_.FullName "g++.exe") } |

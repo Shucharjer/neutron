@@ -11,6 +11,7 @@
 #include "neutron/detail/ecs/compile-time/queries.hpp"
 #include "neutron/detail/ecs/core/world.hpp"
 #include "neutron/detail/execution/core.hpp"
+#include "neutron/detail/lockfree/hardware_destructive_interference_size.hpp"
 #include "neutron/detail/metafn/definition.hpp"
 
 namespace neutron {
@@ -25,7 +26,7 @@ template <std::size_t GroupId, typename... Worlds>
 class run_env_for_group;
 
 template <std::size_t GroupId, typename World>
-class alignas(64) run_env_for_group<GroupId, World> {
+class alignas(hdi_size) run_env_for_group<GroupId, World> {
 public:
     using policy_type     = _group_t<GroupId>;
     using descriptor_type = typename World::descriptor_type;
@@ -54,7 +55,7 @@ private:
 
 template <std::size_t GroupId, typename World, typename... Others>
 requires(sizeof...(Others) != 0)
-class alignas(64) run_env_for_group<GroupId, World, Others...> {
+class alignas(hdi_size) run_env_for_group<GroupId, World, Others...> {
 public:
     using policy_type     = _group_t<GroupId>;
     using descriptor_type = typename World::descriptor_type;
@@ -100,7 +101,7 @@ private:
 };
 
 template <typename World>
-class alignas(64) run_env_for_individual {
+class alignas(hdi_size) run_env_for_individual {
 public:
     using policy_type     = _individual_t;
     using descriptor_type = typename World::descriptor_type;

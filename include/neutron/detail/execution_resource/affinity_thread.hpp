@@ -12,7 +12,7 @@
     #ifndef NOMINMAX
         #define NOMINMAX
     #endif
-    #include <Windows.h>
+    #include <windows.h>
 
 #elif defined(__linux) || defined(__linux__)
     #include <pthread.h>
