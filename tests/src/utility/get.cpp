@@ -1,4 +1,8 @@
 #include <cstddef>
+#include <memory>
+#include <tuple>
+#include <type_traits>
+#include <utility>
 #include <neutron/utility.hpp>
 #include "require.hpp"
 
@@ -56,6 +60,16 @@ const int& get(const nothrow_adl_gettible& obj) noexcept {
     return obj.val;
 }
 
+struct rvalue_adl_gettible {
+    explicit rvalue_adl_gettible(int value) : val(value) {}
+    int val;
+};
+
+template <std::size_t Index>
+int get(rvalue_adl_gettible&& obj) noexcept {
+    return obj.val;
+}
+
 } // namespace test_case
 
 int main() {
@@ -83,10 +97,30 @@ int main() {
         }
         static_assert(
             _get::_has_nothrow_adl_get<::test_case::nothrow_adl_gettible, 0>);
+        require_or_return(
+            get<0>(::test_case::rvalue_adl_gettible{ 42 }) == 42, 1);
     }
 
     // std get
-    {}
+    {
+        using tuple_type = std::tuple<std::unique_ptr<int>>;
+        static_assert(std::is_same_v<
+                      decltype(neutron::get<0>(std::declval<tuple_type&>())),
+                      std::unique_ptr<int>&>);
+        static_assert(
+            std::is_same_v<
+                decltype(neutron::get<0>(std::declval<const tuple_type&>())),
+                const std::unique_ptr<int>&>);
+        static_assert(std::is_same_v<
+                      decltype(neutron::get<0>(std::declval<tuple_type>())),
+                      std::unique_ptr<int>&&>);
+        static_assert(noexcept(neutron::get<0>(std::declval<tuple_type>())));
+
+        tuple_type tuple{ std::make_unique<int>(42) };
+        auto value = neutron::get<0>(std::move(tuple));
+        require_or_return(value && *value == 42, 1);
+        require_or_return(!std::get<0>(tuple), 1);
+    }
 
     // reflection get
     {}

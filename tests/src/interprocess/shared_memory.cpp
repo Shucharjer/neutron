@@ -12,8 +12,13 @@ int main() {
     {
         shared_memory shm("__test", 32, read_write);
         const char text[] = "this is a string\n";
+#ifndef _MSC_VER
         strcpy(static_cast<char*>(shm.data()), text); // NOLINT
         std::ifstream is("/dev/shm/__test");
+#else
+        strcpy_s(static_cast<char*>(shm.data()), sizeof(text), text); // NOLINT
+        std::ifstream is;
+#endif
         std::string line;
         std::getline(is, line);
         std::string_view tmp =

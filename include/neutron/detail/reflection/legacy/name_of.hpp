@@ -23,10 +23,10 @@ ATOM_NODISCARD consteval std::string_view extract_argument_name(
 
     const auto start = begin + marker.size();
 
-#ifdef _MSC_VER
-    const auto end = funcname.rfind(">(void)");
-#elif defined(__clang__)
+#if defined(__clang__)
     const auto end = funcname.rfind(']');
+#elif defined(_MSC_VER)
+    const auto end = funcname.rfind(">(void)");
 #elif defined(__GNUC__)
     const auto alias = funcname.find(';', start);
     const auto end =
@@ -47,7 +47,7 @@ ATOM_NODISCARD consteval std::string_view extract_argument_name(
  */
 template <typename Ty>
 ATOM_NODISCARD consteval std::string_view compiler_name_of() noexcept {
-#ifdef _MSC_VER
+#if defined(_MSC_VER) && !defined(__clang__)
     return extract_argument_name(__FUNCSIG__, "compiler_name_of<");
 #else
     return extract_argument_name(__PRETTY_FUNCTION__, "Ty = ");
@@ -59,7 +59,7 @@ ATOM_NODISCARD consteval std::string_view compiler_name_of() noexcept {
  */
 template <template <typename...> class Tmpl>
 ATOM_NODISCARD consteval std::string_view template_name_of() noexcept {
-#ifdef _MSC_VER
+#if defined(_MSC_VER) && !defined(__clang__)
     return extract_argument_name(__FUNCSIG__, "template_name_of<");
 #else
     return extract_argument_name(__PRETTY_FUNCTION__, "Tmpl = ");

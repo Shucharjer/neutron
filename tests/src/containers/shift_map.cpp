@@ -17,12 +17,11 @@ using namespace neutron;
 void test_shift_map() {
     // default ctor
     {
-        constexpr shift_map<id_t, id_t> map;
-
         constexpr auto result = [] {
             shift_map<id_t, id_t> map;
-            return 0;
+            return map.empty() && map.size() == 0;
         }();
+        static_assert(result);
     }
 
     // ctor (initializer list)

@@ -71,14 +71,14 @@ void test_get() {
 }
 
 void test_member_names_of() {
-    auto names_a  = member_names_of<aggregate>();
-    auto names_na = member_names_of<not_aggregate>();
+    constexpr auto names_a  = member_names_of<aggregate>();
+    constexpr auto names_na = member_names_of<not_aggregate>();
 
-    require(names_a[0] == "member1");
-    require(names_a[1] == "member2");
+    static_assert(names_a[0] == "member1");
+    static_assert(names_a[1] == "member2");
 
-    require(names_na[0] == "another_member1_");
-    require(names_na[1] == "another_member2_");
+    static_assert(names_na[0] == "another_member1_");
+    static_assert(names_na[1] == "another_member2_");
 }
 
 void test_offsets() {

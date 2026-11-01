@@ -50,8 +50,8 @@ constexpr std::array<std::string_view, member_count_of<Ty>()>
     constexpr size_t count = member_count_of<Ty>();
     std::array<std::string_view, count> array;
     if constexpr (default_reflectible_aggregate<Ty>) {
-        constexpr auto tuple = struct_to_tuple_view<Ty>();
         [&]<size_t... Is>(std::index_sequence<Is...>) {
+            constexpr auto tuple = struct_to_tuple_view<Ty>();
             ((array[Is] = member_name_of<wrap(std::get<Is>(tuple))>()), ...);
         }(std::make_index_sequence<count>());
     } else { // has_field_traits

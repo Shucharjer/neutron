@@ -1,10 +1,22 @@
 #include <concepts>
+#include <tuple>
 #include <neutron/metafn.hpp>
 #include <neutron/reflection.hpp>
 
 using namespace neutron;
 
 int main() {
+
+    {
+        static_assert(name_of<int>() == "int");
+        static_assert(name_of<char>() == "char");
+        static_assert(name_of<double>() == "double");
+        static_assert(
+            name_of<std::tuple<int, char>>() == "std::tuple<int, char>");
+        static_assert(hash_of<int>() == internal::hash("int"));
+        static_assert(hash_of<char>() == internal::hash("char"));
+        static_assert(hash_of<int>() != hash_of<char>());
+    }
 
     {
         static_assert(

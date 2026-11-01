@@ -42,7 +42,7 @@
     #define ATOM_NOVTABLE             ///< Empty for GCC/Clang
 #elif defined(_MSC_VER)
     #define ATOM_ALWAYS_INLINE __forceinline ///< Force inline expansion (MSVC)
-    #define ATOM_FORCE_NOINLINE                                                \
+    #define ATOM_NOINLINE                                                      \
         __declspec(noinline)                 ///< Prevent inlining (MSVC)
     #define ATOM_ALLOCATOR                                                     \
         __declspec(allocator) ///< Function returns allocated memory (MSVC)

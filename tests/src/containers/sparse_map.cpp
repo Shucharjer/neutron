@@ -17,12 +17,11 @@ using namespace neutron;
 void test_sparse_map() {
     // default ctor
     {
-        constexpr sparse_map<id_t, id_t> map;
-
         constexpr auto result = [] {
             sparse_map<id_t, id_t> map;
-            return 0;
+            return map.empty() && map.size() == 0;
         }();
+        static_assert(result);
     }
 
     // ctor (initializer list)

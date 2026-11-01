@@ -37,7 +37,8 @@ struct conditional_sender {
             using receiver_concept = execution::receiver_tag;
             operation* owner;
 
-            decltype(auto) get_env() const noexcept {
+            auto get_env() const noexcept -> decltype(execution::get_env(
+                std::declval<const Receiver&>())) {
                 return execution::get_env(owner->receiver_);
             }
 

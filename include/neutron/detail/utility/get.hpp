@@ -14,12 +14,27 @@ namespace neutron {
 /*! @cond TURN_OFF_DOXYGEN */
 namespace _get {
 
+namespace _get_adl {
+
+template <std::size_t Index>
+void get() = delete;
+
+template <std::size_t Index, typename T>
+constexpr auto
+    call(T&& obj) noexcept(noexcept(get<Index>(std::forward<T>(obj))))
+        -> decltype(get<Index>(std::forward<T>(obj))) {
+    return get<Index>(std::forward<T>(obj));
+}
+
+}
+
 template <typename T, size_t Index>
 concept _has_member_get =
     requires(T&& obj) { std::forward<T>(obj).template get<Index>(); };
 
 template <typename T, size_t Index>
-concept _has_adl_get = requires(T&& obj) { get<Index>(std::forward<T>(obj)); };
+concept _has_adl_get =
+    requires(T&& obj) { _get_adl::call<Index>(std::forward<T>(obj)); };
 
 #if !ATOM_HAS_REFLECTION
 template <typename T, size_t Index>
@@ -45,7 +60,7 @@ concept _has_nothrow_member_get = requires(T&& obj) {
 
 template <typename T, size_t Index>
 concept _has_nothrow_adl_get = requires(T&& obj) {
-    { get<Index>(std::forward<T>(obj)) } noexcept;
+    { _get_adl::call<Index>(std::forward<T>(obj)) } noexcept;
 };
 
 template <typename T, size_t Index>
@@ -72,7 +87,7 @@ struct get_t {
         if constexpr (_has_member_get<T, Index>) {
             return std::forward<T>(obj).template get<Index>();
         } else if constexpr (_has_adl_get<T, Index>) {
-            return get<Index>(obj);
+            return _get_adl::call<Index>(std::forward<T>(obj));
         }
 #if !ATOM_HAS_REFLECTION
         else if constexpr (_has_reflection_get<T, Index>) {
@@ -89,7 +104,7 @@ struct get_t {
         if constexpr (_has_nothrow_member_get<T, Index>) {
             return std::forward<T>(obj).template get<Index>();
         } else if constexpr (_has_nothrow_adl_get<T, Index>) {
-            return get<Index>(obj);
+            return _get_adl::call<Index>(std::forward<T>(obj));
         }
 #if !ATOM_HAS_REFLECTION
         else if constexpr (_has_reflection_get<T, Index>) {

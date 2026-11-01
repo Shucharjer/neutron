@@ -120,7 +120,9 @@ struct _bitviewer {
 #else
 
 template <std::integral T>
+#if defined(__SIZEOF_INT128__)
 requires(!one_of<T, __uint128_t, __int128_t>)
+#endif
 struct serialize_t<bitstream, T> {
     void operator()(bitstream& bs, T val) const noexcept {
         *reinterpret_cast<T*>(_bitviewer::data(bs)) = val;
@@ -129,6 +131,7 @@ struct serialize_t<bitstream, T> {
     }
 };
 
+#if defined(__SIZEOF_INT128__)
 template <one_of<__uint128_t, __int128_t> T>
 struct serialize_t<bitstream, T> {
     void operator()(bitstream& bs, T val) const noexcept {
@@ -137,9 +140,12 @@ struct serialize_t<bitstream, T> {
         _bitviewer::length(bs) -= sizeof(T);
     }
 };
+#endif
 
 template <std::integral T>
+#if defined(__SIZEOF_INT128__)
 requires(!one_of<T, __uint128_t, __int128_t>)
+#endif
 struct deserialize_t<bitstream, T> {
     void operator()(bitstream& bs, T& val) const noexcept {
         auto& data = _bitviewer::data(bs);
@@ -149,6 +155,7 @@ struct deserialize_t<bitstream, T> {
     }
 };
 
+#if defined(__SIZEOF_INT128__)
 template <one_of<__uint128_t, __int128_t> T>
 struct deserialize_t<bitstream, T> {
     void operator()(bitstream& bs, T& val) const noexcept {
@@ -158,6 +165,7 @@ struct deserialize_t<bitstream, T> {
         _bitviewer::length(bs) -= sizeof(T);
     }
 };
+#endif
 
 template <std::floating_point T>
 struct serialize_t<bitstream, T> {
