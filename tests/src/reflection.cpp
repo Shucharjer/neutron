@@ -38,7 +38,9 @@ public:
     constexpr not_aggregate& operator=(not_aggregate&&)      = default;
     constexpr ~not_aggregate()                               = default;
 
+#if !ATOM_HAS_REFLECTION
     REFL_MEMBERS(not_aggregate, another_member1_, another_member2_)
+#endif
 private:
     int another_member1_;
     char another_member2_;
@@ -46,11 +48,13 @@ private:
 
 void test_member_count_of() {
     require(member_count_of<aggregate>() == 2);
+#if !ATOM_HAS_REFLECTION
     require(member_count_of<not_aggregate>() == 2);
+#endif
 }
 
 void test_get() {
-#if !ATOM_HAS_REFLECTION && false
+#if !ATOM_HAS_REFLECTION
     const auto num = 114514;
     const char cha = '!';
     auto agg       = aggregate{ .member1 = num, .member2 = cha };
@@ -71,17 +75,22 @@ void test_get() {
 }
 
 void test_member_names_of() {
-    constexpr auto names_a  = member_names_of<aggregate>();
-    constexpr auto names_na = member_names_of<not_aggregate>();
+    constexpr auto names_a = member_names_of<aggregate>();
+#if !ATOM_HAS_REFLECTION
+    auto names_na = member_names_of<not_aggregate>();
+#endif
 
     static_assert(names_a[0] == "member1");
     static_assert(names_a[1] == "member2");
 
-    static_assert(names_na[0] == "another_member1_");
-    static_assert(names_na[1] == "another_member2_");
+#if !ATOM_HAS_REFLECTION
+    require(names_na[0] == "another_member1_");
+    require(names_na[1] == "another_member2_");
+#endif
 }
 
 void test_offsets() {
+#if !ATOM_HAS_REFLECTION
     auto offsets = offsets_of<aggregate>();
     auto ptr     = std::get<1>(offsets);
     auto agg     = aggregate{};
@@ -89,20 +98,25 @@ void test_offsets() {
     require(agg.*ptr == 'c');
     agg.*ptr = 'b';
     require(agg.member2 == 'b');
+#endif
 }
 void test_offset_value() {
+#if !ATOM_HAS_REFLECTION
     require((offset_value_of<0, aggregate>() == 0));
     require((offset_value_of<1, aggregate>() == 4));
 
-    // TODO:
-    // require((offset_value_of<0, not_aggregate>() == 0))
-    // require((offset_value_of<1, not_aggregate>() == 4))
+    // TODO
+    // require((offset_value_of<0, not_aggregate>() == 0));
+    // require((offset_value_of<1, not_aggregate>() == 4));
+#endif
 }
 
 void test_member_type_of() {
     require((std::same_as<int, member_type_of_t<0, aggregate>>));
     require((std::same_as<char, member_type_of_t<1, aggregate>>));
 
+#if !ATOM_HAS_REFLECTION
     require((std::same_as<int, member_type_of_t<0, not_aggregate>>));
     require((std::same_as<char, member_type_of_t<1, not_aggregate>>));
+#endif
 }

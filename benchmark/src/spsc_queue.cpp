@@ -45,17 +45,14 @@ template <typename SpscQueue>
 void bm_spsc_queue_pop_front(benchmark::State& state) {
     SpscQueue queue;
 
-    std::atomic_bool run = true;
-    std::jthread jt([&queue, &run] {
+    std::atomic_bool run  = true;
+    std::atomic_bool done = false;
+    std::jthread jt([&queue, &run, &done] {
         value_type value = 0;
         while (run.load(std::memory_order_acquire)) {
-            // A blocking push would never return once the consumer stops.
-            if constexpr (requires { queue.try_push_back(value); }) {
-                static_cast<void>(queue.try_push_back(value));
-            } else {
-                queue.push_back(value);
-            }
+            queue.push_back(value);
         }
+        done.store(true, std::memory_order_release);
     });
 
     for (auto _ : state) {
@@ -65,6 +62,12 @@ void bm_spsc_queue_pop_front(benchmark::State& state) {
     }
 
     run.store(false, std::memory_order_release);
+    // Drain until the producer leaves, as it may be waiting on a full queue.
+    while (!done.load(std::memory_order_acquire)) {
+        if (!queue.empty()) {
+            queue.pop_front();
+        }
+    }
     state.SetItemsProcessed(state.iterations());
 }
 

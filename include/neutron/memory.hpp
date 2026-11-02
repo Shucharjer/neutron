@@ -5,6 +5,7 @@
 #include "neutron/detail/memory/freeable_bytes.hpp"
 #include "neutron/detail/memory/inplace.hpp"
 #include "neutron/detail/memory/object_pool.hpp"
+#include "neutron/detail/memory/padded.hpp"
 #include "neutron/detail/memory/raw_memory.hpp"
 #include "neutron/detail/memory/rebind_alloc.hpp"
 #include "neutron/detail/memory/uninitialized_move_if_noexcept.hpp"

@@ -6,6 +6,10 @@
 
 #if ATOM_HAS_REFLECTION
     #include "neutron/detail/reflection/meta/hash_of.hpp"
+    #include "neutron/detail/reflection/meta/member_count.hpp"
+    #include "neutron/detail/reflection/meta/member_names.hpp"
+    #include "neutron/detail/reflection/meta/member_offset.hpp"
+    #include "neutron/detail/reflection/meta/member_type.hpp"
     #include "neutron/detail/reflection/meta/name_of.hpp"
     #include "neutron/detail/reflection/meta/reserve.hpp"
 
@@ -33,6 +37,7 @@ using _refl_legacy::member_type_of;
 using _refl_legacy::member_type_of_t;
 using _refl_legacy::basic_reflected;
 using _refl_legacy::reflected;
+using _refl_legacy::get_by_name;
 
 } // namespace neutron
 

@@ -22,110 +22,137 @@ using trivially_relocatable =
 
     #if ATOM_HAS_REFLECTION
 
-        #include <concepts>
+        #include <algorithm>
         #include <meta>
-        #include <type_traits>
+        #include <ranges>
+        #include <vector>
 
 namespace neutron {
 
 namespace _trivially_relocatable {
 
-template <typename Ty>
-struct _is_trivially_relocatable;
+consteval bool _is_trivially_relocatable(std::meta::info type);
 
-template <typename Ty>
-constexpr bool _has_any_virtual_base_class = [] consteval {
-    using namespace std::meta;
-    auto ctx = access_context::current();
-    for (auto info : std::define_static_array(bases_of(^^Ty, ctx))) {
-        if (is_virtual(info)) {
-            return true;
-        }
+/// @note Private bases and members must be inspected as well, so all queries
+/// use an unchecked access context.
+consteval std::meta::access_context _context() noexcept {
+    return std::meta::access_context::unchecked();
+}
+
+consteval bool _has_no_virtual_base_class(std::meta::info type) {
+    return std::ranges::none_of(
+        std::meta::bases_of(type, _context()), [](std::meta::info base) {
+            return std::meta::is_virtual(base);
+        });
+}
+
+consteval bool _is_trivially_relocatable_subobject(std::meta::info subobject) {
+    const auto type = std::meta::type_of(subobject);
+    return std::meta::is_reference_type(type) ||
+           _is_trivially_relocatable(type);
+}
+
+consteval bool _has_trivially_relocatable_subobjects(std::meta::info type) {
+    return std::ranges::all_of(
+               std::meta::bases_of(type, _context()),
+               _is_trivially_relocatable_subobject) &&
+           std::ranges::all_of(
+               std::meta::nonstatic_data_members_of(type, _context()),
+               _is_trivially_relocatable_subobject);
+}
+
+consteval bool _is_eligible_for_relocation(std::meta::info type) {
+    return _has_no_virtual_base_class(type) &&
+           _has_trivially_relocatable_subobjects(type) &&
+           std::meta::is_destructible_type(type);
+}
+
+consteval bool _is_trivially_relocatable_if_eligible(std::meta::info) {
+    return false; // `trivially_relocatable_if_eligible` is not implemented
+}
+
+consteval bool _is_union_without_user_declared_special_member_functions(
+    std::meta::info type) {
+    return std::meta::is_union_type(type) &&
+           std::ranges::none_of(
+               std::meta::members_of(type, _context()),
+               [](std::meta::info member) {
+                   return std::meta::is_special_member_function(member) &&
+                          std::meta::is_user_declared(member);
+               });
+}
+
+consteval bool _is_neither_user_provided_nor_deleted(std::meta::info member) {
+    return !std::meta::is_user_provided(member) &&
+           !std::meta::is_deleted(member);
+}
+
+/// @brief Checks the special member selected for an xvalue of the class.
+/// @note A defaulted move operation defined as deleted is ignored by overload
+/// resolution, so the copy operation is selected instead.
+consteval bool _selects_default_special_member(
+    const std::vector<std::meta::info>& members, auto is_move, auto is_copy) {
+    auto moves =
+        members | std::views::filter([is_move](std::meta::info member) {
+            return is_move(member) && !(std::meta::is_defaulted(member) &&
+                                        std::meta::is_deleted(member));
+        });
+    if (!std::ranges::empty(moves)) {
+        return std::ranges::all_of(
+            moves, _is_neither_user_provided_nor_deleted);
     }
-    return false;
-}();
+    return std::ranges::all_of(
+        members | std::views::filter(is_copy),
+        _is_neither_user_provided_nor_deleted);
+}
 
-template <typename Ty>
-constexpr bool _has_not_trivially_relocatable_base_class = [] consteval {
-    using namespace std::meta;
-    constexpr auto ctx = access_context::current();
-    template for (constexpr auto info :
-                  std::define_static_array(bases_of(^^Ty, ctx))) {
-        if (!_is_trivially_relocatable<typename[:type_of(info):]>::value) {
-            return true;
-        }
-    }
-    return false;
-}();
+consteval bool _is_default_movable(std::meta::info type) {
+    const auto members = std::meta::members_of(type, _context());
+    return _selects_default_special_member(
+               members,
+               [](std::meta::info member) {
+                   return std::meta::is_move_constructor(member);
+               },
+               [](std::meta::info member) {
+                   return std::meta::is_copy_constructor(member);
+               }) &&
+           _selects_default_special_member(
+               members,
+               [](std::meta::info member) {
+                   return std::meta::is_move_assignment(member);
+               },
+               [](std::meta::info member) {
+                   return std::meta::is_copy_assignment(member);
+               }) &&
+           std::ranges::all_of(
+               members | std::views::filter([](std::meta::info member) {
+                   return std::meta::is_destructor(member);
+               }),
+               _is_neither_user_provided_nor_deleted);
+}
 
-template <typename Ty>
-constexpr bool _has_not_trivially_relocatable_nonstatic_data_member =
-    [] consteval {
-        using namespace std::meta;
-        constexpr auto ctx = access_context::current();
-        template for (constexpr auto info : std::define_static_array(
-                          nonstatic_data_members_of(^^Ty, ctx))) {
-            if (!_is_trivially_relocatable<typename[:type_of(info):]>::value) {
-                return true;
-            }
-        }
-        return false;
-    }();
-
-template <typename Ty>
-concept _eligible_for_relocation =
-    !_has_any_virtual_base_class<Ty> &&
-    !_has_not_trivially_relocatable_base_class<Ty> &&
-    !_has_not_trivially_relocatable_nonstatic_data_member<Ty> &&
-    std::destructible<Ty>;
-
-template <typename Ty>
-concept _has_trivially_relocatable_if_eligible = false;
-
-template <typename Ty>
-concept _union_without_user_defined_special_member_functions =
-    std::is_union_v<Ty> && [] consteval {
-        using namespace std::meta;
-        auto ctx = access_context::current();
-        for (auto info : members_of(^^Ty, ctx)) {
-            if (is_special_member_function(info) && is_user_provided(info)) {
-                return false;
-            }
-        }
+consteval bool _is_trivially_relocatable(std::meta::info type) {
+    type = std::meta::remove_cv(std::meta::remove_all_extents(type));
+    if (std::meta::is_scalar_type(type)) {
         return true;
-    }();
-
-template <typename Ty>
-concept _default_movable = [] consteval {
-    using namespace std::meta;
-    auto ctx = access_context::current();
-    for (auto info : members_of(^^Ty, ctx)) {
-        if (is_move_constructor(info) || is_move_assignment(info)) {
-            if (is_user_provided(info)) {
-                return false;
-            }
-        }
     }
-    return true;
-}();
 
-template <typename Ty>
-struct _is_trivially_relocatable {
-    static constexpr bool value =
-        _eligible_for_relocation<Ty> &&
-        (_has_trivially_relocatable_if_eligible<Ty> ||
-         _union_without_user_defined_special_member_functions<Ty> ||
-         _default_movable<Ty>);
-};
-template <typename Ty>
-requires std::is_fundamental_v<Ty>
-struct _is_trivially_relocatable<Ty> : std::true_type {};
+    // void, references and functions are not relocatable
+    if (!std::meta::is_class_type(type) && !std::meta::is_union_type(type)) {
+        return false;
+    }
+
+    return _is_eligible_for_relocation(type) &&
+           (_is_trivially_relocatable_if_eligible(type) ||
+            _is_union_without_user_declared_special_member_functions(type) ||
+            _is_default_movable(type));
+}
 
 } // namespace _trivially_relocatable
 
 template <typename Ty>
 concept trivially_relocatable =
-    _trivially_relocatable::_is_trivially_relocatable<Ty>::value;
+    _trivially_relocatable::_is_trivially_relocatable(^^Ty);
 
 } // namespace neutron
 

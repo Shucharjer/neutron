@@ -115,10 +115,6 @@ struct _bitviewer {
     }
 };
 
-#if ATOM_HAS_REFLECTION
-
-#else
-
 template <std::integral T>
 #if defined(__SIZEOF_INT128__)
 requires(!one_of<T, __uint128_t, __int128_t>)
@@ -306,10 +302,12 @@ struct serialize_t<bitstream, Contiguous> {
     }
 };
 
-template <_refl_legacy::aggregate T>
-requires(!fixed_array<T>)
+template <typename T>
+requires(std::is_aggregate_v<T> && !fixed_array<T>)
 struct serialize_t<bitstream, T> {
     void operator()(bitstream& bs, const T& val) const noexcept {
+#if ATOM_HAS_REFLECTION
+#else
         if constexpr (member_count_of<T>() != 0) {
             auto tup = _refl_legacy::object_to_tuple_view(val);
             std::apply(
@@ -318,13 +316,16 @@ struct serialize_t<bitstream, T> {
                 },
                 tup);
         }
+#endif
     }
 };
 
-template <_refl_legacy::aggregate T>
-requires(!fixed_array<T>)
+template <typename T>
+requires(std::is_aggregate_v<T> && !fixed_array<T>)
 struct deserialize_t<bitstream, T> {
     void operator()(bitstream& bs, T& val) const noexcept {
+#if ATOM_HAS_REFLECTION
+#else
         if constexpr (member_count_of<T>() != 0) {
             auto tup = _refl_legacy::object_to_tuple_view(val);
             std::apply(
@@ -333,9 +334,8 @@ struct deserialize_t<bitstream, T> {
                 },
                 tup);
         }
+#endif
     }
 };
-
-#endif
 
 } // namespace neutron

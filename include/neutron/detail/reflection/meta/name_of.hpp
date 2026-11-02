@@ -2,7 +2,7 @@
 #pragma once
 #include "neutron/detail/utility/macros.hpp"
 
-#if ATOM_HAS_REFLECTION
+#if ATOM_HAS_REFLECTION && false
 
     #include <array>
     #include <cstddef>
@@ -68,5 +68,15 @@ consteval std::string_view name_of() noexcept {
 }
 
 } // namespace neutron
+
+#else
+
+    #include "neutron/detail/reflection/legacy/name_of.hpp"
+
+namespace neutron {
+
+using _refl_legacy::name_of;
+
+}
 
 #endif
