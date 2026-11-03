@@ -303,9 +303,6 @@ struct param_spec {
     using accessibilities = type_list<>;
 };
 
-// Kept at namespace scope: MSVC treats static member functions as not yet
-// defined inside a static_assert of their own class (C2131).
-
 template <std::size_t I, system_spec Spec, system_spec... Specs>
 consteval bool _systems_have_match() noexcept {
     using list_t = value_list<Specs...>;
@@ -343,7 +340,9 @@ consteval bool _systems_have_loop() noexcept {
         for (std::size_t j = 0; j < count; ++j) {
             if (closure[i][j]) {
                 for (std::size_t k = 0; k < count; ++k) {
-                    closure[i][k] |= closure[j][k];
+                    // `|=` on bool reads as uninitialized under MSVC
+                    // constant evaluation (C2131)
+                    closure[i][k] = closure[i][k] || closure[j][k];
                 }
             }
         }
