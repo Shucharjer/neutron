@@ -98,7 +98,7 @@ jobs:
           fi
 
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
 
       - name: Configure
         run: |
@@ -126,6 +126,9 @@ jobs:
     name: ${{ matrix.distro.name }} ${{ matrix.arch.name }} MinGW ${{ matrix.target }} C++${{ matrix.config.cxx_standard }} ${{ matrix.config.name }}
     runs-on: ${{ matrix.arch.runner }}
     container: ${{ matrix.distro.container }}
+    # Ubuntu ships MinGW GCC 13, which lacks deducing this (needed by beman)
+    # and is not recognized by CMake as supporting C++26.
+    continue-on-error: ${{ matrix.distro.name == 'ubuntu' && (matrix.config.beman == 'ON' || matrix.config.cxx_standard == 26) }}
     strategy:
       fail-fast: false
       matrix:
@@ -171,7 +174,7 @@ jobs:
         run: ${{ matrix.distro.install }}
 
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
 
       - name: Configure
         run: |
@@ -196,6 +199,8 @@ jobs:
   windows:
     name: windows ${{ matrix.compiler.name }} C++${{ matrix.config.cxx_standard }} ${{ matrix.config.name }}
     runs-on: windows-2025-vs2026
+    # MSVC does not support C++26 yet.
+    continue-on-error: ${{ matrix.compiler.name == 'msvc' && matrix.config.cxx_standard == 26 }}
     defaults:
       run:
         shell: pwsh
@@ -206,7 +211,7 @@ jobs:
           - name: msvc
             generator: "Visual Studio 18 2026"
             architecture: x64
-          - name: gcc-mcf
+          - name: mingw
             generator: Ninja
             architecture: ""
         config:
@@ -243,21 +248,23 @@ jobs:
 
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
 
-      - name: Setup gcc-mcf
-        if: matrix.compiler.name == 'gcc-mcf'
+      - name: Setup MinGW
+        if: matrix.compiler.name == 'mingw'
+        env:
+          GH_TOKEN: ${{ github.token }}
         run: |
           $ErrorActionPreference = "Stop"
-          # Downloading the archive directly avoids the captcha on the index page.
-          $url = "https://gcc-mcf.lhmouse.com/mingw-w64-gcc-mcf_20261021_16.2.1_x64-ucrt_9d305bff446047a1b1a7bab2924afee83233e77f.7z"
-          curl.exe -fsSL -o gcc-mcf.7z $url
-          7z x gcc-mcf.7z -ogcc-mcf
-          $bin = Get-ChildItem gcc-mcf -Recurse -Directory -Filter bin |
+          # Latest release of https://github.com/niXman/mingw-builds-binaries
+          gh release download --repo niXman/mingw-builds-binaries `
+            --pattern "x86_64-*-release-posix-seh-ucrt-*.7z" --output mingw.7z
+          7z x mingw.7z -omingw
+          $bin = Get-ChildItem mingw -Recurse -Directory -Filter bin |
             Where-Object { Test-Path (Join-Path $_.FullName "g++.exe") } |
             Select-Object -First 1
           if ($null -eq $bin) {
-            throw "No gcc-mcf bin directory found"
+            throw "No MinGW bin directory found"
           }
           $bin.FullName | Out-File -FilePath $env:GITHUB_PATH -Encoding utf8 -Append
           & (Join-Path $bin.FullName "g++.exe") --version
@@ -277,8 +284,8 @@ jobs:
             -DNEUTRON_USES_STDEXEC=${{ matrix.config.stdexec }} `
             -DNEUTRON_USES_BEMAN_EXECUTION=${{ matrix.config.beman }}
 
-      - name: Configure gcc-mcf
-        if: matrix.compiler.name == 'gcc-mcf'
+      - name: Configure MinGW
+        if: matrix.compiler.name == 'mingw'
         run: |
           cmake -S . -B build `
             -G Ninja `
@@ -301,11 +308,13 @@ jobs:
         run: ctest --test-dir build -C Release --output-on-failure --parallel 2
 
   macos:
-    name: macos clang++ C++${{ matrix.config.cxx_standard }} ${{ matrix.config.name }}
-    runs-on: macos-14
+    name: ${{ matrix.runner }} clang++ C++${{ matrix.config.cxx_standard }} ${{ matrix.config.name }}
+    runs-on: ${{ matrix.runner }}
     strategy:
       fail-fast: false
       matrix:
+        # xcode-27 is the macOS 27 image (preview)
+        runner: [xcode-27, macos-26]
         config:
           - name: stdexec
             cxx_standard: 20
@@ -340,7 +349,7 @@ jobs:
 
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
 
       - name: Configure
         run: |
