@@ -88,6 +88,7 @@ bool test_multiple_producers_publish_each_value_once() {
 
     started.store(true, std::memory_order_release);
     producers.clear();
+    consumer.join();
 
     if (!valid.load(std::memory_order_relaxed)) {
         return false;
