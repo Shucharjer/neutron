@@ -1,6 +1,11 @@
 // IWYU pragma: private, include <neutron/reflection.hpp>
 #pragma once
 
+#if defined(_MSC_VER) && !defined(__clang__) &&                                \
+    (!defined(_MSVC_TRADITIONAL) || _MSVC_TRADITIONAL)
+    #error "reflection macros require /Zc:preprocessor on MSVC"
+#endif
+
 namespace neutron::_reflection {
 
 // NOLINTBEGIN(cppcoreguidelines-macro-usage)
