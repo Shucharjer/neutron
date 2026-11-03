@@ -88,7 +88,7 @@ public:
                   static_assert(
                       false, "no suitable way to construct the first element");
               }
-          }),
+          }()),
           second_base([&] {
               if constexpr (public_pair<That>) {
                   return std::forward<That>(that).second;
@@ -98,7 +98,7 @@ public:
                   static_assert(
                       false, "no suitable way to construct the second element");
               }
-          }) {}
+          }()) {}
 
     constexpr compressed_pair(const compressed_pair&)            = default;
     constexpr compressed_pair& operator=(const compressed_pair&) = default;
