@@ -235,7 +235,7 @@
 #else
     #define ATOM_TRY
     #define ATOM_CATCH(...) if (false)
-    #define ATOM_RETHROE
+    #define ATOM_RETHROW
 #endif
 
 #ifndef ATOM_RESTRICT
