@@ -303,66 +303,68 @@ struct param_spec {
     using accessibilities = type_list<>;
 };
 
-template <stage Stage, system_spec... Specs>
-class _add_systems_t : public description_tag {
+// Kept at namespace scope: MSVC treats static member functions as not yet
+// defined inside a static_assert of their own class (C2131).
+
+template <std::size_t I, system_spec Spec, system_spec... Specs>
+consteval bool _systems_have_match() noexcept {
     using list_t = value_list<Specs...>;
-    using iseq_t = std::make_index_sequence<sizeof...(Specs)>;
+    return []<std::size_t... J>(std::index_sequence<J...>) {
+        return (
+            _task_spec_matches<
+                Spec, value_list_element_v<I + J, list_t>.fn>() ||
+            ...);
+    }(std::make_index_sequence<sizeof...(Specs) - I>());
+}
 
-    template <std::size_t I, system_spec Spec>
-    static consteval bool _has_match() noexcept {
-        return []<std::size_t... J>(std::index_sequence<J...>) {
-            return (
-                _task_spec_matches<
-                    Spec, value_list_element_v<I + J, list_t>.fn>() ||
-                ...);
-        }(std::make_index_sequence<sizeof...(Specs) - I>());
-    }
+template <system_spec... Specs>
+consteval bool _systems_are_unique() noexcept {
+    using list_t = value_list<Specs...>;
+    return ![]<std::size_t... I>(std::index_sequence<I...>) {
+        return (
+            _systems_have_match<
+                I + 1, value_list_element_v<I, list_t>, Specs...>() ||
+            ...);
+    }(std::make_index_sequence<sizeof...(Specs)>());
+}
 
-    static consteval bool _is_unique() noexcept {
-        return ![]<std::size_t... I>(std::index_sequence<I...>) {
-            return (
-                _has_match<I + 1, value_list_element_v<I, list_t>>() || ...);
-        }(iseq_t());
-    }
-
-    static_assert(_is_unique());
-
-    static consteval auto _cal_closure() {
-        constexpr auto count = sizeof...(Specs);
-        auto graph           = graph_builder<_add_systems_t>::make();
-        std::array<std::array<bool, count>, count> closure{};
-        for (std::size_t i = 0; i < count; ++i) {
-            for (auto task : graph[i]) {
-                closure[i][task] = true;
-            }
+template <stage Stage, system_spec... Specs>
+consteval bool _systems_have_loop() noexcept {
+    constexpr auto count = sizeof...(Specs);
+    auto graph = graph_builder<_add_systems_t<Stage, Specs...>>::make();
+    std::array<std::array<bool, count>, count> closure{};
+    for (std::size_t i = 0; i < count; ++i) {
+        for (auto task : graph[i]) {
+            closure[i][task] = true;
         }
+    }
 
-        for (std::size_t i = 0; i < count; ++i) {
-            for (std::size_t j = 0; j < count; ++j) {
-                if (closure[i][j]) {
-                    for (std::size_t k = 0; k < count; ++k) {
-                        closure[i][k] |= closure[j][k];
-                    }
+    for (std::size_t i = 0; i < count; ++i) {
+        for (std::size_t j = 0; j < count; ++j) {
+            if (closure[i][j]) {
+                for (std::size_t k = 0; k < count; ++k) {
+                    closure[i][k] |= closure[j][k];
                 }
             }
         }
-
-        return closure;
     }
 
-    static consteval bool _has_loop() noexcept {
-        auto closure = _cal_closure();
-        for (std::size_t i = 0; i < closure.size(); ++i) {
-            if (closure[i][i]) {
-                return true;
-            }
+    for (std::size_t i = 0; i < count; ++i) {
+        if (closure[i][i]) {
+            return true;
         }
-        return false;
     }
+    return false;
+}
+
+template <stage Stage, system_spec... Specs>
+class _add_systems_t : public description_tag {
+    static_assert(_systems_are_unique<Specs...>());
 
     static_assert(
-        !_has_loop(), "there is a dependency loop. please check the "
-                      "use of 'before' and 'after'");
+        !_systems_have_loop<Stage, Specs...>(),
+        "there is a dependency loop. please check the "
+        "use of 'before' and 'after'");
 
 public:
     using spec_list = value_list<Specs...>;
