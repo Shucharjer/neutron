@@ -18,5 +18,6 @@
 #include "neutron/detail/utility/packed_uint.hpp"
 #include "neutron/detail/utility/pipeline.hpp"
 #include "neutron/detail/utility/spreader.hpp"
+#include "neutron/detail/utility/system_error.hpp"
 
 // IWYU pragma: end_exports
