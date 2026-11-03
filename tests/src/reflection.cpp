@@ -90,7 +90,6 @@ void test_member_names_of() {
 }
 
 void test_offsets() {
-#if !ATOM_HAS_REFLECTION
     auto offsets = offsets_of<aggregate>();
     auto ptr     = std::get<1>(offsets);
     auto agg     = aggregate{};
@@ -98,16 +97,14 @@ void test_offsets() {
     require(agg.*ptr == 'c');
     agg.*ptr = 'b';
     require(agg.member2 == 'b');
-#endif
 }
 void test_offset_value() {
-#if !ATOM_HAS_REFLECTION
     require((offset_value_of<0, aggregate>() == 0));
     require((offset_value_of<1, aggregate>() == 4));
 
-    // TODO
-    // require((offset_value_of<0, not_aggregate>() == 0));
-    // require((offset_value_of<1, not_aggregate>() == 4));
+#if ATOM_HAS_REFLECTION
+    static_assert(offset_value_of<0, not_aggregate>() == 0);
+    static_assert(offset_value_of<1, not_aggregate>() == 4);
 #endif
 }
 

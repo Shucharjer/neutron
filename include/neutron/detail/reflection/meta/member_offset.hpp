@@ -1,66 +1,56 @@
+// IWYU pragma: private, include <neutron/reflection.hpp>
 #pragma once
-#include <vector>
 #include "neutron/detail/utility/macros.hpp"
 
 #if ATOM_HAS_REFLECTION
 
-    #include <array>
+    #include <cstddef>
     #include <meta>
     #include <tuple>
-    #include "neutron/detail/reflection/offset_helper.hpp"
+    #include <utility>
 
 namespace neutron {
 
-template <std::meta::info Info>
-consteval auto _get_offsets_type() -> std::meta::info {
-    using namespace std::meta;
-    constexpr auto ctx  = access_context::unchecked();
-    constexpr auto mbrs = nonstatic_data_members_of(Info, ctx);
-    using class_type    = [:type_of(Info):];
-    std::vector<info> mptrs;
-    template for (constexpr auto mbr : mbrs) {
-        using mbr_t = [:type_of(mbr):];
-        using ptr_t = mbr_t class_type::*;
-        mptrs.emplace_back(^^ptr_t);
-    }
-    return substitute(^^std::tuple, mptrs);
+namespace _refl_meta_offset {
+
+template <typename Ty>
+inline constexpr auto members = std::define_static_array(
+    std::meta::nonstatic_data_members_of(
+        ^^Ty, std::meta::access_context::unchecked()));
+
+template <typename Ty, std::size_t Index>
+using member_pointer_t =
+    typename[:std::meta::type_of(members<Ty>[Index]):] Ty::*;
+
+} // namespace _refl_meta_offset
+
+/**
+ * @brief Get the pointer to the Index-th non-static data member of Ty.
+ */
+template <std::size_t Index, typename Ty>
+requires(Index < _refl_meta_offset::members<Ty>.size())
+ATOM_NODISCARD consteval auto offset_of() noexcept {
+    using pointer_t = _refl_meta_offset::member_pointer_t<Ty, Index>;
+    return std::meta::extract<pointer_t>(_refl_meta_offset::members<Ty>[Index]);
 }
 
-template <std::meta::info Info, std::meta::info Class>
-consteval auto _get_offset() {
-    using namespace std::meta;
-    std::ptrdiff_t offset = offset_of(Info).bytes;
-    auto mptr             = _refl::_offset_mapping(offset);
-    using mbr_t           = typename[:type_of(Info):];
-    using class_type      = typename[:type_of(Class):];
-    mbr_t class_type::* t = mptr;
+/**
+ * @brief Get the pointers to all non-static data members of Ty as a tuple.
+ */
+template <typename Ty>
+ATOM_NODISCARD consteval auto offsets_of() noexcept {
+    return []<std::size_t... Is>(std::index_sequence<Is...>) {
+        return std::make_tuple(offset_of<Is, Ty>()...);
+    }(std::make_index_sequence<_refl_meta_offset::members<Ty>.size()>());
 }
 
-template <std::meta::info Info>
-consteval auto _offsets_of() {
-    using namespace std::meta;
-    constexpr auto ctx  = access_context::unchecked();
-    constexpr auto mbrs = nonstatic_data_members_of(Info, ctx);
-    using class_type    = [:type_of(Info):];
-    [:type_of(_get_offsets_type<Info>()):] r;
-    template for (constexpr auto mbr : mbrs) { _get_offset<mbr, Info>();
-        
-     }
-}
-
-template <typename T>
-constexpr auto offsets_of() {
-    return [] consteval {
-        constexpr std::size_t count = member_count_of<T>();
-        using namespace std::meta;
-        constexpr auto ctx = access_context::unchecked();
-        std::array<std::size_t, count> r;
-        auto mbrs = nonstatic_data_members_of(^^T, ctx);
-        for (std::size_t i = 0; i < count; ++i) {
-            r[i] = offset_of(mbrs[i]).bytes;
-        }
-        return r;
-    }();
+/**
+ * @brief Get the byte offset of the Index-th non-static data member of Ty.
+ */
+template <std::size_t Index, typename Ty>
+requires(Index < _refl_meta_offset::members<Ty>.size())
+ATOM_NODISCARD consteval std::size_t offset_value_of() noexcept {
+    return std::meta::offset_of(_refl_meta_offset::members<Ty>[Index]).bytes;
 }
 
 } // namespace neutron

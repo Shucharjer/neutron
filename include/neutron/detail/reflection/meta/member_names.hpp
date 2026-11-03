@@ -19,7 +19,9 @@ constexpr std::array<std::string_view, member_count_of<T>()> member_names_of() {
         std::array<std::string_view, count> r;
         auto mbrs = nonstatic_data_members_of(^^T, ctx);
         for (std::size_t i = 0; i < count; ++i) {
-            r[i] = display_string_of(mbrs[i]);
+            // display_string_of is implementation-defined (GCC qualifies it)
+            r[i] = has_identifier(mbrs[i]) ? identifier_of(mbrs[i])
+                                           : std::string_view{};
         }
         return r;
     }();
