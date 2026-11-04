@@ -151,6 +151,22 @@ struct tracking_allocator {
     }
 };
 
+using tracked_map = bytell_hash_map<
+    int, std::string, std::hash<int>, std::equal_to<int>,
+    tracking_allocator<std::pair<int, std::string>>>;
+
+// Moving with a possibly unequal allocator may allocate.
+static_assert(!std::is_nothrow_constructible_v<
+              tracked_map, tracked_map&&,
+              const tracking_allocator<std::pair<int, std::string>>&>);
+static_assert(!std::is_nothrow_move_assignable_v<tracked_map>);
+static_assert(std::is_nothrow_move_assignable_v<bytell_hash_map<
+                  int, std::string, std::hash<int>, std::equal_to<int>,
+                  tracking_allocator<std::pair<int, std::string>, true>>>);
+static_assert(std::is_nothrow_constructible_v<
+              bytell_hash_map<int, int>, bytell_hash_map<int, int>&&,
+              const std::allocator<std::pair<int, int>>&>);
+
 bool arena_clean(const arena& a) {
     return a.blocks.empty() && a.bad_deallocations == 0;
 }
@@ -840,7 +856,33 @@ bool test_aligned_elements() {
             return false;
         }
     }
-    return map.size() == 1000;
+    if (map.size() != 1000) {
+        return false;
+    }
+
+    // Over-aligned elements, including lookups in the shared empty block.
+    struct alignas(64) big {
+        int value;
+        bool operator==(const big&) const = default;
+    };
+    struct big_hash {
+        std::size_t operator()(const big& item) const noexcept {
+            return static_cast<std::size_t>(item.value);
+        }
+    };
+    bytell_hash_set<big, big_hash> set;
+    if (set.find(big{ 1 }) != set.end()) {
+        return false;
+    }
+    for (int i = 0; i < 256; ++i) {
+        set.insert(big{ i });
+    }
+    for (const big& item : set) {
+        if (reinterpret_cast<std::uintptr_t>(&item) % alignof(big) != 0) {
+            return false;
+        }
+    }
+    return set.size() == 256;
 }
 
 bool test_allocator() {
@@ -866,6 +908,20 @@ bool test_allocator() {
         if (copy.get_allocator().owner != &first ||
             other.get_allocator().owner != &second || copy != map ||
             other != map || second.blocks.size() != 1) {
+            return false;
+        }
+
+        // Allocator-extended move: element-wise with an unequal allocator,
+        // stealing with an equal one.
+        map_type source(map, alloc_type{ &first });
+        map_type moved_other(std::move(source), alloc_type{ &second });
+        if (moved_other.get_allocator().owner != &second ||
+            moved_other != map || !source.empty()) {
+            return false;
+        }
+        const std::size_t second_blocks = second.blocks.size();
+        map_type stolen_other(std::move(moved_other), alloc_type{ &second });
+        if (stolen_other != map || second.blocks.size() != second_blocks) {
             return false;
         }
 

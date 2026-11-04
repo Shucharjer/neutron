@@ -217,6 +217,20 @@ using id_map = neutron::flat_hash_map<
     int, std::string, std::hash<int>, std::equal_to<int>,
     id_allocator<std::pair<int, std::string>, Pocca, Pocma, Pocs>>;
 
+// Moving with a possibly unequal allocator may allocate.
+static_assert(
+    !std::is_nothrow_constructible_v<
+        id_map<false, false, false>, id_map<false, false, false>&&,
+        const id_allocator<std::pair<int, std::string>, false, false, false>&>);
+static_assert(!std::is_nothrow_move_assignable_v<id_map<false, false, false>>);
+static_assert(std::is_nothrow_move_assignable_v<id_map<true, true, true>>);
+static_assert(
+    std::is_nothrow_constructible_v<
+        neutron::flat_hash_map<int, int>, neutron::flat_hash_map<int, int>&&,
+        const std::allocator<std::pair<int, int>>&>);
+static_assert(
+    std::is_nothrow_move_assignable_v<neutron::flat_hash_map<int, int>>);
+
 template <typename Value>
 Value value_for(int key) {
     if constexpr (std::same_as<Value, std::string>) {
@@ -1020,6 +1034,21 @@ bool test_allocator() {
 
         map moved(std::move(copy));
         if (moved.get_allocator().id != 1 || moved != first) {
+            return false;
+        }
+
+        // Allocator-extended move with an unequal allocator moves the
+        // elements, so each buffer is released by the allocator owning it.
+        map source(first, alloc_type{ 6 });
+        map moved_other(std::move(source), alloc_type{ 7 });
+        if (moved_other.get_allocator().id != 7 || moved_other != first ||
+            !source.empty()) {
+            return false;
+        }
+        // With an equal allocator it steals the buffer.
+        const auto before_steal = allocations[7];
+        map stolen(std::move(moved_other), alloc_type{ 7 });
+        if (stolen != first || allocations[7] != before_steal) {
             return false;
         }
 

@@ -16,6 +16,7 @@
 #include <stdexcept>
 #include <type_traits>
 #include <utility>
+#include "neutron/detail/utility/completion_guard.hpp"
 #include "neutron/detail/utility/macros.hpp"
 
 #ifdef _MSC_VER
@@ -295,13 +296,12 @@ public:
         : EntryAlloc(alloc), Hasher(other), Equal(other),
           _max_load_factor(other._max_load_factor) {
         rehash_for_other_container(other);
-        try {
-            insert(other.begin(), other.end());
-        } catch (...) {
+        auto guard = make_exception_guard([this]() noexcept {
             clear();
             deallocate_data(entries, num_slots_minus_one, max_lookups);
-            throw;
-        }
+        });
+        insert(other.begin(), other.end());
+        guard.dismiss();
     }
     sherwood_v3_table(sherwood_v3_table&& other) noexcept
         : EntryAlloc(std::move(other)), Hasher(std::move(other)),
@@ -309,9 +309,28 @@ public:
         swap_pointers(other);
     }
     sherwood_v3_table(
-        sherwood_v3_table&& other, const ArgumentAlloc& alloc) noexcept
+        sherwood_v3_table&& other,
+        const ArgumentAlloc&
+            alloc) noexcept(AllocatorTraits::is_always_equal::value)
         : EntryAlloc(alloc), Hasher(std::move(other)), Equal(std::move(other)) {
-        swap_pointers(other);
+        if (static_cast<EntryAlloc&>(*this) ==
+            static_cast<EntryAlloc&>(other)) {
+            swap_pointers(other);
+            return;
+        }
+        // Storage of `other` can not be released through a different
+        // allocator, so move the elements one by one.
+        _max_load_factor = other._max_load_factor;
+        rehash_for_other_container(other);
+        auto guard = make_exception_guard([this]() noexcept {
+            clear();
+            deallocate_data(entries, num_slots_minus_one, max_lookups);
+        });
+        for (T& elem : other) {
+            emplace(std::move(elem));
+        }
+        guard.dismiss();
+        other.clear();
     }
     sherwood_v3_table& operator=(const sherwood_v3_table& other) {
         if (this == std::addressof(other))
@@ -335,7 +354,11 @@ public:
         insert(other.begin(), other.end());
         return *this;
     }
-    sherwood_v3_table& operator=(sherwood_v3_table&& other) noexcept {
+    sherwood_v3_table& operator=(sherwood_v3_table&& other) noexcept(
+        (AllocatorTraits::propagate_on_container_move_assignment::value ||
+         AllocatorTraits::is_always_equal::value) &&
+        std::is_nothrow_move_assignable_v<Hasher> &&
+        std::is_nothrow_move_assignable_v<Equal>) {
         if (this == std::addressof(other))
             return *this;
         else if (AllocatorTraits::propagate_on_container_move_assignment::

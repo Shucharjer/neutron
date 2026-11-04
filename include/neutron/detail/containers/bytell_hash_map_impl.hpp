@@ -12,9 +12,11 @@
 #include <cstddef>
 #include <cstdint>
 #include <iterator>
+#include <memory>
 #include <type_traits>
 #include <utility>
 #include <vector>
+#include "neutron/detail/utility/completion_guard.hpp"
 #include "neutron/detail/utility/macros.hpp"
 #include "neutron/flat_hash_map.hpp"
 
@@ -102,11 +104,12 @@ struct sherwood_v8_block {
     };
 
     static sherwood_v8_block* empty_block() noexcept {
-        static std::array<int8_t, BlockSize> empty_bytes = [] {
-            std::array<int8_t, BlockSize> result;
-            result.fill(sherwood_v8_constants<>::magic_for_empty);
-            return result;
-        }();
+        alignas(sherwood_v8_block) static std::array<int8_t, BlockSize>
+            empty_bytes = [] {
+                std::array<int8_t, BlockSize> result;
+                result.fill(sherwood_v8_constants<>::magic_for_empty);
+                return result;
+            }();
         return reinterpret_cast<sherwood_v8_block*>(&empty_bytes);
     }
 
@@ -132,7 +135,20 @@ class sherwood_v8_table : private ByteAlloc, private Hasher, private Equal {
     using AllocatorTraits = std::allocator_traits<ByteAlloc>;
     using BlockType       = sherwood_v8_block<T, BlockSize>;
     using BlockPointer    = BlockType*;
-    using BytePointer     = typename AllocatorTraits::pointer;
+
+    // Blocks are allocated in units aligned like a block, so that elements
+    // stay aligned even when over-aligned.
+    struct alignas(BlockType) StorageUnit {
+        unsigned char bytes[alignof(BlockType)]; // NOLINT
+    };
+    using StorageAlloc =
+        typename AllocatorTraits::template rebind_alloc<StorageUnit>;
+    using StorageTraits = std::allocator_traits<StorageAlloc>;
+
+    static constexpr size_t storage_units(size_t bytes) noexcept {
+        return (bytes + sizeof(StorageUnit) - 1) / sizeof(StorageUnit);
+    }
+    using BytePointer = typename AllocatorTraits::pointer;
     struct convertible_to_iterator;
     using Constants = sherwood_v8_constants<>;
 
@@ -216,13 +232,12 @@ public:
         : ByteAlloc(alloc), Hasher(other), Equal(other),
           _max_load_factor(other._max_load_factor) {
         rehash_for_other_container(other);
-        try {
-            insert(other.begin(), other.end());
-        } catch (...) {
+        auto guard = make_exception_guard([this]() noexcept {
             clear();
             deallocate_data(entries, num_slots_minus_one);
-            throw;
-        }
+        });
+        insert(other.begin(), other.end());
+        guard.dismiss();
     }
     sherwood_v8_table(sherwood_v8_table&& other) noexcept
         : ByteAlloc(std::move(other)), Hasher(std::move(other)),
@@ -230,10 +245,27 @@ public:
         swap_pointers(other);
     }
     sherwood_v8_table(
-        sherwood_v8_table&& other, const ArgumentAlloc& alloc) noexcept
+        sherwood_v8_table&& other,
+        const ArgumentAlloc&
+            alloc) noexcept(AllocatorTraits::is_always_equal::value)
         : ByteAlloc(alloc), Hasher(std::move(other)), Equal(std::move(other)),
           _max_load_factor(other._max_load_factor) {
-        swap_pointers(other);
+        if (static_cast<ByteAlloc&>(*this) == static_cast<ByteAlloc&>(other)) {
+            swap_pointers(other);
+            return;
+        }
+        // Storage of `other` can not be released through a different
+        // allocator, so move the elements one by one.
+        rehash_for_other_container(other);
+        auto guard = make_exception_guard([this]() noexcept {
+            clear();
+            deallocate_data(entries, num_slots_minus_one);
+        });
+        for (T& elem : other) {
+            emplace(std::move(elem));
+        }
+        guard.dismiss();
+        other.clear();
     }
     sherwood_v8_table& operator=(const sherwood_v8_table& other) {
         if (this == std::addressof(other)) {
@@ -258,7 +290,11 @@ public:
         insert(other.begin(), other.end());
         return *this;
     }
-    sherwood_v8_table& operator=(sherwood_v8_table&& other) noexcept {
+    sherwood_v8_table& operator=(sherwood_v8_table&& other) noexcept(
+        (AllocatorTraits::propagate_on_container_move_assignment::value ||
+         AllocatorTraits::is_always_equal::value) &&
+        std::is_nothrow_move_assignable_v<Hasher> &&
+        std::is_nothrow_move_assignable_v<Equal>) {
         if (this == std::addressof(other)) [[unlikely]] {
             return *this;
         }
@@ -509,8 +545,10 @@ public:
         if (num_items % BlockSize)
             ++num_blocks;
         size_t memory_requirement = calculate_memory_requirement(num_blocks);
-        unsigned char* new_memory =
-            &*AllocatorTraits::allocate(*this, memory_requirement);
+        StorageAlloc storage_alloc(static_cast<ByteAlloc&>(*this));
+        StorageUnit* new_memory = std::to_address(
+            StorageTraits::allocate(
+                storage_alloc, storage_units(memory_requirement)));
 
         BlockPointer new_buckets = reinterpret_cast<BlockPointer>(new_memory);
 
@@ -606,7 +644,9 @@ public:
         }
         std::sort(
             depth_in_chain.begin(), depth_in_chain.end(),
-            [](const auto& a, const auto& b) { return a.first < b.first; });
+            [](const auto& a, const auto& b) {
+                return a.first < b.first;
+            });
         for (auto it = depth_in_chain.rbegin(), end = depth_in_chain.rend();
              it != end; ++it) {
             erase(it->second.it());
@@ -894,10 +934,12 @@ private:
         if (num_slots_minus_one % BlockSize)
             ++num_blocks;
         size_t memory = calculate_memory_requirement(num_blocks);
-        unsigned char* as_byte_pointer =
-            reinterpret_cast<unsigned char*>(begin);
-        AllocatorTraits::deallocate(
-            *this, typename AllocatorTraits::pointer(as_byte_pointer), memory);
+        StorageAlloc storage_alloc(static_cast<ByteAlloc&>(*this));
+        StorageTraits::deallocate(
+            storage_alloc,
+            typename StorageTraits::pointer(
+                reinterpret_cast<StorageUnit*>(begin)),
+            storage_units(memory));
     }
 
     void reset_to_empty_state() {
