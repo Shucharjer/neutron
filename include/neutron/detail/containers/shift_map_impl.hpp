@@ -1,5 +1,6 @@
 // IWYU pragma: private, include <neutron/shift_map.hpp>
 #pragma once
+#include <array>
 #include <concepts>
 #include <cstddef>
 #include <initializer_list>

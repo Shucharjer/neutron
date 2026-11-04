@@ -1,5 +1,6 @@
 // IWYU pragma: private, include <neutron/reflection.hpp>
 #pragma once
+#include <array>
 #include <cstdint>
 #include <ranges>
 #include <type_traits>

@@ -1,5 +1,6 @@
 // IWYU pragma: private, include <neutron/reflection.hpp>
 #pragma once
+#include <array>
 #include <string_view>
 #include "neutron/detail/reflection/legacy/tuple_view.hpp"
 

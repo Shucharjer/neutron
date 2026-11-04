@@ -1,5 +1,6 @@
 // IWYU pragma: private, include <neutron/reflection.hpp>
 #pragma once
+#include <array>
 #include <concepts>
 #include <ranges>
 #include "neutron/detail/utility/macros.hpp"
