@@ -104,9 +104,26 @@ static_assert(
 static_assert(
     sizeof(_pool_proxy<16, empty_deletor<16>>) == sizeof(_pool_proxy<16>));
 
+struct alignas(32) over_aligned {
+    int value;
+};
+
 static_assert(takeable<_pool_proxy<16>, int>);
 static_assert(takeable<_pool_proxy<16>, std::byte[16]>); // NOLINT
 static_assert(!takeable<_pool_proxy<16>, big>);
+static_assert(!takeable<_pool_proxy<32>, over_aligned>);
+static_assert(takeable<_pool_proxy<32, void, 32>, over_aligned>);
+
+// Pools reject objects that do not fit in, or are more aligned than, a block.
+static_assert(!takeable<constcapacity_pool<8, 2>, std::string>);
+static_assert(!takeable<runtime_pool<8>, std::string>);
+static_assert(!takeable<constcapacity_pool<32, 2>, over_aligned>);
+static_assert(takeable<constcapacity_pool<32, 2, 32>, over_aligned>);
+static_assert(takeable<runtime_pool<32, 32>, over_aligned>);
+
+// Every block is aligned, so the block size is a multiple of the alignment.
+static_assert(sizeof(runtime_pool<16, 64>::block_type) == 64);
+static_assert(sizeof(constcapacity_pool<4, 2>::block_type) == sizeof(void*));
 
 static_assert(!std::is_copy_constructible_v<constcapacity_pool<16, 4>>);
 static_assert(!std::is_move_constructible_v<constcapacity_pool<16, 4>>);
@@ -213,7 +230,12 @@ bool test_constcapacity_take_put() {
 bool test_constcapacity_aligned() {
     constexpr std::size_t align = 64;
     constcapacity_pool<align, 4, align> pool;
-    return take_all_distinct(pool, 4, align);
+    if (!take_all_distinct(pool, 4, align)) {
+        return false;
+    }
+    // Blocks smaller than the alignment are still aligned.
+    constcapacity_pool<16, 4, align> small;
+    return take_all_distinct(small, 4, align);
 }
 
 bool test_constcapacity_single() {
@@ -288,7 +310,20 @@ bool test_runtime_pool_blocks() {
         return false;
     }
     runtime_pool<64, 64> aligned(16);
-    return take_all_distinct(aligned, 16, 64);
+    if (!take_all_distinct(aligned, 16, 64)) {
+        return false;
+    }
+    runtime_pool<16, 64> small_aligned(16);
+    if (!take_all_distinct(small_aligned, 16, 64)) {
+        return false;
+    }
+    // Blocks smaller than a pointer still hold the free list.
+    runtime_pool<4> tiny(4);
+    if (!take_all_distinct(tiny, 4, alignof(void*))) {
+        return false;
+    }
+    runtime_pool<12> odd(5);
+    return take_all_distinct(odd, 5, alignof(void*));
 }
 
 bool test_proxy_typed_blocks() {
@@ -386,6 +421,29 @@ bool test_proxy_typed_deletor() {
     return calls == 2 && null_calls == 1;
 }
 
+bool test_proxy_raw_blocks_with_deletor() {
+    struct raw_deletor {
+        int* calls;
+        void operator()(void* blocks, std::size_t) noexcept {
+            if (blocks != nullptr) {
+                ++*calls;
+                ::operator delete(blocks);
+            }
+        }
+    };
+    constexpr std::size_t capacity = 4;
+    int calls                      = 0;
+    {
+        _pool_proxy<16, raw_deletor> proxy(
+            ::operator new(sizeof(block16) * capacity), capacity,
+            raw_deletor{ &calls });
+        if (!take_all_distinct(proxy, capacity, alignof(void*))) {
+            return false;
+        }
+    }
+    return calls == 1;
+}
+
 bool test_proxy_void_deletor() {
     std::size_t released = 0;
     {
@@ -430,6 +488,9 @@ int main() {
     }
     if (!test_proxy_void_deletor()) {
         return 10;
+    }
+    if (!test_proxy_raw_blocks_with_deletor()) {
+        return 11;
     }
     return 0;
 }
