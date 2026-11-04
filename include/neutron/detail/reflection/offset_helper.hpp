@@ -2328,7 +2328,7 @@ consteval auto offset_map0() noexcept {
     return arr;
 }
 
-consteval auto offset_map1(const std::size_t off) noexcept {
+consteval auto offset_map1() noexcept {
     std::array<std::uint8_t offset_helper::*, offset_map_size> arr{};
     ATOM_SET_THE_OFFSET_(0, 256);
     ATOM_SET_THE_OFFSET_(1, 257);
@@ -2589,7 +2589,7 @@ consteval auto offset_map1(const std::size_t off) noexcept {
     return arr;
 }
 
-consteval auto offset_map2(const std::size_t off) noexcept {
+consteval auto offset_map2() noexcept {
     std::array<std::uint8_t offset_helper::*, offset_map_size> arr{};
     ATOM_SET_THE_OFFSET_(0, 512)
     ATOM_SET_THE_OFFSET_(1, 513)
@@ -2850,7 +2850,7 @@ consteval auto offset_map2(const std::size_t off) noexcept {
     return arr;
 }
 
-consteval auto offset_map3(const std::size_t off) noexcept {
+consteval auto offset_map3() noexcept {
     std::array<std::uint8_t offset_helper::*, offset_map_size> arr{};
     ATOM_SET_THE_OFFSET_(0, 768)
     ATOM_SET_THE_OFFSET_(1, 769)
@@ -3111,7 +3111,7 @@ consteval auto offset_map3(const std::size_t off) noexcept {
     return arr;
 }
 
-consteval auto offset_map4(const std::size_t off) noexcept {
+consteval auto offset_map4() noexcept {
     std::array<std::uint8_t offset_helper::*, offset_map_size> arr{};
     ATOM_SET_THE_OFFSET_(0, 1024)
     ATOM_SET_THE_OFFSET_(1, 1025)
@@ -3372,7 +3372,7 @@ consteval auto offset_map4(const std::size_t off) noexcept {
     return arr;
 }
 
-consteval auto offset_map5(const std::size_t off) noexcept {
+consteval auto offset_map5() noexcept {
     std::array<std::uint8_t offset_helper::*, offset_map_size> arr{};
     ATOM_SET_THE_OFFSET_(0, 1280)
     ATOM_SET_THE_OFFSET_(1, 1281)
@@ -3633,7 +3633,7 @@ consteval auto offset_map5(const std::size_t off) noexcept {
     return arr;
 }
 
-consteval auto offset_map6(const std::size_t off) noexcept {
+consteval auto offset_map6() noexcept {
     std::array<std::uint8_t offset_helper::*, offset_map_size> arr{};
     ATOM_SET_THE_OFFSET_(0, 1536)
     ATOM_SET_THE_OFFSET_(1, 1537)
@@ -4020,7 +4020,7 @@ consteval auto offset_map6(const std::size_t off) noexcept {
     return arr;
 }
 
-consteval auto offset_map7(const std::size_t off) noexcept {
+consteval auto offset_map7() noexcept {
     std::array<std::uint8_t offset_helper::*, offset_map_size> arr{};
 
     ATOM_SET_THE_OFFSET_(0, 1792)
@@ -4418,49 +4418,49 @@ constexpr auto offset_mapping0(const std::size_t off) noexcept {
 constexpr auto offset_mapping1(const std::size_t off) noexcept {
     constexpr ATOM_STATIC_SINCE_CXX23
         std::array<std::uint8_t offset_helper::*, offset_map_size>
-            offsets = offset_map0();
+            offsets = offset_map1();
     return offsets.at(off);
 }
 
 constexpr auto offset_mapping2(const std::size_t off) noexcept {
     constexpr ATOM_STATIC_SINCE_CXX23
         std::array<std::uint8_t offset_helper::*, offset_map_size>
-            offsets = offset_map0();
+            offsets = offset_map2();
     return offsets.at(off);
 }
 
 constexpr auto offset_mapping3(const std::size_t off) noexcept {
     constexpr ATOM_STATIC_SINCE_CXX23
         std::array<std::uint8_t offset_helper::*, offset_map_size>
-            offsets = offset_map0();
+            offsets = offset_map3();
     return offsets.at(off);
 }
 
 constexpr auto offset_mapping4(const std::size_t off) noexcept {
     constexpr ATOM_STATIC_SINCE_CXX23
         std::array<std::uint8_t offset_helper::*, offset_map_size>
-            offsets = offset_map0();
+            offsets = offset_map4();
     return offsets.at(off);
 }
 
 constexpr auto offset_mapping5(const std::size_t off) noexcept {
     constexpr ATOM_STATIC_SINCE_CXX23
         std::array<std::uint8_t offset_helper::*, offset_map_size>
-            offsets = offset_map0();
+            offsets = offset_map5();
     return offsets.at(off);
 }
 
 constexpr auto offset_mapping6(const std::size_t off) noexcept {
     constexpr ATOM_STATIC_SINCE_CXX23
         std::array<std::uint8_t offset_helper::*, offset_map_size>
-            offsets = offset_map0();
+            offsets = offset_map6();
     return offsets.at(off);
 }
 
 constexpr auto offset_mapping7(const std::size_t off) noexcept {
     constexpr ATOM_STATIC_SINCE_CXX23
         std::array<std::uint8_t offset_helper::*, offset_map_size>
-            offsets = offset_map0();
+            offsets = offset_map7();
     return offsets.at(off);
 }
 
