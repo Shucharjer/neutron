@@ -42,8 +42,7 @@
     #define ATOM_NOVTABLE             ///< Empty for GCC/Clang
 #elif defined(_MSC_VER)
     #define ATOM_ALWAYS_INLINE __forceinline ///< Force inline expansion (MSVC)
-    #define ATOM_NOINLINE                                                      \
-        __declspec(noinline)                 ///< Prevent inlining (MSVC)
+    #define ATOM_NOINLINE __declspec(noinline) ///< Prevent inlining (MSVC)
     #define ATOM_ALLOCATOR                                                     \
         __declspec(allocator) ///< Function returns allocated memory (MSVC)
     #define ATOM_NOVTABLE __declspec(novtable) ///< No vtable generation (MSVC)
@@ -56,8 +55,12 @@
 
 #ifdef _MSC_VER
     #define ATOM_NO_UNIQUE_ADDR [[msvc::no_unique_address]]
+    /// MSVC only applies the empty base optimization to the first base by
+    /// default.
+    #define ATOM_EMPTY_BASES __declspec(empty_bases)
 #else
     #define ATOM_NO_UNIQUE_ADDR [[no_unique_address]]
+    #define ATOM_EMPTY_BASES
 #endif
 
 // Debug/Release configuration
