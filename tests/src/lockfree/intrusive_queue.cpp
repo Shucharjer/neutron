@@ -19,6 +19,8 @@ static_assert(std::is_nothrow_default_constructible_v<queue_t>);
 static_assert(std::is_nothrow_move_constructible_v<queue_t>);
 static_assert(std::is_nothrow_destructible_v<queue_t>);
 static_assert(!std::is_copy_constructible_v<queue_t>);
+static_assert(!std::is_copy_assignable_v<queue_t>);
+static_assert(std::is_nothrow_move_assignable_v<queue_t>);
 static_assert(std::is_default_constructible_v<
               neutron::intrusive_queue<&other_node::link>>);
 static_assert(requires(const queue_t& queue) {
@@ -39,6 +41,14 @@ constexpr bool test_move_construction_keeps_both_empty() {
 
 static_assert(test_default_constructed_is_empty());
 static_assert(test_move_construction_keeps_both_empty());
+
+constexpr bool test_move_assignment_keeps_both_empty() {
+    queue_t source;
+    queue_t target;
+    target = std::move(source);
+    return source.empty() && target.empty(); // NOLINT(bugprone-use-after-move)
+}
+static_assert(test_move_assignment_keeps_both_empty());
 
 bool test_runtime_empty() {
     queue_t queue;

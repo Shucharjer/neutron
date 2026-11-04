@@ -1,5 +1,4 @@
 #pragma once
-#include <cassert>
 #include <utility>
 #include "neutron/detail/utility/macros.hpp"
 
@@ -23,16 +22,10 @@ public:
         return *this;
     }
 
-    constexpr intrusive_queue& operator=(intrusive_queue that) noexcept {
-        std::swap(head_, that.head_);
-        std::swap(tail_, that.tail_);
-        return *this;
-    }
-
     constexpr ~intrusive_queue() noexcept { ATOM_ASSERT(empty()); }
 
     ATOM_NODISCARD constexpr bool empty() const noexcept {
-        return head_ == tail_;
+        return head_ == nullptr;
     }
 
 private:
