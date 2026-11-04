@@ -4,6 +4,7 @@
 
 #include <version>
 #if __has_include(<stdexec/stop_token.hpp>)
+    #include <stop_token>
     #include <stdexec/stop_token.hpp>
 
 namespace neutron {
@@ -19,10 +20,14 @@ using stdexec::unstoppable_token;
 
 } // namespace neutron
 
-#elif defined(__cpp_lib_stop_token) && __cpp_lib_stop_token >= 202602L
+#elif defined(__cpp_lib_senders) && __cpp_lib_senders >= 202406L
+    // The inplace and never stop tokens come with senders, which have no
+    // feature-test macro of their own.
+    #include <stop_token>
 
 namespace neutron {
 
+using std::get_stop_token;
 using std::inplace_stop_callback;
 using std::inplace_stop_source;
 using std::inplace_stop_token;
@@ -36,8 +41,8 @@ using std::unstoppable_token;
 
 #elif __has_include(<beman/stop_token.hpp>)
 
-    #include <beman/stop_token.hpp>
     #include <beman/execution/detail/get_stop_token.hpp>
+    #include <beman/stop_token.hpp>
 
 namespace neutron {
 
@@ -52,6 +57,10 @@ using beman::execution::unstoppable_token;
 using beman::execution::get_stop_token;
 
 } // namespace neutron
+
+#else
+
+    #error "no stop token library support"
 
 #endif
 

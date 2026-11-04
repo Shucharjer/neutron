@@ -32,22 +32,45 @@ using ::stdexec::sync_wait;
 
 } // namespace neutron
 
-#elif defined(__cpp_lib_execution) && __cpp_lib_execution >= 202602L &&        \
+#elif defined(__cpp_lib_senders) && __cpp_lib_senders >= 202406L &&            \
     !defined(ATOM_EXECUTION)
 
-    #include <execution> // IWYU pragma: export
+    #include <execution>  // IWYU pragma: export
+    #include <stop_token> // IWYU pragma: export
 
-namespace neutron::execution {
+namespace neutron {
 
-using namespace std::execution;
+using ::std::get_stop_token;
 
-} // namespace neutron::execution
+namespace execution {
+
+using namespace ::std::execution;
+
+// Declared in namespace std rather than std::execution.
+using ::std::forwarding_query;
+using ::std::get_allocator;
+using ::std::get_stop_token;
+using ::std::get_stop_token_t;
+using ::std::inplace_stop_callback;
+using ::std::inplace_stop_source;
+using ::std::inplace_stop_token;
+using ::std::never_stop_token;
+using ::std::stop_source;
+using ::std::stop_token;
+using ::std::stoppable_token;
+using ::std::unstoppable_token;
+
+} // namespace execution
+
+} // namespace neutron
 
 #elif __has_include(<beman/execution/execution.hpp>)
 
     #include <beman/execution/execution.hpp>
 
 namespace neutron {
+
+using ::beman::execution::get_stop_token;
 
 namespace this_thread {
 
