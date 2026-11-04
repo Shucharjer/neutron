@@ -37,13 +37,11 @@ static inline const auto& offsets_of() noexcept {
 
 template <aggregate Ty, typename... Args>
 requires value<Ty>
-consteval static auto
-    make_offset_tuple(const std::tuple<Args...>& tuple) noexcept {
+consteval static auto make_offset_tuple(const std::tuple<Args...>&) noexcept {
     return std::make_tuple(
         static_cast<std::remove_cv_t<std::remove_pointer_t<Args>> Ty::*>(
             nullptr)...);
 }
-
 
 template <aggregate Ty>
 static inline auto offset_tuple() noexcept {

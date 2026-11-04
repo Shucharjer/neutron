@@ -125,7 +125,6 @@ template <
 ATOM_CONSTEXPR_SINCE_CXX20 Pointer
     uninitialized_value_construct_n_using_allocator(
         Alloc& alloc, Pointer ptr, SizeT n) {
-    constexpr bool uses_allocator = std::uses_allocator_v<Ty, Alloc>;
     // depends on the internal behaviour of
     // std::allocator_traits<Alloc>::construct
     return _default_construct_using_allocator::_construct<

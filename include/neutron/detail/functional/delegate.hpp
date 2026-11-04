@@ -7,8 +7,8 @@
 #include <type_traits>
 #include <utility>
 #include <neutron/memory.hpp>
-#include "neutron/detail/utility/macros.hpp"
 #include "neutron/detail/reflection/refl.hpp"
+#include "neutron/detail/utility/macros.hpp"
 #include "neutron/detail/utility/spreader.hpp"
 #include "neutron/type_traits.hpp"
 
@@ -47,7 +47,7 @@ public:
      * `neutron::spread_arg<Candidate>`.
      */
     template <auto Candidate>
-    constexpr explicit delegate(value_spreader<Candidate> spreader) noexcept {
+    constexpr explicit delegate(value_spreader<Candidate>) noexcept {
         bind<Candidate>();
     }
 
@@ -62,7 +62,7 @@ public:
      */
     template <auto Candidate, typename Type>
     constexpr explicit delegate(
-        value_spreader<Candidate> spreader, Type& instance) noexcept {
+        value_spreader<Candidate>, Type& instance) noexcept {
         bind<Candidate>(instance);
     }
 
@@ -225,7 +225,7 @@ public:
      * `neutron::spread_arg<Candidate>`.
      */
     template <auto Candidate>
-    constexpr explicit delegate(value_spreader<Candidate> spreader) noexcept {
+    constexpr explicit delegate(value_spreader<Candidate>) noexcept {
         bind<Candidate>();
     }
 
@@ -240,7 +240,7 @@ public:
      */
     template <auto Candidate, typename Type>
     constexpr explicit delegate(
-        value_spreader<Candidate> spreader, Type& instance) noexcept {
+        value_spreader<Candidate>, Type& instance) noexcept {
         bind<Candidate>(instance);
     }
 

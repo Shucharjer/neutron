@@ -35,8 +35,7 @@ struct tstring {
     }
 
     template <std::size_t RLength>
-    constexpr auto operator==(const tstring<RLength>& rhs) const noexcept
-        -> bool {
+    constexpr auto operator==(const tstring<RLength>&) const noexcept -> bool {
         return false;
     }
 
@@ -45,7 +44,7 @@ struct tstring {
     }
 
     template <std::size_t RLength>
-    constexpr auto operator!=(const tstring<RLength>& obj) const -> bool {
+    constexpr auto operator!=(const tstring<RLength>&) const -> bool {
         return false;
     }
 

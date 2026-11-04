@@ -2,8 +2,8 @@
 #pragma once
 #include <cstdint>
 #include <string_view>
-#include "neutron/detail/utility/macros.hpp"
 #include "neutron/detail/reflection/hash_t.hpp"
+#include "neutron/detail/utility/macros.hpp"
 
 /*! @cond TURN_OFF_DOXYGEN */
 namespace neutron::internal {
@@ -26,9 +26,8 @@ template <std::ranges::range Rng>
 requires std::same_as<std::ranges::range_value_t<Rng>, uint32_t>
 ATOM_ALWAYS_INLINE constexpr long_hash_t
     hash_combine(const Rng& range) noexcept {
-    constexpr long_hash_t magic  = 0xcbf29ce484222325;
-    constexpr long_hash_t prime  = 0x100000001b3;
-    constexpr uint8_t byte_all_1 = 0xffU;
+    constexpr long_hash_t magic = 0xcbf29ce484222325;
+    constexpr long_hash_t prime = 0x100000001b3;
 
     long_hash_t hash = magic;
     for (long_hash_t elem : range) {

@@ -23,7 +23,7 @@ template <typename Ty>
 requires(member_count_of<Ty>() == 0)
 struct tuple_view_helper<Ty> {
     constexpr static auto tuple_view() noexcept { return std::tuple<>(); }
-    constexpr static auto tuple_view(const Ty& obj) noexcept {
+    constexpr static auto tuple_view(const Ty&) noexcept {
         return std::tuple<>();
     }
 };
