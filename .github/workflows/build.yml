@@ -120,7 +120,16 @@ jobs:
         run: cmake --build build --parallel
 
       - name: Test
-        run: ctest --test-dir build --output-on-failure --parallel 2
+        run: ctest --test-dir build --output-on-failure --parallel 2 --output-junit test-results.xml
+
+      - name: Upload test results
+        if: ${{ !cancelled() }}
+        uses: actions/upload-artifact@v7
+        with:
+          name: test-results-${{ github.job }}-${{ strategy.job-index }}
+          path: build/test-results.xml
+          if-no-files-found: ignore
+          retention-days: 14
 
   linux-mingw:
     name: ${{ matrix.distro.name }} ${{ matrix.arch.name }} MinGW ${{ matrix.target }} C++${{ matrix.config.cxx_standard }} ${{ matrix.config.name }}
@@ -305,7 +314,16 @@ jobs:
         run: cmake --build build --config Release --parallel
 
       - name: Test
-        run: ctest --test-dir build -C Release --output-on-failure --parallel 2
+        run: ctest --test-dir build -C Release --output-on-failure --parallel 2 --output-junit test-results.xml
+
+      - name: Upload test results
+        if: ${{ !cancelled() }}
+        uses: actions/upload-artifact@v7
+        with:
+          name: test-results-${{ github.job }}-${{ strategy.job-index }}
+          path: build/test-results.xml
+          if-no-files-found: ignore
+          retention-days: 14
 
   macos:
     name: ${{ matrix.runner }} clang++ C++${{ matrix.config.cxx_standard }} ${{ matrix.config.name }}
@@ -371,4 +389,13 @@ jobs:
         run: cmake --build build --parallel
 
       - name: Test
-        run: ctest --test-dir build --output-on-failure --parallel 2
+        run: ctest --test-dir build --output-on-failure --parallel 2 --output-junit test-results.xml
+
+      - name: Upload test results
+        if: ${{ !cancelled() }}
+        uses: actions/upload-artifact@v7
+        with:
+          name: test-results-${{ github.job }}-${{ strategy.job-index }}
+          path: build/test-results.xml
+          if-no-files-found: ignore
+          retention-days: 14
