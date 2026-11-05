@@ -77,14 +77,13 @@ static_assert(std::is_same_v<
               internal::_expression_traits<&constant_binary>::args_type,
               type_list<int, double>>);
 static_assert(internal::_expression_traits<&constant_void>::args_count == 0);
-static_assert(internal::_expression_traits<[](int, char) {
-                  return 0;
-              }>::args_count == 2);
-static_assert(std::is_same_v<
-              internal::_expression_traits<[](int, char) {
-                  return 0;
-              }>::args_type,
-              type_list<int, char>>);
+// MSVC fails to parse `traits<lambda>::args_type` as a template type argument,
+// so name the traits through an alias first.
+using lambda_traits = internal::_expression_traits<[](int, char) {
+    return 0;
+}>;
+static_assert(lambda_traits::args_count == 2);
+static_assert(std::is_same_v<lambda_traits::args_type, type_list<int, char>>);
 
 void test_non_constant_callable_takes_the_runtime_branch() {
     const int value = evaluate_or_default<&runtime_nullary>();
