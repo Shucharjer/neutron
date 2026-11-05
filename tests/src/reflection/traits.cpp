@@ -6,9 +6,11 @@
 #include <vector>
 #include <neutron/concepts.hpp>
 #include <neutron/reflection.hpp>
+#include "require.hpp"
 
 using namespace neutron;
 
+// Every field of type_traits_of<T>() agrees with the matching standard trait.
 template <typename T>
 constexpr void test_traits() {
     constexpr type_traits traits = type_traits_of<T>();
@@ -34,10 +36,10 @@ constexpr void test_traits() {
     static_assert(
         traits.is_trivially_move_assignable ==
         std::is_trivially_move_assignable_v<T>);
+    static_assert(traits.is_trivially_relocatible == trivially_relocatable<T>);
     static_assert(
-        traits.is_trivially_relocatible == trivially_relocatable<T>);
-    static_assert(
-        traits.is_trivially_destructible == std::is_trivially_destructible_v<T>);
+        traits.is_trivially_destructible ==
+        std::is_trivially_destructible_v<T>);
     static_assert(traits.is_scalar == std::is_scalar_v<T>);
     static_assert(traits.is_object == std::is_object_v<T>);
     static_assert(traits.is_bounded_array == std::is_bounded_array_v<T>);
@@ -48,7 +50,10 @@ constexpr void test_traits() {
 }
 
 struct empty {};
-enum class color : unsigned char { red, green };
+enum class color : unsigned char {
+    red,
+    green
+};
 
 int main() {
     test_traits<int>();
@@ -61,5 +66,5 @@ int main() {
     test_traits<std::map<int, std::string>>();
     test_traits<std::vector<int>>();
 
-    return 0;
+    return neutron_test::result();
 }

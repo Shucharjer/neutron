@@ -1,3 +1,5 @@
+#include <algorithm>
+#include <bit>
 #include <cstddef>
 #include <cstdint>
 #include <functional>
@@ -13,6 +15,7 @@
 #include <vector>
 #include <neutron/bytell_hash_map.hpp>
 #include <neutron/utility.hpp>
+#include "require.hpp"
 
 namespace {
 
@@ -22,34 +25,6 @@ using neutron::bytell_hash_set;
 using int_map    = bytell_hash_map<int, int>;
 using string_map = bytell_hash_map<std::string, std::string>;
 using int_set    = bytell_hash_set<int>;
-
-static_assert(std::is_same_v<int_map::key_type, int>);
-static_assert(std::is_same_v<int_map::mapped_type, int>);
-static_assert(std::is_same_v<int_map::value_type, std::pair<int, int>>);
-static_assert(std::is_same_v<int_map::size_type, std::size_t>);
-static_assert(std::is_same_v<int_set::key_type, int>);
-static_assert(std::is_same_v<int_set::value_type, int>);
-
-static_assert(std::forward_iterator<int_map::iterator>);
-static_assert(std::forward_iterator<int_map::const_iterator>);
-static_assert(std::forward_iterator<int_set::iterator>);
-static_assert(std::forward_iterator<int_set::const_iterator>);
-static_assert(std::ranges::forward_range<string_map>);
-static_assert(std::ranges::forward_range<const string_map>);
-static_assert(std::ranges::common_range<string_map>);
-static_assert(std::ranges::forward_range<int_set>);
-static_assert(std::is_same_v<
-              std::iter_reference_t<int_map::const_iterator>,
-              const std::pair<int, int>&>);
-static_assert(
-    std::is_convertible_v<int_map::iterator, int_map::const_iterator>);
-static_assert(
-    !std::is_convertible_v<int_map::const_iterator, int_map::iterator>);
-
-static_assert(std::is_copy_constructible_v<string_map>);
-static_assert(std::is_nothrow_move_constructible_v<string_map>);
-static_assert(std::is_copy_assignable_v<string_map>);
-static_assert(std::is_move_assignable_v<string_map>);
 
 /// Tracks live instances to detect leaks and double destruction.
 struct counted {
@@ -88,18 +63,23 @@ struct counted {
     bool operator==(const counted& that) const { return value == that.value; }
 };
 
+/// Hashes `counted` by its value.
 struct counted_hash {
     std::size_t operator()(const counted& c) const {
         return std::hash<int>{}(c.value);
     }
 };
 
+using counted_set = bytell_hash_set<counted, counted_hash>;
+
+/// Resets the `counted` bookkeeping before a test.
 void reset_counted() {
     counted::live          = 0;
     counted::bad_destroy   = 0;
     counted::throw_on_copy = -1;
 }
 
+/// True when every `counted` was destroyed exactly once.
 bool counted_clean() { return counted::live == 0 && counted::bad_destroy == 0; }
 
 /// Bookkeeping shared by `tracking_allocator` copies.
@@ -108,6 +88,7 @@ struct arena {
     int bad_deallocations = 0;
 };
 
+/// Allocator recording every live block in an `arena`.
 template <typename T, bool Propagate = false>
 struct tracking_allocator {
     using value_type = T;
@@ -151,26 +132,51 @@ struct tracking_allocator {
     }
 };
 
-using tracked_map = bytell_hash_map<
-    int, std::string, std::hash<int>, std::equal_to<int>,
-    tracking_allocator<std::pair<int, std::string>>>;
+using tracked_alloc = tracking_allocator<std::pair<int, std::string>>;
+using tracked_map   = bytell_hash_map<
+      int, std::string, std::hash<int>, std::equal_to<int>, tracked_alloc>;
 
-// Moving with a possibly unequal allocator may allocate.
-static_assert(!std::is_nothrow_constructible_v<
-              tracked_map, tracked_map&&,
-              const tracking_allocator<std::pair<int, std::string>>&>);
-static_assert(!std::is_nothrow_move_assignable_v<tracked_map>);
-static_assert(std::is_nothrow_move_assignable_v<bytell_hash_map<
-                  int, std::string, std::hash<int>, std::equal_to<int>,
-                  tracking_allocator<std::pair<int, std::string>, true>>>);
-static_assert(std::is_nothrow_constructible_v<
-              bytell_hash_map<int, int>, bytell_hash_map<int, int>&&,
-              const std::allocator<std::pair<int, int>>&>);
+using propagating_alloc = tracking_allocator<int, true>;
+using propagating_set =
+    bytell_hash_set<int, std::hash<int>, std::equal_to<int>, propagating_alloc>;
 
+/// True when every block was returned with its original size.
 bool arena_clean(const arena& a) {
     return a.blocks.empty() && a.bad_deallocations == 0;
 }
 
+/// Hash requesting the prime number bucket policy.
+struct prime_hash : std::hash<int> {
+    using hash_policy = neutron::prime_number_hash_policy;
+};
+
+/// Sends every key to the same bucket.
+struct constant_hash {
+    std::size_t operator()(int) const noexcept { return 42; }
+};
+
+/// Sends keys to only three buckets.
+struct coarse_hash {
+    std::size_t operator()(int key) const noexcept {
+        return static_cast<std::size_t>(key % 3);
+    }
+};
+
+/// Element type with a large alignment requirement.
+struct alignas(64) over_aligned {
+    int value;
+    bool operator==(const over_aligned&) const = default;
+};
+
+/// Hashes `over_aligned` by its value.
+struct over_aligned_hash {
+    std::size_t operator()(const over_aligned& item) const noexcept {
+        return static_cast<std::size_t>(item.value);
+    }
+};
+
+/// True when the map holds exactly `key -> key * 2` for keys in
+/// `[first, last)` with the given step.
 template <typename Map>
 bool contains_exactly(const Map& map, int first, int last, int step = 1) {
     std::size_t expected = 0;
@@ -184,6 +190,7 @@ bool contains_exactly(const Map& map, int first, int last, int step = 1) {
     return map.size() == expected;
 }
 
+/// Inserts `key -> key * 2` for keys in `[first, last)` with the given step.
 template <typename Map>
 void fill_doubled(Map& map, int first, int last, int step = 1) {
     for (int key = first; key < last; key += step) {
@@ -191,268 +198,479 @@ void fill_doubled(Map& map, int first, int last, int step = 1) {
     }
 }
 
-bool test_default_state() {
-    int_map map;
-    const int_map& cmap = map;
-    if (!map.empty() || map.size() != 0 || map.bucket_count() != 0 ||
-        map.load_factor() != 0.0F || map.max_size() == 0) {
-        return false;
-    }
-    if (map.begin() != map.end() || cmap.begin() != cmap.end() ||
-        map.cbegin() != map.cend()) {
-        return false;
-    }
-    if (map.find(1) != map.end() || cmap.find(1) != cmap.end() ||
-        map.count(1) != 0 || map.erase(1) != 0) {
-        return false;
-    }
-    map.clear();
-    map.shrink_to_fit();
-    return map.empty() && map.begin() == map.end();
+/// Long strings force heap allocations so ASan catches leaks.
+std::string long_string(int index) {
+    return std::string(40, 'x') + std::to_string(index);
 }
 
-bool test_insert_and_lookup() {
+constexpr int long_string_count = 1000;
+
+/// Maps `long_string(i)` to `long_string(i * 2)`, then erases even `i`.
+string_map make_long_string_map() {
+    string_map map;
+    for (int i = 0; i < long_string_count; ++i) {
+        map[long_string(i)] = long_string(i * 2);
+    }
+    for (int i = 0; i < long_string_count; i += 2) {
+        map.erase(long_string(i));
+    }
+    return map;
+}
+
+constexpr int string_source_size = 100;
+
+/// Maps `"0"`..`"99"` to a 30 character string.
+string_map make_string_source() {
+    string_map map;
+    for (int i = 0; i < string_source_size; ++i) {
+        map.emplace(std::to_string(i), std::string(30, 'v'));
+    }
+    return map;
+}
+
+/// Builds two equal maps with different insertion order and bucket count.
+std::pair<int_map, int_map> make_equal_maps() {
+    int_map lhs;
+    int_map rhs;
+    fill_doubled(lhs, 0, 50);
+    rhs.reserve(1000);
+    for (int key = 49; key >= 0; --key) {
+        rhs.emplace(key, key * 2);
+    }
+    return { std::move(lhs), std::move(rhs) };
+}
+
+constexpr int tracked_size = 200;
+
+/// Fills a tracked map allocating from `owner`.
+tracked_map make_tracked_map(arena& owner) {
+    tracked_map map{ tracked_alloc{ &owner } };
+    for (int i = 0; i < tracked_size; ++i) {
+        map.emplace(i, std::string(30, 'a'));
+    }
+    return map;
+}
+
+// Member types follow the standard unordered containers.
+static_assert(std::is_same_v<int_map::key_type, int>);
+static_assert(std::is_same_v<int_map::mapped_type, int>);
+static_assert(std::is_same_v<int_map::value_type, std::pair<int, int>>);
+static_assert(std::is_same_v<int_map::size_type, std::size_t>);
+static_assert(std::is_same_v<int_set::key_type, int>);
+static_assert(std::is_same_v<int_set::value_type, int>);
+
+// Iterators are forward iterators and the containers are forward ranges.
+static_assert(std::forward_iterator<int_map::iterator>);
+static_assert(std::forward_iterator<int_map::const_iterator>);
+static_assert(std::forward_iterator<int_set::iterator>);
+static_assert(std::forward_iterator<int_set::const_iterator>);
+static_assert(std::ranges::forward_range<string_map>);
+static_assert(std::ranges::forward_range<const string_map>);
+static_assert(std::ranges::common_range<string_map>);
+static_assert(std::ranges::forward_range<int_set>);
+
+// const_iterator yields const references and only iterator converts to it.
+static_assert(std::is_same_v<
+              std::iter_reference_t<int_map::const_iterator>,
+              const std::pair<int, int>&>);
+static_assert(
+    std::is_convertible_v<int_map::iterator, int_map::const_iterator>);
+static_assert(
+    !std::is_convertible_v<int_map::const_iterator, int_map::iterator>);
+
+// Copyable, and nothrow movable with the default allocator.
+static_assert(std::is_copy_constructible_v<string_map>);
+static_assert(std::is_nothrow_move_constructible_v<string_map>);
+static_assert(std::is_copy_assignable_v<string_map>);
+static_assert(std::is_move_assignable_v<string_map>);
+
+// Moving with a possibly unequal allocator may allocate.
+static_assert(!std::is_nothrow_constructible_v<
+              tracked_map, tracked_map&&, const tracked_alloc&>);
+static_assert(!std::is_nothrow_move_assignable_v<tracked_map>);
+static_assert(std::is_nothrow_move_assignable_v<bytell_hash_map<
+                  int, std::string, std::hash<int>, std::equal_to<int>,
+                  tracking_allocator<std::pair<int, std::string>, true>>>);
+static_assert(std::is_nothrow_constructible_v<
+              bytell_hash_map<int, int>, bytell_hash_map<int, int>&&,
+              const std::allocator<std::pair<int, int>>&>);
+
+void test_default_constructed_map_is_empty() {
+    int_map map;
+    const int_map& cmap = map;
+
+    require(map.empty());
+    require(map.size() == 0);
+    require(map.bucket_count() == 0);
+    require(map.load_factor() == 0.0F);
+    require(map.max_size() != 0);
+    require(map.begin() == map.end());
+    require(cmap.begin() == cmap.end());
+    require(map.cbegin() == map.cend());
+}
+
+void test_lookup_in_empty_map_finds_nothing() {
+    int_map map;
+    const int_map& cmap = map;
+
+    require(map.find(1) == map.end());
+    require(cmap.find(1) == cmap.end());
+    require(map.count(1) == 0);
+    require(map.erase(1) == 0);
+}
+
+void test_clear_and_shrink_on_empty_map_keep_it_empty() {
+    int_map map;
+
+    map.clear();
+    map.shrink_to_fit();
+
+    require(map.empty());
+    require(map.begin() == map.end());
+}
+
+void test_insert_returns_inserted_element() {
     int_map map;
 
     auto [iter, inserted] = map.insert({ 1, 10 });
-    if (!inserted || iter->first != 1 || iter->second != 10 ||
-        map.size() != 1 || map.empty()) {
-        return false;
-    }
 
-    // Duplicate keys keep the original value.
-    auto dup = map.emplace(1, 99);
-    if (dup.second || dup.first != iter || dup.first->second != 10) {
-        return false;
-    }
+    require(inserted);
+    require(iter->first == 1);
+    require(iter->second == 10);
+    require(map.size() == 1);
+    require_false(map.empty());
+}
 
-    std::pair<int, int> value{ 2, 20 };
-    if (!map.insert(value).second || map.insert(value).second) {
-        return false;
-    }
-    if (map.emplace_hint(map.begin(), 3, 30)->second != 30) {
-        return false;
-    }
-    if (map.insert(map.cbegin(), std::pair{ 4, 40 })->second != 40) {
-        return false;
-    }
+void test_emplace_keeps_existing_value_for_duplicate_key() {
+    int_map map;
+    auto original = map.insert({ 1, 10 }).first;
+
+    auto [iter, inserted] = map.emplace(1, 99);
+
+    require_false(inserted);
+    require(iter == original);
+    require(iter->second == 10);
+}
+
+void test_insert_lvalue_rejects_duplicate_key() {
+    int_map map;
+    const std::pair<int, int> value{ 2, 20 };
+
+    const bool first_inserted  = map.insert(value).second;
+    const bool second_inserted = map.insert(value).second;
+
+    require(first_inserted);
+    require_false(second_inserted);
+    require(map.at(2) == 20);
+}
+
+void test_hinted_insert_returns_element() {
+    int_map map{
+        { 1, 10 },
+        { 2, 20 }
+    };
+
+    auto emplaced = map.emplace_hint(map.begin(), 3, 30);
+    auto inserted = map.insert(map.cbegin(), std::pair{ 4, 40 });
+
+    require(emplaced->second == 30);
+    require(inserted->second == 40);
+    require(map.at(3) == 30);
+    require(map.at(4) == 40);
+}
+
+void test_subscript_inserts_default_value() {
+    int_map map;
 
     map[5] = 50;
     ++map[5];
-    if (map[5] != 51 || map[6] != 0 || map.size() != 6) {
-        return false;
-    }
 
-    // Default key and value.
-    if (!map.emplace().second || map.at(0) != 0) {
-        return false;
-    }
-
-    auto range = map.equal_range(2);
-    if (std::distance(range.first, range.second) != 1 ||
-        range.first->second != 20) {
-        return false;
-    }
-    auto missing = map.equal_range(100);
-    if (missing.first != map.end() || missing.second != map.end()) {
-        return false;
-    }
-
-    const int_map& cmap = map;
-    auto crange         = cmap.equal_range(3);
-    if (crange.first == cmap.end() || crange.first->second != 30 ||
-        std::next(crange.first) != crange.second) {
-        return false;
-    }
-
-    return map.count(4) == 1 && map.count(100) == 0 && cmap.at(4) == 40 &&
-           map.bucket(4) < map.bucket_count();
+    require(map[5] == 51);
+    require(map[6] == 0);
+    require(map.size() == 2);
 }
 
-bool test_at_throws() {
+void test_emplace_without_arguments_inserts_default_pair() {
+    int_map map;
+
+    const bool inserted = map.emplace().second;
+
+    require(inserted);
+    require(map.at(0) == 0);
+}
+
+void test_equal_range_finds_single_element() {
+    int_map map{
+        { 1, 10 },
+        { 2, 20 },
+        { 3, 30 }
+    };
+
+    auto range = map.equal_range(2);
+
+    require_or_return(std::distance(range.first, range.second) == 1, );
+    require(range.first->second == 20);
+}
+
+void test_equal_range_of_missing_key_is_end() {
+    int_map map{
+        { 1, 10 },
+        { 2, 20 }
+    };
+
+    auto missing = map.equal_range(100);
+
+    require(missing.first == map.end());
+    require(missing.second == map.end());
+}
+
+void test_const_equal_range_finds_single_element() {
+    const int_map map{
+        { 1, 10 },
+        { 3, 30 }
+    };
+
+    auto range = map.equal_range(3);
+
+    require_or_return(range.first != map.end(), );
+    require(range.first->second == 30);
+    require(std::next(range.first) == range.second);
+}
+
+void test_count_at_and_bucket_on_populated_map() {
+    int_map map{
+        { 1, 10 },
+        { 4, 40 }
+    };
+    const int_map& cmap = map;
+
+    require(map.count(4) == 1);
+    require(map.count(100) == 0);
+    require(cmap.at(4) == 40);
+    require(map.bucket(4) < map.bucket_count());
+}
+
+void test_at_throws_out_of_range_for_missing_key() {
     int_map map{
         { 1, 1 }
     };
-    bool thrown = false;
+    const int_map& cmap = map;
+    bool thrown         = false;
+    bool const_thrown   = false;
+
     ATOM_TRY { static_cast<void>(map.at(2)); }
     ATOM_CATCH(const std::out_of_range&) { thrown = true; }
-    if (!thrown) {
-        return false;
-    }
-
-    const int_map& cmap = map;
-    thrown              = false;
     ATOM_TRY { static_cast<void>(cmap.at(2)); }
-    ATOM_CATCH(const std::out_of_range&) { thrown = true; }
-    return thrown && map.size() == 1;
+    ATOM_CATCH(const std::out_of_range&) { const_thrown = true; }
+
+    require(thrown);
+    require(const_thrown);
+    require(map.size() == 1);
 }
 
-bool test_insert_or_assign() {
+void test_insert_or_assign_inserts_then_assigns() {
     string_map map;
-    std::string key = "key";
+    const std::string key = "key";
 
     auto first = map.insert_or_assign(key, "a");
-    if (!first.second || first.first->second != "a") {
-        return false;
-    }
+    require(first.second);
+    require(first.first->second == "a");
     auto second = map.insert_or_assign(std::string("key"), std::string("b"));
-    if (second.second || second.first->second != "b" || map.size() != 1) {
-        return false;
-    }
 
-    auto hinted = map.insert_or_assign(map.cbegin(), key, "c");
-    if (hinted->second != "c") {
-        return false;
-    }
-    hinted = map.insert_or_assign(map.cbegin(), std::string("other"), "d");
-    return hinted->first == "other" && hinted->second == "d" && map.size() == 2;
+    require_false(second.second);
+    require(second.first->second == "b");
+    require(map.size() == 1);
 }
 
-bool test_constructors() {
-    const std::vector<std::pair<int, int>> source{
-        { 1, 2 },
-        { 2, 4 },
-        { 3, 6 },
-        { 1, 8 }
+void test_hinted_insert_or_assign_inserts_and_assigns() {
+    string_map map{
+        { "key", "b" }
     };
+    const std::string key = "key";
 
-    int_map from_range(source.begin(), source.end());
-    if (!contains_exactly(from_range, 1, 4)) {
-        return false;
-    }
+    auto assigned = map.insert_or_assign(map.cbegin(), key, "c");
+    require(assigned->second == "c");
+    auto inserted =
+        map.insert_or_assign(map.cbegin(), std::string("other"), "d");
 
-    int_map from_list{
+    require(inserted->first == "other");
+    require(inserted->second == "d");
+    require(map.size() == 2);
+}
+
+const std::vector<std::pair<int, int>> pairs_with_duplicate{
+    { 1, 2 },
+    { 2, 4 },
+    { 3, 6 },
+    { 1, 8 }
+};
+
+void test_range_constructor_keeps_first_duplicate() {
+    const int_map map(pairs_with_duplicate.begin(), pairs_with_duplicate.end());
+
+    require(contains_exactly(map, 1, 4));
+}
+
+void test_initializer_list_constructor_matches_range_constructor() {
+    const int_map from_range(
+        pairs_with_duplicate.begin(), pairs_with_duplicate.end());
+
+    const int_map from_list{
         { 1, 2 },
         { 2, 4 },
         { 3, 6 }
     };
-    if (!contains_exactly(from_list, 1, 4) || from_list != from_range) {
-        return false;
-    }
 
-    int_map with_buckets(100);
-    if (with_buckets.bucket_count() < 100 || !with_buckets.empty()) {
-        return false;
-    }
+    require(contains_exactly(from_list, 1, 4));
+    require(from_list == from_range);
+}
 
-    int_map with_list_buckets(
+void test_bucket_count_constructor_reserves_buckets() {
+    constexpr std::size_t buckets = 100;
+
+    const int_map map(buckets);
+
+    require(map.bucket_count() >= buckets);
+    require(map.empty());
+}
+
+void test_initializer_list_with_bucket_count_constructor() {
+    constexpr std::size_t buckets = 64;
+
+    const int_map map(
         {
             { 1, 2 }
     },
-        64);
-    if (with_list_buckets.bucket_count() < 64 ||
-        !contains_exactly(with_list_buckets, 1, 2)) {
-        return false;
-    }
+        buckets);
 
-    int_set set{ 1, 2, 3, 2 };
-    return set.size() == 3 && set.count(2) == 1;
+    require(map.bucket_count() >= buckets);
+    require(contains_exactly(map, 1, 2));
 }
 
-bool test_growth() {
-    constexpr int count = 10000;
+void test_set_initializer_list_drops_duplicates() {
+    const int_set set{ 1, 2, 3, 2 };
 
+    require(set.size() == 3);
+    require(set.count(2) == 1);
+}
+
+constexpr int growth_count = 10000;
+
+void test_insert_grows_within_max_load_factor() {
     int_map map;
     std::size_t last_buckets = map.bucket_count();
     int rehashes             = 0;
-    for (int key = 0; key < count; ++key) {
-        if (!map.emplace(key, key * 2).second) {
-            return false;
-        }
+
+    for (int key = 0; key < growth_count; ++key) {
+        require(map.emplace(key, key * 2).second);
         if (map.bucket_count() != last_buckets) {
             last_buckets = map.bucket_count();
             ++rehashes;
         }
-        if (map.load_factor() > map.max_load_factor()) {
-            return false;
-        }
-    }
-    if (rehashes < 2 || !contains_exactly(map, 0, count)) {
-        return false;
-    }
-    // The default policy uses power of two bucket counts.
-    if ((map.bucket_count() & (map.bucket_count() - 1)) != 0) {
-        return false;
+        require(map.load_factor() <= map.max_load_factor());
     }
 
-    // Each element is visited exactly once.
-    std::vector<int> seen(count, 0);
+    require(rehashes >= 2);
+    require(contains_exactly(map, 0, growth_count));
+    // The default policy uses power of two bucket counts.
+    require(std::has_single_bit(map.bucket_count()));
+}
+
+void test_iteration_visits_each_element_once() {
+    int_map map;
+    fill_doubled(map, 0, growth_count);
+    std::vector<int> seen(growth_count, 0);
     std::size_t visited = 0;
+
     for (const auto& [key, value] : map) {
-        if (key < 0 || key >= count || value != key * 2) {
-            return false;
-        }
+        require_or_return(key >= 0, );
+        require_or_return(key < growth_count, );
+        require(value == key * 2);
         ++seen[static_cast<std::size_t>(key)];
         ++visited;
     }
-    if (visited != map.size()) {
-        return false;
-    }
-    for (int times : seen) {
-        if (times != 1) {
-            return false;
-        }
-    }
 
-    // Values are mutable through iterators.
+    require(visited == map.size());
+    require(std::ranges::all_of(seen, [](int times) {
+        return times == 1;
+    }));
+}
+
+void test_values_are_mutable_through_iterators() {
+    int_map map;
+    fill_doubled(map, 0, growth_count);
+
     for (auto& [key, value] : map) {
         value = key * 3;
     }
-    return map.at(1234) == 1234 * 3;
+
+    require(map.at(1234) == 1234 * 3);
 }
 
-bool test_erase() {
-    constexpr int count = 2000;
+constexpr int erase_count = 2000;
 
+void test_erase_by_key_returns_erased_count() {
     int_map map;
-    fill_doubled(map, 0, count);
+    fill_doubled(map, 0, erase_count);
 
-    // Erase by key.
-    for (int key = 0; key < count; key += 2) {
-        if (map.erase(key) != 1) {
-            return false;
-        }
-    }
-    if (map.erase(0) != 0 || !contains_exactly(map, 1, count, 2)) {
-        return false;
+    for (int key = 0; key < erase_count; key += 2) {
+        require(map.erase(key) == 1);
     }
 
-    // Reinsert erased keys.
-    fill_doubled(map, 0, count, 2);
-    if (!contains_exactly(map, 0, count)) {
-        return false;
+    require(map.erase(0) == 0);
+    require(contains_exactly(map, 1, erase_count, 2));
+}
+
+void test_erased_keys_can_be_reinserted() {
+    int_map map;
+    fill_doubled(map, 0, erase_count);
+    for (int key = 0; key < erase_count; key += 2) {
+        map.erase(key);
     }
 
-    // Erase by iterator.
-    for (int key = 0; key < count; key += 3) {
+    fill_doubled(map, 0, erase_count, 2);
+
+    require(contains_exactly(map, 0, erase_count));
+}
+
+void test_erase_by_iterator_removes_element() {
+    // Erase and reinsert first so the table layout is reshuffled.
+    int_map map;
+    fill_doubled(map, 0, erase_count);
+    for (int key = 0; key < erase_count; key += 2) {
+        map.erase(key);
+    }
+    fill_doubled(map, 0, erase_count, 2);
+
+    for (int key = 0; key < erase_count; key += 3) {
         auto iter = map.find(key);
-        if (iter == map.end()) {
-            return false;
-        }
+        require_or_return(iter != map.end(), );
         map.erase(iter);
     }
-    for (int key = 0; key < count; ++key) {
-        if (map.count(key) != (key % 3 == 0 ? 0U : 1U)) {
-            return false;
-        }
-    }
 
-    // Erasing the only element yields end().
-    int_map single{
-        { 7, 14 }
-    };
-    int_map::iterator next = single.erase(single.begin());
-    if (next != single.end() || !single.empty()) {
-        return false;
+    for (int key = 0; key < erase_count; ++key) {
+        require(map.count(key) == (key % 3 == 0 ? 0U : 1U));
     }
-    return single.emplace(7, 14).second && single.size() == 1;
 }
 
-bool test_erase_while_iterating() {
-    constexpr int count = 1000;
+void test_erasing_only_element_returns_end() {
+    int_map map{
+        { 7, 14 }
+    };
 
+    const int_map::iterator next = map.erase(map.begin());
+
+    require(next == map.end());
+    require(map.empty());
+    require(map.emplace(7, 14).second);
+    require(map.size() == 1);
+}
+
+void test_erase_while_iterating_visits_every_element() {
+    constexpr int count = 1000;
     int_map map;
     fill_doubled(map, 0, count);
+
     for (auto iter = map.begin(); iter != map.end();) {
         if (iter->first % 2 == 0) {
             iter = map.erase(iter);
@@ -460,137 +678,147 @@ bool test_erase_while_iterating() {
             ++iter;
         }
     }
-    return contains_exactly(map, 1, count, 2);
+
+    require(contains_exactly(map, 1, count, 2));
 }
 
-bool test_erase_range() {
-    constexpr int count = 300;
+constexpr int range_erase_count = 300;
 
-    int_map all;
-    fill_doubled(all, 0, count);
-    all.erase(all.cbegin(), all.cend());
-    if (!all.empty() || all.begin() != all.end()) {
-        return false;
-    }
+void test_erase_full_range_empties_map() {
+    int_map map;
+    fill_doubled(map, 0, range_erase_count);
 
-    for (int offset = 0; offset < 50; ++offset) {
+    map.erase(map.cbegin(), map.cend());
+
+    require(map.empty());
+    require(map.begin() == map.end());
+}
+
+void test_erase_subrange_removes_exactly_that_range() {
+    constexpr int offsets      = 50;
+    constexpr int range_start  = 50;
+    constexpr int range_length = 100;
+    constexpr int key_stride   = 13;
+
+    // Different key offsets place the subrange at different table positions.
+    for (int offset = 0; offset < offsets; ++offset) {
         int_map map;
-        for (int key = 0; key < count; ++key) {
-            map.emplace(key * 13 + offset, key);
+        for (int key = 0; key < range_erase_count; ++key) {
+            map.emplace(key * key_stride + offset, key);
         }
-        auto first = std::next(map.begin(), 50);
-        auto last  = std::next(first, 100);
+        auto first = std::next(map.begin(), range_start);
+        auto last  = std::next(first, range_length);
         std::set<int> erased;
         for (auto iter = first; iter != last; ++iter) {
             erased.insert(iter->first);
         }
 
         auto empty_range = map.erase(first, first);
-        if (empty_range != first) {
-            return false;
-        }
         map.erase(first, last);
 
-        if (map.size() != count - erased.size()) {
-            return false;
-        }
-        for (int key = 0; key < count; ++key) {
-            const int actual = key * 13 + offset;
-            if ((map.count(actual) == 1) == erased.contains(actual)) {
-                return false;
-            }
+        require(empty_range == first);
+        require(map.size() == range_erase_count - erased.size());
+        for (int key = 0; key < range_erase_count; ++key) {
+            const int actual = key * key_stride + offset;
+            require(map.count(actual) == (erased.contains(actual) ? 0U : 1U));
         }
     }
-    return true;
 }
 
-bool test_string_elements() {
-    // Long strings force heap allocations so ASan catches leaks.
-    auto make = [](int index) {
-        return std::string(40, 'x') + std::to_string(index);
-    };
+void test_string_elements_survive_erase() {
+    const string_map map = make_long_string_map();
 
-    string_map map;
-    for (int i = 0; i < 1000; ++i) {
-        map[make(i)] = make(i * 2);
-    }
-    for (int i = 0; i < 1000; i += 2) {
-        map.erase(make(i));
-    }
-    for (int i = 0; i < 1000; ++i) {
-        auto iter = map.find(make(i));
-        if ((iter == map.end()) != (i % 2 == 0)) {
-            return false;
-        }
-        if (iter != map.end() && iter->second != make(i * 2)) {
-            return false;
+    for (int i = 0; i < long_string_count; ++i) {
+        auto iter = map.find(long_string(i));
+        require((iter == map.end()) == (i % 2 == 0));
+        if (iter != map.end()) {
+            require(iter->second == long_string(i * 2));
         }
     }
+}
 
-    // Lookup with convertible keys.
+void test_emplace_and_at_with_convertible_key() {
+    string_map map = make_long_string_map();
+
     map.emplace("short", "value");
-    return map.at("short") == "value" && map.size() == 501;
+
+    require(map.at("short") == "value");
+    require(map.size() == long_string_count / 2 + 1);
 }
 
-bool test_copy_and_move() {
-    string_map source;
-    for (int i = 0; i < 100; ++i) {
-        source.emplace(std::to_string(i), std::string(30, 'v'));
-    }
+void test_copy_is_independent_of_source() {
+    const string_map source = make_string_source();
 
     string_map copy(source);
-    if (copy != source || copy.size() != 100) {
-        return false;
-    }
+    require(copy == source);
+    require(copy.size() == string_source_size);
     copy["0"] = "changed";
-    if (copy == source || source.at("0") != std::string(30, 'v')) {
-        return false;
-    }
 
-    string_map assigned;
-    assigned["stale"] = "stale";
-    assigned          = source;
-    if (assigned != source || assigned.count("stale") != 0) {
-        return false;
-    }
-
-    // Self assignment.
-    auto& alias = assigned;
-    assigned    = alias;
-    if (assigned != source) {
-        return false;
-    }
-    assigned = std::move(alias);
-    if (assigned != source) {
-        return false;
-    }
-
-    string_map moved(std::move(copy));
-    // NOLINTBEGIN(bugprone-use-after-move)
-    if (moved.size() != 100 || !copy.empty() || copy.begin() != copy.end()) {
-        return false;
-    }
-    copy["reuse"] = "ok";
-    if (copy.size() != 1 || copy.at("reuse") != "ok") {
-        return false;
-    }
-
-    string_map move_assigned;
-    move_assigned["stale"] = "stale";
-    move_assigned          = std::move(moved);
-    if (move_assigned.size() != 100 || move_assigned.count("stale") != 0 ||
-        move_assigned.at("0") != "changed") {
-        return false;
-    }
-    // NOLINTEND(bugprone-use-after-move)
-
-    // Copy of an empty map.
-    string_map empty;
-    string_map empty_copy(empty);
-    return empty_copy.empty() && empty_copy == empty;
+    require(copy != source);
+    require(source.at("0") == std::string(30, 'v'));
 }
 
-bool test_swap() {
+void test_copy_assignment_replaces_contents() {
+    const string_map source = make_string_source();
+    string_map assigned;
+    assigned["stale"] = "stale";
+
+    assigned = source;
+
+    require(assigned == source);
+    require(assigned.count("stale") == 0);
+}
+
+void test_self_assignment_keeps_contents() {
+    const string_map source = make_string_source();
+    string_map assigned     = source;
+    auto& alias             = assigned;
+
+    assigned = alias;
+    require(assigned == source);
+    assigned = std::move(alias);
+
+    require(assigned == source);
+}
+
+void test_moved_from_map_is_empty_and_reusable() {
+    string_map source = make_string_source();
+
+    string_map moved(std::move(source));
+
+    // NOLINTBEGIN(bugprone-use-after-move)
+    require(moved.size() == string_source_size);
+    require(source.empty());
+    require(source.begin() == source.end());
+    source["reuse"] = "ok";
+    require(source.size() == 1);
+    require(source.at("reuse") == "ok");
+    // NOLINTEND(bugprone-use-after-move)
+}
+
+void test_move_assignment_replaces_contents() {
+    string_map source = make_string_source();
+    source["0"]       = "changed";
+    string_map move_assigned;
+    move_assigned["stale"] = "stale";
+
+    move_assigned = std::move(source);
+
+    require(move_assigned.size() == string_source_size);
+    require(move_assigned.count("stale") == 0);
+    require(move_assigned.at("0") == "changed");
+}
+
+void test_copy_of_empty_map_is_empty() {
+    const string_map empty;
+
+    const string_map copy(empty);
+
+    require(copy.empty());
+    require(copy == empty);
+}
+
+void test_member_swap_exchanges_contents_and_load_factor() {
     int_map lhs;
     int_map rhs;
     fill_doubled(lhs, 0, 100);
@@ -598,512 +826,666 @@ bool test_swap() {
     lhs.max_load_factor(0.5F);
 
     lhs.swap(rhs);
-    if (!contains_exactly(lhs, 1000, 1010) || !contains_exactly(rhs, 0, 100) ||
-        rhs.max_load_factor() != 0.5F) {
-        return false;
-    }
+
+    require(contains_exactly(lhs, 1000, 1010));
+    require(contains_exactly(rhs, 0, 100));
+    require(rhs.max_load_factor() == 0.5F);
+}
+
+void test_adl_swap_exchanges_contents() {
+    int_map lhs;
+    int_map rhs;
+    fill_doubled(lhs, 1000, 1010);
+    fill_doubled(rhs, 0, 100);
 
     using std::swap;
     swap(lhs, rhs);
-    return contains_exactly(lhs, 0, 100) && contains_exactly(rhs, 1000, 1010);
+
+    require(contains_exactly(lhs, 0, 100));
+    require(contains_exactly(rhs, 1000, 1010));
 }
 
-bool test_equality() {
-    int_map lhs;
-    int_map rhs;
-    fill_doubled(lhs, 0, 50);
-    // Different insertion order and bucket count.
-    rhs.reserve(1000);
-    for (int key = 49; key >= 0; --key) {
-        rhs.emplace(key, key * 2);
-    }
-    if (lhs != rhs || !(lhs == rhs)) {
-        return false;
-    }
+void test_equality_ignores_insertion_order_and_bucket_count() {
+    const auto [lhs, rhs] = make_equal_maps();
+
+    require(lhs == rhs);
+    require_false(lhs != rhs);
+}
+
+void test_maps_with_different_value_are_unequal() {
+    auto [lhs, rhs] = make_equal_maps();
+
     rhs[0] = 1;
-    if (lhs == rhs) {
-        return false;
-    }
-    rhs.erase(0);
-    return lhs != rhs;
+
+    require_false(lhs == rhs);
 }
 
-bool test_reserve_rehash() {
-    constexpr int count = 1000;
+void test_maps_with_different_size_are_unequal() {
+    auto [lhs, rhs] = make_equal_maps();
 
+    rhs.erase(0);
+
+    require(lhs != rhs);
+}
+
+constexpr int reserve_count = 1000;
+
+void test_reserve_prevents_rehash_while_filling() {
     int_map map;
-    map.reserve(count);
-    const std::size_t reserved = map.bucket_count();
-    if (reserved < count) {
-        return false;
-    }
-    fill_doubled(map, 0, count);
-    if (map.bucket_count() != reserved) {
-        return false;
-    }
 
-    // Smaller requests never drop elements.
+    map.reserve(reserve_count);
+    const std::size_t reserved = map.bucket_count();
+    fill_doubled(map, 0, reserve_count);
+
+    require(reserved >= reserve_count);
+    require(map.bucket_count() == reserved);
+}
+
+void test_smaller_reserve_and_rehash_keep_elements() {
+    int_map map;
+    map.reserve(reserve_count);
+    fill_doubled(map, 0, reserve_count);
+
     map.reserve(1);
     map.rehash(1);
-    if (!contains_exactly(map, 0, count) ||
-        map.load_factor() > map.max_load_factor()) {
-        return false;
-    }
+
+    require(contains_exactly(map, 0, reserve_count));
+    require(map.load_factor() <= map.max_load_factor());
+}
+
+void test_rehash_grows_bucket_count() {
+    int_map map;
+    map.reserve(reserve_count);
+    const std::size_t reserved = map.bucket_count();
+    fill_doubled(map, 0, reserve_count);
 
     map.rehash(reserved * 4);
-    if (map.bucket_count() < reserved * 4 || !contains_exactly(map, 0, count)) {
-        return false;
-    }
 
-    for (int key = 10; key < count; ++key) {
+    require(map.bucket_count() >= reserved * 4);
+    require(contains_exactly(map, 0, reserve_count));
+}
+
+void test_shrink_to_fit_after_erase_reduces_buckets() {
+    constexpr int kept = 10;
+    int_map map;
+    map.reserve(reserve_count);
+    const std::size_t reserved = map.bucket_count();
+    fill_doubled(map, 0, reserve_count);
+    map.rehash(reserved * 4);
+
+    for (int key = kept; key < reserve_count; ++key) {
         map.erase(key);
     }
     map.shrink_to_fit();
-    if (map.bucket_count() >= reserved || !contains_exactly(map, 0, 10)) {
-        return false;
-    }
+
+    require(map.bucket_count() < reserved);
+    require(contains_exactly(map, 0, kept));
+}
+
+void test_clear_and_shrink_release_all_buckets() {
+    constexpr int count = 10;
+    int_map map;
+    fill_doubled(map, 0, count);
 
     map.clear();
     map.shrink_to_fit();
-    if (map.bucket_count() != 0 || !map.empty()) {
-        return false;
-    }
-    map.rehash(0);
-    fill_doubled(map, 0, 10);
-    if (!contains_exactly(map, 0, 10)) {
-        return false;
-    }
 
-    // A lower load factor leads to more buckets.
-    int_map sparse;
-    sparse.max_load_factor(0.25F);
-    fill_doubled(sparse, 0, count);
-    return sparse.max_load_factor() == 0.25F && sparse.load_factor() <= 0.25F &&
-           contains_exactly(sparse, 0, count);
+    require(map.bucket_count() == 0);
+    require(map.empty());
+    map.rehash(0);
+    fill_doubled(map, 0, count);
+    require(contains_exactly(map, 0, count));
 }
 
-struct prime_hash : std::hash<int> {
-    using hash_policy = neutron::prime_number_hash_policy;
-};
+void test_lower_max_load_factor_is_respected() {
+    constexpr float max_load = 0.25F;
+    int_map sparse;
 
+    sparse.max_load_factor(max_load);
+    fill_doubled(sparse, 0, reserve_count);
+
+    require(sparse.max_load_factor() == max_load);
+    require(sparse.load_factor() <= max_load);
+    require(contains_exactly(sparse, 0, reserve_count));
+}
+
+/// Inserts, erases, reinserts and rehashes under the policy of `Hash`.
 template <typename Hash>
-bool check_policy() {
+void check_policy_round_trip() {
     constexpr int count = 5000;
-
     bytell_hash_map<int, int, Hash> map;
+
     fill_doubled(map, 0, count);
-    if (!contains_exactly(map, 0, count)) {
-        return false;
-    }
+    require(contains_exactly(map, 0, count));
     for (int key = 0; key < count; key += 2) {
         map.erase(key);
     }
-    if (!contains_exactly(map, 1, count, 2)) {
-        return false;
-    }
+    require(contains_exactly(map, 1, count, 2));
     fill_doubled(map, 0, count, 2);
     map.rehash(count * 3);
-    return contains_exactly(map, 0, count);
+
+    require(contains_exactly(map, 0, count));
 }
 
-bool test_hash_policies() {
-    return check_policy<neutron::power_of_two_std_hash<int>>() &&
-           check_policy<prime_hash>();
+void test_power_of_two_policy_round_trip() {
+    check_policy_round_trip<neutron::power_of_two_std_hash<int>>();
 }
 
-struct constant_hash {
-    std::size_t operator()(int) const noexcept { return 42; }
-};
+void test_prime_number_policy_round_trip() {
+    check_policy_round_trip<prime_hash>();
+}
 
-struct coarse_hash {
-    std::size_t operator()(int key) const noexcept {
-        return static_cast<std::size_t>(key % 3);
-    }
-};
-
+/// Inserts, erases and reinserts keys whose hashes collide under `Hash`.
 template <typename Hash>
-bool check_collisions(int count) {
+void check_collisions(int count) {
     bytell_hash_map<int, int, Hash> map;
+
     fill_doubled(map, 0, count);
-    if (!contains_exactly(map, 0, count)) {
-        return false;
-    }
+    require(contains_exactly(map, 0, count));
     // Erasing chain heads and middles relinks the chain.
     for (int key = 0; key < count; key += 2) {
-        if (map.erase(key) != 1) {
-            return false;
-        }
+        require(map.erase(key) == 1);
     }
-    if (!contains_exactly(map, 1, count, 2)) {
-        return false;
-    }
+    require(contains_exactly(map, 1, count, 2));
     fill_doubled(map, 0, count, 2);
-    return contains_exactly(map, 0, count);
+
+    require(contains_exactly(map, 0, count));
 }
 
-bool test_collisions() {
-    return check_collisions<constant_hash>(200) &&
-           check_collisions<coarse_hash>(300);
+void test_constant_hash_collisions_keep_all_elements() {
+    check_collisions<constant_hash>(200);
 }
 
-bool test_counted_lifetime() {
+void test_coarse_hash_collisions_keep_all_elements() {
+    check_collisions<coarse_hash>(300);
+}
+
+void test_set_operations_destroy_every_element_once() {
+    constexpr int count = 1000;
     reset_counted();
+
     {
-        bytell_hash_set<counted, counted_hash> set;
-        for (int i = 0; i < 1000; ++i) {
+        counted_set set;
+        for (int i = 0; i < count; ++i) {
             set.emplace(i);
         }
-        if (counted::live != 1000) {
-            return false;
-        }
-        for (int i = 0; i < 1000; i += 3) {
+        require(counted::live == count);
+        for (int i = 0; i < count; i += 3) {
             set.erase(counted{ i });
         }
         auto copy = set;
         set.clear();
-        if (!set.empty() || counted::live != static_cast<int>(copy.size())) {
-            return false;
-        }
+        require(set.empty());
+        require(counted::live == static_cast<int>(copy.size()));
         auto moved = std::move(copy);
         set        = moved;
         set.rehash(4096);
         set.shrink_to_fit();
         moved = std::move(set);
     }
-    if (!counted_clean()) {
-        return false;
-    }
+
+    require(counted_clean());
+}
+
+void test_map_range_erase_destroys_values() {
+    constexpr int count  = 500;
+    constexpr int erased = 100;
+    reset_counted();
 
     {
         bytell_hash_map<int, counted> map;
-        for (int i = 0; i < 500; ++i) {
+        for (int i = 0; i < count; ++i) {
             map[i].value = i;
         }
-        map.erase(map.begin(), std::next(map.begin(), 100));
-        if (counted::live != 400 || map.size() != 400) {
-            return false;
-        }
+        map.erase(map.begin(), std::next(map.begin(), erased));
+        require(counted::live == count - erased);
+        require(map.size() == count - erased);
     }
-    return counted_clean();
+
+    require(counted_clean());
 }
 
-bool test_exception_safety() {
+constexpr int counted_source_size = 100;
+
+void test_throwing_copy_construction_rolls_back() {
     reset_counted();
+
     {
-        bytell_hash_set<counted, counted_hash> source;
-        for (int i = 0; i < 100; ++i) {
+        counted_set source;
+        for (int i = 0; i < counted_source_size; ++i) {
             source.emplace(i);
         }
-
-        // Copy construction rolls back on failure.
         counted::throw_on_copy = 50;
         bool thrown            = false;
+
         ATOM_TRY {
-            bytell_hash_set<counted, counted_hash> copy(source);
+            counted_set copy(source);
             static_cast<void>(copy);
         }
         ATOM_CATCH(const std::runtime_error&) { thrown = true; }
         counted::throw_on_copy = -1;
-        if (!thrown || counted::live != 100 || source.size() != 100) {
-            return false;
-        }
 
-        // A throwing element constructor leaves the table untouched.
+        require(thrown);
+        require(counted::live == counted_source_size);
+        require(source.size() == counted_source_size);
+    }
+
+    require(counted_clean());
+}
+
+void test_throwing_insert_leaves_set_unchanged() {
+    reset_counted();
+
+    {
+        counted_set source;
+        for (int i = 0; i < counted_source_size; ++i) {
+            source.emplace(i);
+        }
         const counted value{ 1000 };
         counted::throw_on_copy = 0;
-        thrown                 = false;
+        bool thrown            = false;
+
         ATOM_TRY { source.insert(value); }
         ATOM_CATCH(const std::runtime_error&) { thrown = true; }
         counted::throw_on_copy = -1;
-        if (!thrown || source.size() != 100 || source.count(value) != 0 ||
-            counted::live != 101) {
-            return false;
-        }
-        for (int i = 0; i < 100; ++i) {
-            if (source.count(counted{ i }) != 1) {
-                return false;
-            }
+
+        require(thrown);
+        require(source.size() == counted_source_size);
+        require(source.count(value) == 0);
+        // The source elements plus `value`.
+        require(counted::live == counted_source_size + 1);
+        for (int i = 0; i < counted_source_size; ++i) {
+            require(source.count(counted{ i }) == 1);
         }
     }
-    return counted_clean();
+
+    require(counted_clean());
 }
 
-bool test_move_only_values() {
+void test_move_only_values_survive_rehash_and_move() {
+    constexpr int count = 500;
     bytell_hash_map<int, std::unique_ptr<int>> map;
-    for (int i = 0; i < 500; ++i) {
+    for (int i = 0; i < count; ++i) {
         map.emplace(i, std::make_unique<int>(i));
     }
+
     map[1000] = std::make_unique<int>(1000);
     map.rehash(4096);
-    for (int i = 0; i < 500; ++i) {
-        if (*map.at(i) != i) {
-            return false;
-        }
+    for (int i = 0; i < count; ++i) {
+        require(*map.at(i) == i);
     }
     auto moved = std::move(map);
-    return moved.size() == 501 && *moved.at(1000) == 1000;
+
+    require(moved.size() == count + 1);
+    require(*moved.at(1000) == 1000);
 }
 
-bool test_aligned_elements() {
+void test_pair_elements_are_suitably_aligned() {
+    constexpr int count = 1000;
     bytell_hash_map<long long, double> map;
-    for (int i = 0; i < 1000; ++i) {
+
+    for (int i = 0; i < count; ++i) {
         map.emplace(i, i * 0.5);
     }
+
     for (const auto& [key, value] : map) {
         const auto address = reinterpret_cast<std::uintptr_t>(&key);
-        if (address % alignof(std::pair<long long, double>) != 0 ||
-            value != static_cast<double>(key) * 0.5) {
-            return false;
-        }
+        require(address % alignof(std::pair<long long, double>) == 0);
+        require(value == static_cast<double>(key) * 0.5);
     }
-    if (map.size() != 1000) {
-        return false;
-    }
-
-    // Over-aligned elements, including lookups in the shared empty block.
-    struct alignas(64) big {
-        int value;
-        bool operator==(const big&) const = default;
-    };
-    struct big_hash {
-        std::size_t operator()(const big& item) const noexcept {
-            return static_cast<std::size_t>(item.value);
-        }
-    };
-    bytell_hash_set<big, big_hash> set;
-    if (set.find(big{ 1 }) != set.end()) {
-        return false;
-    }
-    for (int i = 0; i < 256; ++i) {
-        set.insert(big{ i });
-    }
-    for (const big& item : set) {
-        if (reinterpret_cast<std::uintptr_t>(&item) % alignof(big) != 0) {
-            return false;
-        }
-    }
-    return set.size() == 256;
+    require(map.size() == count);
 }
 
-bool test_allocator() {
-    using pair_type  = std::pair<int, std::string>;
-    using alloc_type = tracking_allocator<pair_type>;
-    using map_type   = bytell_hash_map<
-          int, std::string, std::hash<int>, std::equal_to<int>, alloc_type>;
+void test_lookup_in_empty_over_aligned_set_finds_nothing() {
+    // Empty tables share a static block, which must suit any alignment.
+    const bytell_hash_set<over_aligned, over_aligned_hash> set;
 
+    require(set.find(over_aligned{ 1 }) == set.end());
+}
+
+void test_over_aligned_elements_are_aligned() {
+    constexpr int count = 256;
+    bytell_hash_set<over_aligned, over_aligned_hash> set;
+
+    for (int i = 0; i < count; ++i) {
+        set.insert(over_aligned{ i });
+    }
+
+    for (const over_aligned& item : set) {
+        const auto address = reinterpret_cast<std::uintptr_t>(&item);
+        require(address % alignof(over_aligned) == 0);
+    }
+    require(set.size() == count);
+}
+
+void test_map_allocates_from_its_allocator() {
+    arena first;
+
+    {
+        const tracked_map map = make_tracked_map(first);
+        require(map.get_allocator().owner == &first);
+        require(first.blocks.size() == 1);
+    }
+
+    require(arena_clean(first));
+}
+
+void test_copy_keeps_allocator_and_extended_copy_uses_given_one() {
     arena first;
     arena second;
+
     {
-        map_type map{ alloc_type{ &first } };
-        for (int i = 0; i < 200; ++i) {
-            map.emplace(i, std::string(30, 'a'));
-        }
-        if (map.get_allocator().owner != &first || first.blocks.size() != 1) {
-            return false;
-        }
+        const tracked_map map = make_tracked_map(first);
 
-        // Copy keeps the allocator; allocator-extended copy uses the new one.
-        map_type copy(map);
-        map_type other(map, alloc_type{ &second });
-        if (copy.get_allocator().owner != &first ||
-            other.get_allocator().owner != &second || copy != map ||
-            other != map || second.blocks.size() != 1) {
-            return false;
-        }
+        const tracked_map copy(map);
+        const tracked_map other(map, tracked_alloc{ &second });
 
-        // Allocator-extended move: element-wise with an unequal allocator,
-        // stealing with an equal one.
-        map_type source(map, alloc_type{ &first });
-        map_type moved_other(std::move(source), alloc_type{ &second });
-        if (moved_other.get_allocator().owner != &second ||
-            moved_other != map || !source.empty()) {
-            return false;
-        }
+        require(copy.get_allocator().owner == &first);
+        require(other.get_allocator().owner == &second);
+        require(copy == map);
+        require(other == map);
+        require(second.blocks.size() == 1);
+    }
+
+    require(arena_clean(first));
+    require(arena_clean(second));
+}
+
+void test_extended_move_with_unequal_allocator_moves_elements() {
+    arena first;
+    arena second;
+
+    {
+        const tracked_map map = make_tracked_map(first);
+        tracked_map source(map, tracked_alloc{ &first });
+
+        const tracked_map moved(std::move(source), tracked_alloc{ &second });
+
+        require(moved.get_allocator().owner == &second);
+        require(moved == map);
+        // NOLINTNEXTLINE(bugprone-use-after-move)
+        require(source.empty());
+    }
+
+    require(arena_clean(first));
+    require(arena_clean(second));
+}
+
+void test_extended_move_with_equal_allocator_steals_storage() {
+    arena first;
+    arena second;
+
+    {
+        const tracked_map map = make_tracked_map(first);
+        tracked_map source(map, tracked_alloc{ &second });
         const std::size_t second_blocks = second.blocks.size();
-        map_type stolen_other(std::move(moved_other), alloc_type{ &second });
-        if (stolen_other != map || second.blocks.size() != second_blocks) {
-            return false;
-        }
 
-        // Non-propagating, unequal allocators: element-wise move.
-        other = std::move(copy);
-        if (other.get_allocator().owner != &second || other != map) {
-            return false;
-        }
+        const tracked_map stolen(std::move(source), tracked_alloc{ &second });
 
-        // Non-propagating copy assignment keeps the target allocator.
-        map_type target{ alloc_type{ &second } };
-        target = map;
-        if (target.get_allocator().owner != &second || target != map) {
-            return false;
-        }
-
-        // Equal allocators steal the storage.
-        map_type stolen{ alloc_type{ &first } };
-        const std::size_t blocks = first.blocks.size();
-        stolen                   = std::move(map);
-        if (stolen.size() != 200 || first.blocks.size() > blocks) {
-            return false;
-        }
+        require(stolen == map);
+        require(second.blocks.size() == second_blocks);
     }
-    return arena_clean(first) && arena_clean(second);
+
+    require(arena_clean(first));
+    require(arena_clean(second));
 }
 
-bool test_propagating_allocator() {
-    using alloc_type = tracking_allocator<int, true>;
-    using set_type =
-        bytell_hash_set<int, std::hash<int>, std::equal_to<int>, alloc_type>;
-
+void test_move_assignment_with_unequal_allocator_moves_elements() {
     arena first;
     arena second;
+
     {
-        set_type lhs{ alloc_type{ &first } };
-        set_type rhs{ alloc_type{ &second } };
-        for (int i = 0; i < 100; ++i) {
-            lhs.insert(i);
-            rhs.insert(i + 1000);
-        }
+        const tracked_map map = make_tracked_map(first);
+        tracked_map copy(map);
+        tracked_map other(map, tracked_alloc{ &second });
 
-        set_type copied{ alloc_type{ &second } };
-        copied.insert(-1);
-        copied = lhs;
-        if (copied.get_allocator().owner != &first || copied != lhs) {
-            return false;
-        }
+        other = std::move(copy);
 
-        set_type moved{ alloc_type{ &second } };
-        moved.insert(-1);
-        moved = std::move(rhs);
-        if (moved.get_allocator().owner != &second || moved.size() != 100 ||
-            moved.count(1000) != 1) {
-            return false;
-        }
-
-        lhs.swap(moved);
-        if (lhs.get_allocator().owner != &second ||
-            moved.get_allocator().owner != &first || lhs.count(1000) != 1 ||
-            moved.count(0) != 1) {
-            return false;
-        }
+        require(other.get_allocator().owner == &second);
+        require(other == map);
     }
-    return arena_clean(first) && arena_clean(second);
+
+    require(arena_clean(first));
+    require(arena_clean(second));
 }
 
-bool test_set() {
-    bytell_hash_set<std::string> set;
-    if (!set.emplace(3, 'a').second || !set.emplace("bbb").second) {
-        return false;
+void test_copy_assignment_keeps_target_allocator() {
+    arena first;
+    arena second;
+
+    {
+        const tracked_map map = make_tracked_map(first);
+        tracked_map target{ tracked_alloc{ &second } };
+
+        target = map;
+
+        require(target.get_allocator().owner == &second);
+        require(target == map);
     }
+
+    require(arena_clean(first));
+    require(arena_clean(second));
+}
+
+void test_move_assignment_with_equal_allocator_steals_storage() {
+    arena first;
+
+    {
+        tracked_map map = make_tracked_map(first);
+        tracked_map stolen{ tracked_alloc{ &first } };
+        const std::size_t blocks = first.blocks.size();
+
+        stolen = std::move(map);
+
+        require(stolen.size() == tracked_size);
+        require(first.blocks.size() <= blocks);
+    }
+
+    require(arena_clean(first));
+}
+
+constexpr int propagating_size = 100;
+
+/// Fills a propagating set with `[first, first + propagating_size)`.
+void fill_propagating(propagating_set& set, int first) {
+    for (int i = 0; i < propagating_size; ++i) {
+        set.insert(first + i);
+    }
+}
+
+void test_propagating_copy_assignment_adopts_source_allocator() {
+    arena first;
+    arena second;
+
+    {
+        propagating_set source{ propagating_alloc{ &first } };
+        fill_propagating(source, 0);
+        propagating_set copied{ propagating_alloc{ &second } };
+        copied.insert(-1);
+
+        copied = source;
+
+        require(copied.get_allocator().owner == &first);
+        require(copied == source);
+    }
+
+    require(arena_clean(first));
+    require(arena_clean(second));
+}
+
+void test_propagating_move_assignment_adopts_source_allocator() {
+    arena first;
+    arena second;
+
+    {
+        propagating_set source{ propagating_alloc{ &second } };
+        fill_propagating(source, 1000);
+        propagating_set moved{ propagating_alloc{ &first } };
+        moved.insert(-1);
+
+        moved = std::move(source);
+
+        require(moved.get_allocator().owner == &second);
+        require(moved.size() == propagating_size);
+        require(moved.count(1000) == 1);
+    }
+
+    require(arena_clean(first));
+    require(arena_clean(second));
+}
+
+void test_propagating_swap_exchanges_allocators() {
+    arena first;
+    arena second;
+
+    {
+        propagating_set lhs{ propagating_alloc{ &first } };
+        propagating_set rhs{ propagating_alloc{ &second } };
+        fill_propagating(lhs, 0);
+        fill_propagating(rhs, 1000);
+
+        lhs.swap(rhs);
+
+        require(lhs.get_allocator().owner == &second);
+        require(rhs.get_allocator().owner == &first);
+        require(lhs.count(1000) == 1);
+        require(rhs.count(0) == 1);
+    }
+
+    require(arena_clean(first));
+    require(arena_clean(second));
+}
+
+void test_set_emplace_constructs_from_arguments() {
+    bytell_hash_set<std::string> set;
     const std::string ccc = "ccc";
     std::string ddd       = "ddd";
-    if (!set.emplace(ccc).second || !set.emplace(ddd).second ||
-        !set.emplace(std::string("eee")).second || set.emplace("aaa").second) {
-        return false;
-    }
-    if (set.size() != 5 || set.count("aaa") != 1 || set.count("zzz") != 0) {
-        return false;
-    }
 
+    require(set.emplace(3, 'a').second);
+    require(set.emplace("bbb").second);
+    require(set.emplace(ccc).second);
+    require(set.emplace(ddd).second);
+    require(set.emplace(std::string("eee")).second);
+    require_false(set.emplace("aaa").second);
+
+    require(set.size() == 5);
+    require(set.count("aaa") == 1);
+    require(set.count("zzz") == 0);
+}
+
+void test_set_equality_ignores_insertion_order() {
+    const bytell_hash_set<std::string> set{ "aaa", "bbb", "ccc", "ddd", "eee" };
     bytell_hash_set<std::string> other{ "eee", "ddd", "ccc", "bbb", "aaa" };
-    if (set != other) {
-        return false;
-    }
+
+    require(set == other);
     other.erase("aaa");
-    if (set == other) {
-        return false;
-    }
 
-    std::set<std::string> visited(set.begin(), set.end());
-    if (visited.size() != set.size()) {
-        return false;
-    }
+    require(set != other);
+}
 
+void test_set_iteration_visits_unique_elements() {
+    const bytell_hash_set<std::string> set{ "aaa", "bbb", "ccc", "ddd", "eee" };
+
+    const std::set<std::string> visited(set.begin(), set.end());
+
+    require(visited.size() == set.size());
+}
+
+void test_set_erase_removes_only_erased_keys() {
+    constexpr int count = 3000;
     int_set numbers;
-    for (int i = 0; i < 3000; ++i) {
+    for (int i = 0; i < count; ++i) {
         numbers.insert(i);
     }
-    for (int i = 0; i < 3000; i += 2) {
+
+    for (int i = 0; i < count; i += 2) {
         numbers.erase(i);
     }
-    for (int i = 0; i < 3000; ++i) {
-        if (numbers.count(i) != static_cast<std::size_t>(i % 2)) {
-            return false;
-        }
+
+    for (int i = 0; i < count; ++i) {
+        require(numbers.count(i) == static_cast<std::size_t>(i % 2));
     }
-    return numbers.size() == 1500;
+    require(numbers.size() == count / 2);
 }
 
 } // namespace
 
 int main() {
-    if (!test_default_state()) {
-        return 1;
-    }
-    if (!test_insert_and_lookup()) {
-        return 2;
-    }
-    if (!test_at_throws()) {
-        return 3;
-    }
-    if (!test_insert_or_assign()) {
-        return 4;
-    }
-    if (!test_constructors()) {
-        return 5;
-    }
-    if (!test_growth()) {
-        return 6;
-    }
-    if (!test_erase()) {
-        return 7;
-    }
-    if (!test_erase_while_iterating()) {
-        return 8;
-    }
-    if (!test_erase_range()) {
-        return 9;
-    }
-    if (!test_string_elements()) {
-        return 10;
-    }
-    if (!test_copy_and_move()) {
-        return 11;
-    }
-    if (!test_swap()) {
-        return 12;
-    }
-    if (!test_equality()) {
-        return 13;
-    }
-    if (!test_reserve_rehash()) {
-        return 14;
-    }
-    if (!test_hash_policies()) {
-        return 15;
-    }
-    if (!test_collisions()) {
-        return 16;
-    }
-    if (!test_counted_lifetime()) {
-        return 17;
-    }
-    if (!test_exception_safety()) {
-        return 18;
-    }
-    if (!test_move_only_values()) {
-        return 19;
-    }
-    if (!test_aligned_elements()) {
-        return 20;
-    }
-    if (!test_allocator()) {
-        return 21;
-    }
-    if (!test_propagating_allocator()) {
-        return 22;
-    }
-    if (!test_set()) {
-        return 23;
-    }
-    return 0;
+    test_default_constructed_map_is_empty();
+    test_lookup_in_empty_map_finds_nothing();
+    test_clear_and_shrink_on_empty_map_keep_it_empty();
+    test_insert_returns_inserted_element();
+    test_emplace_keeps_existing_value_for_duplicate_key();
+    test_insert_lvalue_rejects_duplicate_key();
+    test_hinted_insert_returns_element();
+    test_subscript_inserts_default_value();
+    test_emplace_without_arguments_inserts_default_pair();
+    test_equal_range_finds_single_element();
+    test_equal_range_of_missing_key_is_end();
+    test_const_equal_range_finds_single_element();
+    test_count_at_and_bucket_on_populated_map();
+    test_at_throws_out_of_range_for_missing_key();
+    test_insert_or_assign_inserts_then_assigns();
+    test_hinted_insert_or_assign_inserts_and_assigns();
+    test_range_constructor_keeps_first_duplicate();
+    test_initializer_list_constructor_matches_range_constructor();
+    test_bucket_count_constructor_reserves_buckets();
+    test_initializer_list_with_bucket_count_constructor();
+    test_set_initializer_list_drops_duplicates();
+    test_insert_grows_within_max_load_factor();
+    test_iteration_visits_each_element_once();
+    test_values_are_mutable_through_iterators();
+    test_erase_by_key_returns_erased_count();
+    test_erased_keys_can_be_reinserted();
+    test_erase_by_iterator_removes_element();
+    test_erasing_only_element_returns_end();
+    test_erase_while_iterating_visits_every_element();
+    test_erase_full_range_empties_map();
+    test_erase_subrange_removes_exactly_that_range();
+    test_string_elements_survive_erase();
+    test_emplace_and_at_with_convertible_key();
+    test_copy_is_independent_of_source();
+    test_copy_assignment_replaces_contents();
+    test_self_assignment_keeps_contents();
+    test_moved_from_map_is_empty_and_reusable();
+    test_move_assignment_replaces_contents();
+    test_copy_of_empty_map_is_empty();
+    test_member_swap_exchanges_contents_and_load_factor();
+    test_adl_swap_exchanges_contents();
+    test_equality_ignores_insertion_order_and_bucket_count();
+    test_maps_with_different_value_are_unequal();
+    test_maps_with_different_size_are_unequal();
+    test_reserve_prevents_rehash_while_filling();
+    test_smaller_reserve_and_rehash_keep_elements();
+    test_rehash_grows_bucket_count();
+    test_shrink_to_fit_after_erase_reduces_buckets();
+    test_clear_and_shrink_release_all_buckets();
+    test_lower_max_load_factor_is_respected();
+    test_power_of_two_policy_round_trip();
+    test_prime_number_policy_round_trip();
+    test_constant_hash_collisions_keep_all_elements();
+    test_coarse_hash_collisions_keep_all_elements();
+    test_set_operations_destroy_every_element_once();
+    test_map_range_erase_destroys_values();
+    test_throwing_copy_construction_rolls_back();
+    test_throwing_insert_leaves_set_unchanged();
+    test_move_only_values_survive_rehash_and_move();
+    test_pair_elements_are_suitably_aligned();
+    test_lookup_in_empty_over_aligned_set_finds_nothing();
+    test_over_aligned_elements_are_aligned();
+    test_map_allocates_from_its_allocator();
+    test_copy_keeps_allocator_and_extended_copy_uses_given_one();
+    test_extended_move_with_unequal_allocator_moves_elements();
+    test_extended_move_with_equal_allocator_steals_storage();
+    test_move_assignment_with_unequal_allocator_moves_elements();
+    test_copy_assignment_keeps_target_allocator();
+    test_move_assignment_with_equal_allocator_steals_storage();
+    test_propagating_copy_assignment_adopts_source_allocator();
+    test_propagating_move_assignment_adopts_source_allocator();
+    test_propagating_swap_exchanges_allocators();
+    test_set_emplace_constructs_from_arguments();
+    test_set_equality_ignores_insertion_order();
+    test_set_iteration_visits_unique_elements();
+    test_set_erase_removes_only_erased_keys();
+    return neutron_test::result();
 }

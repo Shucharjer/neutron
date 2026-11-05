@@ -2,6 +2,7 @@
 #include <type_traits>
 #include <neutron/detail/ecs/compile-time/collect_params.hpp>
 #include <neutron/ecs.hpp>
+#include "require.hpp"
 
 using namespace neutron;
 using enum stage;
@@ -22,6 +23,7 @@ void query_int_with_cmds(query<with<int>>, commands cmds) {
 }
 
 int main() {
+    // A system without queries contributes nothing to the cache.
     {
         constexpr auto desc =
             world_desc | enable_events | add_systems<events, noop>;
@@ -29,6 +31,7 @@ int main() {
         static_assert(std::same_as<deducing, type_list<>>);
     }
 
+    // Each query parameter is cached; other parameters are ignored.
     {
         constexpr auto desc =
             world_desc | enable_events | add_systems<events, query_int>;
@@ -43,5 +46,5 @@ int main() {
         static_assert(std::same_as<deducing, type_list<query<with<int>>>>);
     }
 
-    return 0;
+    return neutron_test::result();
 }

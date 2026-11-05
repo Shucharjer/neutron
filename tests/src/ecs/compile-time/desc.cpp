@@ -1,5 +1,6 @@
 #include <neutron/ecs.hpp>
 #include "app.hpp"
+#include "require.hpp"
 
 using namespace neutron;
 
@@ -49,5 +50,5 @@ int main() {
     empty_application::create() |
         run_worlds<desc1, desc2, desc3, desc4, desc5, desc6>();
 
-    return 0;
+    return neutron_test::result();
 }

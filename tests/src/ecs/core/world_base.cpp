@@ -49,7 +49,8 @@ void require_position_only(
 
     size_t count = 0;
     for (auto [position] : qry.get()) {
-        require(position.x == x && position.y == y);
+        require(position.x == x);
+        require(position.y == y);
         ++count;
     }
     require(count == expected_count);
@@ -63,8 +64,10 @@ void require_position_velocity(
 
     size_t count = 0;
     for (auto [position, velocity] : qry.get()) {
-        require(position.x == px && position.y == py);
-        require(velocity.x == vx && velocity.y == vy);
+        require(position.x == px);
+        require(position.y == py);
+        require(velocity.x == vx);
+        require(velocity.y == vy);
         ++count;
     }
     require(count == expected_count);
@@ -89,7 +92,7 @@ void test_add_components_with_values() {
     require_position_velocity(world, 1, 2, 3, 4);
 }
 
-void test_remove_components() {
+void test_remove_components_one_kind_at_a_time() {
     basic_world<world_descriptor_t<>> world;
     const auto entity = world.spawn(Position{ 1, 2 }, Velocity{ 3, 4 }, Tag{});
 
@@ -106,11 +109,13 @@ void test_remove_components() {
     archetype = entity_archetype(world, entity);
     require_false(archetype->template has<Position>());
     require(archetype->template has<Velocity>());
+
     manual_querior<with<Velocity&>> querior{ world };
     query<with<Velocity&>> qry{ querior };
     size_t count = 0;
     for (auto [velocity] : qry.get()) {
-        require(velocity.x == 3 && velocity.y == 4);
+        require(velocity.x == 3);
+        require(velocity.y == 4);
         ++count;
     }
     require(count == 1);
@@ -188,7 +193,7 @@ void test_add_after_remove_noop_uses_distinct_transition_cache() {
     require_position_only(world, 3, 4);
 }
 
-void test_command_buffer_future_add_components() {
+void test_command_buffer_adds_components_to_future_entity() {
     basic_world<world_descriptor_t<>> world;
     command_buffer<> buffer;
 
@@ -203,7 +208,7 @@ void test_command_buffer_future_add_components() {
     require_position_velocity(world, 10, 11, 12, 13);
 }
 
-void test_command_buffer_future_remove_components() {
+void test_command_buffer_removes_components_from_future_entity() {
     basic_world<world_descriptor_t<>> world;
     command_buffer<> buffer;
 
@@ -299,7 +304,7 @@ void test_spawn_n_rolls_back_archetype_slots_on_exception() {
     }
 }
 
-void test_kill_range() {
+void test_kill_range_kills_every_entity() {
     basic_world<world_descriptor_t<>> world;
     auto entities = world.spawn_n(3, Position{ 1, 2 }, Velocity{ 3, 4 }, Tag{});
 
@@ -362,36 +367,20 @@ void test_is_alive_tracks_generation() {
 
 int main() {
     test_add_components_with_values();
-    neutron::println("world_base test: add values ok");
-    test_remove_components();
-    neutron::println("world_base test: remove ok");
+    test_remove_components_one_kind_at_a_time();
     test_add_components_without_values();
-    neutron::println("world_base test: add default ok");
     test_add_components_overlap_is_noop();
-    neutron::println("world_base test: add overlap ok");
     test_remove_missing_components_is_noop();
-    neutron::println("world_base test: remove noop ok");
     test_remove_after_add_noop_uses_distinct_transition_cache();
-    neutron::println("world_base test: add/remove cache split ok");
     test_add_after_remove_noop_uses_distinct_transition_cache();
-    neutron::println("world_base test: remove/add cache split ok");
-    test_command_buffer_future_add_components();
-    neutron::println("world_base test: command buffer add ok");
-    test_command_buffer_future_remove_components();
-    neutron::println("world_base test: command buffer remove ok");
+    test_command_buffer_adds_components_to_future_entity();
+    test_command_buffer_removes_components_from_future_entity();
     test_spawn_n_without_components();
-    neutron::println("world_base test: spawn_n empty ok");
     test_spawn_n_with_default_components();
-    neutron::println("world_base test: spawn_n default ok");
     test_spawn_n_with_component_values();
-    neutron::println("world_base test: spawn_n values ok");
     test_spawn_n_rolls_back_archetype_slots_on_exception();
-    neutron::println("world_base test: spawn_n rollback ok");
-    test_kill_range();
-    neutron::println("world_base test: kill range ok");
+    test_kill_range_kills_every_entity();
     test_spawn_n_mixed_reuse_and_append();
-    neutron::println("world_base test: spawn_n mixed ok");
     test_is_alive_tracks_generation();
-    neutron::println("world_base test: is_alive ok");
-    return 0;
+    return neutron_test::result();
 }

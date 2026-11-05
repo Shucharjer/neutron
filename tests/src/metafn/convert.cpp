@@ -1,7 +1,8 @@
 #include <concepts>
-#include <variant>
 #include <type_traits>
+#include <variant>
 #include <neutron/metafn.hpp>
+#include "require.hpp"
 
 using namespace neutron;
 
@@ -14,6 +15,7 @@ template <auto V>
 using int_constant = std::integral_constant<int, V>;
 
 int main() {
+    // Applies a metafunction to every element.
     static_assert(std::same_as<
                   type_list_convert_t<std::add_pointer, type_list<int, char>>,
                   type_list<int*, char*>>);
@@ -22,6 +24,7 @@ int main() {
                   value_list_convert_t<double_value, value_list<1, 2, 3>>,
                   value_list<2, 4, 6>>);
 
+    // Converts values to types, rebinding into the given template.
     static_assert(std::same_as<
                   value_list_to_type_list_convert_t<
                       int_constant, value_list<1, 2>, std::variant>,
@@ -29,10 +32,11 @@ int main() {
                       std::integral_constant<int, 1>,
                       std::integral_constant<int, 2>>>);
 
+    // The tag of a tagged list is not converted.
     static_assert(std::same_as<
                   tagged_list_convert_t<
                       std::add_pointer, tagged_type_list<int, char, double>>,
                   tagged_type_list<int, char*, double*>>);
 
-    return 0;
+    return neutron_test::result();
 }

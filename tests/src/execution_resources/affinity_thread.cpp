@@ -1,14 +1,19 @@
 #include <cstdint>
+#include <cstdlib>
+#include <ctime>
 #include <iostream>
 #include <thread>
 #include <neutron/execution.hpp>
 #include <neutron/execution_resource.hpp>
+#include "require.hpp"
 
 using namespace neutron;
 using namespace neutron::execution;
 using namespace neutron::this_thread;
 
-int main() {
+namespace {
+
+void test_sender_completes_on_thread_pinned_to_last_cpu() {
     auto concurrency = std::thread::hardware_concurrency();
     if (concurrency == 0) {
         concurrency = 1;
@@ -35,7 +40,14 @@ int main() {
                     std::cout << num << '\n';
                 });
 
-    sync_wait(std::move(sndr));
+    auto result = sync_wait(std::move(sndr));
 
-    return 0;
+    require(result.has_value());
+}
+
+} // namespace
+
+int main() {
+    test_sender_completes_on_thread_pinned_to_last_cpu();
+    return neutron_test::result();
 }

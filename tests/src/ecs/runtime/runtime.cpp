@@ -1,4 +1,5 @@
 #include <atomic>
+#include <chrono>
 #include <cstdint>
 #include <stdexcept>
 #include <string>
@@ -7,6 +8,7 @@
 #include <neutron/execution.hpp>
 #include "neutron/detail/reflection/refl.hpp"
 #include "neutron/print.hpp"
+#include "require.hpp"
 #include "thread_pool.hpp"
 
 using namespace std::chrono_literals;
@@ -20,6 +22,7 @@ using alloc_t = std::allocator<std::byte>;
 
 using time_point = std::chrono::system_clock::time_point;
 
+/// Keeps the runtime running until the deadline passes.
 struct payload {
     time_point tp;
 
@@ -51,14 +54,14 @@ void println_ticks(global<std::uint32_t> glob) {
 constexpr auto main_world = world_desc | add_systems<preupdate, &tick> |
                             add_systems<shutdown, &println_ticks>;
 
-void test_runtime() {
+void test_single_world_runs_until_payload_stops() {
     thread_pool pool;
     payload payload(3s);
     auto rt = make_runtime<main_world>(pool, &payload);
     rt.run();
 }
 
-void test_individual() {
+void test_individual_world_runs_beside_main_world() {
     constexpr auto idvj_world = world_desc | add_systems<preupdate, &tick> |
                                 add_systems<shutdown, &println_ticks> |
                                 execute<individual, tick_rate<128>>;
@@ -69,7 +72,7 @@ void test_individual() {
     rt.run();
 }
 
-void test_same_group() {
+void test_worlds_in_the_same_group_run_together() {
     constexpr auto same_group = world_desc | add_systems<preupdate, &tick> |
                                 add_systems<shutdown, &println_ticks> |
                                 execute<tick_rate<128>>;
@@ -80,7 +83,7 @@ void test_same_group() {
     rt.run();
 }
 
-void test_another_group() {
+void test_worlds_in_different_groups_run_together() {
     constexpr auto another_group = world_desc | add_systems<preupdate, &tick> |
                                    add_systems<shutdown, &println_ticks> |
                                    execute<group<1>, tick_rate<128>>;
@@ -92,10 +95,9 @@ void test_another_group() {
 }
 
 int main() {
-    test_runtime();
-    test_individual();
-    test_same_group();
-    test_another_group();
-
-    return 0;
+    test_single_world_runs_until_payload_stops();
+    test_individual_world_runs_beside_main_world();
+    test_worlds_in_the_same_group_run_together();
+    test_worlds_in_different_groups_run_together();
+    return neutron_test::result();
 }

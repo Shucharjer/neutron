@@ -1,178 +1,166 @@
 #include <memory>
 #include <memory_resource>
+#include <utility>
 #include <neutron/memory.hpp>
 #include "require.hpp"
 
 using namespace neutron;
 
-void test_unique_storage() {
-    // default ctor
-    {
-        constexpr unique_storage<int> storage;
-        static_assert(!storage);
-    }
+namespace {
 
-    // ctor
-    {
-        constexpr unique_storage<int> storage;
-        static_assert(!storage);
+using pmr_alloc_t = std::pmr::polymorphic_allocator<>;
+using pmr_storage = unique_storage<int, pmr_alloc_t>;
 
-        constexpr auto result = [] {
-            unique_storage<int> storage{ 2 };
-            return *storage;
-        }();
-        static_assert(result == 2);
-    }
+// With std::allocator every operation is usable in constant evaluation.
 
-    // move ctor
-    {
-        constexpr auto storage = [] {
-            unique_storage<int> storage;
-            auto mov = std::move(storage);
-            return mov;
-        }();
-        static_assert(!static_cast<bool>(storage));
+// A default constructed storage holds nothing.
+constexpr unique_storage<int> default_constructed;
+static_assert(!default_constructed);
 
-        constexpr auto storage2 = [] {
-            unique_storage<int> storage{ 2 };
-            auto mov = std::move(storage);
-            return *mov;
-        }();
-        static_assert(storage2 == 2);
-    }
+// Constructing from a value stores it.
+constexpr int constructed_value = [] {
+    unique_storage<int> storage{ 2 };
+    return *storage;
+}();
+static_assert(constructed_value == 2);
 
-    // move assign
-    {
-        constexpr auto storage = [] {
-            unique_storage<int> storage;
-            unique_storage<int> mov;
-            mov = std::move(storage);
-            return mov;
-        }();
+// Move construction transfers the value, or the emptiness.
+constexpr auto move_constructed_from_empty = [] {
+    unique_storage<int> storage;
+    auto moved = std::move(storage);
+    return moved;
+}();
+static_assert(!static_cast<bool>(move_constructed_from_empty));
 
-        constexpr auto result = [] {
-            unique_storage<int> storage{ 1 };
-            unique_storage<int> mov;
-            mov = std::move(storage);
-            return *mov;
-        }();
-        static_assert(result == 1);
-    }
+constexpr int move_constructed_value = [] {
+    unique_storage<int> storage{ 2 };
+    auto moved = std::move(storage);
+    return *moved;
+}();
+static_assert(move_constructed_value == 2);
 
-    // swap
-    {
-        constexpr auto storage = [] {
-            unique_storage<int> left{ 2 };
-            unique_storage<int> right{};
-            left.swap(right);
-            return left;
-        }();
+// Move assignment transfers the value; assigning from empty only needs to
+// compile.
+[[maybe_unused]] constexpr auto move_assigned_from_empty = [] {
+    unique_storage<int> storage;
+    unique_storage<int> moved;
+    moved = std::move(storage);
+    return moved;
+}();
 
-        constexpr auto result = [] {
-            unique_storage<int> left{ 2 };
-            unique_storage<int> right{ 4 };
-            left.swap(right);
-            return *left;
-        }();
-        static_assert(result == 4);
-    }
+constexpr int move_assigned_value = [] {
+    unique_storage<int> storage{ 1 };
+    unique_storage<int> moved;
+    moved = std::move(storage);
+    return *moved;
+}();
+static_assert(move_assigned_value == 1);
+
+// Swap exchanges the values; swapping with empty only needs to compile.
+[[maybe_unused]] constexpr auto swapped_with_empty = [] {
+    unique_storage<int> left{ 2 };
+    unique_storage<int> right{};
+    left.swap(right);
+    return left;
+}();
+
+constexpr int swapped_value = [] {
+    unique_storage<int> left{ 2 };
+    unique_storage<int> right{ 4 };
+    left.swap(right);
+    return *left;
+}();
+static_assert(swapped_value == 4);
+
+void test_pmr_default_constructed_is_empty() {
+    const pmr_storage storage;
+
+    require(!storage);
 }
 
-// uses std::pmr::polymorphic_allocator
-void test_unique_storage_pmr() {
-    using pmr_alloc_t = std::pmr::polymorphic_allocator<>;
+void test_pmr_immediately_allocates() {
     pmr_alloc_t alloc;
 
-    // default ctor
-    {
-        unique_storage<int, pmr_alloc_t> storage;
-        require(!storage);
-    }
+    const pmr_storage from_tag{ immediately };
+    const pmr_storage from_tag_and_alloc{ immediately, alloc };
+    const pmr_storage from_allocator_arg{ std::allocator_arg, alloc,
+                                          immediately };
 
-    // ctor (immediately)
-    {
-        unique_storage<int, pmr_alloc_t> storage{ immediately };
-        require(storage);
-    }
-
-    // ctor (immediately, alloc)
-    {
-        unique_storage<int, pmr_alloc_t> storage{ immediately, alloc };
-        require(storage);
-    }
-
-    // ctor (std::allocator_arg_t, alloc, immediately_t)
-    {
-        unique_storage<int, pmr_alloc_t> storage{ std::allocator_arg, alloc,
-                                                  immediately };
-        require(storage);
-    }
-
-    // ctor (arg)
-    {
-        unique_storage<int, pmr_alloc_t> storage{ std::allocator_arg, alloc,
-                                                  2 };
-        require(*storage == 2);
-    }
-
-    // move ctor
-    {
-        auto storage = [&] {
-            unique_storage<int, pmr_alloc_t> storage{ alloc };
-            auto mov = std::move(storage);
-            return mov;
-        }();
-        require(!static_cast<bool>(storage));
-
-        auto storage2 = [&] {
-            unique_storage<int, pmr_alloc_t> storage{ std::allocator_arg, alloc,
-                                                      2 };
-            auto mov = std::move(storage);
-            return *mov;
-        }();
-        require(storage2 == 2);
-    }
-
-    // move assign
-    {
-        auto storage = [] {
-            unique_storage<int, pmr_alloc_t> storage;
-            unique_storage<int, pmr_alloc_t> mov;
-            mov = std::move(storage);
-            return mov;
-        }();
-
-        auto result = [] {
-            unique_storage<int, pmr_alloc_t> storage{ 1 };
-            unique_storage<int, pmr_alloc_t> mov;
-            mov = std::move(storage);
-            return *mov;
-        }();
-        require(result == 1);
-    }
-
-    // swap
-    {
-        auto storage = [] {
-            unique_storage<int, pmr_alloc_t> left{ 2 };
-            unique_storage<int, pmr_alloc_t> right{};
-            left.swap(right);
-            return left;
-        }();
-
-        auto result = [] {
-            unique_storage<int, pmr_alloc_t> left{ 2 };
-            unique_storage<int, pmr_alloc_t> right{ 4 };
-            left.swap(right);
-            return *left;
-        }();
-        require(result == 4);
-    }
+    require(from_tag);
+    require(from_tag_and_alloc);
+    require(from_allocator_arg);
 }
 
-int main() {
-    test_unique_storage();
-    test_unique_storage_pmr();
+void test_pmr_constructs_value_with_allocator() {
+    pmr_alloc_t alloc;
 
-    return 0;
+    const pmr_storage storage{ std::allocator_arg, alloc, 2 };
+
+    require(*storage == 2);
+}
+
+void test_pmr_move_construction_transfers_value() {
+    pmr_alloc_t alloc;
+
+    const auto from_empty = [&] {
+        pmr_storage storage{ alloc };
+        auto moved = std::move(storage);
+        return moved;
+    }();
+    const int value = [&] {
+        pmr_storage storage{ std::allocator_arg, alloc, 2 };
+        auto moved = std::move(storage);
+        return *moved;
+    }();
+
+    require(!static_cast<bool>(from_empty));
+    require(value == 2);
+}
+
+void test_pmr_move_assignment_transfers_value() {
+    // Assigning from empty is exercised but its result is not checked.
+    [[maybe_unused]] const auto from_empty = [] {
+        pmr_storage storage;
+        pmr_storage moved;
+        moved = std::move(storage);
+        return moved;
+    }();
+    const int value = [] {
+        pmr_storage storage{ 1 };
+        pmr_storage moved;
+        moved = std::move(storage);
+        return *moved;
+    }();
+
+    require(value == 1);
+}
+
+void test_pmr_swap_exchanges_values() {
+    // Swapping with empty is exercised but its result is not checked.
+    [[maybe_unused]] const auto with_empty = [] {
+        pmr_storage left{ 2 };
+        pmr_storage right{};
+        left.swap(right);
+        return left;
+    }();
+    const int value = [] {
+        pmr_storage left{ 2 };
+        pmr_storage right{ 4 };
+        left.swap(right);
+        return *left;
+    }();
+
+    require(value == 4);
+}
+
+} // namespace
+
+int main() {
+    test_pmr_default_constructed_is_empty();
+    test_pmr_immediately_allocates();
+    test_pmr_constructs_value_with_allocator();
+    test_pmr_move_construction_transfers_value();
+    test_pmr_move_assignment_transfers_value();
+    test_pmr_swap_exchanges_values();
+    return neutron_test::result();
 }

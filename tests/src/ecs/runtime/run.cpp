@@ -1,9 +1,10 @@
 #include <tuple>
 #include <neutron/ecs.hpp>
+#include "require.hpp"
 
 using namespace neutron;
 
-void test_run_empty() {
+void test_run_without_worlds() {
     struct app {
         static app create() noexcept { return {}; }
         void run() {}
@@ -12,7 +13,7 @@ void test_run_empty() {
     app::create() | run_worlds<>();
 }
 
-void test_run_config() {
+void test_run_without_worlds_forwards_tuple_config() {
     struct app {
         static app create() noexcept { return {}; }
         void run(const std::tuple<int>& conf) {}
@@ -21,7 +22,7 @@ void test_run_config() {
     app::create() | run_worlds<>(32);
 }
 
-void test_run_raw_config() {
+void test_run_without_worlds_forwards_raw_config() {
     struct app {
         static app create() noexcept { return {}; }
         void run(int conf) {}
@@ -35,7 +36,7 @@ struct app {
     template <auto Worlds>
     void run() {}
 };
-void test_run_world() { app::create() | run_worlds<world_desc>(); }
+void test_run_single_world() { app::create() | run_worlds<world_desc>(); }
 
 struct config_app {
     static app create() noexcept { return {}; }
@@ -44,8 +45,15 @@ struct config_app {
         //
     }
 };
-void test_run_world_with_config() {
+void test_run_single_world_with_config_app() {
     config_app::create() | run_worlds<world_desc>();
 }
 
-int main() { return 0; }
+int main() {
+    test_run_without_worlds();
+    test_run_without_worlds_forwards_tuple_config();
+    test_run_without_worlds_forwards_raw_config();
+    test_run_single_world();
+    test_run_single_world_with_config_app();
+    return neutron_test::result();
+}

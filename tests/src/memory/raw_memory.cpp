@@ -1,94 +1,96 @@
 #include <algorithm>
 #include <array>
+#include <cstddef>
 #include <string>
 #include <neutron/memory.hpp>
+#include "require.hpp"
 
 using namespace neutron;
 
-using array_t        = std::array<char, 32>;
-constexpr auto array = [] {
-    std::string string = "this is a simple string";
+namespace {
+
+constexpr std::size_t array_size = 32;
+/// Number of leading elements written by the `_n` and partial range calls.
+constexpr std::size_t prefix = 4;
+
+using array_t = std::array<char, array_size>;
+
+/// A zero padded string used as the copy source.
+constexpr array_t source = [] {
+    const std::string string = "this is a simple string";
     array_t array{};
     std::ranges::copy(string, array.begin());
     return array;
 }();
 
-int main() {
+// Every algorithm is usable in constant evaluation.
 
-    {
-        constexpr auto r = [] {
-            array_t u;
-            uninitialized_copy(array.begin(), array.end(), u.begin());
-            return u;
-        }();
-        static_assert(array == r);
-    }
+// uninitialized_copy copies the whole range.
+constexpr array_t copied = [] {
+    array_t result;
+    uninitialized_copy(source.begin(), source.end(), result.begin());
+    return result;
+}();
+static_assert(copied == source);
 
-    {
-        constexpr auto r = [] {
-            array_t u{};
-            uninitialized_copy_n(array.begin(), 4, u.begin());
-            return u;
-        }();
-        static_assert(r[0] == 't');
-        static_assert(r[1] == 'h');
-        static_assert(r[2] == 'i');
-        static_assert(r[3] == 's');
-        static_assert(r[4] == '\0');
-    }
+// uninitialized_copy_n copies only the first `prefix` elements.
+constexpr array_t copied_n = [] {
+    array_t result{};
+    uninitialized_copy_n(source.begin(), prefix, result.begin());
+    return result;
+}();
+static_assert(copied_n[0] == 't');
+static_assert(copied_n[1] == 'h');
+static_assert(copied_n[2] == 'i');
+static_assert(copied_n[3] == 's');
+static_assert(copied_n[prefix] == '\0');
 
-    {
-        constexpr auto r = [] {
-            array_t u{};
-            uninitialized_fill(u.begin(), u.begin() + 4, '4');
-            return u;
-        }();
-        static_assert(r[0] == '4');
-        static_assert(r[1] == '4');
-        static_assert(r[2] == '4');
-        static_assert(r[3] == '4');
-        static_assert(r[4] == '\0');
-    }
+// uninitialized_fill fills only the given range.
+constexpr array_t filled = [] {
+    array_t result{};
+    uninitialized_fill(result.begin(), result.begin() + prefix, '4');
+    return result;
+}();
+static_assert(filled[0] == '4');
+static_assert(filled[1] == '4');
+static_assert(filled[2] == '4');
+static_assert(filled[3] == '4');
+static_assert(filled[prefix] == '\0');
 
-    {
-        constexpr auto r = [] {
-            array_t u{};
-            uninitialized_fill_n(u.begin(), 4, '4');
-            return u;
-        }();
-        static_assert(r[0] == '4');
-        static_assert(r[1] == '4');
-        static_assert(r[2] == '4');
-        static_assert(r[3] == '4');
-        static_assert(r[4] == '\0');
-    }
+// uninitialized_fill_n fills only the first `prefix` elements.
+constexpr array_t filled_n = [] {
+    array_t result{};
+    uninitialized_fill_n(result.begin(), prefix, '4');
+    return result;
+}();
+static_assert(filled_n[0] == '4');
+static_assert(filled_n[1] == '4');
+static_assert(filled_n[2] == '4');
+static_assert(filled_n[3] == '4');
+static_assert(filled_n[prefix] == '\0');
 
-    {
-        constexpr auto r = [] {
-            array_t u;
-            uninitialized_default_construct(u.begin(), u.end());
-            return u;
-        }();
-        static_assert(r == array_t{});
-    }
+// Default and value construction zero the elements in constant evaluation.
+constexpr array_t default_constructed = [] {
+    array_t result;
+    uninitialized_default_construct(result.begin(), result.end());
+    return result;
+}();
+static_assert(default_constructed == array_t{});
 
-    {
-        constexpr auto r = [] {
-            array_t u;
-            uninitialized_value_construct(u.begin(), u.end());
-            return u;
-        }();
-        static_assert(r == array_t{});
-    }
+constexpr array_t value_constructed = [] {
+    array_t result;
+    uninitialized_value_construct(result.begin(), result.end());
+    return result;
+}();
+static_assert(value_constructed == array_t{});
 
-    {
-        constexpr auto r = [] {
-            array_t u;
-            uninitialized_value_construct_n(u.begin(), 32);
-            return u;
-        }();
-        static_assert(r == array_t{});
-    }
+constexpr array_t value_constructed_n = [] {
+    array_t result;
+    uninitialized_value_construct_n(result.begin(), array_size);
+    return result;
+}();
+static_assert(value_constructed_n == array_t{});
 
-    return 0;
-}
+} // namespace
+
+int main() { return neutron_test::result(); }

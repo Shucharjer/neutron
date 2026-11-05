@@ -216,7 +216,7 @@ int main() {
         require_or_return(!actual.body.has_value(), 1);
     }
 
-    return 0;
+    return neutron_test::result();
 }
 // NOLINTEND
 #else

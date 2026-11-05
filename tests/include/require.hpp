@@ -1,58 +1,79 @@
 #pragma once
+#include <atomic>
+#include <cstdio>
 #include <source_location>
-#include <neutron/print.hpp>
 
-template <typename Ty>
-void require(
-    const Ty&, const std::source_location& = std::source_location::current());
+/**
+ * @file
+ * @brief Minimal assertion helpers for the test executables.
+ *
+ * A failed check prints the expression and its location and is counted, but
+ * does not stop the test, so one run reports every failure. Each test ends
+ * with `return neutron_test::result();`, which makes ctest see the failure.
+ *
+ * ```cpp
+ * void test_push() {
+ *     queue.push_back(1);
+ *     require(queue.size() == 1);
+ * }
+ *
+ * int main() {
+ *     test_push();
+ *     return neutron_test::result();
+ * }
+ * ```
+ */
 
-template <>
-void require(const bool& expr, const std::source_location& loc) {
-    if (!expr) {
-        neutron::println(
-            "expresstion in {} evaluated to false, {}: {}", loc.function_name(),
-            loc.file_name(), loc.line());
+namespace neutron_test {
+
+inline std::atomic<int> failures = 0;
+
+inline bool check(
+    bool passed, bool expected, const char* expression,
+    const std::source_location& loc) noexcept {
+    if (passed != expected) {
+        failures.fetch_add(1, std::memory_order_relaxed);
+        std::fprintf(
+            stderr, "%s:%u: in %s\n  %s(%s) failed\n", loc.file_name(),
+            static_cast<unsigned>(loc.line()), loc.function_name(),
+            expected ? "require" : "require_false", expression);
     }
+    return passed == expected;
 }
 
-template <typename Ty>
-void require(const Ty& expr, const std::source_location& loc) {
-    require(static_cast<bool>(expr), loc);
+/// @brief Exit code of the test: 0 when every check passed.
+inline int result() noexcept {
+    return failures.load(std::memory_order_relaxed) == 0 ? 0 : 1;
 }
 
-template <typename Ty>
-void require_false(
-    const Ty&,
-    const std::source_location& loc = std::source_location::current());
+} // namespace neutron_test
 
-template <>
-void require_false(const bool& expr, const std::source_location& loc) {
-    if (expr) {
-        neutron::println(
-            "expression in {} evaluated to true, {}: {}", loc.function_name(),
-            loc.file_name(), loc.line());
-    }
-}
+// Variadic, so template arguments with commas need no extra parentheses.
 
-template <typename Ty>
-void require_false(const Ty& expr, const std::source_location& loc) {
-    require_false(static_cast<bool>(expr), loc);
-}
+/// @brief Checks that the expression is true.
+#define require(...)                                                           \
+    ::neutron_test::check(                                                     \
+        static_cast<bool>(__VA_ARGS__), true, #__VA_ARGS__,                    \
+        std::source_location::current())
 
+/// @brief Checks that the expression is false.
+#define require_false(...)                                                     \
+    ::neutron_test::check(                                                     \
+        static_cast<bool>(__VA_ARGS__), false, #__VA_ARGS__,                   \
+        std::source_location::current())
+
+/// @brief Checks the expression; returns `ret` from the caller on failure,
+/// for checks the rest of the function depends on.
 #define require_or_return(expr, ret)                                           \
-    if (!static_cast<bool>((expr))) {                                                             \
-        const auto& loc = std::source_location::current();                     \
-        neutron::println(                                                      \
-            "expression '{}' in {} evaluted to false, {}: {}", #expr,            \
-            loc.function_name(), loc.file_name(), loc.line());                 \
-        return ret;                                                            \
-    }
+    do {                                                                       \
+        if (!require(expr)) {                                                  \
+            return ret;                                                        \
+        }                                                                      \
+    } while (false)
 
 #define require_false_or_return(expr, ret)                                     \
-    if (static_cast<bool>((expr))) {                                                             \
-        const auto& loc = std::source_location::current();                     \
-        neutron::println(                                                      \
-            "expression '{}' in {} evaluted to true, {}: {}", #expr,            \
-            loc.function_name(), loc.file_name(), loc.line());                 \
-        return ret;                                                            \
-    }
+    do {                                                                       \
+        if (!require_false(expr)) {                                            \
+            return ret;                                                        \
+        }                                                                      \
+    } while (false)

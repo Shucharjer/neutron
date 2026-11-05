@@ -1,2 +1,5 @@
+#include "require.hpp"
 
-int main() { return 0; }
+// No tests yet.
+
+int main() { return neutron_test::result(); }

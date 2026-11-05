@@ -1,244 +1,421 @@
-// Basic coverage for neutron::small_vector
-#include <memory>
+#include <cstddef>
+#include <iterator>
 #include <string>
+#include <utility>
 #include <vector>
-#include <neutron/print.hpp>
 #include <neutron/small_vector.hpp>
 #include "require.hpp"
 
 using namespace neutron;
 
-// helpers
-template <typename T, size_t N>
-static void fill_iota(small_vector<T, N>& v, size_t n) {
-    v.clear();
-    for (size_t i = 0; i < n; ++i)
-        v.push_back(static_cast<T>(i));
-}
+namespace {
 
-static void test_constructors() {
-    // default
-    {
-        small_vector<int, 4> smv;
-        require(smv.size() == 0);
-        require(smv.capacity() == 4);
-    }
+constexpr std::size_t inline_capacity = 4;
 
-    // initializer_list prefers element-list
-    {
-        small_vector<int, 4> smv{ 3, 4, 4 };
-        require(smv.size() == 3);
-        require(smv[0] == 3);
-        require(smv[1] == 4);
-        require(smv[2] == 4);
-    }
+using vector_type = small_vector<int, inline_capacity>;
+using const_iter  = vector_type::const_iterator;
 
-    // size constructor (value-init)
-    {
-        small_vector<int, 8> smv(5);
-        require(smv.size() == 5);
-        int sum = 0;
-        for (auto x : smv)
-            sum += x;
-        require(sum == 0);
-    }
-
-    // size + value constructor
-    {
-        small_vector<int, 4> smv(6, 7);
-        require(smv.size() == 6);
-        for (auto x : smv)
-            require(x == 7);
-        require(smv.capacity() >= 6);
-    }
-
-    // range constructor
-    {
-        std::vector<int> base{ 1, 2, 3, 4, 5 };
-        small_vector<int, 16> smv(base.begin(), base.end());
-        require(smv.size() == base.size());
-        for (size_t i = 0; i < base.size(); ++i)
-            require(smv[i] == base[i]);
+/// Replaces the contents of `vec` with 0, 1, ..., count - 1 via push_back.
+template <typename T, std::size_t N>
+void fill_iota(small_vector<T, N>& vec, std::size_t count) {
+    vec.clear();
+    for (std::size_t i = 0; i < count; ++i) {
+        vec.push_back(static_cast<T>(i));
     }
 }
 
-static void test_push_pop_resize_reserve() {
-    small_vector<int, 4> v;
-    require(v.size() == 0);
-    require(v.capacity() == 4);
-
-    // push up to SBO
-    v.push_back(1);
-    v.push_back(2);
-    v.push_back(3);
-    v.push_back(4);
-    require(v.size() == 4);
-    require(v.front() == 1);
-    require(v.back() == 4);
-
-    // trigger growth (move out of SBO)
-    v.push_back(5);
-    require(v.size() == 5);
-    require(v.capacity() >= 8); // doubled from SBO
-    require(v[0] == 1 && v[4] == 5);
-
-    // pop
-    v.pop_back();
-    require(v.size() == 4);
-    require(v.back() == 4);
-
-    // reserve larger
-    v.reserve(64);
-    require(v.capacity() >= 64);
-    require(v.size() == 4);
-    require(v[0] == 1 && v[3] == 4);
-
-    // resize grow default-init
-    v.resize(10);
-    require(v.size() == 10);
-    require(v[0] == 1 && v[3] == 4);
-
-    // resize grow with value
-    v.resize(12, 9);
-    require(v.size() == 12);
-    require(v[10] == 9 && v[11] == 9);
-
-    // shrink
-    v.resize(2);
-    require(v.size() == 2);
-    require(v.back() == 2);
+/// Returns a vector holding 1, 2, ..., count built via push_back.
+vector_type make_counting(std::size_t count) {
+    vector_type vec;
+    for (std::size_t value = 1; value <= count; ++value) {
+        vec.push_back(static_cast<int>(value));
+    }
+    return vec;
 }
 
-static void test_insert_erase_assign() {
-    small_vector<int, 4> v;
-    fill_iota(v, 5); // [0,1,2,3,4]
+void test_default_constructor_uses_inline_capacity() {
+    const vector_type smv;
 
-    // insert single at begin
-    v.insert(
-        static_cast<small_vector<int, 4>::const_iterator>(v.begin()),
-        42); // [42,0,1,2,3,4]
-    require(v.size() == 6);
-    require(v.front() == 42);
+    require(smv.size() == 0);
+    require(smv.capacity() == inline_capacity);
+}
 
-    // insert count in middle
-    v.insert(
-        static_cast<small_vector<int, 4>::const_iterator>(v.begin() + 3), 2,
-        7); // [42,0,1,7,7,2,3,4]
-    require(v.size() == 8);
-    require(v[3] == 7 && v[4] == 7);
+void test_initializer_list_constructs_elements_not_count() {
+    const vector_type smv{ 3, 4, 4 };
 
-    // insert range at end
+    require(smv.size() == 3);
+    require(smv[0] == 3);
+    require(smv[1] == 4);
+    require(smv[2] == 4);
+}
+
+void test_count_constructor_value_initializes() {
+    constexpr std::size_t count = 5;
+
+    const small_vector<int, 8> smv(count);
+
+    require(smv.size() == count);
+    int sum = 0;
+    for (const auto value : smv) {
+        sum += value;
+    }
+    require(sum == 0);
+}
+
+void test_count_value_constructor_fills_beyond_inline_capacity() {
+    constexpr std::size_t count = 6;
+    constexpr int fill          = 7;
+
+    const vector_type smv(count, fill);
+
+    require(smv.size() == count);
+    for (const auto value : smv) {
+        require(value == fill);
+    }
+    require(smv.capacity() >= count);
+}
+
+void test_iterator_range_constructor_copies_range() {
+    const std::vector<int> base{ 1, 2, 3, 4, 5 };
+
+    const small_vector<int, 16> smv(base.begin(), base.end());
+
+    require(smv.size() == base.size());
+    for (std::size_t i = 0; i < base.size(); ++i) {
+        require(smv[i] == base[i]);
+    }
+}
+
+void test_push_back_within_inline_capacity() {
+    vector_type vec;
+    require(vec.size() == 0);
+    require(vec.capacity() == inline_capacity);
+
+    vec.push_back(1);
+    vec.push_back(2);
+    vec.push_back(3);
+    vec.push_back(4);
+
+    require(vec.size() == inline_capacity);
+    require(vec.front() == 1);
+    require(vec.back() == 4);
+}
+
+void test_push_back_beyond_inline_capacity_doubles_capacity() {
+    auto vec = make_counting(inline_capacity);
+
+    vec.push_back(5);
+
+    require(vec.size() == 5);
+    require(vec.capacity() >= 2 * inline_capacity);
+    require(vec[0] == 1);
+    require(vec[4] == 5);
+}
+
+void test_pop_back_removes_last_element() {
+    auto vec = make_counting(5);
+
+    vec.pop_back();
+
+    require(vec.size() == 4);
+    require(vec.back() == 4);
+}
+
+void test_reserve_keeps_heap_elements() {
+    constexpr std::size_t reserved = 64;
+    // Spill to the heap first so reserve() reallocates heap storage.
+    auto vec = make_counting(5);
+    vec.pop_back();
+
+    vec.reserve(reserved);
+
+    require(vec.capacity() >= reserved);
+    require(vec.size() == 4);
+    require(vec[0] == 1);
+    require(vec[3] == 4);
+}
+
+void test_resize_grow_keeps_existing_elements() {
+    constexpr std::size_t new_size = 10;
+    auto vec                       = make_counting(4);
+    vec.reserve(64);
+
+    vec.resize(new_size);
+
+    require(vec.size() == new_size);
+    require(vec[0] == 1);
+    require(vec[3] == 4);
+}
+
+void test_resize_grow_fills_given_value() {
+    constexpr std::size_t new_size = 12;
+    constexpr int fill             = 9;
+    auto vec                       = make_counting(4);
+    vec.reserve(64);
+    vec.resize(10);
+
+    vec.resize(new_size, fill);
+
+    require(vec.size() == new_size);
+    require(vec[10] == fill);
+    require(vec[11] == fill);
+}
+
+void test_resize_shrink_keeps_prefix() {
+    auto vec = make_counting(12);
+
+    vec.resize(2);
+
+    require(vec.size() == 2);
+    require(vec.back() == 2);
+}
+
+void test_insert_single_at_begin() {
+    vector_type vec;
+    fill_iota(vec, 5);
+
+    vec.insert(static_cast<const_iter>(vec.begin()), 42);
+
+    require(vec.size() == 6);
+    require(vec.front() == 42);
+}
+
+void test_insert_count_in_middle_without_reallocation() {
+    // Six elements on the heap leave room for two more.
+    vector_type vec;
+    fill_iota(vec, 6);
+
+    vec.insert(static_cast<const_iter>(vec.begin() + 3), 2, 7);
+
+    require(vec.size() == 8);
+    require(vec[3] == 7);
+    require(vec[4] == 7);
+}
+
+void test_insert_range_at_end_with_reallocation() {
+    // A full heap buffer forces the range insert to reallocate.
+    vector_type vec;
+    fill_iota(vec, 8);
     int more[3] = { 9, 8, 6 };
-    v.insert(
-        static_cast<small_vector<int, 4>::const_iterator>(v.end()), std::begin(more),
-        std::end(more));
-    require(v.size() == 11);
-    require(v.back() == 6);
 
-    // insert ilist somewhere
-    v.insert(
-        static_cast<small_vector<int, 4>::const_iterator>(v.begin() + 2), { 1, 1, 1 });
-    require(v.size() == 14);
-    require(v[2] == 1 && v[3] == 1 && v[4] == 1);
+    vec.insert(
+        static_cast<const_iter>(vec.end()), std::begin(more), std::end(more));
 
-    // erase single
-    v.erase(static_cast<small_vector<int, 4>::const_iterator>(v.begin()));
-    require(v.size() == 13);
-
-    // erase range
-    auto it = v.erase(
-        static_cast<small_vector<int, 4>::const_iterator>(v.begin() + 1),
-        static_cast<small_vector<int, 4>::const_iterator>(v.begin() + 4));
-    require(static_cast<size_t>(it.base() - v.data()) == 1);
-    require(v.size() == 10);
-
-    // assign count
-    v.assign(3, 5);
-    require(v.size() == 3);
-    for (auto x : v)
-        require(x == 5);
-
-    // assign range
-    std::vector<int> base{ 7, 7, 8, 8, 9 };
-    v.assign(base.begin(), base.end());
-    require(v.size() == base.size());
-    for (size_t i = 0; i < base.size(); ++i)
-        require(v[i] == base[i]);
-
-    // assign ilist
-    v.assign({ 1, 2, 3, 4, 5, 6, 7 });
-    require(v.size() == 7);
-    require(v.front() == 1 && v.back() == 7);
+    require(vec.size() == 11);
+    require(vec.back() == 6);
 }
 
-static void test_copy_move_swap_shrink() {
-    // copy/move on SBO case
-    small_vector<int, 8> a{ 1, 2, 3, 4 };
-    small_vector<int, 8> b = a; // copy
-    require(b.size() == a.size() && b[0] == 1 && b[3] == 4);
+void test_insert_initializer_list_in_middle() {
+    vector_type vec;
+    fill_iota(vec, 11);
 
-    small_vector<int, 8> c = std::move(a); // move
-    require(c.size() == 4 && c[0] == 1 && c[3] == 4);
+    vec.insert(static_cast<const_iter>(vec.begin() + 2), { 1, 1, 1 });
 
-    // copy/move on heap case
-    small_vector<int, 4> x;
-    fill_iota(x, 16);
-    small_vector<int, 4> y = x; // copy
-    require(y.size() == 16 && y[0] == 0 && y[15] == 15);
-
-    small_vector<int, 4> z = std::move(x); // move
-    require(z.size() == 16 && z[5] == 5 && z[15] == 15);
-
-    // swap
-    small_vector<int, 4> s1{ 1, 2 };
-    small_vector<int, 4> s2{ 7, 8, 9, 10, 11 };
-    s1.swap(s2);
-    require(s1.size() == 5 && s1[0] == 7 && s1.back() == 11);
-    require(s2.size() == 2 && s2[0] == 1 && s2[1] == 2);
-
-    // shrink_to_fit (heap -> exact or SBO)
-    small_vector<int, 4> w;
-    fill_iota(w, 20);
-    require(w.capacity() >= 20);
-    w.resize(3);
-    w.shrink_to_fit();
-    // when size <= Count, it should be SBO
-    require(w.size() == 3);
-    require(w.capacity() == 4);
-
-    fill_iota(w, 10);
-    w.resize(7);
-    const auto old_cap = w.capacity();
-    w.shrink_to_fit();
-    require(w.capacity() <= old_cap);
-    require(w.capacity() >= w.size());
+    require(vec.size() == 14);
+    require(vec[2] == 1);
+    require(vec[3] == 1);
+    require(vec[4] == 1);
 }
 
-static void test_iterators_and_emplace() {
-    small_vector<std::string, 4> v;
-    v.emplace_back("hello");
-    v.emplace_back(3, 'x');
-    require(v.size() == 2);
-    require(v[0] == "hello");
-    require(v[1] == std::string("xxx"));
+void test_erase_single_element() {
+    vector_type vec;
+    fill_iota(vec, 14);
 
-    size_t count = 0;
-    for (auto it = v.begin(); it != v.end(); ++it) {
+    vec.erase(static_cast<const_iter>(vec.begin()));
+
+    require(vec.size() == 13);
+}
+
+void test_erase_range_returns_iterator_to_first_kept() {
+    vector_type vec;
+    fill_iota(vec, 13);
+
+    auto iter = vec.erase(
+        static_cast<const_iter>(vec.begin() + 1),
+        static_cast<const_iter>(vec.begin() + 4));
+
+    require(static_cast<std::size_t>(iter.base() - vec.data()) == 1);
+    require(vec.size() == 10);
+}
+
+void test_assign_count_replaces_heap_contents() {
+    constexpr std::size_t count = 3;
+    constexpr int fill          = 5;
+    vector_type vec;
+    fill_iota(vec, 10);
+
+    vec.assign(count, fill);
+
+    require(vec.size() == count);
+    for (const auto value : vec) {
+        require(value == fill);
+    }
+}
+
+void test_assign_iterator_range_grows_past_inline_capacity() {
+    vector_type vec{ 5, 5, 5 };
+    const std::vector<int> base{ 7, 7, 8, 8, 9 };
+
+    vec.assign(base.begin(), base.end());
+
+    require(vec.size() == base.size());
+    for (std::size_t i = 0; i < base.size(); ++i) {
+        require(vec[i] == base[i]);
+    }
+}
+
+void test_assign_initializer_list_replaces_contents() {
+    vector_type vec{ 7, 7, 8, 8, 9 };
+
+    vec.assign({ 1, 2, 3, 4, 5, 6, 7 });
+
+    require(vec.size() == 7);
+    require(vec.front() == 1);
+    require(vec.back() == 7);
+}
+
+void test_copy_constructs_inline_vector() {
+    const small_vector<int, 8> source{ 1, 2, 3, 4 };
+
+    const small_vector<int, 8> copy = source;
+
+    require(copy.size() == source.size());
+    require(copy[0] == 1);
+    require(copy[3] == 4);
+}
+
+void test_move_constructs_inline_vector() {
+    small_vector<int, 8> source{ 1, 2, 3, 4 };
+
+    const small_vector<int, 8> moved = std::move(source);
+
+    require(moved.size() == 4);
+    require(moved[0] == 1);
+    require(moved[3] == 4);
+}
+
+void test_copy_constructs_heap_vector() {
+    constexpr std::size_t count = 16;
+    vector_type source;
+    fill_iota(source, count);
+
+    const vector_type copy = source;
+
+    require(copy.size() == count);
+    require(copy[0] == 0);
+    require(copy[15] == 15);
+}
+
+void test_move_constructs_heap_vector() {
+    constexpr std::size_t count = 16;
+    vector_type source;
+    fill_iota(source, count);
+
+    const vector_type moved = std::move(source);
+
+    require(moved.size() == count);
+    require(moved[5] == 5);
+    require(moved[15] == 15);
+}
+
+void test_swap_exchanges_inline_and_heap_contents() {
+    vector_type inline_vec{ 1, 2 };
+    vector_type heap_vec{ 7, 8, 9, 10, 11 };
+
+    inline_vec.swap(heap_vec);
+
+    require(inline_vec.size() == 5);
+    require(inline_vec[0] == 7);
+    require(inline_vec.back() == 11);
+    require(heap_vec.size() == 2);
+    require(heap_vec[0] == 1);
+    require(heap_vec[1] == 2);
+}
+
+void test_shrink_to_fit_returns_small_vector_to_inline_storage() {
+    vector_type vec;
+    fill_iota(vec, 20);
+    require(vec.capacity() >= 20);
+    vec.resize(3);
+
+    vec.shrink_to_fit();
+
+    require(vec.size() == 3);
+    require(vec.capacity() == inline_capacity);
+}
+
+void test_shrink_to_fit_on_heap_never_grows_capacity() {
+    vector_type vec;
+    fill_iota(vec, 10);
+    vec.resize(7);
+    const auto old_capacity = vec.capacity();
+
+    vec.shrink_to_fit();
+
+    require(vec.capacity() <= old_capacity);
+    require(vec.capacity() >= vec.size());
+}
+
+void test_emplace_back_forwards_constructor_arguments() {
+    small_vector<std::string, inline_capacity> vec;
+
+    vec.emplace_back("hello");
+    vec.emplace_back(3, 'x');
+
+    require(vec.size() == 2);
+    require(vec[0] == "hello");
+    require(vec[1] == std::string("xxx"));
+}
+
+void test_iterators_visit_every_element() {
+    small_vector<std::string, inline_capacity> vec;
+    vec.emplace_back("hello");
+    vec.emplace_back(3, 'x');
+
+    std::size_t count = 0;
+    for (auto iter = vec.begin(); iter != vec.end(); ++iter) {
         ++count;
     }
-    require(count == v.size());
+
+    require(count == vec.size());
 }
 
+} // namespace
+
 int main() {
-    test_constructors();
-    println("constructors ok");
-    test_push_pop_resize_reserve();
-    println("push pop resize reserve ok");
-    test_insert_erase_assign();
-    println("insert erase assign ok");
-    test_copy_move_swap_shrink();
-    println("copy move swap shrink ok");
-    test_iterators_and_emplace();
-    println("iterator emplace ok");
-    return 0;
+    test_default_constructor_uses_inline_capacity();
+    test_initializer_list_constructs_elements_not_count();
+    test_count_constructor_value_initializes();
+    test_count_value_constructor_fills_beyond_inline_capacity();
+    test_iterator_range_constructor_copies_range();
+
+    test_push_back_within_inline_capacity();
+    test_push_back_beyond_inline_capacity_doubles_capacity();
+    test_pop_back_removes_last_element();
+    test_reserve_keeps_heap_elements();
+    test_resize_grow_keeps_existing_elements();
+    test_resize_grow_fills_given_value();
+    test_resize_shrink_keeps_prefix();
+
+    test_insert_single_at_begin();
+    test_insert_count_in_middle_without_reallocation();
+    test_insert_range_at_end_with_reallocation();
+    test_insert_initializer_list_in_middle();
+    test_erase_single_element();
+    test_erase_range_returns_iterator_to_first_kept();
+    test_assign_count_replaces_heap_contents();
+    test_assign_iterator_range_grows_past_inline_capacity();
+    test_assign_initializer_list_replaces_contents();
+
+    test_copy_constructs_inline_vector();
+    test_move_constructs_inline_vector();
+    test_copy_constructs_heap_vector();
+    test_move_constructs_heap_vector();
+    test_swap_exchanges_inline_and_heap_contents();
+    test_shrink_to_fit_returns_small_vector_to_inline_storage();
+    test_shrink_to_fit_on_heap_never_grows_capacity();
+
+    test_emplace_back_forwards_constructor_arguments();
+    test_iterators_visit_every_element();
+    return neutron_test::result();
 }

@@ -2,11 +2,12 @@
 #include <tuple>
 #include <neutron/metafn.hpp>
 #include <neutron/reflection.hpp>
+#include "require.hpp"
 
 using namespace neutron;
 
 int main() {
-
+    // name_of yields the spelled type name; hash_of hashes that name.
     {
         static_assert(name_of<int>() == "int");
         static_assert(name_of<char>() == "char");
@@ -18,6 +19,7 @@ int main() {
         static_assert(hash_of<int>() != hash_of<char>());
     }
 
+    // hash_list_t sorts by hash, so the input order does not matter.
     {
         static_assert(
             same<
@@ -36,6 +38,7 @@ int main() {
             "types sorted by hash should have same result");
     }
 
+    // hash_sequence_t gives the source index of each sorted element.
     {
         using list_t = hash_list_t<type_list<char, int>>;
         static_assert(same<list_t, type_list<int, char>>);
@@ -44,5 +47,5 @@ int main() {
                       std::index_sequence<1, 0>>);
     }
 
-    return 0;
+    return neutron_test::result();
 }

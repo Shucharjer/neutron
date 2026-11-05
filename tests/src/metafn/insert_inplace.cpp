@@ -1,6 +1,7 @@
 #include <concepts>
 #include <tuple>
 #include <neutron/metafn.hpp>
+#include "require.hpp"
 
 using namespace neutron;
 
@@ -17,19 +18,20 @@ int main() {
                       std::tuple, int, type_list<std::tuple<char>, double>>,
                   type_list<std::tuple<char, int>, double>>);
 
+    // Tagged variants append a new tagged list or merge into the existing one.
     static_assert(std::same_as<
                   insert_tagged_type_list_inplace_t<
                       int, type_list<char, double>, float>,
                   type_list<char, double, tagged_type_list<int, float>>>);
 
-    static_assert(std::same_as<
-                  insert_tagged_type_list_inplace_t<
-                      int, type_list<tagged_type_list<int, char>, double>, float>,
-                  type_list<tagged_type_list<int, char, float>, double>>);
+    static_assert(
+        std::same_as<
+            insert_tagged_type_list_inplace_t<
+                int, type_list<tagged_type_list<int, char>, double>, float>,
+            type_list<tagged_type_list<int, char, float>, double>>);
 
     static_assert(std::same_as<
-                  insert_tagged_value_list_inplace_t<
-                      int, type_list<char>, 42>,
+                  insert_tagged_value_list_inplace_t<int, type_list<char>, 42>,
                   type_list<char, tagged_value_list<int, 42>>>);
 
     static_assert(std::same_as<
@@ -42,5 +44,5 @@ int main() {
                       int, type_list<char>, tagged_value_list, 1, 2, 3>,
                   type_list<char, tagged_value_list<int, 1, 2, 3>>>);
 
-    return 0;
+    return neutron_test::result();
 }

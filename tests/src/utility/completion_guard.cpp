@@ -3,38 +3,50 @@
 
 using namespace neutron;
 
+namespace {
+
+void test_null_guard_never_runs_its_callback() {
+    int calls = 0;
+
+    {
+        [[maybe_unused]] null_gurad guard([&calls] {
+            ++calls;
+        });
+    }
+
+    require(calls == 0);
+}
+
+void test_dismissed_exception_guard_does_not_run() {
+    int calls = 0;
+
+    {
+        auto guard = make_exception_guard([&calls]() noexcept {
+            ++calls;
+        });
+        guard.dismiss();
+    }
+
+    require(calls == 0);
+}
+
+void test_exception_guard_runs_when_not_dismissed() {
+    int calls = 0;
+
+    {
+        auto guard = make_exception_guard([&calls]() noexcept {
+            ++calls;
+        });
+    }
+
+    require(calls == 1);
+}
+
+} // namespace
+
 int main() {
-
-    // null_guard
-    {
-        {
-            int val = 0;
-            {
-                null_gurad guard([&val] { ++val; });
-            }
-            require_or_return(val == 0, 1);
-        }
-    }
-
-    // completion_guard
-    {
-        {
-            int val = 0;
-            {
-                auto guard = make_exception_guard([&val]() noexcept { ++val; });
-                guard.dismiss();
-            }
-            require_or_return(val == 0, 1);
-        }
-
-        {
-            int val = 0;
-            {
-                auto guard = make_exception_guard([&val]() noexcept { ++val; });
-            }
-            require_or_return(val == 1, 1);
-        }
-    }
-
-    return 0;
+    test_null_guard_never_runs_its_callback();
+    test_dismissed_exception_guard_does_not_run();
+    test_exception_guard_runs_when_not_dismissed();
+    return neutron_test::result();
 }

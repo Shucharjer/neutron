@@ -5,12 +5,13 @@
 #include <string>
 #include <type_traits>
 #include <neutron/memory.hpp>
+#include "require.hpp"
 
 using namespace neutron;
 
 namespace {
 
-/// @brief Tracks live instances to catch leaks and double destroys.
+/// Tracks constructions and destructions to catch leaks and double destroys.
 struct counted {
     inline static int constructed = 0;
     inline static int destroyed   = 0;
@@ -74,6 +75,7 @@ static_assert(
     std::is_trivially_default_constructible_v<inplace_storage<int, 4, false>>);
 static_assert(std::is_trivially_copyable_v<inplace_storage<int, 4, true>>);
 
+// data() is typed and const-correct; capacity() and max_size() are size_t.
 static_assert(data_of<inplace_storage<int, 4>, int>);
 static_assert(data_of<inplace_storage<int, 4, false>, int>);
 static_assert(data_of<inplace_storage<int, 0>, int>);
@@ -90,6 +92,8 @@ static_assert(inplace_storage<int, 0>{}.capacity() == 0);
 static_assert(inplace_storage<int, 0>{}.max_size() == 0);
 static_assert(inplace_storage<int, 0>{}.data() == nullptr);
 
+/// True if a `Constexpr` storage starts zeroed and is writable in constant
+/// evaluation.
 constexpr bool value_initialized_storage() {
     inplace_storage<int, 4, true> storage;
     for (std::size_t i = 0; i != storage.capacity(); ++i) {
@@ -97,112 +101,114 @@ constexpr bool value_initialized_storage() {
             return false;
         }
     }
+
     storage.data()[2] = 7;
-    const auto& cref  = storage;
+
+    const auto& cref = storage;
     return cref.data()[2] == 7 && cref.data() == storage.data();
 }
 static_assert(value_initialized_storage());
 
+/// True if a non-`Constexpr` storage is writable in constant evaluation.
 constexpr bool default_initialized_storage() {
-    inplace_storage<char, 3, false> storage;
-    for (std::size_t i = 0; i != 3; ++i) {
+    constexpr std::size_t size = 3;
+    inplace_storage<char, size, false> storage;
+
+    for (std::size_t i = 0; i != size; ++i) {
         storage.data()[i] = static_cast<char>('a' + i);
     }
+
     return storage.data()[0] == 'a' && storage.data()[2] == 'c';
 }
 static_assert(default_initialized_storage());
 
-bool test_trivial() {
-    inplace_storage<std::uint64_t, 8> storage;
-    for (std::size_t i = 0; i != 8; ++i) {
-        if (storage.data()[i] != 0U) {
-            return false;
-        }
+void test_trivial_storage_is_zeroed_and_copyable() {
+    constexpr std::size_t size = 8;
+    inplace_storage<std::uint64_t, size> storage;
+
+    for (std::size_t i = 0; i != size; ++i) {
+        require(storage.data()[i] == 0U);
         storage.data()[i] = i * i;
     }
     const auto copy = storage;
-    for (std::size_t i = 0; i != 8; ++i) {
-        if (copy.data()[i] != i * i) {
-            return false;
-        }
+
+    for (std::size_t i = 0; i != size; ++i) {
+        require(copy.data()[i] == i * i);
     }
-    return copy.data() != storage.data();
+    require(copy.data() != storage.data());
 }
 
-bool test_non_trivial_strings() {
-    constexpr std::size_t size = 4;
+void test_strings_are_constructed_in_place() {
+    constexpr std::size_t size        = 4;
+    constexpr std::size_t base_length = 32;
     inplace_storage<std::string, size> storage;
-    std::string* data = storage.data();
-    if (static_cast<void*>(data) != static_cast<void*>(&storage)) {
-        return false;
-    }
+    std::string* const data = storage.data();
+    require(static_cast<void*>(data) == static_cast<void*>(&storage));
+
     for (std::size_t i = 0; i != size; ++i) {
-        std::construct_at(data + i, 32 + i, static_cast<char>('a' + i));
+        std::construct_at(
+            data + i, base_length + i, static_cast<char>('a' + i));
     }
+
     const auto& cref = storage;
-    bool result      = cref.data() == data;
+    require(cref.data() == data);
     for (std::size_t i = 0; i != size; ++i) {
-        result = result && cref.data()[i].size() == 32 + i &&
-                 cref.data()[i].front() == static_cast<char>('a' + i);
+        require(cref.data()[i].size() == base_length + i);
+        require(cref.data()[i].front() == static_cast<char>('a' + i));
     }
+
     std::destroy_n(data, size);
-    return result;
 }
 
-bool test_counted_lifetime() {
-    counted::constructed = 0;
-    counted::destroyed   = 0;
+void test_element_lifetime_is_managed_by_the_user() {
+    constexpr int size     = 6;
+    constexpr int reused   = 3;
+    constexpr int replaced = 42;
+    counted::constructed   = 0;
+    counted::destroyed     = 0;
     {
-        inplace_storage<counted, 6> storage;
-        if (counted::constructed != 0) {
-            return false;
-        }
-        for (int i = 0; i != 6; ++i) {
+        inplace_storage<counted, size> storage;
+        require(counted::constructed == 0);
+
+        for (int i = 0; i != size; ++i) {
             std::construct_at(storage.data() + i, i);
         }
-        for (int i = 0; i != 6; ++i) {
-            if (storage.data()[i].value != i) {
-                return false;
-            }
+        for (int i = 0; i != size; ++i) {
+            require(storage.data()[i].value == i);
         }
+
         // Reuse a slot after destroying its element.
-        std::destroy_at(storage.data() + 3);
-        std::construct_at(storage.data() + 3, 42);
-        if (storage.data()[3].value != 42) {
-            return false;
-        }
-        std::destroy_n(storage.data(), 6);
+        std::destroy_at(storage.data() + reused);
+        std::construct_at(storage.data() + reused, replaced);
+        require(storage.data()[reused].value == replaced);
+
+        std::destroy_n(storage.data(), size);
     }
-    return counted::constructed == 7 && counted::destroyed == 7;
+
+    require(counted::constructed == size + 1);
+    require(counted::destroyed == size + 1);
 }
 
-bool test_over_aligned() {
-    inplace_storage<over_aligned, 3> storage;
-    for (std::size_t i = 0; i != 3; ++i) {
-        auto* slot = storage.data() + i;
-        if (reinterpret_cast<std::uintptr_t>(slot) % alignof(over_aligned) !=
-            0) {
-            return false;
-        }
+void test_over_aligned_slots_are_aligned() {
+    constexpr std::size_t size = 3;
+    inplace_storage<over_aligned, size> storage;
+
+    for (std::size_t i = 0; i != size; ++i) {
+        auto* const slot   = storage.data() + i;
+        const auto address = reinterpret_cast<std::uintptr_t>(slot);
+        require(address % alignof(over_aligned) == 0);
         std::construct_at(slot, over_aligned{ static_cast<char>(i) });
     }
-    return storage.data()[2].value == 2;
+
+    require(storage.data()[2].value == 2);
 }
 
 } // namespace
 
 int main() {
-    if (!test_trivial()) {
-        return 1;
-    }
-    if (!test_non_trivial_strings()) {
-        return 2;
-    }
-    if (!test_counted_lifetime()) {
-        return 3;
-    }
-    if (!test_over_aligned()) {
-        return 4;
-    }
-    return 0;
+    test_trivial_storage_is_zeroed_and_copyable();
+    test_strings_are_constructed_in_place();
+    test_element_lifetime_is_managed_by_the_user();
+    test_over_aligned_slots_are_aligned();
+    return neutron_test::result();
 }

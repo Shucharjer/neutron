@@ -1,38 +1,55 @@
 #include <neutron/stop_token.hpp>
+#include "require.hpp"
 
 using namespace neutron;
 
 namespace {
 
+// Token concepts
 static_assert(stoppable_token<inplace_stop_token>);
 static_assert(stoppable_token<stop_token>);
 static_assert(unstoppable_token<never_stop_token>);
 static_assert(!unstoppable_token<inplace_stop_token>);
 
-bool test_never_stop_token() {
+void test_never_stop_token_never_stops() {
     constexpr never_stop_token token{};
-    return !token.stop_possible() && !token.stop_requested();
+
+    require_false(token.stop_possible());
+    require_false(token.stop_requested());
 }
 
-bool test_inplace_stop_source() {
+void test_inplace_token_starts_unrequested() {
+    inplace_stop_source source;
+
+    auto token = source.get_token();
+
+    require(token.stop_possible());
+    require_false(token.stop_requested());
+}
+
+void test_only_the_first_stop_request_succeeds() {
+    inplace_stop_source source;
+
+    require(source.request_stop());
+    require_false(source.request_stop());
+}
+
+void test_inplace_stop_request_reaches_the_token() {
     inplace_stop_source source;
     auto token = source.get_token();
-    if (!token.stop_possible() || token.stop_requested()) {
-        return false;
-    }
-    if (!source.request_stop() || source.request_stop()) {
-        return false; // only the first request succeeds
-    }
-    return source.stop_requested() && token.stop_requested();
+
+    source.request_stop();
+
+    require(source.stop_requested());
+    require(token.stop_requested());
 }
 
-bool test_inplace_stop_callback() {
+void test_inplace_callback_runs_on_stop_request() {
     inplace_stop_source source;
     int calls     = 0;
     auto callback = [&calls]() noexcept {
         ++calls;
     };
-
     using callback_t = inplace_stop_callback<decltype(callback)>;
 
     {
@@ -41,36 +58,42 @@ bool test_inplace_stop_callback() {
     }
     [[maybe_unused]] const callback_t before(source.get_token(), callback);
     source.request_stop();
-    if (calls != 1) {
-        return false;
-    }
 
-    // Registered after the request: invoked immediately.
-    [[maybe_unused]] const callback_t after(source.get_token(), callback);
-    return calls == 2;
+    require(calls == 1);
 }
 
-bool test_stop_source() {
+void test_inplace_callback_registered_after_stop_runs_immediately() {
+    inplace_stop_source source;
+    int calls     = 0;
+    auto callback = [&calls]() noexcept {
+        ++calls;
+    };
+    using callback_t = inplace_stop_callback<decltype(callback)>;
+    source.request_stop();
+
+    [[maybe_unused]] const callback_t after(source.get_token(), callback);
+
+    require(calls == 1);
+}
+
+void test_stop_source_request_reaches_the_token() {
     stop_source source;
     auto token = source.get_token();
+
     source.request_stop();
-    return token.stop_requested();
+
+    require(token.stop_requested());
 }
 
 } // namespace
 
 int main() {
-    if (!test_never_stop_token()) {
-        return 1;
-    }
-    if (!test_inplace_stop_source()) {
-        return 2;
-    }
-    if (!test_inplace_stop_callback()) {
-        return 3;
-    }
-    if (!test_stop_source()) {
-        return 4;
-    }
-    return 0;
+    test_never_stop_token_never_stops();
+    test_inplace_token_starts_unrequested();
+    test_only_the_first_stop_request_succeeds();
+    test_inplace_stop_request_reaches_the_token();
+    test_inplace_callback_runs_on_stop_request();
+    test_inplace_callback_registered_after_stop_runs_immediately();
+    test_stop_source_request_reaches_the_token();
+    return neutron_test::result();
 }

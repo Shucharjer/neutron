@@ -1,35 +1,41 @@
 #include <array>
+#include <atomic>
+#include <cstddef>
 #include <future>
 #include <neutron/detail/lockfree/intrusive_mpsc_queue.hpp>
+#include "require.hpp"
 
 using namespace neutron;
+
+namespace {
 
 struct node {
     std::atomic<node*> next;
 };
 
-int main() {
+void test_pushes_from_other_threads_pop_in_order() {
+    constexpr std::size_t count = 32;
     intrusive_mpsc_queue<&node::next> queue;
-    constexpr auto count = 32;
     std::array<node, count> nodes;
-    std::array<node*, count> expect{};
-    for (auto i = 0; i < count; ++i) {
-        expect.at(i) = &nodes.at(i);
-    }
 
-    for (auto i = 0; i < count; ++i) {
+    // Pushes go through std::async, one at a time, so the order is fixed.
+    for (std::size_t i = 0; i != count; ++i) {
         std::async([&queue, &nodes, i] {
-            queue.push_back(&nodes.at(i));
+            queue.push_back(&nodes[i]);
         }).get();
     }
 
-    auto idx = 0;
-    while (node* ptr = queue.pop_front()) {
-        if (ptr != expect.at(idx)) {
-            return 1;
-        }
-        ++idx;
+    std::size_t popped = 0;
+    while (node* const ptr = queue.pop_front()) {
+        require_or_return(popped < count, );
+        require(ptr == &nodes[popped]);
+        ++popped;
     }
+}
 
-    return 0;
+} // namespace
+
+int main() {
+    test_pushes_from_other_threads_pop_in_order();
+    return neutron_test::result();
 }

@@ -1,25 +1,8 @@
-#include <cstdlib>
+#include <concepts>
+#include <tuple>
 #include <neutron/reflection.hpp>
 #include <neutron/utility.hpp>
 #include "require.hpp"
-
-void test_member_count_of();
-void test_get();
-void test_member_names_of();
-void test_description_of();
-void test_reflected();
-void test_offsets();
-void test_offset_value();
-void test_member_type_of();
-
-int main() {
-    test_member_count_of();
-    test_get();
-    test_member_names_of();
-    test_offsets();
-    test_offset_value();
-    test_member_type_of();
-}
 
 using namespace neutron;
 
@@ -46,14 +29,14 @@ private:
     char another_member2_;
 };
 
-void test_member_count_of() {
+void test_member_count_counts_fields() {
     require(member_count_of<aggregate>() == 2);
 #if !ATOM_HAS_REFLECTION
     require(member_count_of<not_aggregate>() == 2);
 #endif
 }
 
-void test_get() {
+void test_get_by_index_and_name_reads_members() {
 #if !ATOM_HAS_REFLECTION
     const auto num = 114514;
     const char cha = '!';
@@ -62,19 +45,17 @@ void test_get() {
 
     require(get<0>(agg) == num);
     require(get<1>(agg) == cha);
-
     require(get<0>(nagg) == num);
     require(get<1>(nagg) == cha);
 
     require(get_by_name<"member1">(agg) == num);
     require(get_by_name<"member2">(agg) == cha);
-
     require(get_by_name<"another_member1_">(nagg) == num);
     require(get_by_name<"another_member2_">(nagg) == cha);
 #endif
 }
 
-void test_member_names_of() {
+void test_member_names_follow_declaration_order() {
     constexpr auto names_a = member_names_of<aggregate>();
 #if !ATOM_HAS_REFLECTION
     auto names_na = member_names_of<not_aggregate>();
@@ -89,18 +70,21 @@ void test_member_names_of() {
 #endif
 }
 
-void test_offsets() {
+void test_offsets_are_usable_member_pointers() {
     auto offsets = offsets_of<aggregate>();
     auto ptr     = std::get<1>(offsets);
     auto agg     = aggregate{};
-    agg.member2  = 'c';
+
+    agg.member2 = 'c';
     require(agg.*ptr == 'c');
+
     agg.*ptr = 'b';
     require(agg.member2 == 'b');
 }
-void test_offset_value() {
-    require((offset_value_of<0, aggregate>() == 0));
-    require((offset_value_of<1, aggregate>() == 4));
+
+void test_offset_values_match_layout() {
+    require(offset_value_of<0, aggregate>() == 0);
+    require(offset_value_of<1, aggregate>() == 4);
 
 #if ATOM_HAS_REFLECTION
     static_assert(offset_value_of<0, not_aggregate>() == 0);
@@ -108,12 +92,22 @@ void test_offset_value() {
 #endif
 }
 
-void test_member_type_of() {
-    require((std::same_as<int, member_type_of_t<0, aggregate>>));
-    require((std::same_as<char, member_type_of_t<1, aggregate>>));
+void test_member_type_matches_declared_type() {
+    require(std::same_as<int, member_type_of_t<0, aggregate>>);
+    require(std::same_as<char, member_type_of_t<1, aggregate>>);
 
 #if !ATOM_HAS_REFLECTION
-    require((std::same_as<int, member_type_of_t<0, not_aggregate>>));
-    require((std::same_as<char, member_type_of_t<1, not_aggregate>>));
+    require(std::same_as<int, member_type_of_t<0, not_aggregate>>);
+    require(std::same_as<char, member_type_of_t<1, not_aggregate>>);
 #endif
+}
+
+int main() {
+    test_member_count_counts_fields();
+    test_get_by_index_and_name_reads_members();
+    test_member_names_follow_declaration_order();
+    test_offsets_are_usable_member_pointers();
+    test_offset_values_match_layout();
+    test_member_type_matches_declared_type();
+    return neutron_test::result();
 }

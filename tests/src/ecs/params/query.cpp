@@ -1,6 +1,7 @@
 #include <concepts>
 #include <neutron/ecs.hpp>
 #include <neutron/metafn.hpp>
+#include "require.hpp"
 
 using namespace neutron;
 using enum stage;
@@ -15,6 +16,7 @@ int main() {
         //
     }
 
+    // The requested accessibility keeps the value category of the component.
     {
         using query_with_int_t = query<with<int>>;
         using spec             = param_spec<query_with_int_t>;
@@ -54,5 +56,5 @@ int main() {
                       accessibility_of_int, request_accessibility<const int&>>);
     }
 
-    return 0;
+    return neutron_test::result();
 }

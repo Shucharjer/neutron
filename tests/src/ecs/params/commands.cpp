@@ -1,5 +1,5 @@
 #include <neutron/ecs.hpp>
+#include "require.hpp"
 
-int main() {
-    return 0;
-}
+// Placeholder: only checks that the ECS header compiles.
+int main() { return neutron_test::result(); }
