@@ -119,6 +119,10 @@ int main() {
   - [utility](utility.md)
 
 
+## 示例
+
+[`examples/`](../../examples) 中有一些简短、独立的示例程序。通过 `-DBUILD_NEUTRON_EXAMPLES=ON` 构建它们；每个文件对应一个 `examples.<name>` 目标，并同时注册到 CTest。
+
 ## 构建测试和基准测试
 
 Neutron 可以配置为独立的 CMake 项目：

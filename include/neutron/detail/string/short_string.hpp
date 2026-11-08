@@ -5,22 +5,28 @@
 #include <cstring>
 #include <format>
 #include <initializer_list>
+#include <ios>
+#include <istream>
 #include <iterator>
+#include <locale>
 #include <memory>
+#include <ostream>
 #include <stdexcept>
+#include <string>
 #include <string_view>
 #include "neutron/detail/iterator/iter_wrapper.hpp"
-#include "neutron/detail/utility/macros.hpp"
 #include "neutron/detail/memory/inplace.hpp"
 #include "neutron/detail/memory/raw_memory.hpp"
 #include "neutron/detail/string/string_view_like.hpp"
+#include "neutron/detail/utility/macros.hpp"
 
 #include <version>
-#include <neutron/utility.hpp>
 #if __cpp_lib_containers_ranges >= 202202L
     #include <ranges>
     #include "neutron/detail/ranges/concepts.hpp"
 #endif
+
+namespace std {}
 
 namespace neutron {
 
@@ -96,7 +102,7 @@ public:
             });
             for (; first != last; ++first, ++size_) {
                 if (_need_grow()) {
-                    _grow_to(capacity_ << 1);
+                    _grow_to(_next_capacity());
                 }
 
                 data_[size_] = *first;
@@ -266,7 +272,24 @@ public:
         return capacity_;
     }
 
-    constexpr void clear() noexcept { size_ = 0; }
+    constexpr void clear() noexcept {
+        size_ = 0;
+        if constexpr (Capacity == 0) {
+            if (data_ == nullptr) {
+                return;
+            }
+        }
+        _set_tail_zero();
+    }
+
+    constexpr void push_back(CharT ch) {
+        if (_need_grow()) [[unlikely]] {
+            _grow_to(_next_capacity());
+        }
+        std::construct_at(std::to_address(data_ + size_), ch);
+        ++size_;
+        _set_tail_zero();
+    }
 
     constexpr basic_short_string& operator+=(const basic_short_string& str);
 
@@ -293,20 +316,32 @@ private:
         return data_ == _storage_t::data();
     }
 
+    /// @brief Whether one more character leaves no room for the terminator.
     ATOM_NODISCARD ATOM_ALWAYS_INLINE constexpr bool
         _need_grow() const noexcept {
-        return size_ == capacity_ - 1;
+        return size_ + 1 >= capacity_;
+    }
+
+    ATOM_NODISCARD ATOM_ALWAYS_INLINE constexpr size_type
+        _next_capacity() const noexcept {
+        if (capacity_ < 2) [[unlikely]] {
+            return 2;
+        }
+        return capacity_ << 1;
     }
 
     ATOM_ALWAYS_INLINE constexpr void _set_tail_zero() noexcept {
-        data_[size_] = 0;
+        std::construct_at(std::to_address(data_ + size_), CharT());
     }
 
-    ATOM_ALWAYS_INLINE constexpr void _grow_to(size_type n) {
+    /// @brief Moves the contents into a new buffer of `n` characters.
+    /// @note Strong exception guarantee: nothing changes if allocation throws.
+    constexpr void _grow_to(size_type n) {
         pointer p = alloc_traits::allocate(*this, n);
-        uninitialized_copy_n(data_, size_ + 1, p);
-        if (_is_short()) {
-            alloc_traits::deallocate(*this, data_);
+        uninitialized_copy_n(data_, size_, p);
+        std::construct_at(std::to_address(p + size_), CharT());
+        if (!_is_short()) {
+            alloc_traits::deallocate(*this, data_, capacity_);
         }
         data_     = p;
         capacity_ = n;
@@ -340,13 +375,92 @@ basic_short_string(const char32_t (&)[Size])
 
 // NOLINTEND(modernize-avoid-c-arrays)
 
+template <std::size_t Capacity, typename CharT, typename Traits, typename Alloc>
+::std::basic_ostream<CharT, Traits>& operator<<(
+    ::std::basic_ostream<CharT, Traits>& os,
+    const basic_short_string<Capacity, CharT, Traits, Alloc>& ss) {
+    os << static_cast<std::basic_string_view<CharT, Traits>>(ss);
+    return os;
+}
+
+/**
+ * @brief Extracts a whitespace-delimited word, like `std::basic_string`.
+ *
+ * Leading whitespace is skipped, then characters are read until whitespace
+ * (left in the stream), end of file or `is.width()` characters when it is
+ * positive. `is.width(0)` is called afterwards. `failbit` is set if nothing
+ * was extracted. If an exception is thrown during extraction, `badbit` is set
+ * and the exception is rethrown when `badbit` is in `is.exceptions()`.
+ */
+template <std::size_t Capacity, typename CharT, typename Traits, typename Alloc>
+::std::basic_istream<CharT, Traits>& operator>>(
+    ::std::basic_istream<CharT, Traits>& is,
+    basic_short_string<Capacity, CharT, Traits, Alloc>& ss) {
+    using istream_t = ::std::basic_istream<CharT, Traits>;
+    using size_type =
+        typename basic_short_string<Capacity, CharT, Traits, Alloc>::size_type;
+
+    ::std::ios_base::iostate state = ::std::ios_base::goodbit;
+    size_type extracted            = 0;
+    const typename istream_t::sentry sentry(is);
+    if (sentry) {
+        ATOM_TRY {
+            ss.clear();
+            const ::std::streamsize width = is.width();
+            const size_type limit =
+                width > 0 ? static_cast<size_type>(width) : ss.max_size();
+            const auto& ctype =
+                ::std::use_facet<::std::ctype<CharT>>(is.getloc());
+            auto* const buf = is.rdbuf();
+            for (; extracted < limit; ++extracted) {
+                const auto ich = buf->sgetc();
+                if (Traits::eq_int_type(ich, Traits::eof())) {
+                    state |= ::std::ios_base::eofbit;
+                    break;
+                }
+                const CharT ch = Traits::to_char_type(ich);
+                if (ctype.is(::std::ctype_base::space, ch)) {
+                    break;
+                }
+                ss.push_back(ch);
+                buf->sbumpc();
+            }
+            is.width(0);
+        }
+        ATOM_CATCH(...) {
+            // setstate() throws ios_base::failure after setting the state, but
+            // the original exception is the one to propagate.
+            ATOM_TRY { is.setstate(::std::ios_base::badbit); }
+            ATOM_CATCH(const ::std::ios_base::failure&) {}
+            if (is.exceptions() & ::std::ios_base::badbit) {
+                ATOM_RETHROW;
+            }
+            return is;
+        }
+    }
+    if (extracted == 0) {
+        state |= ::std::ios_base::failbit;
+    }
+    is.setstate(state);
+    return is;
+}
+
 } // namespace neutron
 
 namespace std {
 
+template <std::size_t Capacity, typename CharT, typename Traits, typename Alloc>
+struct hash<::neutron::basic_short_string<Capacity, CharT, Traits, Alloc>> {
+    std::size_t operator()(
+        const ::neutron::basic_short_string<Capacity, CharT, Traits, Alloc>& ss)
+        const noexcept {
+        return std::hash<std::string_view>()(ss);
+    }
+};
+
 template <size_t Capacity, typename CharT, typename Traits, typename Alloc>
 struct formatter<
-    neutron::basic_short_string<Capacity, CharT, Traits, Alloc>, CharT> {
+    ::neutron::basic_short_string<Capacity, CharT, Traits, Alloc>, CharT> {
     using short_string_t =
         neutron::basic_short_string<Capacity, CharT, Traits, Alloc>;
 

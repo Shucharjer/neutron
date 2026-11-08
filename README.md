@@ -234,6 +234,12 @@ Useful entry points include:
 - [`<neutron/functional.hpp>`](include/neutron/functional.hpp): low-overhead
   callable and dispatch utilities.
 
+## Examples
+
+Short, self-contained programs live in [`examples/`](examples). Build them
+with `-DBUILD_NEUTRON_EXAMPLES=ON`; each file becomes an `examples.<name>`
+target and is also registered with CTest.
+
 ## Building Tests and Benchmarks
 
 Neutron can be configured as a standalone CMake project:

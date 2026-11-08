@@ -24,6 +24,7 @@ option(NEUTRON_USES_BEMAN_EXECUTION "uses beman::execution as execution control 
 option(NEUTRON_ALIGNED_ALLOCATION "specify whether containers like 'archetype' uses ::operator new(size, align), if set OFF, allocate via allocator" ON)
 option(BUILD_NEUTRON_TESTING "Build test for neutron" OFF)
 option(BUILD_NEUTRON_BENCHMARK "Build benchmark for neutron" OFF)
+option(BUILD_NEUTRON_EXAMPLES "Build examples for neutron" OFF)
 
 # configurate options
 
@@ -246,6 +247,12 @@ if(BUILD_NEUTRON_TESTING)
     FetchContent_MakeAvailable(simdjson)
     target_link_libraries(tests.reflection.serialize.simdjson PRIVATE simdjson)
   endif()
+endif()
+
+if(BUILD_NEUTRON_EXAMPLES)
+  # Examples are registered as tests too, so ctest checks that they still run.
+  exec_dir(${CMAKE_CURRENT_SOURCE_DIR}/examples "examples."
+           ${CMAKE_CURRENT_BINARY_DIR}/examples true false neutron)
 endif()
 
 if(BUILD_NEUTRON_BENCHMARK)
