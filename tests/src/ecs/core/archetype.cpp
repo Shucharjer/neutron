@@ -3,6 +3,7 @@
 #include <array>
 #include <cstddef>
 #include <memory_resource>
+#include <stdexcept>
 #include <neutron/ecs.hpp>
 #include "require.hpp"
 
@@ -323,6 +324,78 @@ void test_transfer_removes_component() {
     require_position(target, 7, 8);
 }
 
+void test_transfer_target_grows_beyond_initial_capacity() {
+    // A target built from another archetype has no compile-time relocation
+    // routine, so growing it takes the type-erased path.
+    archetype_t source{ type_spreader<Position>{} };
+    archetype_t target{ source, add_components_t<Velocity>{} };
+    const size_t count = source.capacity() * 3;
+    for (size_t i = 0; i < count; ++i) {
+        source.emplace(
+            static_cast<entity_t>(i + 1), Position{ float(i), float(i) });
+    }
+
+    for (size_t i = 0; i < count; ++i) {
+        source.transfer(
+            static_cast<entity_t>(i + 1), target, add_components_t<Velocity>{},
+            Velocity{ float(2 * i), 0 });
+    }
+
+    require(target.size() == count);
+    require(target.capacity() >= count);
+    size_t matched = 0;
+    auto slice     = slice_of<Position, Velocity>(target);
+    for (auto [position, velocity] :
+         typename query<with<Position&, Velocity&>>::view_t{ slice }) {
+        matched += velocity.vx == 2 * position.x ? 1 : 0;
+    }
+    require(matched == count);
+}
+
+// Components of different kinds share one budget, so the throwing kind is
+// the N-th constructed one regardless of the archetype's storage order.
+int budgeted_alive  = 0;
+int budgeted_budget = 0;
+
+template <int>
+struct Budgeted {
+    using component_concept = neutron::component_tag;
+    int value{ 0 };
+
+    Budgeted() {
+        if (budgeted_budget-- == 0) {
+            throw std::runtime_error("default construction failed");
+        }
+        ++budgeted_alive;
+    }
+    Budgeted(const Budgeted&) { ++budgeted_alive; }
+    Budgeted(Budgeted&&) noexcept { ++budgeted_alive; }
+    Budgeted& operator=(const Budgeted&)     = default;
+    Budgeted& operator=(Budgeted&&) noexcept = default;
+    ~Budgeted() noexcept { --budgeted_alive; }
+};
+
+void test_untyped_emplace_rolls_back_when_a_default_ctor_throws() {
+    for (int succeeding : { 0, 1, 2 }) {
+        budgeted_alive = 0;
+        archetype_t arche{
+            type_spreader<Budgeted<0>, Budgeted<1>, Budgeted<2>>{}
+        };
+        budgeted_budget = succeeding;
+
+        bool thrown = false;
+        try {
+            arche.emplace(entity_t{ 1 });
+        } catch (const std::runtime_error&) {
+            thrown = true;
+        }
+
+        require(thrown);
+        require(budgeted_alive == 0);
+        require(arche.empty());
+    }
+}
+
 void test_transfer_removes_empty_tag() {
     archetype_t source{ type_spreader<Position, TagEmpty, Velocity>{} };
     archetype_t target{ source, remove_components_t<TagEmpty>{} };
@@ -357,5 +430,7 @@ int main() {
     test_transfer_adds_components_with_default_values();
     test_transfer_removes_component();
     test_transfer_removes_empty_tag();
+    test_transfer_target_grows_beyond_initial_capacity();
+    test_untyped_emplace_rolls_back_when_a_default_ctor_throws();
     return neutron_test::result();
 }

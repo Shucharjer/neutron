@@ -154,8 +154,10 @@ noexcept
     auto* const dst = std::assume_aligned<_align_of<comp_t>>(reinterpret_cast<comp_t*>(nbufs[Index].get()));
 
     if constexpr (trivially_relocatable<comp_t>) {
+        // Relocation ends the source objects' lifetime; no destructor runs.
         std::memcpy(dst, src, sizeof(comp_t) * size);
-    } if constexpr (std::is_nothrow_move_constructible_v<comp_t>) {
+        return;
+    } else if constexpr (std::is_nothrow_move_constructible_v<comp_t>) {
         std::uninitialized_move_n(src, size, dst);
     } else {
         std::uninitialized_copy_n(src, size, dst);
@@ -1208,15 +1210,15 @@ private:
     }
 
     constexpr auto _emplace_normally() {
-        int64_t idx = 0;
-        auto guard  = make_exception_guard([this, &idx]() noexcept {
-            for (int64_t i = idx - 1; i-- > 0;) {
+        size_type idx = 0;
+        // On throw, kinds [0, idx) were constructed at row `size_`.
+        auto guard = make_exception_guard([this, &idx]() noexcept {
+            for (size_type i = idx; i-- > 0;) {
                 const type_traits info = comp_traits_[i];
 
                 _buffer_ptr& data = storage_[i];
                 auto* const ptr   = data.get();
-                destructors_[i](
-                    ptr + (static_cast<size_t>(idx) * info.size), 1);
+                destructors_[i](ptr + (size_ * info.size), 1);
             }
         });
 
@@ -1247,9 +1249,10 @@ private:
     constexpr void _relocate_data(
         small_vector<_buffer_ptr, 64, _allocator_t<_buffer_ptr>>& nbufs) {
         size_type idx = kinds();
-        auto guard    = make_exception_guard([this, &nbufs, &idx]() noexcept {
+        // On throw at `idx`, kinds (idx, kinds()) were already relocated.
+        auto guard = make_exception_guard([this, &nbufs, &idx]() noexcept {
             for (size_type i = idx + 1; i < kinds(); ++i) {
-                const type_traits info = comp_traits_[idx];
+                const type_traits info = comp_traits_[i];
                 if (info.size == 0) {
                     continue;
                 }
@@ -1270,9 +1273,10 @@ private:
 
         guard.dismiss();
 
-        for (; idx < kinds(); ++idx) {
-            destructors_[idx](storage_[idx].get(), size_);
-            storage_[idx] = std::move(nbufs[idx]);
+        // `idx` wrapped around above; commit every kind.
+        for (size_type i = 0; i < kinds(); ++i) {
+            destructors_[i](storage_[i].get(), size_);
+            storage_[i] = std::move(nbufs[i]);
         }
     }
 
