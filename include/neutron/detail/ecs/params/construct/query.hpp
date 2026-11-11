@@ -14,12 +14,17 @@ struct construct_from_world_t<Stage, Sys, query<Filters...>> {
     using arg_t = query<Filters...>;
 
     template <internal::world World>
-    auto operator()(World& world) {
-        using alloc_t = typename World::allocator_type;
-        using params  = query_cache_of<typename World::descriptor_type>;
-        if constexpr (type_list_has_v<params, arg_t>) {
-            return get_first<arg_t>(world_accessor::queries(world));
-        }
+    auto operator()(World& world) const -> arg_t {
+        using params = query_cache_of<typename World::descriptor_type>;
+        static_assert(
+            type_list_has_v<params, arg_t>,
+            "the query is not requested by any system of this world");
+
+        using querior_t =
+            typename arg_t::template querior_type<typename World::allocator_type>;
+        auto& querior = get_first<querior_t>(world_accessor::queries(world));
+        querior.sync(world);
+        return arg_t{ querior };
     }
 };
 

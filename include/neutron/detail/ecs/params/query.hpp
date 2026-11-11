@@ -422,6 +422,10 @@ class query {
         _basic_querior::basic_querior<Alloc, true, Filters...>;
 
 public:
+    /// @brief The querior a world caches for this query.
+    template <typename Alloc>
+    using querior_type = _cached_querior_t<rebind_alloc_t<Alloc, std::byte>>;
+
     using filters_type = type_list<Filters...>;
     using storage_filters_type =
         type_list<typename _query::_storage_filter<Filters>::type...>;

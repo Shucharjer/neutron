@@ -453,8 +453,9 @@ private:
     auto _dst_transition_remove(archetype* archetype, uint64_t delta)
         -> _transition_target&;
 
-    /// @brief Version of component storage.
-    std::uint64_t version_;
+    /// @brief Version of the archetype set. Bumped whenever an archetype is
+    /// created; never decreases, so cached queriors can compare it.
+    std::uint64_t version_{};
 
     /// @brief A container stores archetypes with combined hash.
     archetype_map archetypes_;
@@ -849,6 +850,7 @@ constexpr void world_base<Alloc>::reserve(size_type n) {
         auto [it, succ] =
             archetypes_.emplace(hash, archetype{ spread_type<Components...> });
         it->second.reserve(n);
+        ++version_;
     }
 
     _reserve_entities(n);
@@ -865,7 +867,9 @@ void world_base<Alloc>::clear() {
         archetype.clear();
     }
     _clear_entities();
-    version_ = 0;
+    // Archetypes are emptied, not erased, so the archetype set is unchanged.
+    // Resetting the version could make a cached querior see a stale set as
+    // current once later archetypes bump it back to the same value.
 }
 
 } // namespace _world_base

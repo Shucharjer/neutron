@@ -365,7 +365,47 @@ void test_is_alive_tracks_generation() {
     require(recycled != entity);
 }
 
+void test_add_components_to_many_entities_keeps_their_values() {
+    basic_world<world_descriptor_t<>> world;
+    // More than an archetype's initial capacity, so the {Position, Velocity}
+    // archetype created by the transition has to grow.
+    constexpr size_t count = 200;
+    std::array<entity_t, count> entities{};
+    for (size_t i = 0; i < count; ++i) {
+        entities[i] = world.spawn(Position{ float(i), 0 });
+    }
+
+    for (size_t i = 0; i < count; ++i) {
+        world.add_components(entities[i], Velocity{ float(2 * i), 0 });
+    }
+
+    manual_querior<with<Position&, Velocity&>> querior{ world };
+    query<with<Position&, Velocity&>> qry{ querior };
+    size_t matched = 0;
+    for (auto [position, velocity] : qry.get()) {
+        matched += velocity.x == 2 * position.x ? 1 : 0;
+    }
+    require(matched == count);
+}
+
+void test_without_filter_excludes_archetypes() {
+    basic_world<world_descriptor_t<>> world;
+    world.spawn(Position{ 1, 0 });
+    world.spawn(Position{ 2, 0 }, Velocity{});
+    world.spawn(Position{ 3, 0 }, Tag{});
+
+    manual_querior<with<Position&>, without<Velocity>> querior{ world };
+    query<with<Position&>, without<Velocity>> qry{ querior };
+    float sum = 0;
+    for (auto [position] : qry.get()) {
+        sum += position.x;
+    }
+    require(sum == 4);
+}
+
 int main() {
+    test_add_components_to_many_entities_keeps_their_values();
+    test_without_filter_excludes_archetypes();
     test_add_components_with_values();
     test_remove_components_one_kind_at_a_time();
     test_add_components_without_values();

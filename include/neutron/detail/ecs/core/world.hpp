@@ -133,7 +133,9 @@ public:
 
     template <typename Al = Alloc>
     constexpr explicit basic_world(const Al& alloc = {})
-        : world_base<Alloc>(alloc) /*, resources_(), locals_()*/ {}
+        : basic_world(
+              std::make_index_sequence<type_list_size_v<queriors_type>>{},
+              alloc) {}
 
     template <stage Stage>
     static consteval auto get_tasks() noexcept {
@@ -192,6 +194,14 @@ public:
     }
 
 private:
+    template <typename Query>
+    struct _to_querior {
+        using type = typename Query::template querior_type<Alloc>;
+    };
+
+    /// @brief One cached querior per distinct query requested by a system.
+    using queriors_type = type_list_convert_t<
+        _to_querior, unique_type_list_t<query_cache_of<descriptor_type>>>;
     using resources_type = unique_type_list_t<type_list_convert_t<
         std::remove_cvref,
         type_list_export_as_t<
@@ -199,7 +209,12 @@ private:
     using locals_type =
         collect_params_with_sys_of<descriptor_type, local, false>;
 
-    ATOM_NO_UNIQUE_ADDR _shared_tuple<query_cache_of<descriptor_type>> queries_;
+    template <std::size_t... Is, typename Al>
+    constexpr basic_world(std::index_sequence<Is...>, const Al& alloc)
+        : world_base<Alloc>(alloc),
+          queries_((static_cast<void>(Is), alloc)...) {}
+
+    ATOM_NO_UNIQUE_ADDR _shared_tuple<queriors_type> queries_;
     ATOM_NO_UNIQUE_ADDR _shared_tuple<resources_type> resources_;
     ATOM_NO_UNIQUE_ADDR _shared_tuple<locals_type> locals_;
 };

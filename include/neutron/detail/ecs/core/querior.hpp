@@ -2,8 +2,11 @@
 #pragma once
 #include "neutron/detail/ecs/fwd.hpp"
 
+#include <atomic>
 #include <concepts>
 #include <cstddef>
+#include <cstdint>
+#include <mutex>
 #include <span>
 #include <type_traits>
 #include <vector>
@@ -13,6 +16,7 @@
 #include "neutron/detail/ecs/core/archetype.hpp"
 #include "neutron/detail/ecs/core/slice.hpp"
 #include "neutron/detail/ecs/core/world_accessor.hpp"
+#include "neutron/detail/parallel/spin_mutex.hpp"
 #include "neutron/detail/utility/macros.hpp"
 #include "neutron/detail/type_traits/same_cvref.hpp"
 #include "neutron/metafn.hpp"
@@ -58,7 +62,7 @@ struct without {
     template <component... Components>
     struct _impl<without<Components...>> {
         template <typename Archetype>
-        static constexpr void init(const Archetype& archetype) {
+        static constexpr bool init(const Archetype& archetype) {
             return (
                 !archetype.template has<std::remove_cvref_t<Components>>() &&
                 ...);
@@ -231,21 +235,47 @@ public:
 
     basic_querior() = default;
 
+    template <typename Al = Alloc>
+    requires(!internal::world<Al>)
+    explicit basic_querior(const Al& alloc) : _base(alloc) {}
+
     template <internal::world World>
     explicit basic_querior(World& world) : _base(world.get_allocator()) {
         sync(world);
     }
 
+    basic_querior(const basic_querior&)            = delete;
+    basic_querior& operator=(const basic_querior&) = delete;
+
+    basic_querior(basic_querior&& that) noexcept
+        : _base(std::move(that)),
+          version_(that.version_.load(std::memory_order_relaxed)) {}
+
+    basic_querior& operator=(basic_querior&&) = delete;
+
+    /**
+     * @brief Rebuilds the cached slices if the world's archetype set changed.
+     *
+     * Safe to call from several systems of the same level at once: the
+     * up-to-date check is a single acquire load, and only one caller rebuilds
+     * while the others wait. Must not run concurrently with structural changes
+     * of the world.
+     */
     template <internal::world World>
     void sync(World& world) {
         const auto ver = world_accessor::version(world);
-        if (ver == version_) [[likely]] {
+        if (ver == version_.load(std::memory_order_acquire)) [[likely]] {
+            return;
+        }
+
+        std::lock_guard guard{ mutex_ };
+        if (ver == version_.load(std::memory_order_relaxed)) {
             return;
         }
 
         auto& archetypes = world_accessor::archetypes(world);
         this->make(archetypes);
-        version_ = ver;
+        version_.store(ver, std::memory_order_release);
     }
 
     ATOM_NODISCARD auto slices() const noexcept
@@ -255,10 +285,13 @@ public:
 
     ATOM_NODISCARD size_t size() const noexcept { return _base::slices.size(); }
 
-    ATOM_NODISCARD size_t version() const noexcept { return version_; }
+    ATOM_NODISCARD std::uint64_t version() const noexcept {
+        return version_.load(std::memory_order_acquire);
+    }
 
 private:
-    size_t version_ = 0;
+    std::atomic<std::uint64_t> version_{ 0 };
+    spin_mutex<> mutex_;
 };
 
 template <typename Alloc, query_filter<Alloc>... Filters>
