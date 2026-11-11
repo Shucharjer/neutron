@@ -143,6 +143,18 @@ struct task_plan;
 
 template <stage Stage, system_spec... Specs>
 struct task_plan<_add_systems_t<Stage, Specs...>> {
+    static_assert(
+        _systems_are_unique<Specs...>(),
+        "a system was added more than once to the same stage");
+    static_assert(
+        graph_builder<_add_systems_t<Stage, Specs...>>::references_resolved(),
+        "before() or after() references a system that was not added to this "
+        "stage");
+    static_assert(
+        !_systems_have_loop<Stage, Specs...>(),
+        "there is a dependency loop. please check the use of 'before' and "
+        "'after'");
+
     using specs                        = value_list<Specs...>;
     static constexpr std::size_t count = sizeof...(Specs);
     static constexpr std::array<bool, count> individual{

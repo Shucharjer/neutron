@@ -96,6 +96,24 @@ void test_systems_run_in_dependency_order() {
     require(order == std::vector{ 1, 2, 3 });
 }
 
+void test_dependencies_may_reference_systems_of_other_fragments() {
+    // A library provides the frame of a stage; users insert systems into it
+    // from separate `add_systems` fragments.
+    constexpr auto base = world_desc | add_systems<update, &root_task> |
+                          add_systems<update, { &leaf_task, after<&root_task> }>;
+    constexpr auto desc =
+        base | add_systems<
+                   update,
+                   { &middle_task, after<&root_task>, before<&leaf_task> }>;
+    run_envs_for<alloc_t, desc> envs;
+    thread_pool pool(2);
+    order.clear();
+
+    this_thread::sync_wait(envs.run<update>(pool.get_scheduler(), {}));
+
+    require(order == std::vector{ 1, 2, 3 });
+}
+
 int fast_count    = 0;
 int slow_count    = 0;
 int pre_count     = 0;
@@ -336,6 +354,7 @@ int main() {
     test_each_world_gets_a_run_env();
     test_run_returns_a_lazy_sender();
     test_systems_run_in_dependency_order();
+    test_dependencies_may_reference_systems_of_other_fragments();
     test_tick_rates_throttle_update_but_not_other_stages();
     test_local_and_global_parameters_persist_between_runs();
     test_startup_systems_share_locals_and_resources_with_world();

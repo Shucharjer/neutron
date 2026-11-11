@@ -220,11 +220,13 @@ class graph_builder<_add_systems_t<Stage, Spec...>> {
         return result;
     }
 
+    // References to systems that are not (yet) in this stage are skipped
+    // here: a fragment may depend on systems another fragment adds later.
+    // `references_resolved` reports them once the stage is consumed.
+
     template <std::size_t Task, auto Fn>
     static constexpr void _add_after_edge(graph_t& graph) noexcept {
         constexpr auto dependency = _task_index<Fn>();
-        static_assert(
-            dependency < count, "after() references a task that was not added");
         if constexpr (dependency < count) {
             _add_edge(graph, Task, dependency);
         }
@@ -233,11 +235,29 @@ class graph_builder<_add_systems_t<Stage, Spec...>> {
     template <std::size_t Task, auto Fn>
     static constexpr void _add_before_edge(graph_t& graph) noexcept {
         constexpr auto dependent = _task_index<Fn>();
-        static_assert(
-            dependent < count, "before() references a task that was not added");
         if constexpr (dependent < count) {
             _add_edge(graph, dependent, Task);
         }
+    }
+
+    template <auto... Fn>
+    static consteval bool _resolved(_after_t<Fn...>) noexcept {
+        return ((_task_index<Fn>() < count) && ...);
+    }
+
+    template <auto... Fn>
+    static consteval bool _resolved(_before_t<Fn...>) noexcept {
+        return ((_task_index<Fn>() < count) && ...);
+    }
+
+    template <typename Requirement>
+    static consteval bool _resolved(Requirement) noexcept {
+        return true;
+    }
+
+    template <typename Fn, auto... Req>
+    static consteval bool _spec_resolved(system_spec<Fn, Req...>) noexcept {
+        return (true && ... && _resolved(Req));
     }
 
     template <std::size_t Task, auto... Fn>
@@ -268,6 +288,11 @@ public:
             (_add_task_edges<Is>(graph, Spec), ...);
             return graph;
         }(std::make_index_sequence<count>());
+    }
+
+    /// @brief Whether every before()/after() names a system of this stage.
+    static consteval bool references_resolved() noexcept {
+        return (true && ... && _spec_resolved(Spec));
     }
 };
 
@@ -356,15 +381,11 @@ consteval bool _systems_have_loop() noexcept {
     return false;
 }
 
+// Uniqueness, references and loops are checked by `internal::task_plan`,
+// i.e. once the stage is consumed, because a single fragment may legitimately
+// depend on systems that another fragment adds.
 template <stage Stage, system_spec... Specs>
 class _add_systems_t : public description_tag {
-    static_assert(_systems_are_unique<Specs...>());
-
-    static_assert(
-        !_systems_have_loop<Stage, Specs...>(),
-        "there is a dependency loop. please check the "
-        "use of 'before' and 'after'");
-
 public:
     using spec_list = value_list<Specs...>;
 
