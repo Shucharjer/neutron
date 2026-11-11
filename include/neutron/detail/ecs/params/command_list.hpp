@@ -13,7 +13,7 @@ template <typename Alloc = std::allocator<std::byte>>
 class basic_command_list {
 public:
     constexpr basic_command_list(command_buffer<Alloc>& cb) noexcept
-        : command_buffer_(cb) {}
+        : command_buffer_(&cb) {}
 
     template <component... Components>
     requires(std::same_as<Components, std::remove_cvref_t<Components>> && ...)

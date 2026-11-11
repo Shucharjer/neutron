@@ -455,6 +455,9 @@ public:
             (*cmd)(world, future_map);
             _command_base::destroy(cmd);
         }
+
+        // Every command is destroyed; keep the blocks for the next frame.
+        reset();
     }
 
 private:
@@ -497,9 +500,10 @@ private:
             offset_ = aligned + size - ptr;
             return aligned;
         } else [[likely]] {
-            auto& current = buffers_[current_];
-            aligned       = _next_aligned<align>(current.get());
-            offset_       = aligned + size - ptr;
+            // Reuse a block kept by `reset()`; offsets are relative to it.
+            ptr     = buffers_[current_].get();
+            aligned = _next_aligned<align>(ptr);
+            offset_ = aligned + size - ptr;
             return aligned;
         }
     }
