@@ -65,7 +65,7 @@ template <auto Fn, typename Ret, typename Class, typename... Args>
 struct member_fn<Fn, Ret (Class::*)(Args...) const> {
     constexpr static auto static_fn = [](const Class& obj,
                                          Args... args) -> Ret {
-        (obj.*Fn)(args...);
+        return (obj.*Fn)(args...);
     };
     constexpr static auto void_fn = [](const void* ptr, Args... args) -> Ret {
         return (static_cast<const Class*>(ptr)->*Fn)(args...);
@@ -75,7 +75,7 @@ template <auto Fn, typename Ret, typename Class, typename... Args>
 struct member_fn<Fn, Ret (Class::*)(Args...) const noexcept> {
     constexpr static auto static_fn = [](const Class& obj,
                                          Args... args) noexcept -> Ret {
-        (obj.*Fn)(args...);
+        return (obj.*Fn)(args...);
     };
     constexpr static auto void_fn = [](const void* ptr,
                                        Args... args) noexcept -> Ret {
@@ -85,7 +85,7 @@ struct member_fn<Fn, Ret (Class::*)(Args...) const noexcept> {
 template <auto Fn, typename Ret, typename Class, typename... Args>
 struct member_fn<Fn, Ret (Class::*)(Args...)> {
     constexpr static auto static_fn = [](Class& obj, Args... args) -> Ret {
-        (obj.*Fn)(args...);
+        return (obj.*Fn)(args...);
     };
     constexpr static auto void_fn = [](void* ptr, Args... args) -> Ret {
         return (static_cast<Class*>(ptr)->*Fn)(args...);
@@ -95,7 +95,7 @@ template <auto Fn, typename Ret, typename Class, typename... Args>
 struct member_fn<Fn, Ret (Class::*)(Args...) noexcept> {
     constexpr static auto static_fn = [](Class& obj,
                                          Args... args) noexcept -> Ret {
-        (obj.*Fn)(args...);
+        return (obj.*Fn)(args...);
     };
     constexpr static auto void_fn = [](void* ptr,
                                        Args... args) noexcept -> Ret {
