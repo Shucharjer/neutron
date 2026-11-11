@@ -1,10 +1,10 @@
 #pragma once
-#include <meta>
 #include "neutron/detail/utility/macros.hpp"
 
 #if ATOM_HAS_REFLECTION
 
     #include <cstddef>
+    #include <meta>
 
 namespace neutron {
 

@@ -212,8 +212,12 @@
 #endif
 
 #ifndef ATOM_HAS_REFLECTION
-    #if (defined(__cpp_lib_reflection) && __cpp_lib_reflection >= 202506L) ||  \
-        (__has_feature(reflection) && __cplusplus > 202302L)
+    // The compiler feature alone is not enough: a reflection-enabled compiler
+    // may be paired with a standard library that does not ship <meta> (e.g.
+    // clang-p2996 with libstdc++).
+    #if ((defined(__cpp_lib_reflection) && __cpp_lib_reflection >= 202506L) || \
+         (__has_feature(reflection) && __cplusplus > 202302L)) &&              \
+        __has_include(<meta>)
         #define ATOM_HAS_REFLECTION 1
     #else
         #define ATOM_HAS_REFLECTION 0
