@@ -307,6 +307,13 @@ requires(std::is_aggregate_v<T> && !fixed_array<T>)
 struct serialize_t<bitstream, T> {
     void operator()(bitstream& bs, const T& val) const noexcept {
 #if ATOM_HAS_REFLECTION
+        if constexpr (member_count_of<T>() != 0) {
+            std::apply(
+                [&bs, &val](auto... members) {
+                    (serialize(bs, val.*members), ...);
+                },
+                offsets_of<T>());
+        }
 #else
         if constexpr (member_count_of<T>() != 0) {
             auto tup = _refl_legacy::object_to_tuple_view(val);
@@ -325,6 +332,13 @@ requires(std::is_aggregate_v<T> && !fixed_array<T>)
 struct deserialize_t<bitstream, T> {
     void operator()(bitstream& bs, T& val) const noexcept {
 #if ATOM_HAS_REFLECTION
+        if constexpr (member_count_of<T>() != 0) {
+            std::apply(
+                [&bs, &val](auto... members) {
+                    (deserialize(bs, val.*members), ...);
+                },
+                offsets_of<T>());
+        }
 #else
         if constexpr (member_count_of<T>() != 0) {
             auto tup = _refl_legacy::object_to_tuple_view(val);

@@ -1,4 +1,5 @@
 // Inspect the members of a plain aggregate without annotating it.
+#include <array>
 #include <cstddef>
 #include <string>
 #include <tuple>
@@ -29,13 +30,16 @@ void dump(const Ty& object) {
 }
 
 void serialize_and_deserialize(const player& p) {
-    neutron::bitstream bs;
-    neutron::serialize(bs, p);
+    // bitstream is a cursor over caller-provided storage.
+    alignas(std::max_align_t) std::array<std::byte, 64> buffer{};
+    neutron::bitstream out{ buffer.data(), buffer.size() };
+    neutron::serialize(out, p);
 
-    player another;
-    neutron::deserialize(bs, another);
+    player another{};
+    neutron::bitstream in{ buffer.data(), buffer.size() };
+    neutron::deserialize(in, another);
     neutron::println(
-        "{}, {}, {}", another.health == p.health, another.health == p.health,
+        "{}, {}, {}", another.id == p.id, another.health == p.health,
         another.name == p.name);
 }
 

@@ -162,6 +162,30 @@ void test_vector_round_trips_with_size_prefix() {
     require(std::ranges::equal(vec, another));
 }
 
+struct record {
+    int id;
+    double score;
+    std::vector<int> values;
+};
+
+void test_aggregate_round_trips_member_by_member() {
+    record rec{ .id = 7, .score = 2.5, .values = { 1, 2, 3 } };
+    alignas(std::max_align_t) std::array<
+        std::byte, sizeof(int) + sizeof(double) + sizeof(std::size_t) +
+                       (3 * sizeof(int))>
+        buf{};
+    bitstream bs{ buf.data(), buf.size() };
+
+    serialize(bs, rec);
+    record another{};
+    bs = bitstream{ buf.data(), buf.size() };
+    deserialize(bs, another);
+
+    require(another.id == rec.id);
+    require(another.score == rec.score);
+    require(another.values == rec.values);
+}
+
 void test_empty_aggregate_needs_no_storage() {
     struct eagg {};
     bitstream bs;
@@ -183,6 +207,7 @@ int main() {
     test_shared_tuple_round_trips();
     test_shared_tuple_deserializes_into_std_tuple();
     test_vector_round_trips_with_size_prefix();
+    test_aggregate_round_trips_member_by_member();
     test_empty_aggregate_needs_no_storage();
     return neutron_test::result();
 }
