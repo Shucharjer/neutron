@@ -13,7 +13,12 @@
 
 using namespace std::chrono_literals;
 using namespace neutron;
+
+// Not in the global namespace, where `shutdown` clashes with the winsock
+// function declared by <windows.h>.
+namespace {
 using enum stage;
+} // namespace
 
 static_assert(scheduler_provider<thread_pool>);
 static_assert(parallelism_scheduler_provider<thread_pool>);
@@ -52,7 +57,7 @@ void println_ticks(global<std::uint32_t> glob) {
 }
 
 constexpr auto main_world = world_desc | add_systems<preupdate, &tick> |
-                            add_systems<shutdown, &println_ticks>;
+                            add_systems<stage::shutdown, &println_ticks>;
 
 void test_single_world_runs_until_payload_stops() {
     thread_pool pool;
@@ -63,7 +68,7 @@ void test_single_world_runs_until_payload_stops() {
 
 void test_individual_world_runs_beside_main_world() {
     constexpr auto idvj_world = world_desc | add_systems<preupdate, &tick> |
-                                add_systems<shutdown, &println_ticks> |
+                                add_systems<stage::shutdown, &println_ticks> |
                                 execute<individual, tick_rate<128>>;
 
     thread_pool pool;
@@ -74,7 +79,7 @@ void test_individual_world_runs_beside_main_world() {
 
 void test_worlds_in_the_same_group_run_together() {
     constexpr auto same_group = world_desc | add_systems<preupdate, &tick> |
-                                add_systems<shutdown, &println_ticks> |
+                                add_systems<stage::shutdown, &println_ticks> |
                                 execute<tick_rate<128>>;
 
     thread_pool pool;
@@ -84,9 +89,10 @@ void test_worlds_in_the_same_group_run_together() {
 }
 
 void test_worlds_in_different_groups_run_together() {
-    constexpr auto another_group = world_desc | add_systems<preupdate, &tick> |
-                                   add_systems<shutdown, &println_ticks> |
-                                   execute<group<1>, tick_rate<128>>;
+    constexpr auto another_group =
+        world_desc | add_systems<preupdate, &tick> |
+        add_systems<stage::shutdown, &println_ticks> |
+        execute<group<1>, tick_rate<128>>;
 
     thread_pool pool;
     payload payload(3s);

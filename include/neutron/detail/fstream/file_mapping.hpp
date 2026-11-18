@@ -12,6 +12,9 @@
 #include "neutron/detail/utility/system_error.hpp"
 
 #if defined(_WIN32)
+    #ifndef NOMINMAX
+        #define NOMINMAX
+    #endif
     #include <windows.h>
 #elif defined(__unix__) || defined(__APPLE__)
     #include <fcntl.h>
@@ -65,10 +68,10 @@ public:
 
 #if defined(_WIN32)
     static constexpr offset_type max_file_size =
-        static_cast<offset_type>(std::numeric_limits<LONGLONG>::max());
+        static_cast<offset_type>((std::numeric_limits<LONGLONG>::max)());
 #else
     static constexpr offset_type max_file_size =
-        static_cast<offset_type>(std::numeric_limits<off_t>::max());
+        static_cast<offset_type>((std::numeric_limits<off_t>::max)());
 #endif
 
     file_mapping() noexcept = default;

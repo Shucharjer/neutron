@@ -213,7 +213,7 @@ protected:
         if (pos >= end) {
             return -1;
         }
-        constexpr auto max = std::numeric_limits<std::streamsize>::max();
+        constexpr auto max = (std::numeric_limits<std::streamsize>::max)();
         return end - pos > static_cast<_offset>(max)
                    ? max
                    : static_cast<std::streamsize>(end - pos);
@@ -389,7 +389,7 @@ private:
     static size_type _window_length(size_type wnd_size) noexcept {
         const size_type mask = internal::file_mapping::granularity() - 1;
         if (wnd_size == 0 ||
-            wnd_size > std::numeric_limits<size_type>::max() - mask) {
+            wnd_size > (std::numeric_limits<size_type>::max)() - mask) {
             return 0;
         }
         const size_type bytes = (wnd_size + mask) & ~mask;
@@ -426,13 +426,13 @@ private:
 
     /// End of the content, in characters.
     ATOM_NODISCARD _offset _end() const noexcept {
-        return this->pptr() != nullptr ? std::max(size_, _tell()) : size_;
+        return this->pptr() != nullptr ? (std::max)(size_, _tell()) : size_;
     }
 
     /// Size the file has when closed; trailing bytes of the opened file that
     /// do not form a character are kept.
     ATOM_NODISCARD _offset _content_bytes() const noexcept {
-        return std::max(_end() * sizeof(char_type), opened_size_);
+        return (std::max)(_end() * sizeof(char_type), opened_size_);
     }
 
     void _reset_areas() noexcept {
@@ -490,7 +490,7 @@ private:
             }
         }
         const _offset valid =
-            std::min(static_cast<_offset>(view_length_), size_ - base);
+            (std::min)(static_cast<_offset>(view_length_), size_ - base);
         this->setg(
             view_, view_ + static_cast<size_type>(pos - base),
             view_ + static_cast<size_type>(valid));
@@ -505,7 +505,8 @@ private:
         }
         const _offset base     = _window_base(pos);
         const size_type length = static_cast<size_type>(
-            std::min(static_cast<_offset>(window_length_), _max_length - base));
+            (std::min)(static_cast<_offset>(window_length_),
+                       _max_length - base));
         if (view_ == nullptr || base_ != base || view_length_ != length) {
             const _offset need = (base + length) * sizeof(char_type);
             if (file_.size() < need) {

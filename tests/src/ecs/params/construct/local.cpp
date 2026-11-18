@@ -4,7 +4,12 @@
 #include "require.hpp"
 
 using namespace neutron;
+
+// Not in the global namespace, where `shutdown` clashes with the winsock
+// function declared by <windows.h>.
+namespace {
 using enum stage;
+} // namespace
 
 namespace {
 

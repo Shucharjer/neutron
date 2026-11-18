@@ -197,7 +197,7 @@ private:
     void _map() {
         const offset_type size = file_.size();
         if constexpr (sizeof(size_type) < sizeof(offset_type)) {
-            if (size > std::numeric_limits<size_type>::max()) [[unlikely]] {
+            if (size > (std::numeric_limits<size_type>::max)()) [[unlikely]] {
                 internal::_throw_error(
                     std::make_error_code(std::errc::value_too_large),
                     "file_map");

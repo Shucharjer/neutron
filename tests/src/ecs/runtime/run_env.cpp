@@ -16,12 +16,17 @@
 #include "thread_pool.hpp"
 
 using namespace neutron;
+
+// Not in the global namespace, where `shutdown` clashes with the winsock
+// function declared by <windows.h>.
+namespace {
 using enum stage;
+} // namespace
 
 // Only the per-frame stages are high frequency.
 static_assert(!is_hifreq_stage(startup));
 static_assert(!is_hifreq_stage(first));
-static_assert(!is_hifreq_stage(shutdown));
+static_assert(!is_hifreq_stage(stage::shutdown));
 static_assert(is_hifreq_stage(events));
 static_assert(is_hifreq_stage(render));
 
@@ -38,11 +43,11 @@ void println_ticks(global<std::uint32_t> glob) {
 }
 
 constexpr auto main_world = world_desc | add_systems<preupdate, &tick> |
-                            add_systems<shutdown, &println_ticks>;
+                            add_systems<stage::shutdown, &println_ticks>;
 
 void test_each_world_gets_a_run_env() {
     constexpr auto idvj_world = world_desc | add_systems<preupdate, &tick> |
-                                add_systems<shutdown, &println_ticks> |
+                                add_systems<stage::shutdown, &println_ticks> |
                                 execute<individual, tick_rate<128>>;
 
     using run_envs = run_envs_for<alloc_t, main_world, idvj_world>;
@@ -99,12 +104,13 @@ void test_systems_run_in_dependency_order() {
 void test_dependencies_may_reference_systems_of_other_fragments() {
     // A library provides the frame of a stage; users insert systems into it
     // from separate `add_systems` fragments.
-    constexpr auto base = world_desc | add_systems<update, &root_task> |
-                          add_systems<update, { &leaf_task, after<&root_task> }>;
+    constexpr auto base =
+        world_desc | add_systems<update, &root_task> |
+        add_systems<update, { &leaf_task, after<&root_task> }>;
     constexpr auto desc =
-        base | add_systems<
-                   update,
-                   { &middle_task, after<&root_task>, before<&leaf_task> }>;
+        base |
+        add_systems<
+            update, { &middle_task, after<&root_task>, before<&leaf_task> }>;
     run_envs_for<alloc_t, desc> envs;
     thread_pool pool(2);
     order.clear();
@@ -211,7 +217,7 @@ void read_resource(res<const test_resource> resources) {
 void test_startup_systems_share_locals_and_resources_with_world() {
     constexpr auto desc = world_desc |
                           add_systems<startup, &startup_parameters> |
-                          add_systems<shutdown, &read_resource>;
+                          add_systems<stage::shutdown, &read_resource>;
     auto world     = make_world<desc>();
     auto scheduler = execution::inline_scheduler{};
 
@@ -221,7 +227,7 @@ void test_startup_systems_share_locals_and_resources_with_world() {
     // Second run: local 2 + resource 2.
     require(parameter_result == 4);
     // Shutdown runs read_resource, which checks the resource.
-    this_thread::sync_wait(world.run<shutdown>(scheduler, {}));
+    this_thread::sync_wait(world.run<stage::shutdown>(scheduler, {}));
 }
 
 void test_run_with_no_worlds_or_several_worlds() {
@@ -239,7 +245,7 @@ void test_run_with_no_worlds_or_several_worlds() {
     require(executions == previous + 3);
 
     // No world has shutdown systems.
-    this_thread::sync_wait(envs.run<shutdown>(scheduler, {}));
+    this_thread::sync_wait(envs.run<stage::shutdown>(scheduler, {}));
     require(executions == previous + 3);
 }
 

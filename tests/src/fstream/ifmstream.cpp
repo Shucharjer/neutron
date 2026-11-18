@@ -16,8 +16,8 @@ using neutron_test::temp_file;
 
 namespace {
 
-/// A window size of 1 is rounded up to one page, so these files span several
-/// windows.
+/// A window size of 1 is rounded up to the mapping granularity, so these
+/// files span several windows.
 constexpr std::size_t tiny_window = 1;
 
 // An input stream, but not a std::ifstream.
@@ -31,11 +31,20 @@ void write_all(const temp_file& file, const std::string& text) {
     stream << text;
 }
 
-constexpr std::size_t line_count = 500;
-
 constexpr std::size_t max_line_length = 96;
 
 constexpr std::size_t alphabet_size = 26;
+
+/// Enough lines to span several windows; the granularity is a 4 KiB page on
+/// POSIX but 64 KiB on Windows.
+const std::size_t line_count = [] {
+    constexpr std::size_t windows     = 3;
+    constexpr std::size_t cycle_lines = max_line_length + 1;
+    // Every length from 0 to max_line_length, each followed by a newline.
+    constexpr std::size_t cycle_bytes = cycle_lines * (max_line_length + 2) / 2;
+    const std::size_t bytes = windows * internal::file_mapping::granularity();
+    return (bytes + cycle_bytes - 1) / cycle_bytes * cycle_lines;
+}();
 
 /// Line `index` of `make_lines`, varying in length and letter.
 std::string line_of(std::size_t index) {
@@ -168,11 +177,11 @@ void test_seekg_past_the_end_reads_nothing() {
     write_all(file, "abc");
     ifmstream stream(file.path());
 
-    constexpr std::streamoff far = 100;
+    constexpr std::streamoff offset = 100;
 
-    stream.seekg(far);
+    stream.seekg(offset);
 
-    require(stream.tellg() == std::streampos(far));
+    require(stream.tellg() == std::streampos(offset));
     require(stream.get() == ifmstream::traits_type::eof());
 }
 

@@ -14,11 +14,13 @@ using neutron_test::temp_file;
 
 namespace {
 
-/// A window size of 1 is rounded up to one page, so these files span several
-/// windows.
+/// A window size of 1 is rounded up to the mapping granularity, so these
+/// files span several windows.
 constexpr std::size_t tiny_window = 1;
 
-constexpr std::size_t long_size = 10000;
+/// Two and a half windows; the granularity is a 4 KiB page on POSIX but 64 KiB
+/// on Windows.
+const std::size_t long_size = internal::file_mapping::granularity() * 5 / 2;
 
 constexpr std::size_t alphabet_size = 26;
 

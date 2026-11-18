@@ -6,6 +6,10 @@
 #include <neutron/ecs.hpp>
 #include "require.hpp"
 
+#if defined(_WIN32)
+    #include <malloc.h>
+#endif
+
 using namespace neutron;
 
 namespace {
@@ -15,24 +19,42 @@ namespace {
 constexpr std::align_val_t block_align{ 16 };
 std::atomic<int> block_allocations = 0;
 
+void* aligned_allocate(std::size_t size, std::size_t alignment) noexcept {
+#if defined(_WIN32)
+    // The Windows CRT has no std::aligned_alloc.
+    return ::_aligned_malloc(size, alignment);
+#else
+    const auto rounded = (size + alignment - 1) / alignment * alignment;
+    return std::aligned_alloc(alignment, rounded);
+#endif
+}
+
+void aligned_deallocate(void* ptr) noexcept {
+#if defined(_WIN32)
+    ::_aligned_free(ptr);
+#else
+    std::free(ptr);
+#endif
+}
+
 } // namespace
 
 void* operator new(std::size_t size, std::align_val_t align) {
     if (align == block_align) {
         block_allocations.fetch_add(1, std::memory_order_relaxed);
     }
-    const auto alignment = static_cast<std::size_t>(align);
-    const auto rounded   = (size + alignment - 1) / alignment * alignment;
-    if (void* ptr = std::aligned_alloc(alignment, rounded)) {
+    if (void* ptr = aligned_allocate(size, static_cast<std::size_t>(align))) {
         return ptr;
     }
     throw std::bad_alloc{};
 }
 
-void operator delete(void* ptr, std::align_val_t) noexcept { std::free(ptr); }
+void operator delete(void* ptr, std::align_val_t) noexcept {
+    aligned_deallocate(ptr);
+}
 
 void operator delete(void* ptr, std::size_t, std::align_val_t) noexcept {
-    std::free(ptr);
+    aligned_deallocate(ptr);
 }
 
 namespace {

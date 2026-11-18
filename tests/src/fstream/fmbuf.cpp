@@ -15,8 +15,8 @@ using neutron_test::temp_file;
 
 namespace {
 
-/// A window size of 1 is rounded up to one page, so these files span several
-/// windows.
+/// A window size of 1 is rounded up to the mapping granularity, so these
+/// files span several windows.
 constexpr std::size_t tiny_window = 1;
 
 constexpr auto eof = fmbuf::traits_type::eof();

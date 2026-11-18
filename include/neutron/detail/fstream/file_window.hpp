@@ -41,7 +41,7 @@ public:
 
     static constexpr size_type default_size = 16UL * 1024UL * 1024UL;
 
-    static constexpr size_type npos = std::numeric_limits<size_type>::max();
+    static constexpr size_type npos = (std::numeric_limits<size_type>::max)();
 
     file_window() noexcept = default;
 
