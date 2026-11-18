@@ -127,6 +127,7 @@ export_inc(${NEUTRON_INC_DIR}/detail/ecs/utility ${NEUTRON_INC_DIR}/detail/ecs/u
 export_as_inc(ecs)
 export_as_inc(execution)
 export_as_inc(execution_resource)
+export_as_inc(fstream)
 export_as_inc(functional)
 export_as_inc(interprocess)
 export_as_inc(iterator)
