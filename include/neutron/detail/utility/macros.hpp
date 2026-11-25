@@ -128,7 +128,7 @@
     #if ATOM_HAS_CXX20
         #define ATOM_CONSTEXPR_SINCE_CXX20 constexpr ///< C++20 constexpr
     #else
-        #define ATOM_CONSTEXPR_SINCE_CXX20 inline ///< Empty for older standards
+        #define ATOM_CONSTEXPR_SINCE_CXX20 ///< Empty for older standards
     #endif
 #endif
 
@@ -136,7 +136,7 @@
     #if ATOM_HAS_CXX23
         #define ATOM_CONSTEXPR_SINCE_CXX23 constexpr ///< C++23 constexpr
     #else
-        #define ATOM_CONSTEXPR_SINCE_CXX23 inline ///< Empty for older standards
+        #define ATOM_CONSTEXPR_SINCE_CXX23 ///< Empty for older standards
     #endif
 #endif
 
@@ -144,7 +144,7 @@
     #if ATOM_HAS_CXX26
         #define ATOM_CONSTEXPR_SINCE_CXX26 constexpr ///< C++26 constexpr
     #else
-        #define ATOM_CONSTEXPR_SINCE_CXX26 inline ///< Empty for older standards
+        #define ATOM_CONSTEXPR_SINCE_CXX26 ///< Empty for older standards
     #endif
 #endif
 
@@ -215,8 +215,9 @@
     // The compiler feature alone is not enough: a reflection-enabled compiler
     // may be paired with a standard library that does not ship <meta> (e.g.
     // clang-p2996 with libstdc++).
-    #if ((defined(__cpp_lib_reflection) && __cpp_lib_reflection >= 202506L) || \
-         (__has_feature(reflection) && __cplusplus > 202302L)) &&              \
+    #if (                                                                      \
+        (defined(__cpp_lib_reflection) && __cpp_lib_reflection >= 202506L) ||  \
+        (__has_feature(reflection) && __cplusplus > 202302L)) &&               \
         __has_include(<meta>)
         #define ATOM_HAS_REFLECTION 1
     #else
