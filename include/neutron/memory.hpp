@@ -2,6 +2,7 @@
 // IWYU pragma: begin_exports
 
 #include "neutron/detail/memory/align.hpp"
+#include "neutron/detail/memory/allocate_guard.hpp"
 #include "neutron/detail/memory/freeable_bytes.hpp"
 #include "neutron/detail/memory/inplace.hpp"
 #include "neutron/detail/memory/object_pool.hpp"
