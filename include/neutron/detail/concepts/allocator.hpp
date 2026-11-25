@@ -2,6 +2,8 @@
 #pragma once
 #include <concepts>
 #include <cstddef>
+#include <memory>
+#include <type_traits>
 #include "neutron/detail/memory/rebind_alloc.hpp"
 
 namespace neutron {
@@ -28,5 +30,15 @@ template <typename Alloc>
 concept simple_allocator =
     std_simple_allocator<Alloc> ||
     std_simple_allocator<rebind_alloc_t<Alloc, std::byte>>;
+
+template <typename Alloc>
+concept unfancy_allocator =
+    simple_allocator<Alloc> &&
+    std::is_pointer_v<typename std::allocator_traits<Alloc>::pointer>;
+
+template <typename Alloc>
+concept unfancy_byte_allocator =
+    unfancy_allocator<Alloc> &&
+    std::same_as<typename std::allocator_traits<Alloc>::value_type, std::byte>;
 
 } // namespace neutron
