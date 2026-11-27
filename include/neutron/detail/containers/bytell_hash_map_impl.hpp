@@ -113,7 +113,7 @@ struct sherwood_v8_block {
         return reinterpret_cast<sherwood_v8_block*>(&empty_bytes);
     }
 
-    ATOM_NODISCARD constexpr int first_empty_index() const noexcept {
+    ATOM_ATTRS(ATOM_NODISCARD) constexpr int first_empty_index() const noexcept {
         for (int i = 0; i < BlockSize; ++i) {
             if (control_bytes[i] == sherwood_v8_constants<>::magic_for_empty) {
                 return i;

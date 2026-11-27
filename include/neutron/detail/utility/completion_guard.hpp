@@ -13,7 +13,7 @@ struct null_gurad {
     template <excluding<null_gurad> Ignored>
     constexpr null_gurad(Ignored&&) noexcept {}
 
-    ATOM_ALWAYS_INLINE constexpr void dismiss() noexcept {}
+    ATOM_ATTRS(ATOM_ALWAYS_INLINE) constexpr void dismiss() noexcept {}
 };
 
 template <typename Rollback>
@@ -55,7 +55,8 @@ private:
 };
 
 template <typename Roll>
-ATOM_NODISCARD constexpr auto make_completion_guard(Roll&& rollback) noexcept
+ATOM_ATTRS(ATOM_NODISCARD)
+constexpr auto make_completion_guard(Roll&& rollback) noexcept
     -> completion_guard<std::remove_cvref_t<Roll>> {
     return completion_guard<std::remove_cvref_t<Roll>>(
         std::forward<Roll>(rollback));
@@ -64,13 +65,15 @@ ATOM_NODISCARD constexpr auto make_completion_guard(Roll&& rollback) noexcept
 #if ATOM_ENABLE_EXCEPTIONS
 
 template <typename Roll>
-ATOM_NODISCARD constexpr auto make_exception_guard(Roll&& rollback) noexcept
+ATOM_ATTRS(ATOM_NODISCARD)
+constexpr auto make_exception_guard(Roll&& rollback) noexcept
     -> completion_guard<std::remove_cvref_t<Roll>> {
     return make_completion_guard(std::forward<Roll>(rollback));
 }
 
 template <bool Noexcept, typename Roll>
-ATOM_NODISCARD constexpr auto make_exception_guard(Roll&& rollback) noexcept
+ATOM_ATTRS(ATOM_NODISCARD)
+constexpr auto make_exception_guard(Roll&& rollback) noexcept
     -> std::conditional_t<
         Noexcept, null_gurad, completion_guard<std::decay_t<Roll>>> {
     if constexpr (Noexcept) {

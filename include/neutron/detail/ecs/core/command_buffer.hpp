@@ -9,6 +9,7 @@
 #include <new>
 #include <type_traits>
 #include <vector>
+#include "neutron/detail/concepts/allocator.hpp"
 #include "neutron/detail/ecs/core/world_base.hpp"
 
 #ifdef __clang__
@@ -64,7 +65,7 @@ private:
 template <typename Derived, typename Alloc>
 class _command_impl_base : _command_base<Alloc> {
 public:
-    using future_map_t = typename _command_base<Alloc>::future_map_t;
+    using future_map_t = _command_base<Alloc>::future_map_t;
     _command_impl_base() noexcept : _command_base<Alloc>(&_invoke, &_destroy) {}
 
 private:
@@ -82,7 +83,7 @@ private:
 template <typename Alloc>
 class _spawn : _command_impl_base<_spawn<Alloc>, Alloc> {
 public:
-    using future_map_t = typename _command_base<Alloc>::future_map_t;
+    using future_map_t = _command_base<Alloc>::future_map_t;
 
     constexpr _spawn(future_entity_t fut) noexcept : fut_(fut) {}
 
@@ -99,7 +100,7 @@ template <typename Alloc, component... Components>
 class _spawn_with_comps :
     _command_impl_base<_spawn_with_comps<Alloc, Components...>, Alloc> {
 public:
-    using future_map_t = typename _command_base<Alloc>::future_map_t;
+    using future_map_t = _command_base<Alloc>::future_map_t;
 
     constexpr _spawn_with_comps(future_entity_t fut) noexcept : fut_(fut) {}
 
@@ -115,7 +116,7 @@ template <typename Alloc, component... Components>
 class _spawn_with_value :
     _command_impl_base<_spawn_with_value<Alloc, Components...>, Alloc> {
 public:
-    using future_map_t = typename _command_base<Alloc>::future_map_t;
+    using future_map_t = _command_base<Alloc>::future_map_t;
 
     template <typename... Comps>
     _spawn_with_value(future_entity_t fut, Comps&&... comps) noexcept
@@ -139,7 +140,7 @@ template <typename Alloc, component... Components>
 class _add_comps_for_fut :
     _command_impl_base<_add_comps_for_fut<Alloc, Components...>, Alloc> {
 public:
-    using future_map_t = typename _command_base<Alloc>::future_map_t;
+    using future_map_t = _command_base<Alloc>::future_map_t;
 
     constexpr _add_comps_for_fut(future_entity_t fut) : fut_(fut) {}
 
@@ -155,7 +156,7 @@ private:
 template <typename Alloc, component... Components>
 class _add_comps : _command_impl_base<_add_comps<Alloc, Components...>, Alloc> {
 public:
-    using future_map_t = typename _command_base<Alloc>::future_map_t;
+    using future_map_t = _command_base<Alloc>::future_map_t;
 
     constexpr _add_comps(entity_t entity) : entity_(entity) {}
 
@@ -172,7 +173,7 @@ class _add_comps_for_fut_with_value :
     _command_impl_base<
         _add_comps_for_fut_with_value<Alloc, Components...>, Alloc> {
 public:
-    using future_map_t = typename _command_base<Alloc>::future_map_t;
+    using future_map_t = _command_base<Alloc>::future_map_t;
 
     template <component... Comps>
     constexpr _add_comps_for_fut_with_value(
@@ -198,7 +199,7 @@ template <typename Alloc, component... Components>
 class _add_comps_with_value :
     _command_impl_base<_add_comps_with_value<Alloc, Components...>, Alloc> {
 public:
-    using future_map_t = typename _command_base<Alloc>::future_map_t;
+    using future_map_t = _command_base<Alloc>::future_map_t;
 
     template <component... Comps>
     constexpr _add_comps_with_value(entity_t entity, Comps&&... components)
@@ -223,7 +224,7 @@ template <typename Alloc, component... Components>
 class _remove_comps_for_fut :
     _command_impl_base<_remove_comps_for_fut<Alloc, Components...>, Alloc> {
 public:
-    using future_map_t = typename _command_base<Alloc>::future_map_t;
+    using future_map_t = _command_base<Alloc>::future_map_t;
 
     _remove_comps_for_fut(future_entity_t fut) noexcept : fut_(fut) {}
 
@@ -240,7 +241,7 @@ template <typename Alloc, component... Components>
 class _remove_comps :
     _command_impl_base<_remove_comps<Alloc, Components...>, Alloc> {
 public:
-    using future_map_t = typename _command_base<Alloc>::future_map_t;
+    using future_map_t = _command_base<Alloc>::future_map_t;
 
     _remove_comps(entity_t entity) noexcept : entity_(entity) {}
 
@@ -255,7 +256,7 @@ private:
 template <typename Alloc>
 class _kill_fut : _command_impl_base<_kill_fut<Alloc>, Alloc> {
 public:
-    using future_map_t = typename _command_base<Alloc>::future_map_t;
+    using future_map_t = _command_base<Alloc>::future_map_t;
 
     _kill_fut(future_entity_t fut) noexcept : fut_(fut) {}
 
@@ -271,7 +272,7 @@ private:
 template <typename Alloc>
 class _kill : _command_impl_base<_kill<Alloc>, Alloc> {
 public:
-    using future_map_t = typename _command_base<Alloc>::future_map_t;
+    using future_map_t = _command_base<Alloc>::future_map_t;
 
     _kill(entity_t entity) noexcept : entity_(entity) {}
 
@@ -285,7 +286,7 @@ private:
 
 } // namespace _command
 
-template <typename Alloc = std::allocator<std::byte>>
+template <unfancy_allocator Alloc = std::allocator<std::byte>>
 class alignas(std::hardware_destructive_interference_size) command_buffer {
     template <typename Ty>
     using _allocator_t = neutron::rebind_alloc_t<Alloc, Ty>;

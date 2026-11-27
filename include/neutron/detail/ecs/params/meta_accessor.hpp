@@ -23,9 +23,9 @@ class typeinfo {
         : hash_(hash), name_(name) {}
 
 public:
-    ATOM_NODISCARD constexpr uint32_t hash() const noexcept { return hash_; }
+    ATOM_ATTRS(ATOM_NODISCARD) constexpr uint32_t hash() const noexcept { return hash_; }
 
-    ATOM_NODISCARD constexpr std::string_view name() const noexcept {
+    ATOM_ATTRS(ATOM_NODISCARD) constexpr std::string_view name() const noexcept {
         return name_;
     }
 
@@ -70,15 +70,15 @@ public:
         : begin_(begin), end_(end), findhash_(findhash), findname_(findname),
           add_component_(add), remove_component_(rm) {}
 
-    ATOM_NODISCARD _iter_t begin() const noexcept { return begin_(); }
+    ATOM_ATTRS(ATOM_NODISCARD) _iter_t begin() const noexcept { return begin_(); }
 
-    ATOM_NODISCARD _iter_t end() const noexcept { return end_(); }
+    ATOM_ATTRS(ATOM_NODISCARD) _iter_t end() const noexcept { return end_(); }
 
-    ATOM_NODISCARD _iter_t find(uint32_t hash) const noexcept {
+    ATOM_ATTRS(ATOM_NODISCARD) _iter_t find(uint32_t hash) const noexcept {
         return findhash_(hash);
     }
 
-    ATOM_NODISCARD _iter_t find(std::string_view name) const noexcept {
+    ATOM_ATTRS(ATOM_NODISCARD) _iter_t find(std::string_view name) const noexcept {
         return findname_(name);
     }
 
@@ -110,19 +110,19 @@ class _accessor : public basic_meta_accessor<Alloc> {
     };
 
 public:
-    ATOM_NODISCARD static constexpr const typeinfo* begin() noexcept {
+    ATOM_ATTRS(ATOM_NODISCARD) static constexpr const typeinfo* begin() noexcept {
         return info.data();
     }
 
-    ATOM_NODISCARD static constexpr const typeinfo* end() noexcept {
+    ATOM_ATTRS(ATOM_NODISCARD) static constexpr const typeinfo* end() noexcept {
         return info.data() + info.size();
     }
 
-    ATOM_NODISCARD static const typeinfo* findhash(uint32_t hash) noexcept {
+    ATOM_ATTRS(ATOM_NODISCARD) static const typeinfo* findhash(uint32_t hash) noexcept {
         return std::find(begin(), end(), hash);
     }
 
-    ATOM_NODISCARD static const typeinfo*
+    ATOM_ATTRS(ATOM_NODISCARD) static const typeinfo*
         findname(std::string_view name) noexcept {
         return std::find(begin(), end(), name);
     }

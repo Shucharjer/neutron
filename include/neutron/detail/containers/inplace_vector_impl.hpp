@@ -47,13 +47,12 @@ template <typename T, std::size_t N>
 struct inplace_vector_trivial_storage {
     using size_type = packed_uint_t<N>;
 
-    ATOM_ALWAYS_INLINE constexpr T* storage_data() noexcept {
+    ATOM_ATTRS(ATOM_ALWAYS_INLINE) constexpr T* storage_data() noexcept {
         return _storage.data();
     }
 
-    ATOM_ALWAYS_INLINE constexpr const T* storage_data() const noexcept {
-        return _storage.data();
-    }
+    ATOM_ATTRS(ATOM_ALWAYS_INLINE)
+    constexpr const T* storage_data() const noexcept { return _storage.data(); }
 
     size_type _size = 0;
     alignas(alignof(T)) std::array<std::remove_cvref_t<T>, N> _storage{};
@@ -63,11 +62,12 @@ template <typename T, std::size_t N>
 struct inplace_vector_non_trivial_storage { // NOLINT
     using size_type = packed_uint_t<N>;
 
-    ATOM_ALWAYS_INLINE constexpr T* storage_data() noexcept {
+    ATOM_ATTRS(ATOM_ALWAYS_INLINE) constexpr T* storage_data() noexcept {
         return reinterpret_cast<T*>(_storage);
     }
 
-    ATOM_ALWAYS_INLINE constexpr const T* storage_data() const noexcept {
+    ATOM_ATTRS(ATOM_ALWAYS_INLINE)
+    constexpr const T* storage_data() const noexcept {
         return reinterpret_cast<T*>(_storage);
     }
 
@@ -76,23 +76,22 @@ struct inplace_vector_non_trivial_storage { // NOLINT
 };
 
 template <typename T, std::size_t N>
-using storage_for_inplace_vector = typename std::conditional_t<
+using storage_for_inplace_vector = std::conditional_t<
     satisfy_constexpr<T, N>, inplace_vector_trivial_storage<T, N>,
     inplace_vector_non_trivial_storage<T, N>>;
 
 template <std::size_t N>
 struct inplace_container_base {
-    ATOM_NODISCARD ATOM_ALWAYS_INLINE constexpr std::size_t
-        capacity() const noexcept {
+    ATOM_ATTRS(ATOM_NODISCARD, ATOM_ALWAYS_INLINE)
+    constexpr std::size_t capacity() const noexcept { return N; }
+
+    ATOM_ATTRS(ATOM_NODISCARD)
+    ATOM_ATTRS(ATOM_ALWAYS_INLINE)
+    constexpr std::size_t max_size() const noexcept {
         return N;
     }
 
-    ATOM_NODISCARD ATOM_ALWAYS_INLINE constexpr std::size_t
-        max_size() const noexcept {
-        return N;
-    }
-
-    ATOM_ALWAYS_INLINE constexpr void shrink_to_fit() noexcept {}
+    ATOM_ATTRS(ATOM_ALWAYS_INLINE) constexpr void shrink_to_fit() noexcept {}
 };
 
 } // namespace internal
@@ -192,11 +191,11 @@ public:
         _base::_size = 0;
     }
 
-    ATOM_NODISCARD constexpr bool empty() const noexcept {
+    ATOM_ATTRS(ATOM_NODISCARD) constexpr bool empty() const noexcept {
         return _base::_size == 0;
     }
 
-    ATOM_NODISCARD constexpr size_type size() const noexcept {
+    ATOM_ATTRS(ATOM_NODISCARD) constexpr size_type size() const noexcept {
         return _base::_size;
     }
 
@@ -206,8 +205,8 @@ public:
         return storage_data()[index];
     }
 
-    ATOM_NODISCARD constexpr const_reference
-        operator[](size_type index) const noexcept {
+    ATOM_ATTRS(ATOM_NODISCARD)
+    constexpr const_reference operator[](size_type index) const noexcept {
         ATOM_ASSERT(index < N);
         ATOM_ASSUME(index < N);
         return storage_data()[index];
@@ -220,7 +219,8 @@ public:
         return storage_data()[index];
     }
 
-    ATOM_NODISCARD constexpr const_reference at(size_type index) const {
+    ATOM_ATTRS(ATOM_NODISCARD)
+    constexpr const_reference at(size_type index) const {
         if (index >= _base::size) {
             throw std::out_of_range("Index out of bounds");
         }
@@ -229,13 +229,13 @@ public:
 
     constexpr T* data() noexcept { return storage_data(); }
 
-    ATOM_NODISCARD constexpr const T* data() const noexcept {
+    ATOM_ATTRS(ATOM_NODISCARD) constexpr const T* data() const noexcept {
         return storage_data();
     }
 
     constexpr iterator begin() noexcept { return storage_data(); }
 
-    ATOM_NODISCARD constexpr const_iterator begin() const noexcept {
+    ATOM_ATTRS(ATOM_NODISCARD) constexpr const_iterator begin() const noexcept {
         return storage_data();
     }
 
@@ -243,7 +243,7 @@ public:
 
     constexpr iterator end() noexcept { return storage_data() + _base::_size; }
 
-    ATOM_NODISCARD constexpr const_iterator end() const noexcept {
+    ATOM_ATTRS(ATOM_NODISCARD) constexpr const_iterator end() const noexcept {
         return storage_data() + _base::_size;
     }
 
@@ -361,9 +361,13 @@ public:
 
     #endif
 
-    ATOM_NODISCARD constexpr size_type size() const noexcept { return 0; }
+    ATOM_ATTRS(ATOM_NODISCARD) constexpr size_type size() const noexcept {
+        return 0;
+    }
 
-    ATOM_NODISCARD constexpr bool empty() const noexcept { return true; }
+    ATOM_ATTRS(ATOM_NODISCARD) constexpr bool empty() const noexcept {
+        return true;
+    }
 
     constexpr iterator begin() noexcept { return nullptr; }
 

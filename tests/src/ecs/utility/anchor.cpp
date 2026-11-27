@@ -104,6 +104,20 @@ void test_moved_to_anchor_owns_the_elements() {
     require(moved.empty());
 }
 
+void test_push_back_grows_geometrically() {
+    int_anchor values;
+    std::size_t reallocations = 0;
+    const int* last           = nullptr;
+    for (int i = 0; i < 1024; ++i) {
+        values.push_back(i);
+        if (values.data() != last) {
+            ++reallocations;
+            last = values.data();
+        }
+    }
+    require(reallocations <= 12);
+}
+
 } // namespace
 
 int main() {
@@ -111,5 +125,6 @@ int main() {
     test_data_reference_follows_reallocation();
     test_span_writes_through_to_storage();
     test_moved_to_anchor_owns_the_elements();
+    test_push_back_grows_geometrically();
     return neutron_test::result();
 }

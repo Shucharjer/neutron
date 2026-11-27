@@ -53,7 +53,7 @@ concept simdjson_object_like =
  * @return An error code, `SUCCESS` on success.
  */
 template <typename Member>
-ATOM_NODISCARD inline auto deserialize_member(
+ATOM_ATTRS(ATOM_NODISCARD) inline auto deserialize_member(
     ::simdjson::ondemand::object& object, ::std::string_view name,
     Member& member) -> ::simdjson::error_code {
     auto field = object[name];
@@ -88,7 +88,7 @@ ATOM_NODISCARD inline auto deserialize_member(
  * be read stops the walk and its error is returned.
  */
 template <typename SimdjsonValue, simdjson_object_like Ty>
-ATOM_NODISCARD inline auto deserialize_object(SimdjsonValue& value, Ty& object)
+ATOM_ATTRS(ATOM_NODISCARD) inline auto deserialize_object(SimdjsonValue& value, Ty& object)
     -> ::simdjson::error_code {
     ::simdjson::ondemand::object json{};
     if constexpr (::std::is_same_v<
@@ -236,7 +236,7 @@ namespace neutron {
  */
 template <typename Ty, typename Source>
 requires internal::simdjson_readable<::std::remove_reference_t<Source>, Ty>
-ATOM_NODISCARD inline auto deserialize(Source&& source, Ty& object)
+ATOM_ATTRS(ATOM_NODISCARD) inline auto deserialize(Source&& source, Ty& object)
     -> simdjson::error_code {
     return source.get(object);
 }
@@ -251,7 +251,7 @@ ATOM_NODISCARD inline auto deserialize(Source&& source, Ty& object)
 template <typename Ty, typename Source>
 requires internal::simdjson_readable<::std::remove_reference_t<Source>, Ty> &&
          ::std::is_default_constructible_v<Ty>
-ATOM_NODISCARD inline auto deserialize(Source&& source)
+ATOM_ATTRS(ATOM_NODISCARD) inline auto deserialize(Source&& source)
     -> simdjson::simdjson_result<Ty> {
     Ty object{};
     if (const auto error = source.get(object); error) {
@@ -279,7 +279,7 @@ inline void
  * @return An error code, `simdjson::SUCCESS` on success.
  */
 template <internal::simdjson_writable Ty>
-ATOM_NODISCARD inline auto serialize(::std::string& out, const Ty& object)
+ATOM_ATTRS(ATOM_NODISCARD) inline auto serialize(::std::string& out, const Ty& object)
     -> simdjson::error_code {
     return simdjson::to_json(object, out);
 }
@@ -290,7 +290,7 @@ ATOM_NODISCARD inline auto serialize(::std::string& out, const Ty& object)
  * @return The JSON text, or the error that stopped the write.
  */
 template <internal::simdjson_writable Ty>
-ATOM_NODISCARD inline auto serialize(const Ty& object)
+ATOM_ATTRS(ATOM_NODISCARD) inline auto serialize(const Ty& object)
     -> simdjson::simdjson_result<::std::string> {
     return simdjson::to_json(object);
 }

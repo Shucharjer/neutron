@@ -117,7 +117,7 @@ public:
         lhs.swap(rhs);
     }
 
-    ATOM_NODISCARD bool is_open() const noexcept { return file_.is_open(); }
+    ATOM_ATTRS(ATOM_NODISCARD) bool is_open() const noexcept { return file_.is_open(); }
 
     /**
      * @brief Open a file, following `std::basic_filebuf::open`.
@@ -199,7 +199,7 @@ public:
     }
 
     /// @brief Size of a window in bytes, zero if no file is open.
-    ATOM_NODISCARD size_type window_size() const noexcept {
+    ATOM_ATTRS(ATOM_NODISCARD) size_type window_size() const noexcept {
         return window_length_ * sizeof(char_type);
     }
 
@@ -333,7 +333,7 @@ protected:
     }
 
 private:
-    ATOM_NODISCARD static constexpr bool _has(
+    ATOM_ATTRS(ATOM_NODISCARD) static constexpr bool _has(
         std::ios_base::openmode mode, std::ios_base::openmode flag) noexcept {
         return (mode & flag) != std::ios_base::openmode{};
     }
@@ -396,25 +396,25 @@ private:
         return bytes % sizeof(char_type) == 0 ? bytes / sizeof(char_type) : 0;
     }
 
-    ATOM_NODISCARD static pos_type _bad_pos() noexcept {
+    ATOM_ATTRS(ATOM_NODISCARD) static pos_type _bad_pos() noexcept {
         return pos_type(static_cast<off_type>(-1));
     }
 
-    ATOM_NODISCARD bool _readable() const noexcept {
+    ATOM_ATTRS(ATOM_NODISCARD) bool _readable() const noexcept {
         return _has(mode_, std::ios_base::in);
     }
 
-    ATOM_NODISCARD bool _writable() const noexcept {
+    ATOM_ATTRS(ATOM_NODISCARD) bool _writable() const noexcept {
         return _has(mode_, std::ios_base::out);
     }
 
-    ATOM_NODISCARD bool _appending() const noexcept {
+    ATOM_ATTRS(ATOM_NODISCARD) bool _appending() const noexcept {
         return _has(mode_, std::ios_base::app);
     }
 
     /// The put area is set while writing, the get area while reading;
     /// otherwise the position is `pos_`.
-    ATOM_NODISCARD _offset _tell() const noexcept {
+    ATOM_ATTRS(ATOM_NODISCARD) _offset _tell() const noexcept {
         if (this->pptr() != nullptr) {
             return base_ + static_cast<_offset>(this->pptr() - view_);
         }
@@ -425,13 +425,13 @@ private:
     }
 
     /// End of the content, in characters.
-    ATOM_NODISCARD _offset _end() const noexcept {
+    ATOM_ATTRS(ATOM_NODISCARD) _offset _end() const noexcept {
         return this->pptr() != nullptr ? (std::max)(size_, _tell()) : size_;
     }
 
     /// Size the file has when closed; trailing bytes of the opened file that
     /// do not form a character are kept.
-    ATOM_NODISCARD _offset _content_bytes() const noexcept {
+    ATOM_ATTRS(ATOM_NODISCARD) _offset _content_bytes() const noexcept {
         return (std::max)(_end() * sizeof(char_type), opened_size_);
     }
 
@@ -473,7 +473,7 @@ private:
         return true;
     }
 
-    ATOM_NODISCARD _offset _window_base(_offset pos) const noexcept {
+    ATOM_ATTRS(ATOM_NODISCARD) _offset _window_base(_offset pos) const noexcept {
         return pos - (pos % window_length_);
     }
 

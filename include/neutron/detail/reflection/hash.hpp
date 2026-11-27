@@ -156,7 +156,7 @@ using hash_sequence_t = typename hash_sequence<TypeList, Hasher, Compare>::type;
 template <
     typename TypeList, auto Hasher = internal::hash,
     template <typename, typename> typename Compare = hash_less>
-ATOM_NODISCARD consteval auto make_hash_array() noexcept {
+ATOM_ATTRS(ATOM_NODISCARD) consteval auto make_hash_array() noexcept {
     return make_array<hash_value_t<TypeList>>();
 }
 
@@ -174,7 +174,7 @@ ATOM_NODISCARD consteval auto make_hash_array() noexcept {
 template <
     typename TypeList, auto Hasher = internal::hash,
     template <typename, typename> typename Compare = hash_less>
-ATOM_NODISCARD consteval long_hash_t make_array_hash() noexcept {
+ATOM_ATTRS(ATOM_NODISCARD) consteval long_hash_t make_array_hash() noexcept {
     auto array = make_hash_array<TypeList, Hasher, Compare>();
     return internal::hash_combine(array);
 }
@@ -187,7 +187,7 @@ ATOM_NODISCARD consteval long_hash_t make_array_hash() noexcept {
  * @return The combined hash value.
  */
 template <std::ranges::range Range>
-ATOM_NODISCARD constexpr long_hash_t hash_combine(Range&& range) noexcept {
+ATOM_ATTRS(ATOM_NODISCARD) constexpr long_hash_t hash_combine(Range&& range) noexcept {
     return internal::hash_combine(std::forward<Range>(range));
 }
 
@@ -201,7 +201,7 @@ ATOM_NODISCARD constexpr long_hash_t hash_combine(Range&& range) noexcept {
  * @return The combined hash value computed at compile time.
  */
 template <std::ranges::range Range>
-ATOM_NODISCARD consteval long_hash_t
+ATOM_ATTRS(ATOM_NODISCARD) consteval long_hash_t
     hash_combine(immediately_t, const Range& range) noexcept {
     return internal::hash_combine(range);
 }

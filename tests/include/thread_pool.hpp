@@ -70,7 +70,7 @@ public:
         return pool_ == that.pool_;
     }
 
-    ATOM_NODISCARD
+    ATOM_ATTRS(ATOM_NODISCARD)
     constexpr auto query( // NOLINT
         ::neutron::execution::get_forward_progress_guarantee_t) const noexcept {
         return neutron::execution::forward_progress_guarantee::parallel;
@@ -156,7 +156,7 @@ class thread_pool {
 public:
     _scheduler get_scheduler() { return _scheduler{ this }; }
 
-    ATOM_NODISCARD size_t available_parallelism() const noexcept {
+    ATOM_ATTRS(ATOM_NODISCARD) size_t available_parallelism() const noexcept {
         return threads_.size();
     }
 

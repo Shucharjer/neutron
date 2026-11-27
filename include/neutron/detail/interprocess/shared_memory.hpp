@@ -167,15 +167,15 @@ public:
 
     ~shared_memory() noexcept { _close(); }
 
-    ATOM_NODISCARD void* data() noexcept { return addr_; }
-    ATOM_NODISCARD const void* data() const noexcept { return addr_; }
+    ATOM_ATTRS(ATOM_NODISCARD) void* data() noexcept { return addr_; }
+    ATOM_ATTRS(ATOM_NODISCARD) const void* data() const noexcept { return addr_; }
 
-    ATOM_NODISCARD size_type size() const noexcept { return size_; }
+    ATOM_ATTRS(ATOM_NODISCARD) size_type size() const noexcept { return size_; }
 
-    ATOM_NODISCARD auto span() noexcept -> std::span<std::byte> {
+    ATOM_ATTRS(ATOM_NODISCARD) auto span() noexcept -> std::span<std::byte> {
         return { static_cast<std::byte*>(addr_), size_ };
     }
-    ATOM_NODISCARD auto span() const noexcept -> std::span<const std::byte> {
+    ATOM_ATTRS(ATOM_NODISCARD) auto span() const noexcept -> std::span<const std::byte> {
         return { static_cast<const std::byte*>(addr_), size_ };
     }
 

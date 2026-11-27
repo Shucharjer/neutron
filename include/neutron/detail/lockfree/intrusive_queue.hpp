@@ -24,7 +24,7 @@ public:
 
     constexpr ~intrusive_queue() noexcept { ATOM_ASSERT(empty()); }
 
-    ATOM_NODISCARD constexpr bool empty() const noexcept {
+    ATOM_ATTRS(ATOM_NODISCARD) constexpr bool empty() const noexcept {
         return head_ == nullptr;
     }
 

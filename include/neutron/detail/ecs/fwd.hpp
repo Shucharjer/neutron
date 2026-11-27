@@ -1,25 +1,26 @@
 // IWYU pragma: private, include <neutron/ecs.hpp>
 #pragma once
 #include <type_traits>
+#include "neutron/detail/concepts/allocator.hpp"
 
 namespace neutron {
 
-template <typename Alloc>
+template <unfancy_allocator Alloc>
 class archetype;
 
-template <typename Alloc>
+template <unfancy_allocator Alloc>
 class world_base;
 
-template <typename Alloc>
+template <unfancy_allocator Alloc>
 class command_buffer;
 
-template <typename Alloc>
+template <unfancy_allocator Alloc>
 class basic_command_list;
 
-template <typename Alloc>
+template <unfancy_allocator Alloc>
 class basic_commands;
 
-template <typename Descriptor, typename Alloc>
+template <typename Descriptor, unfancy_allocator Alloc>
 class basic_world;
 
 template <typename...>
@@ -38,7 +39,7 @@ concept world = _is_world<std::remove_cvref_t<World>>;
 } // namespace internal
 namespace _world_base {
 
-template <typename>
+template <unfancy_allocator>
 class world_base;
 
 }

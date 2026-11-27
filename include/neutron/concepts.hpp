@@ -15,7 +15,7 @@
 #include "neutron/detail/concepts/same.hpp"
 #include "neutron/detail/concepts/tag_invoke.hpp"
 #include "neutron/detail/concepts/tagged.hpp"
-#include "neutron/detail/concepts/trivially_relocatable.hpp"
+#include "neutron/detail/concepts/trivially_relocatible.hpp"
 #include "neutron/detail/concepts/tuple_like.hpp"
 #include "neutron/detail/concepts/value.hpp"
 

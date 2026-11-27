@@ -77,7 +77,7 @@ public:
         _release_storage();
     }
 
-    ATOM_NODISCARD constexpr auto get_allocator() const noexcept
+    ATOM_ATTRS(ATOM_NODISCARD) constexpr auto get_allocator() const noexcept
         -> allocator_type {
         return alloc_;
     }
@@ -93,7 +93,7 @@ public:
      * @return A const reference to the pointer pointing to the beginning of the
      * buffer.
      */
-    ATOM_NODISCARD constexpr auto data() noexcept -> pointer const& {
+    ATOM_ATTRS(ATOM_NODISCARD) constexpr auto data() noexcept -> pointer const& {
         return data_;
     }
 
@@ -103,36 +103,36 @@ public:
      * @return A const reference to the pointer pointing to the beginning of the
      * buffer.
      */
-    ATOM_NODISCARD constexpr auto data() const noexcept
+    ATOM_ATTRS(ATOM_NODISCARD) constexpr auto data() const noexcept
         -> const_pointer const& {
         return data_;
     }
 
-    ATOM_NODISCARD constexpr auto begin() noexcept -> iterator {
+    ATOM_ATTRS(ATOM_NODISCARD) constexpr auto begin() noexcept -> iterator {
         return iterator{ data_ };
     }
 
-    ATOM_NODISCARD constexpr auto begin() const noexcept -> const_iterator {
+    ATOM_ATTRS(ATOM_NODISCARD) constexpr auto begin() const noexcept -> const_iterator {
         return const_iterator{ data_ };
     }
 
-    ATOM_NODISCARD constexpr auto end() noexcept -> iterator {
+    ATOM_ATTRS(ATOM_NODISCARD) constexpr auto end() noexcept -> iterator {
         return iterator{ data_ + size_ };
     }
 
-    ATOM_NODISCARD constexpr auto end() const noexcept -> const_iterator {
+    ATOM_ATTRS(ATOM_NODISCARD) constexpr auto end() const noexcept -> const_iterator {
         return const_iterator{ data_ + size_ };
     }
 
-    ATOM_NODISCARD constexpr auto size() const noexcept -> size_type {
+    ATOM_ATTRS(ATOM_NODISCARD) constexpr auto size() const noexcept -> size_type {
         return size_;
     }
 
-    ATOM_NODISCARD constexpr auto capacity() const noexcept -> size_type {
+    ATOM_ATTRS(ATOM_NODISCARD) constexpr auto capacity() const noexcept -> size_type {
         return capacity_;
     }
 
-    ATOM_NODISCARD constexpr auto empty() const noexcept -> bool {
+    ATOM_ATTRS(ATOM_NODISCARD) constexpr auto empty() const noexcept -> bool {
         return size_ == 0;
     }
 
@@ -186,21 +186,21 @@ public:
         allocator_traits::destroy(alloc_, data_ + size_);
     }
 
-    ATOM_NODISCARD constexpr auto operator[](size_type index) noexcept
+    ATOM_ATTRS(ATOM_NODISCARD) constexpr auto operator[](size_type index) noexcept
         -> reference {
         return data_[index];
     }
 
-    ATOM_NODISCARD constexpr auto operator[](size_type index) const noexcept
+    ATOM_ATTRS(ATOM_NODISCARD) constexpr auto operator[](size_type index) const noexcept
         -> const_reference {
         return data_[index];
     }
 
-    ATOM_NODISCARD constexpr auto back() noexcept -> reference {
+    ATOM_ATTRS(ATOM_NODISCARD) constexpr auto back() noexcept -> reference {
         return data_[size_ - 1];
     }
 
-    ATOM_NODISCARD constexpr auto back() const noexcept -> const_reference {
+    ATOM_ATTRS(ATOM_NODISCARD) constexpr auto back() const noexcept -> const_reference {
         return data_[size_ - 1];
     }
 
@@ -213,14 +213,14 @@ private:
         capacity_ = 0;
     }
 
-    ATOM_NODISCARD static constexpr auto
+    ATOM_ATTRS(ATOM_NODISCARD) static constexpr auto
         _growth_capacity(size_type min_capacity) noexcept -> size_type {
         if (min_capacity <= 1) [[unlikely]] {
             return 1;
         }
 
         const size_type doubled = min_capacity << 1;
-        return std::min(doubled, min_capacity);
+        return std::max(doubled, min_capacity);
     }
 
     constexpr auto _destroy_n(pointer ptr, size_type count) noexcept -> void {

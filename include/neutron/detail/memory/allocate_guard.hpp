@@ -79,13 +79,13 @@ public:
 
     /// @brief Returns the I-th allocation; the guard still owns it.
     template <std::size_t I>
-    ATOM_NODISCARD constexpr auto get() const& noexcept {
+    ATOM_ATTRS(ATOM_NODISCARD) constexpr auto get() const& noexcept {
         return std::get<I>(ptrs_);
     }
 
     /// @brief Takes ownership of the I-th allocation.
     template <std::size_t I>
-    ATOM_NODISCARD constexpr auto get() && noexcept {
+    ATOM_ATTRS(ATOM_NODISCARD) constexpr auto get() && noexcept {
         return std::exchange(std::get<I>(ptrs_), nullptr);
     }
 
@@ -116,7 +116,7 @@ struct allocate_guard :
  * is destroyed, including when a later allocation throws.
  */
 template <typename... Args, typename Alloc = std::allocator<std::byte>>
-ATOM_NODISCARD ATOM_CONSTEXPR_SINCE_CXX20 auto
+ATOM_ATTRS(ATOM_NODISCARD) ATOM_CONSTEXPR_SINCE_CXX20 auto
     make_allocate_guard(std::size_t n, const Alloc& alloc = {}) {
     return allocate_guard<Alloc, Args...>(n, alloc);
 }

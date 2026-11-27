@@ -101,7 +101,7 @@ public:
         file_.close();
     }
 
-    ATOM_NODISCARD bool is_open() const noexcept { return file_.is_open(); }
+    ATOM_ATTRS(ATOM_NODISCARD) bool is_open() const noexcept { return file_.is_open(); }
 
     /**
      * @brief Resize the file and remap it; a grown part reads as zeros.
@@ -141,47 +141,47 @@ public:
         file_.flush(data_, size(), false);
     }
 
-    ATOM_NODISCARD pointer data() noexcept { return data_; }
-    ATOM_NODISCARD const_pointer data() const noexcept { return data_; }
+    ATOM_ATTRS(ATOM_NODISCARD) pointer data() noexcept { return data_; }
+    ATOM_ATTRS(ATOM_NODISCARD) const_pointer data() const noexcept { return data_; }
 
     /// @brief Size of the file in bytes.
-    ATOM_NODISCARD size_type size() const noexcept {
+    ATOM_ATTRS(ATOM_NODISCARD) size_type size() const noexcept {
         return static_cast<size_type>(file_.size());
     }
 
-    ATOM_NODISCARD bool empty() const noexcept { return size() == 0; }
+    ATOM_ATTRS(ATOM_NODISCARD) bool empty() const noexcept { return size() == 0; }
 
-    ATOM_NODISCARD reference operator[](size_type n) noexcept {
+    ATOM_ATTRS(ATOM_NODISCARD) reference operator[](size_type n) noexcept {
         ATOM_ASSERT(n < size());
         return data_[n];
     }
 
-    ATOM_NODISCARD const_reference operator[](size_type n) const noexcept {
+    ATOM_ATTRS(ATOM_NODISCARD) const_reference operator[](size_type n) const noexcept {
         ATOM_ASSERT(n < size());
         return data_[n];
     }
 
     /// @throws std::out_of_range `n` is not less than `size()`.
-    ATOM_NODISCARD reference at(size_type n) {
+    ATOM_ATTRS(ATOM_NODISCARD) reference at(size_type n) {
         _check_index(n);
         return data_[n];
     }
 
     /// @throws std::out_of_range `n` is not less than `size()`.
-    ATOM_NODISCARD const_reference at(size_type n) const {
+    ATOM_ATTRS(ATOM_NODISCARD) const_reference at(size_type n) const {
         _check_index(n);
         return data_[n];
     }
 
-    ATOM_NODISCARD iterator begin() noexcept { return data_; }
-    ATOM_NODISCARD const_iterator begin() const noexcept { return data_; }
-    ATOM_NODISCARD const_iterator cbegin() const noexcept { return data_; }
+    ATOM_ATTRS(ATOM_NODISCARD) iterator begin() noexcept { return data_; }
+    ATOM_ATTRS(ATOM_NODISCARD) const_iterator begin() const noexcept { return data_; }
+    ATOM_ATTRS(ATOM_NODISCARD) const_iterator cbegin() const noexcept { return data_; }
 
-    ATOM_NODISCARD iterator end() noexcept { return data_ + size(); }
-    ATOM_NODISCARD const_iterator end() const noexcept {
+    ATOM_ATTRS(ATOM_NODISCARD) iterator end() noexcept { return data_ + size(); }
+    ATOM_ATTRS(ATOM_NODISCARD) const_iterator end() const noexcept {
         return data_ + size();
     }
-    ATOM_NODISCARD const_iterator cend() const noexcept { return end(); }
+    ATOM_ATTRS(ATOM_NODISCARD) const_iterator cend() const noexcept { return end(); }
 
 private:
     void _open(const char* path, file_creation creation) {

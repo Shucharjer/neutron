@@ -21,7 +21,6 @@ option(NEUTRON_INSTALL "Install neutron" ON)
 option(NEUTRON_BUILD_DOCS "Build documentation for neutron" OFF)
 option(NEUTRON_USES_STDEXEC "uses stdexec as execution control library implementation, which supports c++20" OFF)
 option(NEUTRON_USES_BEMAN_EXECUTION "uses beman::execution as execution control library implementation, which needs a compiler that supports at least c++23" OFF)
-option(NEUTRON_ALIGNED_ALLOCATION "specify whether containers like 'archetype' uses ::operator new(size, align), if set OFF, allocate via allocator" ON)
 option(BUILD_NEUTRON_TESTING "Build test for neutron" OFF)
 option(BUILD_NEUTRON_BENCHMARK "Build benchmark for neutron" OFF)
 option(BUILD_NEUTRON_EXAMPLES "Build examples for neutron" OFF)
@@ -197,9 +196,6 @@ elseif(NEUTRON_USES_BEMAN_EXECUTION)
   FetchContent_MakeAvailable(beman_execution)
   target_link_libraries(neutron INTERFACE beman::execution_headers)
 endif()
-
-target_compile_definitions(neutron INTERFACE
-  $<$<BOOL:${NEUTRON_ALIGNED_ALLOCATION}>:NEUTRON_ALIGNED_ALLOCATION>)
 
 include(exec)
 

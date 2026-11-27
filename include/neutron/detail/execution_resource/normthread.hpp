@@ -21,7 +21,7 @@ public:
 
     auto get_scheduler() noexcept { return loop_.get_scheduler(); }
 
-    ATOM_NODISCARD
+    ATOM_ATTRS(ATOM_NODISCARD)
     auto get_id() const noexcept -> std::thread::id { return thread_.get_id(); }
 
 private:

@@ -17,7 +17,7 @@ concept _file_path =
     std::convertible_to<const Path&, const char*> || _is_string<Path>;
 
 template <_file_path Path>
-ATOM_NODISCARD constexpr const char* _path_c_str(const Path& path) {
+ATOM_ATTRS(ATOM_NODISCARD) constexpr const char* _path_c_str(const Path& path) {
     if constexpr (std::convertible_to<const Path&, const char*>) {
         return path;
     } else {

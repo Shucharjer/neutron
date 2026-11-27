@@ -44,7 +44,7 @@ public:
     }
 
     template <stage Stage, execution::scheduler Scheduler>
-    ATOM_NODISCARD execution::sender auto
+    ATOM_ATTRS(ATOM_NODISCARD) execution::sender auto
         run(Scheduler scheduler, _time_point_t time) & {
         return world_.template run<Stage>(scheduler, time);
     }
@@ -74,7 +74,7 @@ public:
     }
 
     template <stage Stage, execution::scheduler Scheduler>
-    ATOM_NODISCARD execution::sender auto
+    ATOM_ATTRS(ATOM_NODISCARD) execution::sender auto
         run(Scheduler scheduler, _time_point_t time) & {
         return _run<Stage, 0>(scheduler, time);
     }
@@ -119,7 +119,7 @@ public:
     }
 
     template <stage Stage, execution::scheduler Scheduler>
-    ATOM_NODISCARD execution::sender auto
+    ATOM_ATTRS(ATOM_NODISCARD) execution::sender auto
         run(Scheduler scheduler, _time_point_t time) & {
         return world_.template run<Stage>(scheduler, time);
     }
@@ -217,7 +217,7 @@ public:
     explicit run_envs(const Alloc& = {}) {}
 
     template <stage Stage, execution::scheduler Scheduler>
-    ATOM_NODISCARD execution::sender auto
+    ATOM_ATTRS(ATOM_NODISCARD) execution::sender auto
         run(Scheduler, _time_point_t = std::chrono::system_clock::now()) & {
         return execution::just();
     }
@@ -233,7 +233,7 @@ public:
         : run_envs(std::index_sequence_for<Env, Others...>{}, alloc) {}
 
     template <stage Stage, execution::scheduler Scheduler>
-    ATOM_NODISCARD execution::sender auto
+    ATOM_ATTRS(ATOM_NODISCARD) execution::sender auto
         run(Scheduler scheduler,
             _time_point_t time = std::chrono::system_clock::now()) & {
         if constexpr (sizeof...(Others) == 0) {

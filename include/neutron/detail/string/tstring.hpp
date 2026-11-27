@@ -54,23 +54,23 @@ struct tstring {
         return stream;
     }
 
-    ATOM_NODISCARD constexpr bool empty() const noexcept { return Length == 1; }
+    ATOM_ATTRS(ATOM_NODISCARD) constexpr bool empty() const noexcept { return Length == 1; }
 
-    ATOM_NODISCARD constexpr const char* data() const noexcept { return value; }
+    ATOM_ATTRS(ATOM_NODISCARD) constexpr const char* data() const noexcept { return value; }
 
-    ATOM_NODISCARD constexpr const char* c_str() const noexcept {
+    ATOM_ATTRS(ATOM_NODISCARD) constexpr const char* c_str() const noexcept {
         return value;
     }
 
-    ATOM_NODISCARD constexpr size_t size() const noexcept { return Length - 1; }
+    ATOM_ATTRS(ATOM_NODISCARD) constexpr size_t size() const noexcept { return Length - 1; }
 
-    ATOM_NODISCARD constexpr size_t length() const noexcept {
+    ATOM_ATTRS(ATOM_NODISCARD) constexpr size_t length() const noexcept {
         return Length - 1;
     }
 
-    ATOM_NODISCARD constexpr size_t capacity() const noexcept { return Length; }
+    ATOM_ATTRS(ATOM_NODISCARD) constexpr size_t capacity() const noexcept { return Length; }
 
-    ATOM_NODISCARD constexpr std::string_view view() const noexcept {
+    ATOM_ATTRS(ATOM_NODISCARD) constexpr std::string_view view() const noexcept {
         return value;
     }
 

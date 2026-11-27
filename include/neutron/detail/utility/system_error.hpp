@@ -18,7 +18,7 @@ namespace neutron {
  *
  * `GetLastError()` on Windows, `errno` elsewhere.
  */
-ATOM_NODISCARD inline int last_system_error() noexcept {
+ATOM_ATTRS(ATOM_NODISCARD) inline int last_system_error() noexcept {
 #if defined(_WIN32)
     return static_cast<int>(::GetLastError());
 #else

@@ -52,32 +52,22 @@ jobs:
             cxx_standard: 20
             stdexec: "ON"
             beman: "OFF"
-            aligned_allocation: "ON"
-          - name: stdexec-no-aligned-allocation
-            cxx_standard: 20
-            stdexec: "ON"
-            beman: "OFF"
-            aligned_allocation: "OFF"
           - name: stdexec
             cxx_standard: 23
             stdexec: "ON"
             beman: "OFF"
-            aligned_allocation: "ON"
           - name: beman
             cxx_standard: 23
             stdexec: "OFF"
             beman: "ON"
-            aligned_allocation: "ON"
           - name: stdexec
             cxx_standard: 26
             stdexec: "ON"
             beman: "OFF"
-            aligned_allocation: "ON"
           - name: beman
             cxx_standard: 26
             stdexec: "OFF"
             beman: "ON"
-            aligned_allocation: "ON"
 
     steps:
       - name: Install dependencies
@@ -112,7 +102,6 @@ jobs:
             -DCMAKE_CXX_COMPILER=${{ matrix.compiler.cxx }} \
             -DNEUTRON_INSTALL=OFF \
             -DBUILD_NEUTRON_TESTING=ON \
-            -DNEUTRON_ALIGNED_ALLOCATION=${{ matrix.config.aligned_allocation }} \
             -DNEUTRON_USES_STDEXEC=${{ matrix.config.stdexec }} \
             -DNEUTRON_USES_BEMAN_EXECUTION=${{ matrix.config.beman }}
 
@@ -176,7 +165,6 @@ jobs:
             cxx_standard: 26
             stdexec: "OFF"
             beman: "ON"
-        aligned_allocation: ["ON", "OFF"]
 
     steps:
       - name: Install dependencies
@@ -198,7 +186,6 @@ jobs:
             -DCMAKE_CXX_EXTENSIONS=OFF \
             -DNEUTRON_INSTALL=OFF \
             -DBUILD_NEUTRON_TESTING=ON \
-            -DNEUTRON_ALIGNED_ALLOCATION=${{ matrix.aligned_allocation }} \
             -DNEUTRON_USES_STDEXEC=${{ matrix.config.stdexec }} \
             -DNEUTRON_USES_BEMAN_EXECUTION=${{ matrix.config.beman }}
 
@@ -228,32 +215,22 @@ jobs:
             cxx_standard: 20
             stdexec: "ON"
             beman: "OFF"
-            aligned_allocation: "ON"
-          - name: stdexec-no-aligned-allocation
-            cxx_standard: 20
-            stdexec: "ON"
-            beman: "OFF"
-            aligned_allocation: "OFF"
           - name: stdexec
             cxx_standard: 23
             stdexec: "ON"
             beman: "OFF"
-            aligned_allocation: "ON"
           - name: beman
             cxx_standard: 23
             stdexec: "OFF"
             beman: "ON"
-            aligned_allocation: "ON"
           - name: stdexec
             cxx_standard: 26
             stdexec: "ON"
             beman: "OFF"
-            aligned_allocation: "ON"
           - name: beman
             cxx_standard: 26
             stdexec: "OFF"
             beman: "ON"
-            aligned_allocation: "ON"
 
     steps:
       - name: Checkout
@@ -289,7 +266,6 @@ jobs:
             -DCMAKE_CXX_EXTENSIONS=OFF `
             -DNEUTRON_INSTALL=OFF `
             -DBUILD_NEUTRON_TESTING=ON `
-            -DNEUTRON_ALIGNED_ALLOCATION=${{ matrix.config.aligned_allocation }} `
             -DNEUTRON_USES_STDEXEC=${{ matrix.config.stdexec }} `
             -DNEUTRON_USES_BEMAN_EXECUTION=${{ matrix.config.beman }}
 
@@ -306,7 +282,6 @@ jobs:
             -DCMAKE_CXX_EXTENSIONS=OFF `
             -DNEUTRON_INSTALL=OFF `
             -DBUILD_NEUTRON_TESTING=ON `
-            -DNEUTRON_ALIGNED_ALLOCATION=${{ matrix.config.aligned_allocation }} `
             -DNEUTRON_USES_STDEXEC=${{ matrix.config.stdexec }} `
             -DNEUTRON_USES_BEMAN_EXECUTION=${{ matrix.config.beman }}
 
@@ -338,32 +313,22 @@ jobs:
             cxx_standard: 20
             stdexec: "ON"
             beman: "OFF"
-            aligned_allocation: "ON"
-          - name: stdexec-no-aligned-allocation
-            cxx_standard: 20
-            stdexec: "ON"
-            beman: "OFF"
-            aligned_allocation: "OFF"
           - name: stdexec
             cxx_standard: 23
             stdexec: "ON"
             beman: "OFF"
-            aligned_allocation: "ON"
           - name: beman
             cxx_standard: 23
             stdexec: "OFF"
             beman: "ON"
-            aligned_allocation: "ON"
           - name: stdexec
             cxx_standard: 26
             stdexec: "ON"
             beman: "OFF"
-            aligned_allocation: "ON"
           - name: beman
             cxx_standard: 26
             stdexec: "OFF"
             beman: "ON"
-            aligned_allocation: "ON"
 
     steps:
       - name: Checkout
@@ -381,7 +346,6 @@ jobs:
             -DCMAKE_CXX_EXTENSIONS=OFF \
             -DNEUTRON_INSTALL=OFF \
             -DBUILD_NEUTRON_TESTING=ON \
-            -DNEUTRON_ALIGNED_ALLOCATION=${{ matrix.config.aligned_allocation }} \
             -DNEUTRON_USES_STDEXEC=${{ matrix.config.stdexec }} \
             -DNEUTRON_USES_BEMAN_EXECUTION=${{ matrix.config.beman }}
 

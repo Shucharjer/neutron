@@ -85,8 +85,8 @@ public:
     constexpr bitstream(std::byte* byte, std::size_t length) noexcept
         : byte_(byte), length_(length) {}
 
-    ATOM_NODISCARD constexpr void* data() noexcept { return byte_; }
-    ATOM_NODISCARD constexpr const void* data() const noexcept { return byte_; }
+    ATOM_ATTRS(ATOM_NODISCARD) constexpr void* data() noexcept { return byte_; }
+    ATOM_ATTRS(ATOM_NODISCARD) constexpr const void* data() const noexcept { return byte_; }
 
 private:
     std::byte* byte_    = nullptr;
@@ -94,22 +94,22 @@ private:
 };
 
 struct _bitviewer {
-    ATOM_NODISCARD static constexpr auto data(bitstream& bs) noexcept
+    ATOM_ATTRS(ATOM_NODISCARD) static constexpr auto data(bitstream& bs) noexcept
         -> std::byte*& {
         return bs.byte_;
     }
 
-    ATOM_NODISCARD static constexpr auto data(const bitstream& bs) noexcept
+    ATOM_ATTRS(ATOM_NODISCARD) static constexpr auto data(const bitstream& bs) noexcept
         -> const std::byte* {
         return bs.byte_;
     }
 
-    ATOM_NODISCARD static constexpr auto length(bitstream& bs) noexcept
+    ATOM_ATTRS(ATOM_NODISCARD) static constexpr auto length(bitstream& bs) noexcept
         -> std::size_t& {
         return bs.length_;
     }
 
-    ATOM_NODISCARD static constexpr auto length(const bitstream& bs) noexcept
+    ATOM_ATTRS(ATOM_NODISCARD) static constexpr auto length(const bitstream& bs) noexcept
         -> std::size_t {
         return bs.length_;
     }

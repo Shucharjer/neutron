@@ -11,8 +11,8 @@
 namespace neutron {
 
 template <typename Ty>
-using trivially_relocatable =
-    std::is_trivially_relocatable_v<Ty>; // the prossible interface
+using trivially_relocatible =
+    std::is_trivially_relocatible_v<Ty>; // the prossible interface
 
 }
 
@@ -29,9 +29,9 @@ using trivially_relocatable =
 
 namespace neutron {
 
-namespace _trivially_relocatable {
+namespace _trivially_relocatible {
 
-consteval bool _is_trivially_relocatable(std::meta::info type);
+consteval bool _is_trivially_relocatible(std::meta::info type);
 
 /// @note Private bases and members must be inspected as well, so all queries
 /// use an unchecked access context.
@@ -46,29 +46,29 @@ consteval bool _has_no_virtual_base_class(std::meta::info type) {
         });
 }
 
-consteval bool _is_trivially_relocatable_subobject(std::meta::info subobject) {
+consteval bool _is_trivially_relocatible_subobject(std::meta::info subobject) {
     const auto type = std::meta::type_of(subobject);
     return std::meta::is_reference_type(type) ||
-           _is_trivially_relocatable(type);
+           _is_trivially_relocatible(type);
 }
 
-consteval bool _has_trivially_relocatable_subobjects(std::meta::info type) {
+consteval bool _has_trivially_relocatible_subobjects(std::meta::info type) {
     return std::ranges::all_of(
                std::meta::bases_of(type, _context()),
-               _is_trivially_relocatable_subobject) &&
+               _is_trivially_relocatible_subobject) &&
            std::ranges::all_of(
                std::meta::nonstatic_data_members_of(type, _context()),
-               _is_trivially_relocatable_subobject);
+               _is_trivially_relocatible_subobject);
 }
 
 consteval bool _is_eligible_for_relocation(std::meta::info type) {
     return _has_no_virtual_base_class(type) &&
-           _has_trivially_relocatable_subobjects(type) &&
+           _has_trivially_relocatible_subobjects(type) &&
            std::meta::is_destructible_type(type);
 }
 
-consteval bool _is_trivially_relocatable_if_eligible(std::meta::info) {
-    return false; // `trivially_relocatable_if_eligible` is not implemented
+consteval bool _is_trivially_relocatible_if_eligible(std::meta::info) {
+    return false; // `trivially_relocatible_if_eligible` is not implemented
 }
 
 consteval bool _is_union_without_user_declared_special_member_functions(
@@ -131,7 +131,7 @@ consteval bool _is_default_movable(std::meta::info type) {
                _is_neither_user_provided_nor_deleted);
 }
 
-consteval bool _is_trivially_relocatable(std::meta::info type) {
+consteval bool _is_trivially_relocatible(std::meta::info type) {
     type = std::meta::remove_cv(std::meta::remove_all_extents(type));
     if (std::meta::is_scalar_type(type)) {
         return true;
@@ -143,38 +143,38 @@ consteval bool _is_trivially_relocatable(std::meta::info type) {
     }
 
     return _is_eligible_for_relocation(type) &&
-           (_is_trivially_relocatable_if_eligible(type) ||
+           (_is_trivially_relocatible_if_eligible(type) ||
             _is_union_without_user_declared_special_member_functions(type) ||
             _is_default_movable(type));
 }
 
-} // namespace _trivially_relocatable
+} // namespace _trivially_relocatible
 
 template <typename Ty>
-concept trivially_relocatable =
-    _trivially_relocatable::_is_trivially_relocatable(^^Ty);
+concept trivially_relocatible =
+    _trivially_relocatible::_is_trivially_relocatible(^^Ty);
 
 } // namespace neutron
 
-    #elif __has_builtin(__builtin_is_cpp_trivially_relocatable)
+    #elif __has_builtin(__builtin_is_cpp_trivially_relocatible)
 
 namespace neutron {
 
 template <typename Ty>
-concept trivially_relocatable = __builtin_is_cpp_trivially_relocatable(Ty);
+concept trivially_relocatible = __builtin_is_cpp_trivially_relocatible(Ty);
 
 }
 
-    #elif !defined(__clang__) && __has_builtin(__is_trivially_relocatable)
+    #elif !defined(__clang__) && __has_builtin(__is_trivially_relocatible)
 
 namespace neutron {
 
-/// @note: The implementation of `__is_trivially_relocatable` is since cxx03 and
+/// @note: The implementation of `__is_trivially_relocatible` is since cxx03 and
 /// it does not implement the semantics of any current or future trivial
 /// relocation proposal and it can lead to incorrect optimizations on some
 /// platforms (Windows) and supported compilers (AppleClang).
 template <typename Ty>
-concept trivially_relocatable = __is_trivially_relocatable(Ty);
+concept trivially_relocatible = __is_trivially_relocatible(Ty);
 
 } // namespace neutron
 
@@ -185,7 +185,7 @@ concept trivially_relocatable = __is_trivially_relocatable(Ty);
 namespace neutron {
 
 template <typename Ty>
-concept trivially_relocatable = std::is_trivially_copyable_v<Ty>;
+concept trivially_relocatible = std::is_trivially_copyable_v<Ty>;
 
 } // namespace neutron
 

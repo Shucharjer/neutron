@@ -14,10 +14,10 @@ namespace neutron {
 struct memstorage {
     template <typename Base>
     struct interface : Base {
-        ATOM_NODISCARD void* raw() noexcept {
+        ATOM_ATTRS(ATOM_NODISCARD) void* raw() noexcept {
             return this->template invoke<0>();
         }
-        ATOM_NODISCARD const void* const_raw() const noexcept {
+        ATOM_ATTRS(ATOM_NODISCARD) const void* const_raw() const noexcept {
             return this->template invoke<1>();
         }
     };
@@ -260,19 +260,19 @@ public:
         }
     }
 
-    ATOM_NODISCARD constexpr void* raw() noexcept {
+    ATOM_ATTRS(ATOM_NODISCARD) constexpr void* raw() noexcept {
         return static_cast<void*>(ptr_);
     }
 
-    ATOM_NODISCARD constexpr const void* const_raw() const noexcept {
+    ATOM_ATTRS(ATOM_NODISCARD) constexpr const void* const_raw() const noexcept {
         return static_cast<const void*>(ptr_);
     }
 
-    ATOM_NODISCARD constexpr decltype(auto) operator*() noexcept {
+    ATOM_ATTRS(ATOM_NODISCARD) constexpr decltype(auto) operator*() noexcept {
         return *ptr_;
     }
 
-    ATOM_NODISCARD constexpr decltype(auto) operator*() const noexcept {
+    ATOM_ATTRS(ATOM_NODISCARD) constexpr decltype(auto) operator*() const noexcept {
         return *ptr_;
     }
 
@@ -305,11 +305,11 @@ public:
         std::swap(ptr_, that.ptr_);
     }
 
-    ATOM_NODISCARD constexpr auto& get_allocator() noexcept {
+    ATOM_ATTRS(ATOM_NODISCARD) constexpr auto& get_allocator() noexcept {
         return *static_cast<alloc_t*>(this);
     }
 
-    ATOM_NODISCARD constexpr const auto& get_allocator() const noexcept {
+    ATOM_ATTRS(ATOM_NODISCARD) constexpr const auto& get_allocator() const noexcept {
         return *static_cast<const alloc_t*>(this);
     }
 

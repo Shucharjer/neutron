@@ -28,12 +28,12 @@ public:
     using _base_type::_base_type;
 
     template <typename Cache>
-    ATOM_NODISCARD constexpr auto get_first() & noexcept -> Cache& {
+    ATOM_ATTRS(ATOM_NODISCARD) constexpr auto get_first() & noexcept -> Cache& {
         return neutron::get_first<Cache>(static_cast<_base_type&>(*this));
     }
 
     template <typename Cache>
-    ATOM_NODISCARD constexpr auto get_first() const& noexcept -> const Cache& {
+    ATOM_ATTRS(ATOM_NODISCARD) constexpr auto get_first() const& noexcept -> const Cache& {
         return neutron::get_first<Cache>(static_cast<const _base_type&>(*this));
     }
 };
@@ -146,8 +146,8 @@ struct _view_base {
         : size(slice.size()) {
         [this, &slice]<size_t... Is>(std::index_sequence<Is...>) {
             const auto& buffers = slice.buffers();
-            bufs = tuple_t{ reinterpret_cast<std::remove_cvref_t<Components>*>(
-                std::get<Is>(buffers)->get())... };
+            bufs = tuple_t{ static_cast<std::remove_cvref_t<Components>*>(
+                *std::get<Is>(buffers))... };
         }(std::index_sequence_for<Components...>());
     }
     using tuple_t = std::tuple<std::remove_cvref_t<Components>*...>;
@@ -456,7 +456,7 @@ public:
 
     query() noexcept = default;
 
-    ATOM_NODISCARD auto get() const noexcept
+    ATOM_ATTRS(ATOM_NODISCARD) auto get() const noexcept
     requires std::negation_v<is_empty_template<nempty_comp_list>>
     {
         if constexpr (type_list_size_v<fetchable_filters> == 0) {
@@ -471,7 +471,7 @@ public:
         }
     }
 
-    ATOM_NODISCARD auto get_with_entity() const noexcept {
+    ATOM_ATTRS(ATOM_NODISCARD) auto get_with_entity() const noexcept {
         if constexpr (type_list_size_v<fetchable_filters> == 0) {
             return slices_ |
                    std::views::transform([](const slice_t& slice) noexcept {
@@ -484,7 +484,7 @@ public:
         }
     }
 
-    ATOM_NODISCARD auto entities() const noexcept {
+    ATOM_ATTRS(ATOM_NODISCARD) auto entities() const noexcept {
         if constexpr (type_list_size_v<fetchable_filters> == 0) {
             return slices_ |
                    std::views::transform([](const slice_t& slice) noexcept {

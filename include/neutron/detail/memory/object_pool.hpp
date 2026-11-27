@@ -126,11 +126,11 @@ public:
 
     constexpr auto* data() noexcept { return blocks_; }
 
-    ATOM_NODISCARD constexpr const auto* data() const noexcept {
+    ATOM_ATTRS(ATOM_NODISCARD) constexpr const auto* data() const noexcept {
         return blocks_;
     }
 
-    ATOM_NODISCARD constexpr size_t capacity() const noexcept {
+    ATOM_ATTRS(ATOM_NODISCARD) constexpr size_t capacity() const noexcept {
         return capacity_;
     }
 
@@ -207,11 +207,11 @@ public:
 
     constexpr auto* data() noexcept { return blocks_; }
 
-    ATOM_NODISCARD constexpr const auto* data() const noexcept {
+    ATOM_ATTRS(ATOM_NODISCARD) constexpr const auto* data() const noexcept {
         return blocks_;
     }
 
-    ATOM_NODISCARD constexpr size_t capacity() const noexcept {
+    ATOM_ATTRS(ATOM_NODISCARD) constexpr size_t capacity() const noexcept {
         return capacity_;
     }
 

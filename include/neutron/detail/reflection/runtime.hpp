@@ -11,11 +11,11 @@ class member_info {
     friend class type_info;
 
 public:
-    ATOM_NODISCARD constexpr std::string_view name() const noexcept {
+    ATOM_ATTRS(ATOM_NODISCARD) constexpr std::string_view name() const noexcept {
         return name_;
     }
 
-    ATOM_NODISCARD constexpr type_traits traits() const noexcept {
+    ATOM_ATTRS(ATOM_NODISCARD) constexpr type_traits traits() const noexcept {
         return traits_;
     }
 
@@ -33,20 +33,20 @@ class type_info {
         : hash_(hash), traits_(traits), name_(name) {}
 
 public:
-    ATOM_NODISCARD constexpr std::string_view name() const noexcept {
+    ATOM_ATTRS(ATOM_NODISCARD) constexpr std::string_view name() const noexcept {
         return name_;
     }
 
-    ATOM_NODISCARD constexpr std::size_t hash() const noexcept { return hash_; }
+    ATOM_ATTRS(ATOM_NODISCARD) constexpr std::size_t hash() const noexcept { return hash_; }
 
-    ATOM_NODISCARD constexpr std::strong_ordering
+    ATOM_ATTRS(ATOM_NODISCARD) constexpr std::strong_ordering
         operator<=>(const type_info& that) const noexcept {
         auto order = hash_ <=> that.hash_;
         return order != std::strong_ordering::equal ? order
                                                     : name_ <=> that.name_;
     }
 
-    ATOM_NODISCARD constexpr bool
+    ATOM_ATTRS(ATOM_NODISCARD) constexpr bool
         operator==(const type_info& that) const noexcept {
         return hash_ == that.hash_ && name_ == that.name_;
     }

@@ -258,17 +258,23 @@ public:
 
     constexpr const_iterator cend() const noexcept { return data_ + size_; }
 
-    ATOM_NODISCARD constexpr bool empty() const noexcept { return size_ == 0; }
+    ATOM_ATTRS(ATOM_NODISCARD) constexpr bool empty() const noexcept {
+        return size_ == 0;
+    }
 
-    ATOM_NODISCARD constexpr size_type size() const noexcept { return size_; }
+    ATOM_ATTRS(ATOM_NODISCARD) constexpr size_type size() const noexcept {
+        return size_;
+    }
 
-    ATOM_NODISCARD constexpr size_type length() const noexcept { return size_; }
+    ATOM_ATTRS(ATOM_NODISCARD) constexpr size_type length() const noexcept {
+        return size_;
+    }
 
-    ATOM_NODISCARD constexpr size_type max_size() const noexcept {
+    ATOM_ATTRS(ATOM_NODISCARD) constexpr size_type max_size() const noexcept {
         return static_cast<size_type>(-1);
     }
 
-    ATOM_NODISCARD constexpr size_type capacity() const noexcept {
+    ATOM_ATTRS(ATOM_NODISCARD) constexpr size_type capacity() const noexcept {
         return capacity_;
     }
 
@@ -303,7 +309,8 @@ public:
     template <string_view_like StringViewLike>
     constexpr basic_short_string& operator+=(const StringViewLike& sv);
 
-    ATOM_NODISCARD constexpr auto
+    ATOM_ATTRS(ATOM_NODISCARD)
+    constexpr auto
         find(const basic_short_string& str, size_type pos = 0) const noexcept {
         return std::string_view{ data_, size_ }.find(str, pos);
     }
@@ -311,26 +318,26 @@ public:
     constexpr void swap(basic_short_string& other) noexcept;
 
 private:
-    ATOM_NODISCARD ATOM_ALWAYS_INLINE constexpr bool
-        _is_short() const noexcept {
+    ATOM_ATTRS(ATOM_NODISCARD, ATOM_ALWAYS_INLINE)
+    constexpr bool _is_short() const noexcept {
         return data_ == _storage_t::data();
     }
 
     /// @brief Whether one more character leaves no room for the terminator.
-    ATOM_NODISCARD ATOM_ALWAYS_INLINE constexpr bool
-        _need_grow() const noexcept {
+    ATOM_ATTRS(ATOM_NODISCARD, ATOM_ALWAYS_INLINE)
+    constexpr bool _need_grow() const noexcept {
         return size_ + 1 >= capacity_;
     }
 
-    ATOM_NODISCARD ATOM_ALWAYS_INLINE constexpr size_type
-        _next_capacity() const noexcept {
+    ATOM_ATTRS(ATOM_NODISCARD, ATOM_ALWAYS_INLINE)
+    constexpr size_type _next_capacity() const noexcept {
         if (capacity_ < 2) [[unlikely]] {
             return 2;
         }
         return capacity_ << 1;
     }
 
-    ATOM_ALWAYS_INLINE constexpr void _set_tail_zero() noexcept {
+    ATOM_ATTRS(ATOM_ALWAYS_INLINE) constexpr void _set_tail_zero() noexcept {
         std::construct_at(std::to_address(data_ + size_), CharT());
     }
 
@@ -468,7 +475,7 @@ struct formatter<
         return formatter<string_view, CharT>{}.parse(pc);
     }
 
-    auto format(const short_string_t& ss, format_context& ctx) const {
+    auto format(const short_string_t& ss, auto& ctx) const {
         return formatter<string_view, CharT>{}.format(ss, ctx);
     }
 };

@@ -115,7 +115,7 @@ public:
      * The page size on POSIX, the allocation granularity on Windows. Always a
      * power of two.
      */
-    ATOM_NODISCARD static std::size_t granularity() noexcept {
+    ATOM_ATTRS(ATOM_NODISCARD) static std::size_t granularity() noexcept {
         static const std::size_t value = _query_granularity();
         return value;
     }
@@ -230,7 +230,7 @@ public:
         writable_ = false;
     }
 
-    ATOM_NODISCARD bool is_open() const noexcept {
+    ATOM_ATTRS(ATOM_NODISCARD) bool is_open() const noexcept {
 #if defined(_WIN32)
         return file_ != INVALID_HANDLE_VALUE;
 #else
@@ -238,7 +238,7 @@ public:
 #endif
     }
 
-    ATOM_NODISCARD offset_type size() const noexcept { return size_; }
+    ATOM_ATTRS(ATOM_NODISCARD) offset_type size() const noexcept { return size_; }
 
     /**
      * @brief Change the size of the file; a grown part reads as zeros.
@@ -288,7 +288,7 @@ public:
      * @pre `offset` is a multiple of `granularity()`, `length` is nonzero and
      * the range lies within the file.
      */
-    ATOM_NODISCARD void*
+    ATOM_ATTRS(ATOM_NODISCARD) void*
         map(offset_type offset, std::size_t length,
             std::error_code& error) const noexcept {
         error.clear();
@@ -330,7 +330,7 @@ public:
 
     /// @copydoc map(offset_type, std::size_t, std::error_code&) const
     /// @throws std::system_error
-    ATOM_NODISCARD void* map(offset_type offset, std::size_t length) const {
+    ATOM_ATTRS(ATOM_NODISCARD) void* map(offset_type offset, std::size_t length) const {
         std::error_code error;
         void* const addr = map(offset, length, error);
         if (error) [[unlikely]] {

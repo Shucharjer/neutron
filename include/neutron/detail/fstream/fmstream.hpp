@@ -98,11 +98,11 @@ public:
         lhs.swap(rhs);
     }
 
-    ATOM_NODISCARD _buffer* rdbuf() const noexcept {
+    ATOM_ATTRS(ATOM_NODISCARD) _buffer* rdbuf() const noexcept {
         return std::addressof(buf_);
     }
 
-    ATOM_NODISCARD bool is_open() const noexcept { return buf_.is_open(); }
+    ATOM_ATTRS(ATOM_NODISCARD) bool is_open() const noexcept { return buf_.is_open(); }
 
     /// @brief Open a file; clears the state on success, sets `failbit`
     /// otherwise.
@@ -137,7 +137,7 @@ public:
     }
 
     /// @copydoc basic_fmbuf::window_size
-    ATOM_NODISCARD size_type window_size() const noexcept {
+    ATOM_ATTRS(ATOM_NODISCARD) size_type window_size() const noexcept {
         return buf_.window_size();
     }
 

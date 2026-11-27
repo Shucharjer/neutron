@@ -192,18 +192,18 @@ inline bool
 class affinity_thread {
     class _affinity {
     public:
-        ATOM_NODISCARD uint32_t get_core() const noexcept { return core_; }
+        ATOM_ATTRS(ATOM_NODISCARD) uint32_t get_core() const noexcept { return core_; }
 
 #if defined(__linux) || defined(__linux__)
         constexpr _affinity(uint32_t core, uint32_t numa) noexcept // NOLINT
             : core_(core), numa_(numa) {}
 
-        ATOM_NODISCARD uint32_t get_numa() const noexcept { return numa_; }
+        ATOM_ATTRS(ATOM_NODISCARD) uint32_t get_numa() const noexcept { return numa_; }
 #else
         constexpr _affinity(uint32_t core, uint32_t numa) noexcept // NOLINT
             : core_(core) {}
 
-        ATOM_NODISCARD uint32_t get_numa() const noexcept { return 0; }
+        ATOM_ATTRS(ATOM_NODISCARD) uint32_t get_numa() const noexcept { return 0; }
 #endif
 
     private:
@@ -240,17 +240,17 @@ public:
 
     auto get_scheduler() noexcept { return loop_.get_scheduler(); }
 
-    ATOM_NODISCARD uint32_t core_id() const noexcept {
+    ATOM_ATTRS(ATOM_NODISCARD) uint32_t core_id() const noexcept {
         return affinity_.get_core();
     }
 
-    ATOM_NODISCARD uint32_t numa_id() const noexcept {
+    ATOM_ATTRS(ATOM_NODISCARD) uint32_t numa_id() const noexcept {
         return affinity_.get_numa();
     }
 
-    ATOM_NODISCARD bool consistancy() const noexcept { return consistancy_; }
+    ATOM_ATTRS(ATOM_NODISCARD) bool consistancy() const noexcept { return consistancy_; }
 
-    ATOM_NODISCARD
+    ATOM_ATTRS(ATOM_NODISCARD)
     auto get_id() const noexcept -> std::thread::id { return thread_.get_id(); }
 
 private:

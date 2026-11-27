@@ -67,7 +67,7 @@ public:
      * @return The front node, or nullptr if the queue is empty. The result can
      * also be nullptr while a producer is in the middle of `push_back`.
      */
-    ATOM_NODISCARD auto front() const noexcept -> Node* {
+    ATOM_ATTRS(ATOM_NODISCARD) auto front() const noexcept -> Node* {
         Node* const head = head_;
         if (head == &stub_) {
             return (head->*Next).load(std::memory_order_acquire);
@@ -80,7 +80,7 @@ public:
      *
      * Only the single consumer thread may call this function.
      */
-    ATOM_NODISCARD auto empty() const noexcept -> bool {
+    ATOM_ATTRS(ATOM_NODISCARD) auto empty() const noexcept -> bool {
         return front() == nullptr;
     }
 

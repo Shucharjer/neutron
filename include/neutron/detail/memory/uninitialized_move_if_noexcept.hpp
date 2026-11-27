@@ -6,10 +6,16 @@
 #include <memory>
 #include <type_traits>
 #include <neutron/concepts.hpp>
-#include "neutron/detail/concepts/trivially_relocatable.hpp"
+#include "neutron/detail/concepts/trivially_relocatible.hpp"
 #include "neutron/detail/utility/macros.hpp"
 
 namespace neutron {
+
+/// @brief Whether elements are moved rather than copied, as by
+/// `std::move_if_noexcept`.
+template <typename Ty>
+constexpr bool _moves_if_noexcept = std::is_nothrow_move_constructible_v<Ty> ||
+                                    !std::is_copy_constructible_v<Ty>;
 
 template <std::input_iterator InputIt, std::forward_iterator NothrowForwardIter>
 ATOM_CONSTEXPR_SINCE_CXX26 auto uninitialized_move_if_noexcept(
@@ -24,7 +30,7 @@ ATOM_CONSTEXPR_SINCE_CXX26 auto uninitialized_move_if_noexcept(
     if constexpr (
         std::contiguous_iterator<InputIt> &&
         std::contiguous_iterator<NothrowForwardIter> &&
-        trivially_relocatable<value_type>) {
+        trivially_relocatible<value_type>) {
         if ATOM_CONST_EVALUATED {
             return std::uninitialized_move(first, last, dst);
         }
@@ -37,11 +43,12 @@ ATOM_CONSTEXPR_SINCE_CXX26 auto uninitialized_move_if_noexcept(
     }
 #endif
 
-    if constexpr (std::is_nothrow_move_constructible_v<value_type>) {
+    // Like std::move_if_noexcept, move-only types are moved anyway.
+    if constexpr (_moves_if_noexcept<value_type>) {
         return std::uninitialized_move(first, last, dst);
+    } else {
+        return std::uninitialized_copy(first, last, dst);
     }
-
-    return std::uninitialized_copy(first, last, dst);
 }
 
 template <
@@ -54,7 +61,7 @@ ATOM_CONSTEXPR_SINCE_CXX26 auto uninitialized_move_if_noexcept_n(
     if constexpr (
         std::contiguous_iterator<InputIt> &&
         std::contiguous_iterator<NothrowForwardIt> &&
-        trivially_relocatable<value_type>) {
+        trivially_relocatible<value_type>) {
         if ATOM_CONST_EVALUATED {
             auto [_, result] = std::uninitialized_move_n(first, count, dst);
             return result;
@@ -67,12 +74,12 @@ ATOM_CONSTEXPR_SINCE_CXX26 auto uninitialized_move_if_noexcept_n(
     }
 #endif
 
-    if constexpr (std::is_nothrow_move_constructible_v<value_type>) {
+    if constexpr (_moves_if_noexcept<value_type>) {
         auto [_, result] = std::uninitialized_move_n(first, count, dst);
         return result;
+    } else {
+        return std::uninitialized_copy_n(first, count, dst);
     }
-
-    return std::uninitialized_copy_n(first, count, dst);
 }
 
 template <
@@ -81,7 +88,7 @@ template <
 ATOM_CONSTEXPR_SINCE_CXX26 auto uninitialized_move_if_noexcept(
     Exec&& exec, InputIt first, InputIt last, NothrowForwardIt dst) {
     using value_type = std::iter_value_t<InputIt>;
-    if constexpr (std::is_nothrow_move_constructible_v<value_type>) {
+    if constexpr (_moves_if_noexcept<value_type>) {
         return std::uninitialized_move(
             std::forward<Exec>(exec), first, last, dst);
     } else {
@@ -97,7 +104,7 @@ ATOM_CONSTEXPR_SINCE_CXX26 auto uninitialized_move_if_noexcept_n(
     Exec&& exec, InputIt first, Size count, NothrowForwardIt dst)
     -> NothrowForwardIt {
     using value_type = std::iter_value_t<InputIt>;
-    if constexpr (std::is_nothrow_move_constructible_v<value_type>) {
+    if constexpr (_moves_if_noexcept<value_type>) {
         auto [_, result] = std::uninitialized_move_n(
             std::forward<Exec>(exec), first, count, dst);
         return result;

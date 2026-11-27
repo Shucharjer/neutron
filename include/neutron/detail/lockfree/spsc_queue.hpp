@@ -65,11 +65,13 @@ private:
         // NOLINTNEXTLINE(cppcoreguidelines-pro-type-member-init)
         explicit _slot_t(size_type index) noexcept : seq(index) {}
 
-        ATOM_NODISCARD auto raw() noexcept -> T* {
+        ATOM_ATTRS(ATOM_NODISCARD) auto raw() noexcept -> T* {
             return reinterpret_cast<T*>(static_cast<std::byte*>(bytes));
         }
 
-        ATOM_NODISCARD auto get() noexcept -> T* { return std::launder(raw()); }
+        ATOM_ATTRS(ATOM_NODISCARD) auto get() noexcept -> T* {
+            return std::launder(raw());
+        }
 
         std::atomic<size_type> seq;
         alignas(T) std::byte bytes[sizeof(T)]; // NOLINT
@@ -167,7 +169,7 @@ public:
      * of `push_back` can make it report `true` for an element that is on its
      * way.
      */
-    ATOM_NODISCARD auto empty() const noexcept -> bool {
+    ATOM_ATTRS(ATOM_NODISCARD) auto empty() const noexcept -> bool {
         if (cons_.index != cons_.limit || _ready()) [[likely]] {
             return false;
         }
@@ -198,10 +200,12 @@ public:
      * be empty. The reference stays valid until `pop_front`; pushes never
      * invalidate it.
      */
-    ATOM_NODISCARD auto front() noexcept -> T& { return *_front_slot().get(); }
+    ATOM_ATTRS(ATOM_NODISCARD) auto front() noexcept -> T& {
+        return *_front_slot().get();
+    }
 
     /// @copydoc front()
-    ATOM_NODISCARD auto front() const noexcept -> const T& {
+    ATOM_ATTRS(ATOM_NODISCARD) auto front() const noexcept -> const T& {
         return *_front_slot().get();
     }
 
@@ -218,9 +222,8 @@ public:
         slot.seq.store(cons_.index + cons_.mask, std::memory_order_release);
     }
 
-    ATOM_NODISCARD auto get_allocator() const noexcept -> allocator_type {
-        return alloc_;
-    }
+    ATOM_ATTRS(ATOM_NODISCARD)
+    auto get_allocator() const noexcept -> allocator_type { return alloc_; }
 
 private:
     auto _allocate_block(size_type capacity) -> _block_t* {
@@ -261,7 +264,8 @@ private:
 
     /// @note The producer must own a free slot.
     template <typename... Args>
-    ATOM_ALWAYS_INLINE void _emplace(Args&&... args) {
+    ATOM_ATTRS(ATOM_ALWAYS_INLINE)
+    void _emplace(Args&&... args) {
         _slot_t& slot = prod_.slots[prod_.index & prod_.mask];
         alloc_traits::construct(
             alloc_, slot.raw(), std::forward<Args>(args)...);
@@ -289,7 +293,8 @@ private:
     }
 
     template <typename... Args>
-    ATOM_NOINLINE void _push_back_slow(Args&&... args) {
+    ATOM_ATTRS(ATOM_NOINLINE)
+    void _push_back_slow(Args&&... args) {
         if (_probe()) {
             _emplace(std::forward<Args>(args)...);
             return;
@@ -330,7 +335,7 @@ private:
     }
 
     /// @brief Checks whether the consumer's current slot holds a value.
-    ATOM_ALWAYS_INLINE auto _ready() const noexcept -> bool {
+    ATOM_ATTRS(ATOM_ALWAYS_INLINE) auto _ready() const noexcept -> bool {
         const size_type index = cons_.index;
         if (cons_.slots[index & cons_.mask].seq.load(
                 std::memory_order_acquire) == index + 1) {
@@ -340,7 +345,8 @@ private:
         return false;
     }
 
-    ATOM_ALWAYS_INLINE auto _front_slot() const noexcept -> _slot_t& {
+    ATOM_ATTRS(ATOM_ALWAYS_INLINE)
+    auto _front_slot() const noexcept -> _slot_t& {
         if (cons_.index == cons_.limit) [[unlikely]] {
             _refill();
         }
@@ -348,7 +354,7 @@ private:
     }
 
     /// @note The queue must not be empty.
-    ATOM_NOINLINE void _refill() const noexcept {
+    ATOM_ATTRS(ATOM_NOINLINE) void _refill() const noexcept {
         if (_ready()) {
             return;
         }

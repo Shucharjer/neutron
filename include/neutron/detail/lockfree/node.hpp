@@ -27,13 +27,13 @@ struct _lockfree_node {
     }
 
     /// @brief Accesses the stored value, which must have been constructed.
-    ATOM_NODISCARD T* value() noexcept {
+    ATOM_ATTRS(ATOM_NODISCARD) T* value() noexcept {
         return std::launder(
             reinterpret_cast<T*>(static_cast<std::byte*>(bytes)));
     }
 
     /// @brief Accesses the stored value, which must have been constructed.
-    ATOM_NODISCARD const T* value() const noexcept {
+    ATOM_ATTRS(ATOM_NODISCARD) const T* value() const noexcept {
         return std::launder(
             reinterpret_cast<const T*>(static_cast<const std::byte*>(bytes)));
     }

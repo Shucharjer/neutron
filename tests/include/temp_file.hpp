@@ -39,12 +39,12 @@ public:
         std::filesystem::remove(path_, ignored);
     }
 
-    ATOM_NODISCARD const std::filesystem::path& path() const noexcept {
+    ATOM_ATTRS(ATOM_NODISCARD) const std::filesystem::path& path() const noexcept {
         return path_;
     }
 
     /// @brief The path as a string, accepted by the neutron file classes.
-    ATOM_NODISCARD std::string string() const { return path_.string(); }
+    ATOM_ATTRS(ATOM_NODISCARD) std::string string() const { return path_.string(); }
 
 private:
     std::filesystem::path path_;

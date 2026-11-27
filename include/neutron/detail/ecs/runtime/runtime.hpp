@@ -125,7 +125,7 @@ private:
 template <
     auto... Worlds, scheduler_provider Sp, run_payloay Payload,
     typename Alloc = std::allocator<std::byte>>
-ATOM_NODISCARD constexpr auto
+ATOM_ATTRS(ATOM_NODISCARD) constexpr auto
     make_runtime(Sp& sp, Payload* payload, const Alloc& alloc = {}) {
     return runtime<Sp, Payload, Alloc, Worlds...>(sp, payload, alloc);
 }

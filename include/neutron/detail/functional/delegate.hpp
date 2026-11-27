@@ -186,7 +186,7 @@ public:
      *
      * @return function_type* Pointer of function
      */
-    ATOM_NODISCARD constexpr function_type* target() const noexcept {
+    ATOM_ATTRS(ATOM_NODISCARD) constexpr function_type* target() const noexcept {
         return function_;
     }
 
@@ -195,7 +195,7 @@ public:
      *
      * @return void const* Pointer to the context
      */
-    ATOM_NODISCARD constexpr const void* context() const noexcept {
+    ATOM_ATTRS(ATOM_NODISCARD) constexpr const void* context() const noexcept {
         return context_;
     }
 
@@ -344,7 +344,7 @@ public:
      *
      * @return function_type* Pointer of function
      */
-    ATOM_NODISCARD constexpr function_type* target() const noexcept {
+    ATOM_ATTRS(ATOM_NODISCARD) constexpr function_type* target() const noexcept {
         return function_;
     }
 
@@ -353,7 +353,7 @@ public:
      *
      * @return void const* Pointer to the context
      */
-    ATOM_NODISCARD constexpr const void* context() const noexcept {
+    ATOM_ATTRS(ATOM_NODISCARD) constexpr const void* context() const noexcept {
         return context_;
     }
 

@@ -29,7 +29,7 @@ using member_pointer_t =
  */
 template <std::size_t Index, typename Ty>
 requires(Index < _refl_meta_offset::members<Ty>.size())
-ATOM_NODISCARD consteval auto offset_of() noexcept {
+ATOM_ATTRS(ATOM_NODISCARD) consteval auto offset_of() noexcept {
     using pointer_t = _refl_meta_offset::member_pointer_t<Ty, Index>;
     return std::meta::extract<pointer_t>(_refl_meta_offset::members<Ty>[Index]);
 }
@@ -38,7 +38,7 @@ ATOM_NODISCARD consteval auto offset_of() noexcept {
  * @brief Get the pointers to all non-static data members of Ty as a tuple.
  */
 template <typename Ty>
-ATOM_NODISCARD consteval auto offsets_of() noexcept {
+ATOM_ATTRS(ATOM_NODISCARD) consteval auto offsets_of() noexcept {
     return []<std::size_t... Is>(std::index_sequence<Is...>) {
         return std::make_tuple(offset_of<Is, Ty>()...);
     }(std::make_index_sequence<_refl_meta_offset::members<Ty>.size()>());
@@ -49,7 +49,7 @@ ATOM_NODISCARD consteval auto offsets_of() noexcept {
  */
 template <std::size_t Index, typename Ty>
 requires(Index < _refl_meta_offset::members<Ty>.size())
-ATOM_NODISCARD consteval std::size_t offset_value_of() noexcept {
+ATOM_ATTRS(ATOM_NODISCARD) consteval std::size_t offset_value_of() noexcept {
     return std::meta::offset_of(_refl_meta_offset::members<Ty>[Index]).bytes;
 }
 

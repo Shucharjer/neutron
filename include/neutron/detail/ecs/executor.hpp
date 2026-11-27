@@ -141,7 +141,7 @@ private:
 //         constexpr explicit operator bool() const noexcept { return true; }
 
 //         // NOLINTNEXTLINE
-//         ATOM_NODISCARD constexpr assoc try_associate() const noexcept {
+//         ATOM_ATTRS(ATOM_NODISCARD) constexpr assoc try_associate() const noexcept {
 //             return {};
 //         }
 //     };
@@ -158,13 +158,13 @@ private:
 template <typename Executor, typename Scheduler>
 constexpr void execute_until_done(Executor& executor, Scheduler& scheduler) {
     // struct _env_t {
-    //     ATOM_NODISCARD constexpr auto
+    //     ATOM_ATTRS(ATOM_NODISCARD) constexpr auto
     //         query(execution::get_stop_token_t) const noexcept
     //         -> never_stop_token {
     //         return {};
     //     }
 
-    //     ATOM_NODISCARD constexpr auto
+    //     ATOM_ATTRS(ATOM_NODISCARD) constexpr auto
     //         query(execution::get_start_scheduler_t) const noexcept
     //         -> execution::inline_scheduler {
     //         return {};

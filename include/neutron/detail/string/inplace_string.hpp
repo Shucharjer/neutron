@@ -47,29 +47,29 @@ public:
         truncated_ = str.size() > Capacity;
     }
 
-    ATOM_NODISCARD constexpr std::basic_string_view<CharT>
+    ATOM_ATTRS(ATOM_NODISCARD) constexpr std::basic_string_view<CharT>
         view() const noexcept {
         return { data_, size_ };
     }
 
-    ATOM_NODISCARD constexpr const CharT* data() const noexcept {
+    ATOM_ATTRS(ATOM_NODISCARD) constexpr const CharT* data() const noexcept {
         return data_;
     }
 
-    ATOM_NODISCARD constexpr size_type size() const noexcept { return size_; }
+    ATOM_ATTRS(ATOM_NODISCARD) constexpr size_type size() const noexcept { return size_; }
 
-    ATOM_NODISCARD constexpr bool empty() const noexcept { return size_ == 0; }
+    ATOM_ATTRS(ATOM_NODISCARD) constexpr bool empty() const noexcept { return size_ == 0; }
 
-    ATOM_NODISCARD static constexpr size_type capacity() noexcept {
+    ATOM_ATTRS(ATOM_NODISCARD) static constexpr size_type capacity() noexcept {
         return Capacity;
     }
 
     /// @brief Whether the last assignment dropped characters.
-    ATOM_NODISCARD constexpr bool truncated() const noexcept {
+    ATOM_ATTRS(ATOM_NODISCARD) constexpr bool truncated() const noexcept {
         return truncated_;
     }
 
-    ATOM_NODISCARD constexpr bool
+    ATOM_ATTRS(ATOM_NODISCARD) constexpr bool
         operator==(const basic_inplace_string& that) const noexcept {
         return view() == that.view();
     }

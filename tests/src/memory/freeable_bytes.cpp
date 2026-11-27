@@ -18,7 +18,7 @@ struct linked_blocks {
 
     linked_blocks() { _init_freeable_bytes(storage.get(), Count); }
 
-    ATOM_NODISCARD block* data() const noexcept { return storage.get(); }
+    ATOM_ATTRS(ATOM_NODISCARD) block* data() const noexcept { return storage.get(); }
 
     std::unique_ptr<block[]> storage = std::make_unique<block[]>(Count);
 };

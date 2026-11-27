@@ -41,17 +41,17 @@ public:
         Args&&... args) noexcept(std::is_nothrow_constructible_v<Ty, Args...>)
         : value_(std::forward<Args>(args)...) {}
 
-    ATOM_NODISCARD constexpr Ty& value() & noexcept { return value_; }
+    ATOM_ATTRS(ATOM_NODISCARD) constexpr Ty& value() & noexcept { return value_; }
 
-    ATOM_NODISCARD constexpr const Ty& value() const& noexcept {
+    ATOM_ATTRS(ATOM_NODISCARD) constexpr const Ty& value() const& noexcept {
         return value_;
     }
 
-    ATOM_NODISCARD constexpr Ty&& value() && noexcept {
+    ATOM_ATTRS(ATOM_NODISCARD) constexpr Ty&& value() && noexcept {
         return static_cast<Ty&&>(value_);
     }
 
-    ATOM_NODISCARD constexpr const Ty&& value() const&& noexcept {
+    ATOM_ATTRS(ATOM_NODISCARD) constexpr const Ty&& value() const&& noexcept {
         return static_cast<const Ty&&>(value_);
     }
 
@@ -78,17 +78,17 @@ public:
         Args&&... args) noexcept(std::is_nothrow_constructible_v<Ty, Args...>)
         : value_(std::forward<Args>(args)...) {}
 
-    ATOM_NODISCARD constexpr Ty& value() & noexcept { return value_; }
+    ATOM_ATTRS(ATOM_NODISCARD) constexpr Ty& value() & noexcept { return value_; }
 
-    ATOM_NODISCARD constexpr const Ty& value() const& noexcept {
+    ATOM_ATTRS(ATOM_NODISCARD) constexpr const Ty& value() const& noexcept {
         return value_;
     }
 
-    ATOM_NODISCARD constexpr Ty&& value() && noexcept {
+    ATOM_ATTRS(ATOM_NODISCARD) constexpr Ty&& value() && noexcept {
         return static_cast<Ty&&>(value_);
     }
 
-    ATOM_NODISCARD constexpr const Ty&& value() const&& noexcept {
+    ATOM_ATTRS(ATOM_NODISCARD) constexpr const Ty&& value() const&& noexcept {
         return static_cast<const Ty&&>(value_);
     }
 

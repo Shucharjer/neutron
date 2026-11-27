@@ -262,35 +262,35 @@ public:
         lhs.swap(rhs);
     }
 
-    ATOM_NODISCARD constexpr First& first() & noexcept {
+    ATOM_ATTRS(ATOM_NODISCARD) constexpr First& first() & noexcept {
         return static_cast<first_base&>(*this).value();
     }
 
-    ATOM_NODISCARD constexpr const First& first() const& noexcept {
+    ATOM_ATTRS(ATOM_NODISCARD) constexpr const First& first() const& noexcept {
         return static_cast<const first_base&>(*this).value();
     }
 
-    ATOM_NODISCARD constexpr First&& first() && noexcept {
+    ATOM_ATTRS(ATOM_NODISCARD) constexpr First&& first() && noexcept {
         return static_cast<first_base&&>(*this).value();
     }
 
-    ATOM_NODISCARD constexpr const First&& first() const&& noexcept {
+    ATOM_ATTRS(ATOM_NODISCARD) constexpr const First&& first() const&& noexcept {
         return static_cast<const first_base&&>(*this).value();
     }
 
-    ATOM_NODISCARD constexpr Second& second() & noexcept {
+    ATOM_ATTRS(ATOM_NODISCARD) constexpr Second& second() & noexcept {
         return static_cast<second_base&>(*this).value();
     }
 
-    ATOM_NODISCARD constexpr const Second& second() const& noexcept {
+    ATOM_ATTRS(ATOM_NODISCARD) constexpr const Second& second() const& noexcept {
         return static_cast<const second_base&>(*this).value();
     }
 
-    ATOM_NODISCARD constexpr Second&& second() && noexcept {
+    ATOM_ATTRS(ATOM_NODISCARD) constexpr Second&& second() && noexcept {
         return static_cast<second_base&&>(*this).value();
     }
 
-    ATOM_NODISCARD constexpr const Second&& second() const&& noexcept {
+    ATOM_ATTRS(ATOM_NODISCARD) constexpr const Second&& second() const&& noexcept {
         return static_cast<const second_base&&>(*this).value();
     }
 
@@ -300,25 +300,25 @@ public:
      */
     template <size_t Index>
     requires(Index < 2)
-    ATOM_NODISCARD constexpr decltype(auto) get() & noexcept {
+    ATOM_ATTRS(ATOM_NODISCARD) constexpr decltype(auto) get() & noexcept {
         return _get<Index>(*this);
     }
 
     template <size_t Index>
     requires(Index < 2)
-    ATOM_NODISCARD constexpr decltype(auto) get() const& noexcept {
+    ATOM_ATTRS(ATOM_NODISCARD) constexpr decltype(auto) get() const& noexcept {
         return _get<Index>(*this);
     }
 
     template <size_t Index>
     requires(Index < 2)
-    ATOM_NODISCARD constexpr decltype(auto) get() && noexcept {
+    ATOM_ATTRS(ATOM_NODISCARD) constexpr decltype(auto) get() && noexcept {
         return _get<Index>(std::move(*this));
     }
 
     template <size_t Index>
     requires(Index < 2)
-    ATOM_NODISCARD constexpr decltype(auto) get() const&& noexcept {
+    ATOM_ATTRS(ATOM_NODISCARD) constexpr decltype(auto) get() const&& noexcept {
         return _get<Index>(std::move(*this));
     }
 
@@ -353,7 +353,7 @@ public:
             lhs.second() == _compressed_pair::second_of(rhs)
         } -> std::convertible_to<bool>;
     }
-    ATOM_NODISCARD friend constexpr bool
+    ATOM_ATTRS(ATOM_NODISCARD) friend constexpr bool
         operator==(const compressed_pair& lhs, const Pair& rhs) {
         return lhs.first() == _compressed_pair::first_of(rhs) &&
                lhs.second() == _compressed_pair::second_of(rhs);
@@ -369,7 +369,7 @@ public:
         _compressed_pair::synth_three_way(
             lhs.second(), _compressed_pair::second_of(rhs));
     }
-    ATOM_NODISCARD friend constexpr auto operator<=>(
+    ATOM_ATTRS(ATOM_NODISCARD) friend constexpr auto operator<=>(
         const compressed_pair& lhs, const Pair& rhs)
         -> std::common_comparison_category_t<
             _compressed_pair::synth_three_way_result<
@@ -396,7 +396,7 @@ compressed_pair(First, Second) -> compressed_pair<First, Second>;
  * `std::make_pair`.
  */
 template <typename First, typename Second>
-ATOM_NODISCARD constexpr auto
+ATOM_ATTRS(ATOM_NODISCARD) constexpr auto
     make_compressed_pair(First&& first, Second&& second) noexcept(
         std::is_nothrow_constructible_v<
             std::unwrap_ref_decay_t<First>, First> &&

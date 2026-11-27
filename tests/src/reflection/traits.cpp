@@ -36,7 +36,7 @@ constexpr void test_traits() {
     static_assert(
         traits.is_trivially_move_assignable ==
         std::is_trivially_move_assignable_v<T>);
-    static_assert(traits.is_trivially_relocatible == trivially_relocatable<T>);
+    static_assert(traits.is_trivially_relocatible == trivially_relocatible<T>);
     static_assert(
         traits.is_trivially_destructible ==
         std::is_trivially_destructible_v<T>);

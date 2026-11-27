@@ -88,7 +88,8 @@ public:
      *
      * Only the consumer thread may call this function.
      */
-    ATOM_NODISCARD ATOM_CONSTEXPR_SINCE_CXX26 bool empty() const noexcept {
+    ATOM_ATTRS(ATOM_NODISCARD)
+    ATOM_CONSTEXPR_SINCE_CXX26 bool empty() const noexcept {
         const size_type head = head_.load(std::memory_order_relaxed);
         if (head != tail_cache_) [[likely]] {
             return false;
@@ -120,12 +121,13 @@ public:
      * Only the consumer thread may call this function, and the queue must not
      * be empty.
      */
-    ATOM_NODISCARD ATOM_CONSTEXPR_SINCE_CXX26 T& front() noexcept {
+    ATOM_ATTRS(ATOM_NODISCARD) ATOM_CONSTEXPR_SINCE_CXX26 T& front() noexcept {
         return *_slot(head_.load(std::memory_order_relaxed));
     }
 
     /// @copydoc front()
-    ATOM_NODISCARD ATOM_CONSTEXPR_SINCE_CXX26 const T& front() const noexcept {
+    ATOM_ATTRS(ATOM_NODISCARD)
+    ATOM_CONSTEXPR_SINCE_CXX26 const T& front() const noexcept {
         return *_slot(head_.load(std::memory_order_relaxed));
     }
 
@@ -142,13 +144,13 @@ public:
     }
 
 private:
-    ATOM_NODISCARD ATOM_CONSTEXPR_SINCE_CXX26 T*
-        _slot(size_type index) noexcept {
+    ATOM_ATTRS(ATOM_NODISCARD)
+    ATOM_CONSTEXPR_SINCE_CXX26 T* _slot(size_type index) noexcept {
         return this->data() + (index & (Size - 1));
     }
 
-    ATOM_NODISCARD ATOM_CONSTEXPR_SINCE_CXX26 const T*
-        _slot(size_type index) const noexcept {
+    ATOM_ATTRS(ATOM_NODISCARD)
+    ATOM_CONSTEXPR_SINCE_CXX26 const T* _slot(size_type index) const noexcept {
         return this->data() + (index & (Size - 1));
     }
 
@@ -158,7 +160,7 @@ private:
         tail_.store(tail + 1, std::memory_order_release);
     }
 
-    ATOM_NOINLINE void _wait_for_slot(size_type tail) noexcept {
+    ATOM_ATTRS(ATOM_NOINLINE) void _wait_for_slot(size_type tail) noexcept {
         std::remove_const_t<decltype(max_spin_time)> spin = 0;
         while (true) {
             head_cache_ = head_.load(std::memory_order_acquire);

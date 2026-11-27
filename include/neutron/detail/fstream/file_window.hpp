@@ -117,7 +117,7 @@ public:
         wnd_size_ = 0;
     }
 
-    ATOM_NODISCARD bool is_open() const noexcept { return file_.is_open(); }
+    ATOM_ATTRS(ATOM_NODISCARD) bool is_open() const noexcept { return file_.is_open(); }
 
     /**
      * @brief Map window `n`, unmapping the current one.
@@ -125,7 +125,7 @@ public:
      * @throws std::system_error The window cannot be mapped; the current
      * window stays mapped.
      */
-    ATOM_NODISCARD value_type operator[](size_type n) {
+    ATOM_ATTRS(ATOM_NODISCARD) value_type operator[](size_type n) {
         ATOM_ASSERT(n < size());
         return _view(n);
     }
@@ -136,7 +136,7 @@ public:
      * @throws std::system_error The window cannot be mapped; the current
      * window stays mapped.
      */
-    ATOM_NODISCARD value_type at(size_type n) {
+    ATOM_ATTRS(ATOM_NODISCARD) value_type at(size_type n) {
         if (n >= size()) [[unlikely]] {
             throw std::out_of_range("neutron::file_window: index out of range");
         }
@@ -144,14 +144,14 @@ public:
     }
 
     /// @copydoc operator[](size_type)
-    ATOM_NODISCARD value_type operator[](size_type n) const
+    ATOM_ATTRS(ATOM_NODISCARD) value_type operator[](size_type n) const
     requires ReadOnly
     {
         return _view(n);
     }
 
     /// @copydoc at(size_type)
-    ATOM_NODISCARD value_type at(size_type n) const
+    ATOM_ATTRS(ATOM_NODISCARD) value_type at(size_type n) const
     requires ReadOnly
     {
         if (n >= size()) [[unlikely]] {
@@ -162,13 +162,13 @@ public:
 
     /// @brief Map the window containing byte `offset` of the file.
     /// @pre `offset < file_size()`.
-    ATOM_NODISCARD value_type window_at(offset_type offset) {
+    ATOM_ATTRS(ATOM_NODISCARD) value_type window_at(offset_type offset) {
         ATOM_ASSERT(offset < file_size());
         return (*this)[static_cast<size_type>(offset / wnd_size_)];
     }
 
     /// @copydoc window_at(offset_type)
-    ATOM_NODISCARD value_type window_at(offset_type offset) const
+    ATOM_ATTRS(ATOM_NODISCARD) value_type window_at(offset_type offset) const
     requires ReadOnly
     {
         ATOM_ASSERT(offset < file_size());
@@ -176,27 +176,27 @@ public:
     }
 
     /// @brief Iterate over the windows, mapping each on dereference.
-    ATOM_NODISCARD iterator begin() noexcept { return iterator(this, 0); }
+    ATOM_ATTRS(ATOM_NODISCARD) iterator begin() noexcept { return iterator(this, 0); }
 
     /// @copydoc begin()
-    ATOM_NODISCARD iterator end() noexcept { return iterator(this, size()); }
+    ATOM_ATTRS(ATOM_NODISCARD) iterator end() noexcept { return iterator(this, size()); }
 
     /// @copydoc begin()
-    ATOM_NODISCARD iterator begin() const noexcept
+    ATOM_ATTRS(ATOM_NODISCARD) iterator begin() const noexcept
     requires ReadOnly
     {
         return iterator(this, 0);
     }
 
     /// @copydoc begin()
-    ATOM_NODISCARD iterator end() const noexcept
+    ATOM_ATTRS(ATOM_NODISCARD) iterator end() const noexcept
     requires ReadOnly
     {
         return iterator(this, size());
     }
 
     /// @brief Number of windows.
-    ATOM_NODISCARD size_type size() const noexcept {
+    ATOM_ATTRS(ATOM_NODISCARD) size_type size() const noexcept {
         if (wnd_size_ == 0) {
             return 0;
         }
@@ -206,18 +206,18 @@ public:
             full + static_cast<offset_type>(size % wnd_size_ != 0));
     }
 
-    ATOM_NODISCARD bool empty() const noexcept { return file_.size() == 0; }
+    ATOM_ATTRS(ATOM_NODISCARD) bool empty() const noexcept { return file_.size() == 0; }
 
     /// @brief Size of a full window in bytes.
-    ATOM_NODISCARD size_type window_size() const noexcept { return wnd_size_; }
+    ATOM_ATTRS(ATOM_NODISCARD) size_type window_size() const noexcept { return wnd_size_; }
 
     /// @brief Size of the file in bytes.
-    ATOM_NODISCARD offset_type file_size() const noexcept {
+    ATOM_ATTRS(ATOM_NODISCARD) offset_type file_size() const noexcept {
         return file_.size();
     }
 
     /// @brief Index of the mapped window, or `npos` if none is mapped.
-    ATOM_NODISCARD size_type mapped_index() const noexcept { return index_; }
+    ATOM_ATTRS(ATOM_NODISCARD) size_type mapped_index() const noexcept { return index_; }
 
     /**
      * @brief Resize the file; a grown part reads as zeros.
@@ -313,7 +313,7 @@ private:
     }
 
     /// Map `n`, or keep the current window when it is already the one.
-    ATOM_NODISCARD value_type _view(size_type n) const {
+    ATOM_ATTRS(ATOM_NODISCARD) value_type _view(size_type n) const {
         if (n != index_) [[unlikely]] {
             _switch(n);
         }
@@ -371,9 +371,9 @@ public:
 
     iterator() noexcept = default;
 
-    ATOM_NODISCARD reference operator*() const { return (*owner_)[index_]; }
+    ATOM_ATTRS(ATOM_NODISCARD) reference operator*() const { return (*owner_)[index_]; }
 
-    ATOM_NODISCARD reference operator[](difference_type n) const {
+    ATOM_ATTRS(ATOM_NODISCARD) reference operator[](difference_type n) const {
         return (*owner_)[_advance(index_, n)];
     }
 
@@ -409,32 +409,32 @@ public:
         return *this;
     }
 
-    ATOM_NODISCARD friend iterator
+    ATOM_ATTRS(ATOM_NODISCARD) friend iterator
         operator+(iterator it, difference_type n) noexcept {
         return it += n;
     }
 
-    ATOM_NODISCARD friend iterator
+    ATOM_ATTRS(ATOM_NODISCARD) friend iterator
         operator+(difference_type n, iterator it) noexcept {
         return it += n;
     }
 
-    ATOM_NODISCARD friend iterator
+    ATOM_ATTRS(ATOM_NODISCARD) friend iterator
         operator-(iterator it, difference_type n) noexcept {
         return it -= n;
     }
 
-    ATOM_NODISCARD friend difference_type
+    ATOM_ATTRS(ATOM_NODISCARD) friend difference_type
         operator-(const iterator& lhs, const iterator& rhs) noexcept {
         return static_cast<difference_type>(lhs.index_ - rhs.index_);
     }
 
-    ATOM_NODISCARD friend bool
+    ATOM_ATTRS(ATOM_NODISCARD) friend bool
         operator==(const iterator& lhs, const iterator& rhs) noexcept {
         return lhs.index_ == rhs.index_;
     }
 
-    ATOM_NODISCARD friend auto
+    ATOM_ATTRS(ATOM_NODISCARD) friend auto
         operator<=>(const iterator& lhs, const iterator& rhs) noexcept {
         return lhs.index_ <=> rhs.index_;
     }

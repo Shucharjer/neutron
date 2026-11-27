@@ -221,8 +221,9 @@ public:
         }
         if (that._uses_buffer()) {
             std::destroy_n(data_, size_);
-            if constexpr (std::allocator_traits<allocator_type>::
-                              propagate_on_container_move_assignment::value) {
+            if constexpr (
+                std::allocator_traits<allocator_type>::
+                    propagate_on_container_move_assignment::value) {
                 if (!_uses_buffer()) {
                     alloc_.deallocate(data_, capacity_);
                     alloc_ = std::move(that).alloc_;
@@ -238,8 +239,9 @@ public:
                 alloc_.deallocate(data_, capacity_);
                 _reset_data_ptr();
             }
-            if constexpr (std::allocator_traits<allocator_type>::
-                              propagate_on_container_move_assignment::value) {
+            if constexpr (
+                std::allocator_traits<allocator_type>::
+                    propagate_on_container_move_assignment::value) {
                 alloc_ = std::move(that).alloc_;
             }
             data_ = that.data_;
@@ -361,28 +363,38 @@ public:
         size_ = 0;
     }
 
-    ATOM_NODISCARD size_type size() const noexcept { return size_; }
-    ATOM_NODISCARD size_type size_in_bytes() const noexcept {
+    ATOM_ATTRS(ATOM_NODISCARD) size_type size() const noexcept { return size_; }
+    ATOM_ATTRS(ATOM_NODISCARD) size_type size_in_bytes() const noexcept {
         return size_ * sizeof(Ty);
     }
-    ATOM_NODISCARD size_type max_size() const noexcept {
+    ATOM_ATTRS(ATOM_NODISCARD) size_type max_size() const noexcept {
         return (std::min)((std::numeric_limits<size_type>::max)(),
                           static_cast<size_t>(-1) / sizeof(Ty));
     }
-    ATOM_NODISCARD bool empty() const noexcept { return size_ == 0; }
-    ATOM_NODISCARD reference front() noexcept { return data_[0]; }
-    ATOM_NODISCARD const_reference front() const noexcept { return data_[0]; }
-    ATOM_NODISCARD reference back() noexcept { return data_[size_ - 1]; }
-    ATOM_NODISCARD const_reference back() const noexcept {
+    ATOM_ATTRS(ATOM_NODISCARD) bool empty() const noexcept {
+        return size_ == 0;
+    }
+    ATOM_ATTRS(ATOM_NODISCARD) reference front() noexcept { return data_[0]; }
+    ATOM_ATTRS(ATOM_NODISCARD) const_reference front() const noexcept {
+        return data_[0];
+    }
+    ATOM_ATTRS(ATOM_NODISCARD) reference back() noexcept {
+        return data_[size_ - 1];
+    }
+    ATOM_ATTRS(ATOM_NODISCARD) const_reference back() const noexcept {
         return data_[size_ - 1];
     }
 
-    ATOM_NODISCARD iterator begin() noexcept { return iterator{ data_ }; }
-    ATOM_NODISCARD const_iterator begin() const noexcept {
+    ATOM_ATTRS(ATOM_NODISCARD) iterator begin() noexcept {
+        return iterator{ data_ };
+    }
+    ATOM_ATTRS(ATOM_NODISCARD) const_iterator begin() const noexcept {
         return const_iterator{ data_ };
     }
-    ATOM_NODISCARD iterator end() noexcept { return iterator{ data_ + size_ }; }
-    ATOM_NODISCARD const_iterator end() const noexcept {
+    ATOM_ATTRS(ATOM_NODISCARD) iterator end() noexcept {
+        return iterator{ data_ + size_ };
+    }
+    ATOM_ATTRS(ATOM_NODISCARD) const_iterator end() const noexcept {
         return const_iterator{ data_ + size_ };
     }
 
@@ -395,9 +407,11 @@ public:
     }
 
     // capacity helpers
-    ATOM_NODISCARD size_type capacity() const noexcept { return capacity_; }
+    ATOM_ATTRS(ATOM_NODISCARD) size_type capacity() const noexcept {
+        return capacity_;
+    }
 
-    ATOM_NODISCARD allocator_type get_allocator() const noexcept {
+    ATOM_ATTRS(ATOM_NODISCARD) allocator_type get_allocator() const noexcept {
         return alloc_;
     }
 
@@ -547,7 +561,7 @@ private:
         return data_ == reinterpret_cast<const Ty*>(std::addressof(storage_));
     }
 
-    ATOM_ALWAYS_INLINE void _reset_data_ptr() noexcept {
+    ATOM_ATTRS(ATOM_ALWAYS_INLINE) void _reset_data_ptr() noexcept {
         data_ = reinterpret_cast<pointer>(storage_);
     }
 

@@ -9,6 +9,18 @@
 
 namespace neutron {
 
+/**
+ * @brief A view of some columns of an archetype that follows its changes.
+ *
+ * It refers to the archetype's size, entity list and column slots instead of
+ * copying them, so it stays valid across emplace, erase, transfer, reserve and
+ * clear, even when they relocate the columns. Pointers read out of it, such as
+ * `*buffers()[i]` or `entities()`, do not follow; read them again after such
+ * changes.
+ *
+ * Moving or destroying the archetype invalidates the slice. A world never
+ * moves its archetypes.
+ */
 template <component... Components>
 class slice {
 
@@ -30,30 +42,31 @@ public:
           bufs_([&archetype]<size_t... Is>(std::index_sequence<Is...>) {
               const auto buffers =
                   archetype.template view_buffers<Components...>();
-              return std::array<_buffer_ptr*, sizeof...(Components)>{
+              return std::array<void* const*, sizeof...(Components)>{
                   std::get<Is>(buffers)...
               };
           }(std::index_sequence_for<Components...>())) {}
 
-    ATOM_NODISCARD constexpr size_type size() const noexcept { return *size_; }
+    ATOM_ATTRS(ATOM_NODISCARD) constexpr size_type size() const noexcept { return *size_; }
 
-    ATOM_NODISCARD constexpr const entity_t* entities() const noexcept {
+    ATOM_ATTRS(ATOM_NODISCARD) constexpr const entity_t* entities() const noexcept {
         return *entities_;
     }
 
-    ATOM_NODISCARD constexpr auto buffers() const noexcept
-        -> const std::array<_buffer_ptr*, sizeof...(Components)>& {
+    ATOM_ATTRS(ATOM_NODISCARD) constexpr auto buffers() const noexcept
+        -> const std::array<void* const*, sizeof...(Components)>& {
         return bufs_;
     }
 
 private:
     const size_t* size_;
     const entity_t* const* entities_;
-    std::array<_buffer_ptr*, sizeof...(Components)> bufs_;
+    /// Column slots of the archetype; they follow its relocations.
+    std::array<void* const*, sizeof...(Components)> bufs_;
 };
 
 template <component... Components, std_simple_allocator Alloc>
-ATOM_NODISCARD auto slice_of(archetype<Alloc>& archetype) noexcept {
+ATOM_ATTRS(ATOM_NODISCARD) auto slice_of(archetype<Alloc>& archetype) noexcept {
     using component_list = type_list<std::remove_cvref_t<Components>...>;
     return type_list_rebind_t<slice, component_list>{ archetype };
 }

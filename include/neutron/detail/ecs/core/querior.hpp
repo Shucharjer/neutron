@@ -196,13 +196,13 @@ struct _basic_querior_base {
     _basic_querior_base(const Al& alloc) : slices(alloc) {}
 
     template <typename... Flt>
-    ATOM_NODISCARD static bool
+    ATOM_ATTRS(ATOM_NODISCARD) static bool
         init(type_list<Flt...>, const _archetype_t& archetype) noexcept {
         return (Flt{}.init(archetype) && ...);
     }
 
     template <typename... Flt>
-    ATOM_NODISCARD static bool fetch(
+    ATOM_ATTRS(ATOM_NODISCARD) static bool fetch(
         type_list<Flt...>, const _archetype_t& archetype,
         entity_t entity) noexcept {
         return (Flt{}.fetch(archetype, entity) && ...);
@@ -278,14 +278,14 @@ public:
         version_.store(ver, std::memory_order_release);
     }
 
-    ATOM_NODISCARD auto slices() const noexcept
+    ATOM_ATTRS(ATOM_NODISCARD) auto slices() const noexcept
         -> std::span<const typename _base::slice_t> {
         return _base::slices;
     }
 
-    ATOM_NODISCARD size_t size() const noexcept { return _base::slices.size(); }
+    ATOM_ATTRS(ATOM_NODISCARD) size_t size() const noexcept { return _base::slices.size(); }
 
-    ATOM_NODISCARD std::uint64_t version() const noexcept {
+    ATOM_ATTRS(ATOM_NODISCARD) std::uint64_t version() const noexcept {
         return version_.load(std::memory_order_acquire);
     }
 
@@ -310,12 +310,12 @@ public:
         this->make(archetypes);
     }
 
-    ATOM_NODISCARD auto slices() const noexcept
+    ATOM_ATTRS(ATOM_NODISCARD) auto slices() const noexcept
         -> std::span<const typename _base::slice_t> {
         return _base::slices;
     }
 
-    ATOM_NODISCARD size_t size() const noexcept { return _base::slices.size(); }
+    ATOM_ATTRS(ATOM_NODISCARD) size_t size() const noexcept { return _base::slices.size(); }
 };
 
 } // namespace _basic_querior

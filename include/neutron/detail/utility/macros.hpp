@@ -33,22 +33,14 @@
 // Compiler-specific attribute macros
 
 #if defined(__GNUC__) || defined(__clang__)
-    #define ATOM_ALWAYS_INLINE                                                 \
-        inline __attribute__((__always_inline__)) ///< Force inline (GCC/Clang)
-    #define ATOM_NOINLINE                                                      \
-        __attribute__((__noinline__)) ///< Prevent inlining (GCC/Clang)
     #define ATOM_ALLOCATOR                                                     \
-        __attribute__((malloc))       ///< Returns allocated memory (GCC/Clang)
-    #define ATOM_NOVTABLE             ///< Empty for GCC/Clang
+        __attribute__((malloc)) ///< Returns allocated memory (GCC/Clang)
+    #define ATOM_NOVTABLE       ///< Empty for GCC/Clang
 #elif defined(_MSC_VER)
-    #define ATOM_ALWAYS_INLINE __forceinline ///< Force inline expansion (MSVC)
-    #define ATOM_NOINLINE __declspec(noinline) ///< Prevent inlining (MSVC)
     #define ATOM_ALLOCATOR                                                     \
         __declspec(allocator) ///< Function returns allocated memory (MSVC)
     #define ATOM_NOVTABLE __declspec(novtable) ///< No vtable generation (MSVC)
 #else
-    #define ATOM_ALWAYS_INLINE inline          ///< Fallback inline
-    #define ATOM_NOINLINE                      ///< Fallback noinline
     #define ATOM_ALLOCATOR                     ///< Fallback allocator
     #define ATOM_NOVTABLE                      ///< Fallback novtable
 #endif
@@ -158,28 +150,16 @@
 #endif
 
 // [[nodiscard]] attribute support
-#ifndef HAS_ATOM_NODISCARD
-    #if defined(__has_cpp_attribute) &&                                        \
-        __has_cpp_attribute(nodiscard) >= 201603L
-        #define HAS_ATOM_NODISCARD 1 ///< [[nodiscard]] supported
-    #else
-        #define HAS_ATOM_NODISCARD 0 ///< [[nodiscard]] not supported
-    #endif
+#ifndef ATOM_NODISCARD
+    #define ATOM_NODISCARD nodiscard
 #endif
 
-#if HAS_ATOM_NODISCARD
-    #define ATOM_NODISCARD                                                     \
-        [[nodiscard]]      ///< Attribute to warn on unused return values
-#else
-    #define ATOM_NODISCARD ///< Empty when not supported
-#endif
-
-#ifndef HAS_INDETERMINATE
+#ifndef ATOM_HAS_INDETERMINATE
     #if defined(__has_cpp_attribute) &&                                        \
         __has_cpp_attribute(indeterminate) > 202303L
-        #define HAS_INDETERMINATE 1
+        #define ATOM_HAS_INDETERMINATE 1
     #else
-        #define HAS_INDETERMINATE 0
+        #define ATOM_HAS_INDETERMINATE 0
     #endif
 #endif
 
@@ -278,5 +258,46 @@
         #define ATOM_ASSERT(expr) assert(expr)
     #else
         #define ATOM_ASSERT(expr)
+    #endif
+#endif
+
+#ifndef ATOM_ATTRS
+// NOLINTNEXTLINE
+    #define ATOM_ATTRS(...) [[__VA_ARGS__]]
+#endif
+
+#ifndef ATOM_ALWAYS_INLINE
+    #ifdef _MSC_VER
+        #define ATOM_ALWAYS_INLINE msvc::forceinline
+    #elif defined(__clang__)
+        #define ATOM_ALWAYS_INLINE clang::always_inline
+    #elif defined(__GNUC__)
+        #define ATOM_ALWAYS_INLINE gnu::always_inline
+    #else
+        #define ATOM_ALWAYS_INLINE
+    #endif
+#endif
+
+#ifndef ATOM_NOINLINE
+    #ifdef _MSC_VER
+        #define ATOM_NOINLINE msvc::noinline
+    #elif defined(__clang__)
+        #define ATOM_NOINLINE clang::noinline
+    #elif defined(__GNUC__)
+        #define ATOM_NOINLINE gnu::noinline
+    #else
+        #define ATOM_NOINLINE
+    #endif
+#endif
+
+#ifndef ATOM_NODEBUG
+    #ifdef _MSC_VER
+        #define ATOM_NODEBUG
+        #elif defined(__clang__)
+        #define ATOM_NODEBUG gnu::nodebug
+    #elif defined(__GNUC__)
+        #define ATOM_NODEBUG gnu::artificial
+    #else
+        #define ATOM_NODEBUG
     #endif
 #endif

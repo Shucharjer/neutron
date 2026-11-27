@@ -5,12 +5,13 @@
 #include <cstddef>
 #include <memory>
 #include <memory_resource>
+#include "neutron/detail/concepts/allocator.hpp"
 #include "neutron/detail/ecs/concepts/component.hpp"
 #include "neutron/detail/ecs/concepts/entity.hpp"
 
 namespace neutron {
 
-template <typename Alloc = std::allocator<std::byte>>
+template <unfancy_allocator Alloc = std::allocator<std::byte>>
 class basic_commands {
 public:
     constexpr basic_commands(world_base<Alloc>& world) noexcept

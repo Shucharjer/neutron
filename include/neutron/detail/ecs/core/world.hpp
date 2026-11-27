@@ -8,6 +8,7 @@
 #include <stdexcept>
 #include <tuple>
 #include <vector>
+#include "neutron/detail/concepts/allocator.hpp"
 #include "neutron/detail/ecs/compile-time/collect_params/local.hpp"
 #include "neutron/detail/ecs/compile-time/collect_params/query.hpp"
 #include "neutron/detail/ecs/compile-time/collect_params/res.hpp"
@@ -29,7 +30,7 @@ namespace neutron {
 class _tick_rate_base {
 public:
     void set_last_update(_time_point_t time) noexcept { _last_update = time; }
-    ATOM_NODISCARD _time_point_t get_last_update() const noexcept {
+    ATOM_ATTRS(ATOM_NODISCARD) _time_point_t get_last_update() const noexcept {
         return _last_update;
     }
 
@@ -45,7 +46,7 @@ public:
         return std::chrono::duration<double>{ rate == 0.0 ? 0.0 : 1.0 / rate };
     }
 
-    ATOM_NODISCARD bool should_update(_time_point_t time) const noexcept {
+    ATOM_ATTRS(ATOM_NODISCARD) bool should_update(_time_point_t time) const noexcept {
         using namespace std::chrono;
         constexpr double forward_tick_rate =
             get_forward_tick_rate(Descriptor());
@@ -61,12 +62,12 @@ template <typename Descriptor>
 requires(get_forward_tick_rate(Descriptor()) < 0.0)
 class _basic_world_tick_rate_t<Descriptor> : public _tick_rate_base {
 public:
-    ATOM_NODISCARD bool should_update(_time_point_t time) const noexcept {
+    ATOM_ATTRS(ATOM_NODISCARD) bool should_update(_time_point_t time) const noexcept {
         using namespace std::chrono;
         return time >= _last_update + interval_;
     }
-    ATOM_NODISCARD int get_tick_rate() const noexcept { return rate_; }
-    ATOM_NODISCARD auto get_tick_interval() const noexcept { return interval_; }
+    ATOM_ATTRS(ATOM_NODISCARD) int get_tick_rate() const noexcept { return rate_; }
+    ATOM_ATTRS(ATOM_NODISCARD) auto get_tick_interval() const noexcept { return interval_; }
     void set_tick_rate(int tick_rate) {
         if (tick_rate < 0) {
             throw std::invalid_argument("tick rate must be nonnegative");
@@ -87,14 +88,14 @@ protected:
     ATOM_NO_UNIQUE_ADDR internal::world_tasks<Descriptor> tasks_;
 };
 
-template <typename Desc, typename Alloc = std::allocator<std::byte>>
+template <typename Desc, unfancy_allocator Alloc = std::allocator<std::byte>>
 class basic_world;
 
 template <typename Alloc>
 constexpr bool _is_byte_allocator =
     std::same_as<typename std::allocator_traits<Alloc>::value_type, std::byte>;
 
-template <typename Descriptor, typename Alloc>
+template <typename Descriptor, unfancy_allocator Alloc>
 requires internal::byte_allocator<Alloc>
 class basic_world<Descriptor, Alloc> :
     public _basic_world_task_base<Descriptor>,
@@ -143,7 +144,7 @@ public:
     }
 
     template <stage Stage, execution::scheduler Scheduler>
-    ATOM_NODISCARD execution::sender auto
+    ATOM_ATTRS(ATOM_NODISCARD) execution::sender auto
         run(Scheduler scheduler,
             _time_point_t time = std::chrono::system_clock::now()) & {
         auto& tasks = std::get<static_cast<std::size_t>(Stage)>(this->tasks_);
@@ -219,7 +220,7 @@ private:
     ATOM_NO_UNIQUE_ADDR _shared_tuple<locals_type> locals_;
 };
 
-template <typename Desc, typename Alloc>
+template <typename Desc, unfancy_allocator Alloc>
 class basic_world : public basic_world<Desc, rebind_alloc_t<Alloc, std::byte>> {
 public:
     using basic_world<Desc, rebind_alloc_t<Alloc, std::byte>>::basic_world;
@@ -229,14 +230,16 @@ template <auto Desc, typename Alloc = std::allocator<std::byte>>
 using world_of = basic_world<std::remove_cvref_t<decltype(Desc)>, Alloc>;
 
 template <
-    descriptor auto Descriptor, typename Alloc = std::allocator<std::byte>>
+    descriptor auto Descriptor,
+    unfancy_allocator Alloc = std::allocator<std::byte>>
 auto make_world(const Alloc& alloc = {})
     -> basic_world<decltype(Descriptor), Alloc> {
     return basic_world<decltype(Descriptor), Alloc>(alloc);
 }
 
 template <
-    descriptor auto... Descriptors, typename Alloc = std::allocator<std::byte>>
+    descriptor auto... Descriptors,
+    unfancy_allocator Alloc = std::allocator<std::byte>>
 auto make_worlds(const Alloc& alloc = {}) -> std::tuple<
     basic_world<decltype(Descriptors), rebind_alloc_t<Alloc, std::byte>>...> {
     return {

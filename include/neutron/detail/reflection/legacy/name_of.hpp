@@ -14,7 +14,7 @@ namespace neutron::_refl_legacy {
  * @brief Extracts the spelling of a single template argument out of a function
  * signature.
  */
-ATOM_NODISCARD consteval std::string_view extract_argument_name(
+ATOM_ATTRS(ATOM_NODISCARD) consteval std::string_view extract_argument_name(
     std::string_view funcname, std::string_view marker) noexcept {
     const auto begin = funcname.find(marker);
     if (begin == std::string_view::npos) {
@@ -46,7 +46,7 @@ ATOM_NODISCARD consteval std::string_view extract_argument_name(
  * @brief Returns the spelling the compiler gives to `Ty`.
  */
 template <typename Ty>
-ATOM_NODISCARD consteval std::string_view compiler_name_of() noexcept {
+ATOM_ATTRS(ATOM_NODISCARD) consteval std::string_view compiler_name_of() noexcept {
 #if defined(_MSC_VER) && !defined(__clang__)
     return extract_argument_name(__FUNCSIG__, "compiler_name_of<");
 #else
@@ -58,7 +58,7 @@ ATOM_NODISCARD consteval std::string_view compiler_name_of() noexcept {
  * @brief Returns the compiler spelling of a class template.
  */
 template <template <typename...> class Tmpl>
-ATOM_NODISCARD consteval std::string_view template_name_of() noexcept {
+ATOM_ATTRS(ATOM_NODISCARD) consteval std::string_view template_name_of() noexcept {
 #if defined(_MSC_VER) && !defined(__clang__)
     return extract_argument_name(__FUNCSIG__, "template_name_of<");
 #else
@@ -69,7 +69,7 @@ ATOM_NODISCARD consteval std::string_view template_name_of() noexcept {
 namespace _name_of {
 
 /// @brief Recognizes the libstdc++ ABI and libc++ version namespaces.
-ATOM_NODISCARD constexpr std::size_t
+ATOM_ATTRS(ATOM_NODISCARD) constexpr std::size_t
     inline_namespace_length(std::string_view raw, std::size_t pos) noexcept {
     constexpr std::string_view prefix = "std::__";
 
@@ -239,7 +239,7 @@ private:
  * the name usable as a C string, like the compiler generated spellings are.
  */
 template <typename Ty>
-ATOM_NODISCARD constexpr auto make_canonical_name_storage() noexcept {
+ATOM_ATTRS(ATOM_NODISCARD) constexpr auto make_canonical_name_storage() noexcept {
     constexpr auto size = [] {
         _name_of::name_sink sink;
         _name_of::name_writer<Ty>::write(sink);
@@ -276,7 +276,7 @@ struct name_of_type {
  * normalized compiler spelling, which may still be compiler-specific.
  */
 template <typename Ty>
-ATOM_NODISCARD consteval std::string_view name_of() noexcept {
+ATOM_ATTRS(ATOM_NODISCARD) consteval std::string_view name_of() noexcept {
     return name_of_type<Ty>::value;
 }
 

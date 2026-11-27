@@ -97,54 +97,54 @@ struct virtual_base : virtual plain {};
 struct incomplete;
 
 // satisfied by: scalars
-static_assert(trivially_relocatable<int>);
-static_assert(trivially_relocatable<const int>);
-static_assert(trivially_relocatable<volatile int>);
-static_assert(trivially_relocatable<double>);
-static_assert(trivially_relocatable<color>);
-static_assert(trivially_relocatable<std::nullptr_t>);
-static_assert(trivially_relocatable<int*>);
-static_assert(trivially_relocatable<incomplete*>);
-static_assert(trivially_relocatable<void (*)()>);
-static_assert(trivially_relocatable<int plain::*>);
+static_assert(trivially_relocatible<int>);
+static_assert(trivially_relocatible<const int>);
+static_assert(trivially_relocatible<volatile int>);
+static_assert(trivially_relocatible<double>);
+static_assert(trivially_relocatible<color>);
+static_assert(trivially_relocatible<std::nullptr_t>);
+static_assert(trivially_relocatible<int*>);
+static_assert(trivially_relocatible<incomplete*>);
+static_assert(trivially_relocatible<void (*)()>);
+static_assert(trivially_relocatible<int plain::*>);
 
 // satisfied by: trivially copyable classes
-static_assert(trivially_relocatable<plain>);
-static_assert(trivially_relocatable<const plain>);
-static_assert(trivially_relocatable<nested>);
-static_assert(trivially_relocatable<private_members>);
-static_assert(trivially_relocatable<defaulted_ops>);
-static_assert(trivially_relocatable<derived_plain>);
-static_assert(trivially_relocatable<scalar_union>);
+static_assert(trivially_relocatible<plain>);
+static_assert(trivially_relocatible<const plain>);
+static_assert(trivially_relocatible<nested>);
+static_assert(trivially_relocatible<private_members>);
+static_assert(trivially_relocatible<defaulted_ops>);
+static_assert(trivially_relocatible<derived_plain>);
+static_assert(trivially_relocatible<scalar_union>);
 
 // satisfied by: arrays of relocatable elements
-static_assert(trivially_relocatable<int[3]>);
-static_assert(trivially_relocatable<plain[2][2]>);
-static_assert(trivially_relocatable<const nested[4]>);
+static_assert(trivially_relocatible<int[3]>);
+static_assert(trivially_relocatible<plain[2][2]>);
+static_assert(trivially_relocatible<const nested[4]>);
 
 // rejected: non-object types
-static_assert(!trivially_relocatable<void>);
-static_assert(!trivially_relocatable<const void>);
-static_assert(!trivially_relocatable<int&>);
-static_assert(!trivially_relocatable<const plain&>);
-static_assert(!trivially_relocatable<int&&>);
-static_assert(!trivially_relocatable<void()>);
+static_assert(!trivially_relocatible<void>);
+static_assert(!trivially_relocatible<const void>);
+static_assert(!trivially_relocatible<int&>);
+static_assert(!trivially_relocatible<const plain&>);
+static_assert(!trivially_relocatible<int&&>);
+static_assert(!trivially_relocatible<void()>);
 
 // rejected: user-provided special members, directly or through subobjects
-static_assert(!trivially_relocatable<user_move>);
-static_assert(!trivially_relocatable<user_copy>);
-static_assert(!trivially_relocatable<user_dtor>);
-static_assert(!trivially_relocatable<holds_user_move>);
-static_assert(!trivially_relocatable<derived_user_move>);
-static_assert(!trivially_relocatable<user_move[2]>);
-static_assert(!trivially_relocatable<virtual_base>);
+static_assert(!trivially_relocatible<user_move>);
+static_assert(!trivially_relocatible<user_copy>);
+static_assert(!trivially_relocatible<user_dtor>);
+static_assert(!trivially_relocatible<holds_user_move>);
+static_assert(!trivially_relocatible<derived_user_move>);
+static_assert(!trivially_relocatible<user_move[2]>);
+static_assert(!trivially_relocatible<virtual_base>);
 
 // rejected: standard library types with user-provided special members
-static_assert(!trivially_relocatable<std::string>);
-static_assert(!trivially_relocatable<std::unique_ptr<int>>);
-static_assert(!trivially_relocatable<std::shared_ptr<int>>);
-static_assert(!trivially_relocatable<std::vector<int>>);
-static_assert(!trivially_relocatable<holds_string>);
+static_assert(!trivially_relocatible<std::string>);
+static_assert(!trivially_relocatible<std::unique_ptr<int>>);
+static_assert(!trivially_relocatible<std::shared_ptr<int>>);
+static_assert(!trivially_relocatible<std::vector<int>>);
+static_assert(!trivially_relocatible<holds_string>);
 
 } // namespace
 

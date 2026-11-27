@@ -4,12 +4,13 @@
 
 #include <cstddef>
 #include <memory>
+#include "neutron/detail/concepts/allocator.hpp"
 #include "neutron/detail/ecs/concepts/component.hpp"
 #include "neutron/detail/ecs/core/command_buffer.hpp"
 
 namespace neutron {
 
-template <typename Alloc = std::allocator<std::byte>>
+template <unfancy_allocator Alloc = std::allocator<std::byte>>
 class basic_command_list {
 public:
     constexpr basic_command_list(command_buffer<Alloc>& cb) noexcept

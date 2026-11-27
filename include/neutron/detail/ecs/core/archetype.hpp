@@ -8,23 +8,21 @@
 #include <cstddef>
 #include <cstdint>
 #include <cstring>
-#include <initializer_list>
 #include <iterator>
 #include <memory>
 #include <memory_resource> // IWYU pragma: keep, for std::pmr::polymorphic_allocator
-#include <new>
 #include <ranges>
 #include <span>
 #include <tuple>
 #include <type_traits>
 #include <utility>
-#include <vector>
 #include <version>
-#include "neutron/concepts.hpp"
 #include "neutron/detail/algorithm/branchless_lower_bound.hpp"
+#include "neutron/detail/concepts/allocator.hpp"
 #include "neutron/detail/ecs/concepts/component.hpp"
 #include "neutron/detail/ecs/concepts/entity.hpp"
 #include "neutron/detail/ecs/utility/anchor.hpp"
+#include "neutron/detail/memory/allocate_guard.hpp"
 #include "neutron/detail/memory/uninitialized_move_if_noexcept.hpp"
 #include "neutron/detail/ranges/concepts.hpp"
 #include "neutron/detail/reflection/hash.hpp"
@@ -51,24 +49,281 @@ struct add_components_t {};
 template <component... Comp>
 struct remove_components_t {};
 
-/**
- * @brief Custom deleter for aligned memory allocated via `operator
- * new(size, align_val_t)`.
- */
-struct _buffer_deletor {
-    std::align_val_t align;
+namespace _archetype {
 
-    /**
-     * @brief Deallocates memory with the stored alignment.
-     * @param ptr Pointer to deallocate.
-     */
-    ATOM_CONSTEXPR_SINCE_CXX26 void operator()(std::byte* ptr) const noexcept {
-        ::operator delete(ptr, align);
+constexpr std::size_t _initial_capacity = 64U;
+
+// Component columns come from the archetype's allocator rebound to the
+// element type, so the allocator sees the natural alignment of the component.
+
+template <unfancy_allocator Alloc>
+ATOM_ATTRS(ATOM_NODISCARD)
+ATOM_CONSTEXPR_SINCE_CXX26 auto _allocate(Alloc alloc, std::size_t count)
+    -> std::allocator_traits<Alloc>::pointer {
+    return std::allocator_traits<Alloc>::allocate(alloc, count);
+}
+
+template <unfancy_allocator Alloc>
+ATOM_CONSTEXPR_SINCE_CXX26 void _deallocate(
+    Alloc alloc, typename std::allocator_traits<Alloc>::pointer ptr,
+    std::size_t count) noexcept {
+    std::allocator_traits<Alloc>::deallocate(alloc, ptr, count);
+}
+
+/// @brief Whether a column can be relocated without risking an exception.
+template <typename T>
+constexpr bool _relocates_nothrow =
+    trivially_relocatible<T> || std::is_nothrow_move_constructible_v<T>;
+
+template <typename T>
+ATOM_ATTRS(ATOM_NODISCARD, ATOM_ALWAYS_INLINE, ATOM_NODEBUG)
+inline ATOM_CONSTEXPR_SINCE_CXX26 auto _column(void* buffer) noexcept -> T* {
+    return static_cast<T*>(buffer);
+}
+
+// Typed relocation of every column. Columns whose relocation may throw are
+// copied first, so a failure leaves the source columns untouched.
+
+template <
+    std::size_t Index, typename Components, typename Alloc, std::size_t Size>
+ATOM_CONSTEXPR_SINCE_CXX26 void _allocate_column(
+    const Alloc& alloc, std::array<void*, Size>& nbufs, std::size_t ncap) {
+    using comp_t = type_list_element_t<Index, Components>;
+    if constexpr (!std::is_empty_v<comp_t>) {
+        nbufs[Index] = _allocate(rebind_alloc_t<Alloc, comp_t>{ alloc }, ncap);
     }
-};
+}
 
-/// Alias for a unique pointer managing aligned byte buffers.
-using _buffer_ptr = std::unique_ptr<std::byte[], _buffer_deletor>;
+template <std::size_t Index, typename Components, std::size_t Size>
+ATOM_CONSTEXPR_SINCE_CXX26 void _copy_column(
+    std::span<void*, Size> bufs, const std::array<void*, Size>& nbufs,
+    std::array<bool, Size>& copied, std::size_t size) {
+    using comp_t = type_list_element_t<Index, Components>;
+    if constexpr (!std::is_empty_v<comp_t> && !_relocates_nothrow<comp_t>) {
+        uninitialized_move_if_noexcept_n(
+            _column<comp_t>(bufs[Index]), size, _column<comp_t>(nbufs[Index]));
+        copied[Index] = true;
+    }
+}
+
+template <std::size_t Index, typename Components, std::size_t Size>
+ATOM_CONSTEXPR_SINCE_CXX26 void _move_column(
+    std::span<void*, Size> bufs, const std::array<void*, Size>& nbufs,
+    std::size_t size) noexcept {
+    using comp_t = type_list_element_t<Index, Components>;
+    if constexpr (!std::is_empty_v<comp_t> && _relocates_nothrow<comp_t>) {
+        auto* const src = _column<comp_t>(bufs[Index]);
+        auto* const dst = _column<comp_t>(nbufs[Index]);
+        if constexpr (trivially_relocatible<comp_t>) {
+            if ATOM_CONST_EVALUATED {
+                std::uninitialized_move_n(src, size, dst);
+                std::destroy_n(src, size);
+            } else {
+                // Relocation ends the lifetime of the sources.
+                std::memcpy(dst, src, sizeof(comp_t) * size);
+            }
+        } else {
+            std::uninitialized_move_n(src, size, dst);
+            std::destroy_n(src, size);
+        }
+    }
+}
+
+template <
+    std::size_t Index, typename Components, typename Alloc, std::size_t Size>
+ATOM_CONSTEXPR_SINCE_CXX26 void _discard_column(
+    const Alloc& alloc, const std::array<void*, Size>& nbufs,
+    const std::array<bool, Size>& copied, std::size_t size,
+    std::size_t ncap) noexcept {
+    using comp_t = type_list_element_t<Index, Components>;
+    if constexpr (!std::is_empty_v<comp_t>) {
+        if (nbufs[Index] == nullptr) {
+            return;
+        }
+        auto* const column = _column<comp_t>(nbufs[Index]);
+        if (copied[Index]) {
+            std::destroy_n(column, size);
+        }
+        _deallocate(rebind_alloc_t<Alloc, comp_t>{ alloc }, column, ncap);
+    }
+}
+
+template <
+    std::size_t Index, typename Components, typename Alloc, std::size_t Size>
+ATOM_CONSTEXPR_SINCE_CXX26 void _commit_column(
+    const Alloc& alloc, std::span<void*, Size> bufs,
+    const std::array<void*, Size>& nbufs, std::size_t size,
+    std::size_t ocap) noexcept {
+    using comp_t = type_list_element_t<Index, Components>;
+    if constexpr (!std::is_empty_v<comp_t>) {
+        auto* const column = _column<comp_t>(bufs[Index]);
+        if constexpr (!_relocates_nothrow<comp_t>) {
+            // Copied, so the sources are still alive.
+            std::destroy_n(column, size);
+        }
+        _deallocate(rebind_alloc_t<Alloc, comp_t>{ alloc }, column, ocap);
+        bufs[Index] = nbufs[Index];
+    }
+}
+
+/**
+ * @brief Moves `size` rows of every column into buffers of `ncap` rows and
+ * releases the old buffers of `ocap` rows.
+ *
+ * Strong guarantee: if an allocation or a copy throws, the columns are
+ * unchanged.
+ */
+template <
+    component... Components, typename Alloc,
+    std::size_t Size = sizeof...(Components)>
+ATOM_CONSTEXPR_SINCE_CXX26 void _relocate(
+    const Alloc& alloc, std::span<void*, Size> bufs, std::size_t size,
+    std::size_t ocap, std::size_t ncap) {
+    using list_t = hash_list_t<type_list<std::remove_cvref_t<Components>...>>;
+    using iseq_t = std::make_index_sequence<Size>;
+
+    std::array<void*, Size> nbufs{};
+    std::array<bool, Size> copied{};
+    auto guard = make_exception_guard([&]() noexcept {
+        [&]<std::size_t... Is>(std::index_sequence<Is...>) {
+            (_discard_column<Is, list_t>(alloc, nbufs, copied, size, ncap),
+             ...);
+        }(iseq_t());
+    });
+
+    [&]<std::size_t... Is>(std::index_sequence<Is...>) {
+        (_allocate_column<Is, list_t>(alloc, nbufs, ncap), ...);
+        (_copy_column<Is, list_t>(bufs, nbufs, copied, size), ...);
+    }(iseq_t());
+    guard.dismiss();
+
+    [&]<std::size_t... Is>(std::index_sequence<Is...>) {
+        (_move_column<Is, list_t>(bufs, nbufs, size), ...);
+        (_commit_column<Is, list_t>(alloc, bufs, nbufs, size, ocap), ...);
+    }(iseq_t());
+}
+
+// Typed construction of one row; `succ` counts the kinds constructed so far.
+
+template <std::size_t Index, typename Components, std::size_t Size>
+ATOM_CONSTEXPR_SINCE_CXX26 bool _clean_for_emplace_one(
+    std::span<void* const, Size> bufs, std::size_t row,
+    std::size_t succ) noexcept {
+    using comp_t = std::remove_cvref_t<type_list_element_t<Index, Components>>;
+
+    if (Index >= succ) {
+        return false;
+    }
+
+    if constexpr (!std::is_empty_v<comp_t>) {
+        std::destroy_at(_column<comp_t>(bufs[Index]) + row);
+    }
+
+    return true;
+}
+
+template <std::size_t Index, typename Components, std::size_t Size>
+ATOM_CONSTEXPR_SINCE_CXX26 void _emplace_one_normally_impl(
+    std::span<void* const, Size> bufs, std::size_t row,
+    std::size_t&
+        succ) noexcept(std::
+                           is_nothrow_default_constructible_v<
+                               type_list_element_t<Index, Components>>) {
+    using comp_t = type_list_element_t<Index, Components>;
+
+    if constexpr (!std::is_empty_v<comp_t>) {
+        std::construct_at(_column<comp_t>(bufs[Index]) + row);
+    }
+
+    ++succ;
+}
+
+template <component... Components>
+ATOM_CONSTEXPR_SINCE_CXX26 void _emplace_one_normally(
+    std::span<void* const, sizeof...(Components)> bufs,
+    std::size_t
+        row) noexcept((std::is_nothrow_default_constructible_v<Components> && ...)) {
+    using list_t = hash_list_t<type_list<Components...>>;
+    using iseq_t = std::index_sequence_for<Components...>;
+
+    constexpr auto nothrow =
+        (std::is_nothrow_default_constructible_v<Components> && ...);
+
+    [[maybe_unused]] std::size_t succ = 0;
+    [[maybe_unused]] auto guard =
+        make_exception_guard<nothrow>([bufs, &succ, row]() noexcept {
+            [bufs, row, succ]<std::size_t... Is>(std::index_sequence<Is...>) {
+                (_clean_for_emplace_one<Is, list_t>(bufs, row, succ) && ...);
+            }(iseq_t());
+        });
+
+    [bufs, row, &succ]<std::size_t... Is>(std::index_sequence<Is...>) {
+        (_emplace_one_normally_impl<Is, list_t>(bufs, row, succ), ...);
+    }(iseq_t());
+
+    guard.dismiss();
+}
+
+template <
+    std::size_t Index, typename Components, typename Tup, std::size_t Size>
+ATOM_CONSTEXPR_SINCE_CXX26 void _emplace_one_normally_impl(
+    std::span<void* const, Size> bufs, std::size_t row, std::size_t& succ,
+    Tup&& vals) noexcept(std::
+                             is_nothrow_constructible_v<
+                                 std::remove_cvref_t<
+                                     type_list_element_t<Index, Components>>,
+                                 type_list_element_t<Index, Components>>) {
+    using comp_t = std::remove_cvref_t<type_list_element_t<Index, Components>>;
+
+    if constexpr (!std::is_empty_v<comp_t>) {
+        std::construct_at(
+            _column<comp_t>(bufs[Index]) + row,
+            rmcvref_first<comp_t>(std::forward<Tup>(vals)));
+    }
+
+    ++succ;
+}
+
+template <component... Components, typename Tup>
+ATOM_CONSTEXPR_SINCE_CXX26 void _emplace_one_normally(
+    std::span<void* const, sizeof...(Components)> bufs, std::size_t row,
+    Tup&&
+        vals) noexcept((std::is_nothrow_constructible_v<std::decay_t<Components>, Components> && ...)) {
+    using list_t = hash_list_t<type_list<std::remove_cvref_t<Components>...>>;
+    using iseq_t = std::index_sequence_for<Components...>;
+
+    constexpr bool nothrow =
+        (std::is_nothrow_constructible_v<
+             std::decay_t<Components>, Components> &&
+         ...);
+
+    [[maybe_unused]] std::size_t succ = 0;
+    [[maybe_unused]] auto guard =
+        make_exception_guard<nothrow>([bufs, &succ, row]() noexcept {
+            [bufs, row, succ]<std::size_t... Is>(std::index_sequence<Is...>) {
+                (_clean_for_emplace_one<Is, list_t>(bufs, row, succ) && ...);
+            }(iseq_t());
+        });
+
+    [bufs, row,
+     &succ]<std::size_t... Is>(std::index_sequence<Is...>, auto&& vals) {
+        (_emplace_one_normally_impl<Is, list_t>(
+             bufs, row, succ, std::forward<decltype(vals)>(vals)),
+         ...);
+    }(iseq_t(), std::forward<Tup>(vals));
+
+    guard.dismiss();
+}
+
+template <component... Components>
+ATOM_CONSTEXPR_SINCE_CXX26 void _emplace_one_normally(
+    std::span<void* const, sizeof...(Components)> bufs, std::size_t row,
+    Components&&... vals) noexcept((std::is_nothrow_constructible_v<std::decay_t<Components>, Components> && ...)) {
+    _emplace_one_normally<Components...>(
+        bufs, row, std::forward_as_tuple(std::forward<Components>(vals)...));
+}
+
+} // namespace _archetype
 
 /**
  * @brief Represents a homogeneous collection of entities sharing the same set
@@ -79,439 +334,150 @@ using _buffer_ptr = std::unique_ptr<std::byte[], _buffer_deletor>;
  * and cache-friendly access.
  * @tparam Alloc Allocator type conforming to `std_simple_allocator` concept.
  */
-template <typename Alloc = std::allocator<std::byte>>
-class archetype : public archetype<rebind_alloc_t<Alloc, std::byte>> {};
-
-namespace _archetype {
-
-// clang-format off
-
-constexpr std::size_t _default_alignment = 32U;
-constexpr std::size_t _initial_capacity  = 64U;
-
-template <typename T>
-constexpr std::size_t _align_of = std::max<std::size_t>(alignof(T), _default_alignment);
-
-template <typename T>
-constexpr std::align_val_t _alignval_of = static_cast<std::align_val_t>(_align_of<T>);
-
-static ATOM_CONSTEXPR_SINCE_CXX26 _buffer_ptr _new_ptr(std::size_t size, std::size_t count, std::align_val_t align ) {
-    auto* const pbase = ::operator new(size*count, align);
-    return _buffer_ptr{ static_cast<std::byte*>(pbase), _buffer_deletor{ .align= align } };
-}
-
-static ATOM_CONSTEXPR_SINCE_CXX26 _buffer_ptr _new_ptr(std::size_t size, std::size_t count, std::size_t align ) {
-    return _new_ptr(size, count, static_cast<std::align_val_t>(align));
-}
-
-template <std::size_t Index, typename Components>
-static ATOM_CONSTEXPR_SINCE_CXX26 auto _prepare_for_relocation_impl(std::array<_buffer_ptr, type_list_size_v<Components>>& nbufs, std::size_t ncap) {
-    using comp_t = type_list_element_t<Index, Components>;
-
-    if constexpr (std::is_empty_v<comp_t>) {
-        return;
-    }
-
-    _buffer_ptr& buf  = nbufs[Index];
-    buf = _new_ptr(sizeof(comp_t), ncap, _align_of<comp_t>);
-}
-
-template <typename Components>
-static ATOM_CONSTEXPR_SINCE_CXX26 void _prepare_for_relocation(std::array<_buffer_ptr, type_list_size_v<Components>>& nbufs, std::size_t ncap) {
-    [&nbufs, ncap]<std::size_t...Is>(std::index_sequence<Is...>) {
-        (_prepare_for_relocation_impl<Is, Components>(nbufs, ncap), ...);
-    }(std::make_index_sequence<type_list_size_v<Components>>());
-}
-
-template <std::size_t Index, typename Components>
-static constexpr bool _clean_for_relocation(std::span<_buffer_ptr> bufs, std::array<_buffer_ptr, type_list_size_v<Components>>& nbufs, std::size_t size, std::size_t succ) noexcept {
-    using comp_t = type_list_element_t<Index, Components>;
-
-    if (Index >= succ) {
-        return false;
-    }
-
-    if constexpr (!std::is_empty_v<comp_t>) {
-        auto* const pbase = reinterpret_cast<comp_t*>(nbufs[Index].get());
-        std::destroy_n(pbase, size);
-    }
-
-    return true;
-}
-
-template <typename Components>
-constexpr bool _nothrow_relocatible = []<std::size_t... Is>(std::index_sequence<Is...>) { // looser for trivially_relocatible
-    return ((std::is_nothrow_move_constructible_v<type_list_element_t<Is, Components>> || std::is_nothrow_copy_constructible_v<type_list_element_t<Is, Components>>) && ...);
-}(std::make_index_sequence<type_list_size_v<Components>>());
-
-template <std::size_t Index, typename Components, std::size_t Size>
-static ATOM_CONSTEXPR_SINCE_CXX26 void _relocate_data_with_destroy(std::span<_buffer_ptr, Size> bufs, std::array<_buffer_ptr, Size>& nbufs, std::size_t size) 
-noexcept
-{
-    using comp_t = type_list_element_t<Index, Components>;
-
-    auto* const src = std::assume_aligned<_align_of<comp_t>>(reinterpret_cast<comp_t*>(bufs[Index].get()));
-    auto* const dst = std::assume_aligned<_align_of<comp_t>>(reinterpret_cast<comp_t*>(nbufs[Index].get()));
-
-    if constexpr (trivially_relocatable<comp_t>) {
-        // Relocation ends the source objects' lifetime; no destructor runs.
-        std::memcpy(dst, src, sizeof(comp_t) * size);
-        return;
-    } else if constexpr (std::is_nothrow_move_constructible_v<comp_t>) {
-        std::uninitialized_move_n(src, size, dst);
-    } else {
-        std::uninitialized_copy_n(src, size, dst);
-    }
-
-    std::destroy_n(src, size);
-}
-
-template <std::size_t Index, typename Components, std::size_t Size>
-static ATOM_CONSTEXPR_SINCE_CXX26 void _relocate_data_normally(std::span<_buffer_ptr, Size> bufs, std::array<_buffer_ptr, Size>& nbufs, std::size_t size, std::size_t& succ) 
-noexcept
-{
-    using comp_t = type_list_element_t<Index, Components>;
-    
-    auto* const src = std::assume_aligned<_align_of<comp_t>>(reinterpret_cast<comp_t*>(bufs[Index].get()));
-    auto* const dst = std::assume_aligned<_align_of<comp_t>>(reinterpret_cast<comp_t*>(nbufs[Index].get()));
-
-    std::uninitialized_copy_n(src, size, dst);
-
-    ++succ;
-}
-
-template <std::size_t Index, typename Components, std::size_t Size>
-static constexpr void _destroy_legacy(std::span<_buffer_ptr, Size> bufs, std::size_t size) 
-noexcept
-{
-    using comp_t = type_list_element_t<Index, Components>;
-
-    auto* const src = std::assume_aligned<_align_of<comp_t>>(reinterpret_cast<comp_t*>(bufs[Index].get()));
-    std::destroy_n(src, size);
-}
-
-template <typename Components, std::size_t Size = type_list_size_v<Components>>
-static ATOM_CONSTEXPR_SINCE_CXX26 void _relocate_data(std::span<_buffer_ptr, Size> bufs, std::array<_buffer_ptr, Size>& nbufs, std::size_t size)
-noexcept(_nothrow_relocatible<Components>)
-{
-    using iseq_t = std::make_index_sequence<Size>;
-
-    if constexpr (_nothrow_relocatible<Components>) {
-        [bufs, &nbufs, size]<std::size_t... Is>(std::index_sequence<Is...>) {
-            (_relocate_data_with_destroy<Is, Components, Size>(bufs, nbufs, size), ...);
-        }(iseq_t());
-    } else {
-        std::size_t succ = 0;
-        auto guard = make_exception_guard([&nbufs, size, &succ]() noexcept {
-            [&nbufs, size, succ]<std::size_t...Is>(std::index_sequence<Is...>){
-                (_clean_for_relocation<Is, Components>(nbufs, size, succ) && ...);
-            }(iseq_t());
-        });
-
-        [bufs, &nbufs, size]<std::size_t... Is>(std::index_sequence<Is...>) {
-            (_relocate_data_normally<Is, Components, Size>(bufs, nbufs, size), ...);
-            (_destroy_legacy<Is, Components, Size>(bufs, size), ...);
-        }( std::make_index_sequence<Size>());
-
-        guard.dismiss();
-    }
-}
-
-template <std::size_t Size>
-static constexpr void _apply_relocation(std::span<_buffer_ptr, Size> bufs, std::array<_buffer_ptr, Size>& nbufs) noexcept {
-    for (std::size_t i = 0; i < Size; ++i) {
-        bufs[i] = std::move(nbufs[i]);
-    }
-}
-
-template <component... Components>
-static ATOM_CONSTEXPR_SINCE_CXX26 void _relocate(std::span<_buffer_ptr, sizeof...(Components)> bufs, std::size_t size, std::size_t ncap) {
-    using list_t = hash_list_t<type_list<std::remove_cvref_t<Components>...>>;
-    using iseq_t = std::index_sequence_for<Components...>;
-
-    std::array<_buffer_ptr, sizeof...(Components)> nbufs{};
-    _prepare_for_relocation<list_t>(nbufs, ncap);
-    _relocate_data<list_t>(bufs, nbufs, size);
-    _apply_relocation<type_list_size_v<list_t>>(bufs, nbufs);
-}
-
-template <std::size_t Index, typename Components, std::size_t Size = type_list_size_v<Components>>
-static bool _clean_for_emplace_one(std::span<_buffer_ptr, Size> bufs, std::size_t size, std::size_t succ)
-noexcept
-{
-    using comp_t = type_list_element_t<Index, Components>;
-
-    if (Index >= succ) {
-        return false;
-    }
-
-    if constexpr (!std::is_empty_v<comp_t>) {
-        _buffer_ptr& buf  = bufs[Index];
-        auto* const pbase = reinterpret_cast<comp_t*>(buf.get());
-        (pbase + size)->~comp_t();
-    }
-
-    return true;
-}
-
-template <std::size_t Index, typename Components, std::size_t Size = type_list_size_v<Components>>
-static void _emplace_one_normally_impl(std::span<_buffer_ptr, Size> bufs, std::size_t size, std::size_t& succ)
-noexcept(std::is_nothrow_default_constructible_v<type_list_element_t<Index, Components>>)
-{
-    using comp_t = type_list_element_t<Index, Components>;
-
-    if constexpr (std::is_empty_v<comp_t>) {
-        ++succ;
-        return;
-    }
-
-    _buffer_ptr& buf  = bufs[Index];
-    auto* const pbase = reinterpret_cast<comp_t*>(buf.get());
-    ::new (pbase + size) comp_t();
-
-    ++succ;
-}
-
-template <component... Components>
-static void _emplace_one_normally(std::span<_buffer_ptr, sizeof...(Components)> bufs, std::size_t size)
-noexcept((std::is_nothrow_default_constructible_v<Components> && ...))
-{
-    using list_t = hash_list_t<type_list<Components...>>;
-    using iseq_t = std::index_sequence_for<Components...>;
-
-    constexpr auto nothrow = (std::is_nothrow_default_constructible_v<Components> && ...);
-
-    [[maybe_unused]] std::size_t succ = 0;
-    [[maybe_unused]] auto guard = make_exception_guard<nothrow>([bufs, &succ, size]() noexcept {
-        [bufs, size, succ]<std::size_t... Is>(std::index_sequence<Is...>) {
-            (_clean_for_emplace_one<Is, list_t>(bufs, size, succ) && ...);
-        }(iseq_t());
-    });
-
-    [bufs, size, &succ]<std::size_t... Is>(std::index_sequence<Is...>) {
-        (_emplace_one_normally_impl<Is, list_t>(bufs, size, succ), ...);
-    }(iseq_t());
-
-    guard.dismiss();
-}
-
-template <std::size_t Index, typename Components, typename Tup, std::size_t Size = type_list_size_v<Components>>
-static void _emplace_one_normally_impl(std::span<_buffer_ptr, Size> bufs, std::size_t size, std::size_t& succ, Tup&& vals)
-noexcept(std::is_nothrow_constructible_v<std::remove_cvref_t<type_list_element_t<Index, Components>>, type_list_element_t<Index, Components>>)
-{
-    using comp_t = std::remove_cvref_t<type_list_element_t<Index, Components>>;
-
-    if constexpr (std::is_empty_v<comp_t>) {
-        ++succ;
-        return;
-    }
-
-    _buffer_ptr& buf = bufs[Index];
-    auto* const pbase = reinterpret_cast<comp_t*>(buf.get());
-    ::new (pbase + size) comp_t(rmcvref_first<comp_t>(std::forward<Tup>(vals)));
-
-    ++succ;
-}
-
-
-template <component... Components, typename Tup>
-static void _emplace_one_normally(std::span<_buffer_ptr, sizeof...(Components)> bufs, std::size_t size, Tup&& vals)
-noexcept((std::is_nothrow_constructible_v<std::decay_t<Components>, Components> && ...))
-{
-    using list_t = hash_list_t<type_list<std::remove_cvref_t<Components>...>>;
-    using iseq_t = std::index_sequence_for<Components...>;
-
-    constexpr bool nothrow = (std::is_nothrow_constructible_v<std::decay_t<Components>, Components> && ...);
-
-    [[maybe_unused]] std::size_t succ = 0;
-    [[maybe_unused]] auto guard = make_exception_guard<nothrow>([bufs, &succ, size]() noexcept {
-        [bufs, size, succ]<std::size_t... Is>(std::index_sequence<Is...>) {
-            (_clean_for_emplace_one<Is, list_t>(bufs, size, succ) && ...);
-        }(iseq_t());
-    });
-
-    [bufs, size, &succ]<std::size_t... Is>(std::index_sequence<Is...>, auto&& vals) {
-        (_emplace_one_normally_impl<Is, list_t>(
-             bufs, size, succ, std::forward<decltype(vals)>(vals)),
-         ...);
-    }(iseq_t(), std::forward<Tup>(vals));
-
-    guard.dismiss();
-}
-
-template <component... Components>
-static void _emplace_one_normally(std::span<_buffer_ptr, sizeof...(Components)> bufs, std::size_t size, Components&&... vals)
-noexcept((std::is_nothrow_constructible_v<std::decay_t<Components>, Components> && ...))
-{
-    _emplace_one_normally<Components...>(bufs, size, std::forward_as_tuple(std::forward<Components>(vals)...));
-}
-
-template <std::size_t Index, typename Components, std::size_t Size = type_list_size_v<Components>>
-static bool _clean_for_emplace_n(std::span<_buffer_ptr, Size> bufs, std::size_t size, std::size_t count, std::size_t succ) noexcept {
-    using comp_t = type_list_element_t<Index, Components>;
-
-    if (Index >= succ) {
-        return false;
-    }
-
-    if constexpr (!std::is_empty_v<comp_t>) {
-        auto* pbase = reinterpret_cast<comp_t*>(bufs[Index].get());
-        std::destroy_n(pbase + size, count);
-    }
-
-    return true;
-}
-
-template <std::size_t Index, typename Components, std::size_t Size = type_list_size_v<Components>>
-static void _emplace_n_normally_impl(std::span<_buffer_ptr, Size> bufs, std::size_t size, std::size_t count, std::size_t& succ) noexcept {
-    using comp_t = type_list_element_t<Index, Components>;
-
-    if constexpr (std::is_empty_v<comp_t>) {
-        ++succ;
-        return;
-    }
-
-    auto* pbase = reinterpret_cast<comp_t*>(bufs[Index].get());
-    std::uninitialized_value_construct_n(pbase + size, count);
-
-    ++succ;
-}
-
-template <component... Components>
-static void _emplace_n_normally(std::span<_buffer_ptr, sizeof...(Components)> bufs, std::size_t size, std::size_t count)
-noexcept((std::is_nothrow_default_constructible_v<Components> && ...))
-{
-    using list_t = hash_list_t<type_list<Components...>>;
-    using iseq_t = std::index_sequence_for<Components...>;
-
-    constexpr bool nothrow = (std::is_nothrow_default_constructible_v<Components> && ...);
-
-    [[maybe_unused]] std::size_t succ = 0;
-    [[maybe_unused]] auto guard = make_exception_guard<nothrow>([bufs, size, count, &succ]() noexcept{
-        [bufs, size, count, succ]<std::size_t... Is>(std::index_sequence<Is...>) {
-            (_clean_for_emplace_n<Is, list_t>(bufs, size, count, succ) && ...);
-        }(iseq_t());
-    });
-
-    [bufs, size, count, &succ]<std::size_t... Is>(std::index_sequence<Is...>) {
-        (_emplace_n_normally_impl<Is, list_t>(bufs, size, count, succ), ...);
-    }(iseq_t());
-}
-
-// clang-format on
-
-} // namespace _archetype
-
-template <std_simple_allocator Alloc>
-requires std::same_as<typename Alloc::value_type, std::byte>
+template <unfancy_allocator Alloc = std::allocator<std::byte>>
+class archetype;
+
+// do not support this
+template <unfancy_allocator Alloc>
+requires excluding<typename std::allocator_traits<Alloc>::value_type, std::byte>
+class archetype<Alloc>;
+
+template <unfancy_byte_allocator Alloc>
 class archetype<Alloc> {
 
     template <component...>
     friend class slice;
-    template <typename>
+    template <unfancy_allocator>
     friend class _world_base::world_base;
 
     template <typename Ty>
     using _allocator_t = rebind_alloc_t<Alloc, Ty>;
 
-    template <typename Ty>
-    using _vector_t = std::vector<Ty, _allocator_t<Ty>>;
-
-    static constexpr size_t default_alignment = 32;
-    static constexpr size_t initial_capacity  = 64;
+    static constexpr size_t initial_capacity = _archetype::_initial_capacity;
 
 public:
     using size_type        = size_t;
     using difference_type  = ptrdiff_t;
-    using _hash_type       = std::uint32_t;
-    using _hash_vector     = _vector_t<_hash_type>;
-    using _ctor_fn         = void (*)(void* ptr, size_type n);
-    using _mov_ctor_fn     = void (*)(void* src, size_type n, void* dst);
-    using _mov_assign_fn   = void (*)(void* dst, void* src);
-    using _dtor_fn         = void (*)(void* ptr, size_type n) noexcept;
-    using allocator_type   = _allocator_t<std::byte>;
+    using allocator_type   = Alloc;
     using allocator_traits = std::allocator_traits<allocator_type>;
 
+private:
+    using _hash_type = hash_t;
+
+    // Type-erased operations of one component kind. Rows are addressed by
+    // index, so no untyped pointer arithmetic is needed.
+    using _alloc_fn   = void* (*)(const allocator_type& alloc, size_type n);
+    using _dealloc_fn = void (*)(
+        const allocator_type& alloc, void* column, size_type n) noexcept;
+    using _ctor_fn     = void (*)(void* column, size_type first, size_type n);
+    using _mov_ctor_fn = void (*)(
+        void* src, size_type src_first, void* dst, size_type dst_first,
+        size_type n);
+    using _mov_assign_fn = void (*)(void* column, size_type dst, size_type src);
+    using _dtor_fn =
+        void (*)(void* column, size_type first, size_type n) noexcept;
+
+    template <typename T>
+    struct _kind {
+        static ATOM_CONSTEXPR_SINCE_CXX26 void*
+            allocate(const allocator_type& alloc, size_type n) {
+            if constexpr (std::is_empty_v<T>) {
+                return nullptr;
+            } else {
+                return _archetype::_allocate(_allocator_t<T>{ alloc }, n);
+            }
+        }
+
+        static ATOM_CONSTEXPR_SINCE_CXX26 void deallocate(
+            const allocator_type& alloc, void* column, size_type n) noexcept {
+            if constexpr (!std::is_empty_v<T>) {
+                _archetype::_deallocate(
+                    _allocator_t<T>{ alloc }, _archetype::_column<T>(column),
+                    n);
+            }
+        }
+
+        static ATOM_CONSTEXPR_SINCE_CXX26 void construct(
+            void* column, size_type first,
+            size_type n) noexcept(std::is_nothrow_default_constructible_v<T>) {
+            if constexpr (!std::is_empty_v<T>) {
+                std::uninitialized_value_construct_n(
+                    _archetype::_column<T>(column) + first, n);
+            }
+        }
+
+        static ATOM_CONSTEXPR_SINCE_CXX26 void
+            move_construct(void* src, size_type src_first, void* dst, size_type dst_first, size_type n) noexcept(
+                std::is_nothrow_move_constructible_v<T> ||
+                std::is_nothrow_copy_constructible_v<T>) {
+            if constexpr (!std::is_empty_v<T>) {
+                uninitialized_move_if_noexcept_n(
+                    _archetype::_column<T>(src) + src_first, n,
+                    _archetype::_column<T>(dst) + dst_first);
+            }
+        }
+
+        static ATOM_CONSTEXPR_SINCE_CXX26 void move_assign(
+            void* column, size_type dst,
+            size_type src) noexcept(std::is_nothrow_move_assignable_v<T>) {
+            if constexpr (!std::is_empty_v<T>) {
+                auto* const base = _archetype::_column<T>(column);
+                base[dst]        = std::move(base[src]);
+            }
+        }
+
+        static ATOM_CONSTEXPR_SINCE_CXX26 void
+            destroy(void* column, size_type first, size_type n) noexcept {
+            if constexpr (!std::is_empty_v<T>) {
+                std::destroy_n(_archetype::_column<T>(column) + first, n);
+            }
+        }
+    };
+
+    /// @brief Compile-time metadata of hash-sorted component kinds.
+    template <component... Components>
+    struct _kind_table {
+        static constexpr std::size_t count = sizeof...(Components);
+
+        static constexpr std::array<_hash_type, count> hashes{
+            hash_of<Components>()...
+        };
+        static constexpr std::array<type_traits, count> traits{
+            type_traits_of<Components>()...
+        };
+        static constexpr std::array<_alloc_fn, count> allocs{
+            &_kind<Components>::allocate...
+        };
+        static constexpr std::array<_dealloc_fn, count> deallocs{
+            &_kind<Components>::deallocate...
+        };
+        static constexpr std::array<_ctor_fn, count> ctors{
+            &_kind<Components>::construct...
+        };
+        static constexpr std::array<_mov_ctor_fn, count> mov_ctors{
+            &_kind<Components>::move_construct...
+        };
+        static constexpr std::array<_mov_assign_fn, count> mov_assigns{
+            &_kind<Components>::move_assign...
+        };
+        static constexpr std::array<_dtor_fn, count> dtors{
+            &_kind<Components>::destroy...
+        };
+    };
+
+public:
     /**
      * @brief Constructs an archetype from a list of component types.
      *
-     * The component list is automatically sorted to ensure consistent layout.
-     * @tparam Components Component types to store in this archetype.
+     * @tparam Components Component types, already sorted by hash.
      * @param[in] tag     Tag type `neutron::immediately_t` for disambiguation.
      * @param[in] list    Type list of components.
      * @param[in] alloc   Allocator instance.
      */
     template <component... Components, typename Al = Alloc>
     requires(sizeof...(Components) != 0)
-    ATOM_CONSTEXPR_SINCE_CXX23
-        archetype(immediately_t, type_list<Components...>, const Al& alloc = {})
-        : relocate_fn_([](archetype* self, size_type capacity) {
-              std::span<_buffer_ptr, sizeof...(Components)> buf{
-                  self->storage_
-              };
-              _archetype::_relocate<Components...>(buf, self->size_, capacity);
-              self->capacity_ = capacity;
-          }),
-          hash_list_(
-              std::initializer_list<std::uint32_t>{ hash_of<Components>()... },
-              alloc),
-          comp_traits_({ type_traits_of<Components>()... }, alloc),
-          constructors_(
-              { [](void* ptr, size_t n) noexcept(
-                    std::is_nothrow_default_constructible_v<Components>) {
-                  if constexpr (std::is_empty_v<Components>) {
-                      return;
-                  }
-
-                  auto* const first = static_cast<Components*>(ptr);
-                  std::uninitialized_default_construct_n(first, n);
-              }... },
-              alloc),
-          move_constructors_(
-              { [](void* src, size_type n, void* dst) noexcept(
-                    std::is_nothrow_move_constructible_v<Components> ||
-                    std::is_nothrow_copy_constructible_v<Components>) {
-                  if constexpr (std::is_empty_v<Components>) {
-                      return;
-                  }
-
-                  constexpr auto align = _get_align(alignof(Components));
-                  constexpr auto alg   = static_cast<size_t>(align);
-
-                  auto* const psrc = static_cast<Components*>(src);
-                  auto* const pdst = static_cast<Components*>(dst);
-                  uninitialized_move_if_noexcept_n(
-                      std::assume_aligned<alg>(psrc), n,
-                      std::assume_aligned<alg>(pdst));
-              }... },
-              alloc),
-          move_assignments_(
-              { [](void* dst, void* src) noexcept(
-                    std::is_nothrow_move_assignable_v<Components>) {
-                  if constexpr (std::is_empty_v<Components>) {
-                      return;
-                  }
-
-                  (*static_cast<Components*>(dst) =
-                       std::move(*static_cast<Components*>(src)));
-              }... },
-              alloc),
-          destructors_(
-              { [](void* ptr, size_type n) noexcept {
-                  if constexpr (std::is_empty_v<Components>) {
-                      return;
-                  }
-
-                  std::destroy_n(static_cast<Components*>(ptr), n);
-              }... },
-              alloc),
-          storage_(sizeof...(Components), alloc), capacity_(initial_capacity),
-          hash_(make_array_hash<type_list<Components...>>()),
-          entity2index_(alloc), index2entity_(alloc) {
-        [this]<size_t... Is>(std::index_sequence<Is...>) {
-            (_set_storage<Is, Components...>(), ...);
-        }(std::index_sequence_for<Components...>());
-    }
+    ATOM_CONSTEXPR_SINCE_CXX26 archetype(
+        immediately_t, type_list<Components...>, const Al& alloc = {});
 
     /**
      * @brief Convenience constructor accepting a `type_spreader`.
@@ -520,376 +486,206 @@ public:
      */
     template <component... Components, typename Al = Alloc>
     requires(sizeof...(Components) != 0)
-    constexpr archetype(type_spreader<Components...>, const Al& alloc = {})
-        : archetype(
-              immediately, hash_list_t<type_list<Components...>>{}, alloc) {}
+    ATOM_CONSTEXPR_SINCE_CXX26
+        archetype(type_spreader<Components...>, const Al& alloc = {});
 
+    /// @brief Constructs the archetype `that` would have with `Components`.
     template <component... Components>
-    archetype(const archetype& archetype, add_components_t<Components...>)
-        : hash_list_(archetype.get_allocator()),
-          comp_traits_(archetype.get_allocator()),
-          constructors_(archetype.get_allocator()),
-          move_constructors_(archetype.get_allocator()),
-          move_assignments_(archetype.get_allocator()),
-          destructors_(archetype.get_allocator()),
-          storage_(archetype.get_allocator()),
-          entity2index_(archetype.get_allocator()),
-          index2entity_(archetype.get_allocator())
-    //   created_(archetype.get_allocator())
-    {
-        using hash_list =
-            hash_list_t<type_list<std::remove_cvref_t<Components>...>>;
-        constexpr auto hash_array =
-            make_hash_array<type_list<std::remove_cvref_t<Components>...>>();
-        constexpr auto metainfo = _get_metainfo(hash_list{});
-        constexpr auto newinfo  = std::get<0>(metainfo);
+    ATOM_CONSTEXPR_SINCE_CXX26
+        archetype(const archetype& that, add_components_t<Components...>);
 
-        const auto size = archetype.hash_list_.size();
-        size_type i     = 0;
-        size_type j     = 0;
-        while (i < size && j < hash_array.size()) {
-            if (archetype.hash_list_[i] < hash_array[j]) {
-                hash_list_.push_back(archetype.hash_list_[i]);
-                const type_traits info = archetype.comp_traits_[i];
-                comp_traits_.push_back(info);
-                constructors_.push_back(archetype.constructors_[i]);
-                move_constructors_.push_back(archetype.move_constructors_[i]);
-                move_assignments_.push_back(archetype.move_assignments_[i]);
-                destructors_.push_back(archetype.destructors_[i]);
-                const auto align = _get_align(info.align);
-                auto* const ptr  = _get_ptr(info.size, initial_capacity, align);
-                storage_.emplace_back(ptr, _buffer_deletor{ align });
-                ++i;
-            } else if (hash_array[j] < archetype.hash_list_[i]) {
-                hash_list_.push_back(hash_array[j]);
-                const type_traits info = newinfo[j];
-                comp_traits_.push_back(info);
-                constructors_.push_back(std::get<1>(metainfo)[j]);
-                move_constructors_.push_back(std::get<2>(metainfo)[j]);
-                move_assignments_.push_back(std::get<3>(metainfo)[j]);
-                destructors_.push_back(std::get<4>(metainfo)[j]);
-                const auto align = _get_align(info.align);
-                auto* const ptr  = _get_ptr(info.size, initial_capacity, align);
-                storage_.emplace_back(ptr, _buffer_deletor{ align });
-                ++j;
-            } else {
-                hash_list_.push_back(archetype.hash_list_[i]);
-                const type_traits info = archetype.comp_traits_[i];
-                comp_traits_.push_back(info);
-                constructors_.push_back(archetype.constructors_[i]);
-                move_constructors_.push_back(archetype.move_constructors_[i]);
-                move_assignments_.push_back(archetype.move_assignments_[i]);
-                destructors_.push_back(archetype.destructors_[i]);
-                const auto align = _get_align(info.align);
-                auto* const ptr  = _get_ptr(info.size, initial_capacity, align);
-                storage_.emplace_back(ptr, _buffer_deletor{ align });
-                ++i;
-                ++j;
-            }
-        }
-        for (; i < size; ++i) {
-            hash_list_.push_back(archetype.hash_list_[i]);
-            const type_traits info = archetype.comp_traits_[i];
-            comp_traits_.push_back(info);
-            constructors_.push_back(archetype.constructors_[i]);
-            move_constructors_.push_back(archetype.move_constructors_[i]);
-            move_assignments_.push_back(archetype.move_assignments_[i]);
-            destructors_.push_back(archetype.destructors_[i]);
-            const auto align = _get_align(info.align);
-            auto* const ptr  = _get_ptr(info.size, initial_capacity, align);
-            storage_.emplace_back(ptr, _buffer_deletor{ align });
-        }
-        for (; j < hash_array.size(); ++j) {
-            hash_list_.push_back(hash_array[j]);
-            const type_traits info = newinfo[j];
-            comp_traits_.push_back(info);
-            constructors_.push_back(std::get<1>(metainfo)[j]);
-            move_constructors_.push_back(std::get<2>(metainfo)[j]);
-            move_assignments_.push_back(std::get<3>(metainfo)[j]);
-            destructors_.push_back(std::get<4>(metainfo)[j]);
-            const auto align = _get_align(info.align);
-            auto* const ptr  = _get_ptr(info.size, initial_capacity, align);
-            storage_.emplace_back(ptr, _buffer_deletor{ align });
-        }
-        capacity_ = initial_capacity;
-        hash_     = hash_combine(hash_list_);
-    }
-
-    template <component... Components, typename Al = Alloc>
-    constexpr archetype(
-        const archetype& archetype, remove_components_t<Components...>)
-        : hash_list_(archetype.get_allocator()),
-          comp_traits_(archetype.get_allocator()),
-          constructors_(archetype.get_allocator()),
-          move_constructors_(archetype.get_allocator()),
-          move_assignments_(archetype.get_allocator()),
-          destructors_(archetype.get_allocator()),
-          storage_(archetype.get_allocator()),
-          entity2index_(archetype.get_allocator()),
-          index2entity_(archetype.get_allocator()) {
-        constexpr auto hash_array = make_hash_array<type_list<Components...>>();
-
-        const auto size = archetype.hash_list_.size();
-        size_t index    = 0;
-        size_t offset   = 0;
-        while (index != hash_array.size() && offset < size) {
-            if (hash_array[index] != archetype.hash_list_[offset]) {
-                // emplace
-                hash_list_.push_back(archetype.hash_list_[offset]);
-                const auto info = archetype.comp_traits_[offset];
-                comp_traits_.push_back(info);
-                constructors_.push_back(archetype.constructors_[offset]);
-                move_constructors_.push_back(
-                    archetype.move_constructors_[offset]);
-                move_assignments_.push_back(
-                    archetype.move_assignments_[offset]);
-                destructors_.push_back(archetype.destructors_[offset]);
-                const auto align = _get_align(info.align);
-                auto* const ptr  = _get_ptr(info.size, initial_capacity, align);
-                storage_.emplace_back(ptr, _buffer_deletor{ align });
-                ++offset;
-            } else {
-                ++index;
-                ++offset;
-            }
-        }
-        for (; offset < size; ++offset) {
-            hash_list_.push_back(archetype.hash_list_[offset]);
-            const auto info = archetype.comp_traits_[offset];
-            comp_traits_.push_back(info);
-            constructors_.push_back(archetype.constructors_[offset]);
-            move_constructors_.push_back(archetype.move_constructors_[offset]);
-            move_assignments_.push_back(archetype.move_assignments_[offset]);
-            destructors_.push_back(archetype.destructors_[offset]);
-            const auto align = _get_align(info.align);
-            auto* const ptr  = _get_ptr(info.size, initial_capacity, align);
-            storage_.emplace_back(ptr, _buffer_deletor{ align });
-        }
-        capacity_ = initial_capacity;
-        hash_     = hash_combine(hash_list_);
-    }
+    /// @brief Constructs the archetype `that` would have without
+    /// `Components`.
+    template <component... Components>
+    ATOM_CONSTEXPR_SINCE_CXX26
+        archetype(const archetype& that, remove_components_t<Components...>);
 
     archetype(const archetype&)            = delete;
     archetype& operator=(const archetype&) = delete;
 
-    archetype(archetype&& that) noexcept
-        : hash_list_(std::move(that.hash_list_)),
-          comp_traits_(std::move(that.comp_traits_)),
-          constructors_(std::move(that.constructors_)),
-          move_constructors_(std::move(that.move_constructors_)),
-          move_assignments_(std::move(that.move_assignments_)),
-          destructors_(std::move(that.destructors_)),
-          storage_(std::move(that.storage_)),
-          size_(std::exchange(that.size_, 0)),
-          capacity_(std::exchange(that.capacity_, 0)),
-          hash_(std::exchange(that.hash_, 0)),
-          entity2index_(std::move(that.entity2index_)),
-          index2entity_(std::move(that.index2entity_)) {}
+    ATOM_CONSTEXPR_SINCE_CXX20 archetype(archetype&& that) noexcept;
 
     archetype& operator=(archetype&&) = delete;
 
     /**
-     * @brief Destructor.
-     *
-     * Invokes destructors for all live components and deallocates storage.
+     * @brief Destroys every live component and releases all storage.
      */
-    ATOM_CONSTEXPR_SINCE_CXX23 ~archetype() noexcept {
-        for (auto i = 0; i < hash_list_.size(); ++i) {
-            const type_traits info = comp_traits_[i];
-            const auto size        = info.size;
-            if (size == 0) { // empty component
-                continue;
-            }
-
-            _dtor_fn dtor        = destructors_[i];
-            std::byte* const ptr = storage_[i].get();
-            destructors_[i](ptr, size_);
-        }
-        hash_list_.clear();
-    }
+    ATOM_CONSTEXPR_SINCE_CXX26 ~archetype() noexcept;
 
     /**
-     * @brief Checks whether the archetype contains the specified component(s).
+     * @brief Checks whether the archetype contains the specified
+     * component(s).
      *
      * @tparam Args Component type(s) to query.
      * @return `true` if all queried types are present; otherwise `false`.
      */
     template <typename... Args>
-    ATOM_NODISCARD constexpr auto has() const noexcept {
-        using sorted_list = hash_list_t<type_list<Args...>>;
-        return _has_impl<sorted_list>();
-    }
+    ATOM_ATTRS(ATOM_NODISCARD)
+    constexpr auto has() const noexcept;
 
-    ATOM_NODISCARD constexpr auto emplace(entity_t entity) { _emplace(entity); }
-
-    template <component... Components>
-    ATOM_NODISCARD auto emplace(entity_t entity) {
-        using type_list                       = type_list<Components...>;
-        using hash_list                       = hash_list_t<type_list>;
-        constexpr std::uint64_t combined_hash = make_array_hash<type_list>();
-        ATOM_ASSUME(combined_hash == hash_);
-
-        _emplace(entity, hash_list{});
-    }
+    ATOM_ATTRS(ATOM_NODISCARD)
+    ATOM_CONSTEXPR_SINCE_CXX26 auto emplace(entity_t entity);
 
     template <component... Components>
-    ATOM_NODISCARD auto emplace(auto&& range)
-    requires compatible_range<decltype(range), entity_t>
-    {
-        using type_list                       = type_list<Components...>;
-        using hash_list                       = hash_list_t<type_list>;
-        constexpr std::uint64_t combined_hash = make_array_hash<type_list>();
-        ATOM_ASSERT(combined_hash == hash_);
-        ATOM_ASSUME(combined_hash == hash_);
-
-        _emplace(std::forward<decltype(range)>(range), hash_list{});
-    }
+    ATOM_ATTRS(ATOM_NODISCARD)
+    ATOM_CONSTEXPR_SINCE_CXX26 auto emplace(entity_t entity);
 
     template <component... Components>
-    ATOM_NODISCARD constexpr auto
-        emplace(entity_t entity, Components&&... components) {
-        constexpr std::uint64_t combined_hash =
-            make_array_hash<type_list<std::remove_cvref_t<Components>...>>();
-        ATOM_ASSERT(combined_hash == hash_);
-        ATOM_ASSUME(combined_hash == hash_);
-
-        _emplace(entity, std::forward<Components>(components)...);
-    }
+    ATOM_ATTRS(ATOM_NODISCARD)
+    ATOM_CONSTEXPR_SINCE_CXX26 auto emplace(auto&& range)
+    requires compatible_range<decltype(range), entity_t>;
 
     template <component... Components>
-    ATOM_NODISCARD constexpr auto
-        emplace(auto&& range, Components&&... components)
-    requires compatible_range<decltype(range), entity_t>
-    {
-        constexpr std::uint64_t combined_hash =
-            make_array_hash<type_list<std::remove_cvref_t<Components>...>>();
-        ATOM_ASSERT(combined_hash == hash_);
-        ATOM_ASSUME(combined_hash == hash_);
+    ATOM_ATTRS(ATOM_NODISCARD)
+    ATOM_CONSTEXPR_SINCE_CXX26
+        auto emplace(entity_t entity, Components&&... components);
 
-        _emplace(
-            std::forward<decltype(range)>(range),
-            std::forward<Components>(components)...);
-    }
+    template <component... Components>
+    ATOM_ATTRS(ATOM_NODISCARD)
+    ATOM_CONSTEXPR_SINCE_CXX26
+        auto emplace(auto&& range, Components&&... components)
+    requires compatible_range<decltype(range), entity_t>;
 
-    constexpr void erase(entity_t entity) {
-        _erase_known_index(entity, entity2index_.at(entity));
-    }
+    ATOM_CONSTEXPR_SINCE_CXX26 void erase(entity_t entity);
 
     template <component... Components>
     requires(!std::is_empty_v<std::remove_cvref_t<Components>> && ...)
-    ATOM_NODISCARD constexpr auto at(entity_t entity)
-        -> std::tuple<Components...> {
-        const auto index = entity2index_.at(entity);
-        auto storage     = _get<Components...>();
-        return std::apply(
-            [index](auto*... ptrs) -> std::tuple<Components...> {
-                return std::tuple<Components...>(ptrs[index]...);
-            },
-            storage);
+    ATOM_ATTRS(ATOM_NODISCARD)
+    ATOM_CONSTEXPR_SINCE_CXX26 auto at(entity_t entity)
+        -> std::tuple<Components...>;
+
+    ATOM_ATTRS(ATOM_NODISCARD) constexpr size_type kinds() const noexcept {
+        return kinds_;
     }
 
-    ATOM_NODISCARD constexpr size_type kinds() const noexcept {
-        return hash_list_.size();
-    }
+    ATOM_ATTRS(ATOM_NODISCARD)
+    constexpr auto size() const noexcept -> const size_type&;
 
-    ATOM_NODISCARD constexpr auto size() const noexcept -> const size_type& {
-        return size_;
-    }
+    ATOM_ATTRS(ATOM_NODISCARD) constexpr bool empty() const noexcept;
 
-    ATOM_NODISCARD constexpr bool empty() const noexcept {
-        return size_ == 0UL;
-    }
+    ATOM_ATTRS(ATOM_NODISCARD)
+    constexpr auto capacity() const noexcept -> size_type;
 
-    ATOM_NODISCARD constexpr size_type capacity() const noexcept {
-        return capacity_;
-    }
+    ATOM_ATTRS(ATOM_NODISCARD) constexpr long_hash_t hash() const noexcept;
 
-    ATOM_NODISCARD constexpr std::uint64_t hash() const noexcept {
-        return hash_;
-    }
+    /// @brief Hashes of the stored component kinds, sorted ascending.
+    ATOM_ATTRS(ATOM_NODISCARD)
+    constexpr auto hash_list() const noexcept -> std::span<const hash_t>;
 
-    ATOM_NODISCARD constexpr auto hash_list() const noexcept
-        -> const _vector_t<_hash_type>& {
-        return hash_list_;
-    }
-
-    ATOM_NODISCARD _buffer_ptr* data() noexcept { return storage_.data(); }
+    /// @brief Column buffers, one per kind; null for empty components.
+    ATOM_ATTRS(ATOM_NODISCARD) constexpr void* const* data() const noexcept;
 
     template <component... Components>
-    ATOM_NODISCARD auto view_buffers() noexcept {
-        return _get_buffers<Components...>();
+    ATOM_ATTRS(ATOM_NODISCARD)
+    constexpr auto view_buffers() noexcept;
+
+    ATOM_ATTRS(ATOM_NODISCARD)
+    constexpr auto entities() noexcept -> std::span<entity_t>;
+
+    ATOM_CONSTEXPR_SINCE_CXX26 void reserve(size_type n);
+
+    ATOM_CONSTEXPR_SINCE_CXX26 void clear();
+
+    ATOM_ATTRS(ATOM_NODISCARD)
+    constexpr auto get_allocator() const noexcept -> allocator_type;
+
+    ATOM_CONSTEXPR_SINCE_CXX26 void
+        transfer(entity_t entity, archetype& target);
+
+    template <component... Components>
+    ATOM_CONSTEXPR_SINCE_CXX26 void transfer(
+        entity_t entity, archetype& target,
+        [[maybe_unused]] add_components_t<Components...>);
+
+    template <component... Added, component... Components>
+    ATOM_CONSTEXPR_SINCE_CXX26 void transfer(
+        entity_t entity, archetype& target,
+        [[maybe_unused]] add_components_t<Added...>,
+        Components&&... components);
+
+private:
+    // kinds
+
+    /// @brief Allocates the metadata of `count` kinds; columns are null.
+    ATOM_CONSTEXPR_SINCE_CXX26 void _allocate_kinds(size_type count) {
+        auto guard = make_allocate_guard<
+            _hash_type, type_traits, _alloc_fn, _dealloc_fn, _ctor_fn,
+            _mov_ctor_fn, _mov_assign_fn, _dtor_fn, void*>(count, alloc_);
+        apply_allocation(
+            guard, hash_list_, comp_traits_, allocs_, deallocs_, ctors_,
+            mov_ctors_, mov_assigns_, dtors_, storage_);
+        kinds_ = count;
+        for (size_type i = 0; i < count; ++i) {
+            std::construct_at(storage_ + i, nullptr);
+        }
     }
 
-    ATOM_NODISCARD constexpr auto entities() noexcept -> std::span<entity_t> {
-        return index2entity_;
+    template <typename Table>
+    constexpr void _set_kind(size_type kind, size_type index) noexcept {
+        std::construct_at(hash_list_ + kind, Table::hashes[index]);
+        std::construct_at(comp_traits_ + kind, Table::traits[index]);
+        std::construct_at(allocs_ + kind, Table::allocs[index]);
+        std::construct_at(deallocs_ + kind, Table::deallocs[index]);
+        std::construct_at(ctors_ + kind, Table::ctors[index]);
+        std::construct_at(mov_ctors_ + kind, Table::mov_ctors[index]);
+        std::construct_at(mov_assigns_ + kind, Table::mov_assigns[index]);
+        std::construct_at(dtors_ + kind, Table::dtors[index]);
     }
 
-    constexpr void reserve(size_type n) {
-        entity2index_.reserve(n);
-        index2entity_.reserve(n);
-        if (capacity_ >= n) {
+    constexpr void _copy_kind(
+        size_type kind, const archetype& that, size_type index) noexcept {
+        std::construct_at(hash_list_ + kind, that.hash_list_[index]);
+        std::construct_at(comp_traits_ + kind, that.comp_traits_[index]);
+        std::construct_at(allocs_ + kind, that.allocs_[index]);
+        std::construct_at(deallocs_ + kind, that.deallocs_[index]);
+        std::construct_at(ctors_ + kind, that.ctors_[index]);
+        std::construct_at(mov_ctors_ + kind, that.mov_ctors_[index]);
+        std::construct_at(mov_assigns_ + kind, that.mov_assigns_[index]);
+        std::construct_at(dtors_ + kind, that.dtors_[index]);
+    }
+
+    /// @brief Allocates a column of `capacity` rows for every kind.
+    ATOM_CONSTEXPR_SINCE_CXX26 void _allocate_columns(size_type capacity) {
+        for (size_type i = 0; i < kinds_; ++i) {
+            storage_[i] = allocs_[i](alloc_, capacity);
+        }
+    }
+
+    template <typename T>
+    ATOM_CONSTEXPR_SINCE_CXX20 void _deallocate_meta(T* ptr) noexcept {
+        _allocator_t<T> alloc{ alloc_ };
+        std::allocator_traits<_allocator_t<T>>::deallocate(alloc, ptr, kinds_);
+    }
+
+    /// @brief Releases every column of `capacity` rows and the metadata.
+    ATOM_CONSTEXPR_SINCE_CXX26 void _release(size_type capacity) noexcept {
+        if (storage_ == nullptr) {
             return;
         }
 
-        _relocate(n);
-    }
-
-    ATOM_NODISCARD constexpr auto clear() {
-        const auto kinds = hash_list_.size();
-        for (size_type i = 0; i < kinds; ++i) {
-            const type_traits info = comp_traits_[i];
-            auto* const ptr        = storage_[i].get();
-            destructors_[i](ptr, size_);
+        for (size_type i = 0; i < kinds_; ++i) {
+            if (storage_[i] != nullptr) {
+                deallocs_[i](alloc_, storage_[i], capacity);
+            }
         }
-        index2entity_.clear();
-        entity2index_.clear();
-        size_ = 0;
+        _deallocate_meta(hash_list_);
+        _deallocate_meta(comp_traits_);
+        _deallocate_meta(allocs_);
+        _deallocate_meta(deallocs_);
+        _deallocate_meta(ctors_);
+        _deallocate_meta(mov_ctors_);
+        _deallocate_meta(mov_assigns_);
+        _deallocate_meta(dtors_);
+        _deallocate_meta(storage_);
+        storage_ = nullptr;
+        kinds_   = 0;
     }
 
-    ATOM_NODISCARD constexpr auto get_allocator() const noexcept {
-        return hash_list_.get_allocator();
-    }
-
-    constexpr void transfer(entity_t entity, archetype& target) {
-        _transfer(entity, target, [](size_type, size_type, std::uint32_t) {
-            ATOM_ASSERT(
-                false &&
-                "target archetype unexpectedly requires new components");
-        });
-    }
-
-    template <component... Components>
-    constexpr void transfer(
-        entity_t entity, archetype& target,
-        [[maybe_unused]] add_components_t<Components...>) {
-        _transfer(
-            entity, target,
-            [&target](size_type kind, size_type index, std::uint32_t) {
-                target._default_construct(kind, index);
-            });
-    }
-
-    template <component... Added, component... Components>
-    constexpr void transfer(
-        entity_t entity, archetype& target,
-        [[maybe_unused]] add_components_t<Added...>,
-        Components&&... components) {
-        auto tuple =
-            std::forward_as_tuple(std::forward<Components>(components)...);
-        _transfer(
-            entity, target,
-            [&target,
-             &tuple](size_type kind, size_type index, std::uint32_t hash) {
-                target.template _construct_added_from_tuple<
-                    std::remove_cvref_t<Added>...>(kind, index, hash, tuple);
-            });
-    }
-
-private:
     template <typename T>
-    ATOM_NODISCARD constexpr auto _has_impl() const noexcept {
-        auto it        = this->hash_list_.begin();
-        const auto end = this->hash_list_.end();
+    ATOM_ATTRS(ATOM_NODISCARD)
+    constexpr auto _has_impl() const noexcept {
+        const _hash_type* it  = hash_list_;
+        const _hash_type* end = hash_list_ + kinds_;
         return [it,
                 end]<std::size_t... Is>(std::index_sequence<Is...>) mutable {
             return (
@@ -900,42 +696,28 @@ private:
         }(std::make_index_sequence<type_list_size_v<T>>());
     }
 
-    constexpr void _erase_known_index(entity_t entity, size_type index) {
+    ATOM_CONSTEXPR_SINCE_CXX26 void
+        _erase_known_index(entity_t entity, size_type index) {
         const auto last_index = size_ - 1;
 
         if (index != last_index) {
-            for (std::uint32_t i = 0; i < hash_list_.size(); ++i) {
-                const type_traits info = comp_traits_[i];
-                if (info.size == 0) {
+            for (size_type i = 0; i < kinds_; ++i) {
+                // Empty components have no column, so the traits are not
+                // needed to skip them.
+                if (storage_[i] == nullptr) {
                     continue;
                 }
-
-                auto* const data = storage_[i].get();
-                auto* dst        = data + (info.size * index);
-                auto* src        = data + (info.size * last_index);
-
-                if (info.is_trivially_move_assignable) {
-                    std::memcpy(dst, src, info.size);
-                } else {
-                    // requires component move assignable
-                    move_assignments_[i](dst, src);
-                    // requires component destructible
-                    destructors_[i](src, 1);
-                }
+                // requires component move assignable
+                mov_assigns_[i](storage_[i], index, last_index);
+                dtors_[i](storage_[i], last_index, 1);
             }
 
             const auto last_entity     = index2entity_[last_index];
             index2entity_[index]       = last_entity;
             entity2index_[last_entity] = index;
         } else {
-            for (std::uint32_t i = 0; i < hash_list_.size(); ++i) {
-                const type_traits info = comp_traits_[i];
-                if (info.size == 0) {
-                    continue;
-                }
-
-                auto* const data = storage_[i].get();
-                destructors_[i](data + (info.size * index), 1);
+            for (size_type i = 0; i < kinds_; ++i) {
+                dtors_[i](storage_[i], index, 1);
             }
         }
 
@@ -944,22 +726,91 @@ private:
         --size_;
     }
 
-    constexpr static std::align_val_t _get_align(size_t align) noexcept {
-        return std::align_val_t{ (std::max<size_t>)(default_alignment, align) };
+    // relocation
+
+    /// @brief Typed relocation; `Components` must be this archetype's
+    /// kinds.
+    template <component... Components>
+    ATOM_CONSTEXPR_SINCE_CXX26 void _relocate_as(size_type capacity) {
+        _archetype::_relocate<Components...>(
+            alloc_, std::span<void*, sizeof...(Components)>{ storage_, kinds_ },
+            size_, capacity_, capacity);
+        capacity_ = capacity;
     }
 
-    constexpr static std::byte*
-        _get_ptr(size_t size, size_type n, std::align_val_t align) {
-        return static_cast<std::byte*>(::operator new(size * n, align));
+    using _buffers_t = small_vector<void*, 64, _allocator_t<void*>>;
+
+    /**
+     * @brief Type-erased relocation for archetypes built at runtime.
+     *
+     * Strong guarantee, like the typed version: kinds that may throw are
+     * copied before any source is moved from.
+     */
+    ATOM_CONSTEXPR_SINCE_CXX26 void _relocate(size_type capacity) {
+        if (relocate_fn_ != nullptr) {
+            relocate_fn_(this, capacity);
+            return;
+        }
+
+        // Kinds whose move may throw are copied, so they are relocated
+        // first, while every source is still intact.
+        auto copies = [this](size_type kind) noexcept {
+            const type_traits info = comp_traits_[kind];
+            return info.size != 0 && !info.is_trivially_relocatible &&
+                   !info.is_nothrow_move_constructible;
+        };
+
+        _buffers_t nbufs(kinds_, nullptr, _allocator_t<void*>{ alloc_ });
+        size_type copied = 0; // kinds [0, copied) have been processed
+        auto guard       = make_exception_guard([&]() noexcept {
+            for (size_type i = 0; i < kinds_; ++i) {
+                if (nbufs[i] == nullptr) {
+                    continue;
+                }
+                if (i < copied && copies(i)) {
+                    dtors_[i](nbufs[i], 0, size_);
+                }
+                deallocs_[i](alloc_, nbufs[i], capacity);
+            }
+        });
+
+        for (size_type i = 0; i < kinds_; ++i) {
+            nbufs[i] = allocs_[i](alloc_, capacity);
+        }
+        for (; copied < kinds_; ++copied) {
+            if (copies(copied)) {
+                mov_ctors_[copied](
+                    storage_[copied], 0, nbufs[copied], 0, size_);
+            }
+        }
+        guard.dismiss();
+
+        for (size_type i = 0; i < kinds_; ++i) {
+            const type_traits info = comp_traits_[i];
+            if (info.size == 0) {
+                continue;
+            }
+            if (copies(i)) {
+                dtors_[i](storage_[i], 0, size_);
+            } else if (info.is_trivially_relocatible) {
+                if ATOM_CONST_EVALUATED {
+                    mov_ctors_[i](storage_[i], 0, nbufs[i], 0, size_);
+                    dtors_[i](storage_[i], 0, size_);
+                } else {
+                    // Relocation ends the lifetime of the sources.
+                    std::memcpy(nbufs[i], storage_[i], info.size * size_);
+                }
+            } else {
+                mov_ctors_[i](storage_[i], 0, nbufs[i], 0, size_);
+                dtors_[i](storage_[i], 0, size_);
+            }
+            deallocs_[i](alloc_, storage_[i], capacity_);
+            storage_[i] = nbufs[i];
+        }
+        capacity_ = capacity;
     }
 
-    static _buffer_ptr
-        _get_buffer(size_t size, size_type n, std::align_val_t align) {
-        return _buffer_ptr{ _get_ptr(size, n, align),
-                            _buffer_deletor{ align } };
-    }
-
-    constexpr void _ensure_capacity_for_one() {
+    ATOM_CONSTEXPR_SINCE_CXX26 void _ensure_capacity_for_one() {
         const auto next_size = size_ + 1;
         size_type reserve_to = capacity_;
         if (next_size > capacity_) [[unlikely]] {
@@ -980,47 +831,24 @@ private:
         }
     }
 
-    ATOM_NODISCARD constexpr auto
-        _slot_ptr(size_type kind, size_type index) noexcept -> std::byte* {
-        const auto size = comp_traits_[kind].size;
-        if (size == 0) {
-            return nullptr;
-        }
-        return storage_[kind].get() + (size * index);
-    }
+    // rollback
 
-    ATOM_NODISCARD constexpr auto
-        _slot_ptr(size_type kind, size_type index) const noexcept
-        -> const std::byte* {
-        const auto size = comp_traits_[kind].size;
-        if (size == 0) {
-            return nullptr;
-        }
-        return storage_[kind].get() + (size * index);
-    }
-
-    constexpr void _default_construct(size_type kind, size_type index) {
-        constructors_[kind](_slot_ptr(kind, index), 1);
-    }
-
-    constexpr void _destroy_at(size_type kind, size_type index) noexcept {
-        destructors_[kind](_slot_ptr(kind, index), 1);
-    }
-
-    constexpr void _destroy_prefix(size_type count, size_type index) noexcept {
+    ATOM_CONSTEXPR_SINCE_CXX26 void
+        _destroy_prefix(size_type count, size_type index) noexcept {
         for (size_type kind = 0; kind < count; ++kind) {
-            _destroy_at(kind, index);
+            dtors_[kind](storage_[kind], index, 1);
         }
     }
 
-    constexpr void _rollback_appended(size_type original_size) noexcept {
+    ATOM_CONSTEXPR_SINCE_CXX26 void
+        _rollback_appended(size_type original_size) noexcept {
         const auto appended = size_ - original_size;
         if (appended == 0) {
             return;
         }
 
-        for (size_type kind = 0; kind < hash_list_.size(); ++kind) {
-            destructors_[kind](_slot_ptr(kind, original_size), appended);
+        for (size_type kind = 0; kind < kinds_; ++kind) {
+            dtors_[kind](storage_[kind], original_size, appended);
         }
 
         while (size_ > original_size) {
@@ -1031,7 +859,7 @@ private:
     }
 
     template <typename OnRollback>
-    constexpr void _rollback_appended(
+    ATOM_CONSTEXPR_SINCE_CXX26 void _rollback_appended(
         size_type original_size, OnRollback&& on_rollback) noexcept {
         static_assert(
             std::is_nothrow_invocable_v<OnRollback&, entity_t>,
@@ -1057,38 +885,35 @@ private:
         }
     }
 
-    constexpr void _move_construct_from(
-        const archetype& source, size_type source_kind, size_type source_index,
-        size_type target_kind, size_type target_index) {
-        move_constructors_[target_kind](
-            const_cast<std::byte*>(source._slot_ptr(source_kind, source_index)),
-            1, _slot_ptr(target_kind, target_index));
-    }
-
-    template <typename Ty, typename Tup>
-    constexpr static void _construct_from_tuple(void* ptr, Tup&& tuple) {
-        if constexpr (!std::is_empty_v<Ty>) {
-            ::new (ptr) Ty(rmcvref_first<Ty>(std::forward<Tup>(tuple)));
-        }
-    }
+    // transfer
 
     template <component... Components, typename Tup>
-    constexpr void _construct_added_from_tuple(
-        size_type kind, size_type index, std::uint32_t hash, Tup&& tuple) {
-        auto* const ptr = _slot_ptr(kind, index);
+    ATOM_CONSTEXPR_SINCE_CXX26 void _construct_added_from_tuple(
+        size_type kind, size_type index, _hash_type hash, Tup&& tuple) {
+        void* const column = storage_[kind];
         const bool matched =
-            ((hash == hash_of<std::remove_cvref_t<Components>>()
-                  ? (_construct_from_tuple<std::remove_cvref_t<Components>>(
-                         ptr, std::forward<Tup>(tuple)),
+            ((hash == hash_of<Components>()
+                  ? (_construct_from_tuple<Components>(
+                         column, index, std::forward<Tup>(tuple)),
                      true)
                   : false) ||
              ...);
-        assert(matched && "missing constructor for added component");
+        ATOM_ASSERT(matched && "missing constructor for added component");
         (void)matched;
     }
 
+    template <typename Ty, typename Tup>
+    ATOM_CONSTEXPR_SINCE_CXX26 static void
+        _construct_from_tuple(void* column, size_type index, Tup&& tuple) {
+        if constexpr (!std::is_empty_v<Ty>) {
+            std::construct_at(
+                _archetype::_column<Ty>(column) + index,
+                rmcvref_first<Ty>(std::forward<Tup>(tuple)));
+        }
+    }
+
     template <typename MissingCtor>
-    constexpr void _transfer(
+    ATOM_CONSTEXPR_SINCE_CXX26 void _transfer(
         entity_t entity, archetype& target, MissingCtor&& missing_ctor) {
         const auto source_index = entity2index_.at(entity);
         const auto target_index = target.size_;
@@ -1103,18 +928,18 @@ private:
                 target._destroy_prefix(constructed, target_index);
             });
 
-        while (target_kind < target.hash_list_.size()) {
-            if (source_kind < hash_list_.size() &&
+        while (target_kind < target.kinds_) {
+            if (source_kind < kinds_ &&
                 hash_list_[source_kind] < target.hash_list_[target_kind]) {
                 ++source_kind;
                 continue;
             }
 
-            if (source_kind < hash_list_.size() &&
+            if (source_kind < kinds_ &&
                 hash_list_[source_kind] == target.hash_list_[target_kind]) {
-                target._move_construct_from(
-                    *this, source_kind, source_index, target_kind,
-                    target_index);
+                target.mov_ctors_[target_kind](
+                    storage_[source_kind], source_index,
+                    target.storage_[target_kind], target_index, 1);
                 ++source_kind;
             } else {
                 missing_ctor(
@@ -1133,212 +958,89 @@ private:
         _erase_known_index(entity, source_index);
     }
 
-    template <size_t Index, component... SortedComponents>
-    ATOM_CONSTEXPR_SINCE_CXX23 void _set_storage() {
-        using type = type_list_element_t<Index, type_list<SortedComponents...>>;
-        constexpr auto align = _get_align(alignof(type));
+    // emplace one
 
-        if constexpr (std::is_empty_v<type>) {
-            return;
-        }
-
-        _buffer_ptr& data = storage_[Index];
-
-        data = _get_buffer(sizeof(type), initial_capacity, align);
+    /**
+     * @brief Records `entity` as row `size_` before its components exist.
+     *
+     * Recording may allocate, so it goes first: a failure leaves no
+     * component to destroy.
+     */
+    ATOM_CONSTEXPR_SINCE_CXX26 void _stage_entity(entity_t entity) {
+        entity2index_.try_emplace(entity, size_);
+        auto guard = make_exception_guard([this, entity]() noexcept {
+            entity2index_.erase(entity);
+        });
+        index2entity_.push_back(entity);
+        guard.dismiss();
     }
 
-    template <component... SortedComponents>
-    consteval static auto
-        _get_metainfo(type_list<SortedComponents...>) noexcept {
-        constexpr auto basic_info =
-            traits_list_of<type_list<SortedComponents...>>();
-        constexpr std::array<_ctor_fn, sizeof...(SortedComponents)>
-            constructors = {
-                [](void* ptr, size_type n) noexcept(
-                    std::is_nothrow_default_constructible_v<SortedComponents>) {
-                    if constexpr (!std::is_empty_v<SortedComponents>) {
-                        std::uninitialized_default_construct_n(
-                            static_cast<SortedComponents*>(ptr), n);
-                    }
-                }...
-            };
-        constexpr std::array<_mov_ctor_fn, sizeof...(SortedComponents)>
-            move_constructors = {
-                [](void* src, size_type n, void* dst) noexcept(
-                    std::is_nothrow_move_constructible_v<SortedComponents> ||
-                    std::is_nothrow_copy_constructible_v<SortedComponents>) {
-                    if constexpr (!std::is_empty_v<SortedComponents>) {
-                        auto* const ifirst =
-                            static_cast<SortedComponents*>(src);
-                        auto* const ofirst =
-                            static_cast<SortedComponents*>(dst);
-                        uninitialized_move_if_noexcept_n(ifirst, n, ofirst);
-                    }
-                }...
-            };
-        constexpr std::array<_mov_assign_fn, sizeof...(SortedComponents)>
-            move_assignments = {
-                [](void* dst, void* src) noexcept(
-                    std::is_nothrow_move_assignable_v<SortedComponents>) {
-                    if constexpr (!std::is_empty_v<SortedComponents>) {
-                        *static_cast<SortedComponents*>(dst) =
-                            std::move(*static_cast<SortedComponents*>(src));
-                    }
-                }...
-            };
-        constexpr std::array<_dtor_fn, sizeof...(SortedComponents)>
-            destructors = { [](void* ptr, size_type n) noexcept {
-                if constexpr (!std::is_empty_v<SortedComponents>) {
-                    auto* const first = static_cast<SortedComponents*>(ptr);
-                    std::destroy_n(first, n);
-                }
-            }... };
-        return std::make_tuple(
-            basic_info, constructors, move_constructors, move_assignments,
-            destructors);
+    /// @brief Undoes `_stage_entity` when the components fail to construct.
+    constexpr void _unstage_entity(entity_t entity) noexcept {
+        entity2index_.erase(entity);
+        index2entity_.pop_back();
     }
 
-    constexpr auto _emplace(entity_t entity) {
-        const index_t index = size_;
+    // emplace(entity);
+
+    ATOM_CONSTEXPR_SINCE_CXX26 auto _emplace(entity_t entity) {
         if (size_ == capacity_) [[unlikely]] {
             _relocate(capacity_ << 1);
         }
+        _stage_entity(entity);
+        auto guard = make_exception_guard([this, entity]() noexcept {
+            _unstage_entity(entity);
+        });
         _emplace_normally();
-        entity2index_.try_emplace(entity, index);
-        index2entity_.push_back(entity);
+        guard.dismiss();
         ++size_;
     }
 
-    constexpr auto _emplace_normally() {
+    ATOM_CONSTEXPR_SINCE_CXX26 auto _emplace_normally() {
         size_type idx = 0;
         // On throw, kinds [0, idx) were constructed at row `size_`.
         auto guard = make_exception_guard([this, &idx]() noexcept {
             for (size_type i = idx; i-- > 0;) {
-                const type_traits info = comp_traits_[i];
-
-                _buffer_ptr& data = storage_[i];
-                auto* const ptr   = data.get();
-                destructors_[i](ptr + (size_ * info.size), 1);
+                dtors_[i](storage_[i], size_, 1);
             }
         });
 
-        for (; idx < hash_list_.size(); ++idx) {
-            const type_traits info = comp_traits_[idx];
-
-            _buffer_ptr& data = storage_[idx];
-            auto* const ptr   = data.get();
-            constructors_[idx](ptr + (size_ * info.size), 1);
+        for (; idx < kinds_; ++idx) {
+            ctors_[idx](storage_[idx], size_, 1);
         }
 
         guard.dismiss();
-    }
-
-    ATOM_CONSTEXPR_SINCE_CXX26 void _prepare_for_relocation(
-        small_vector<_buffer_ptr, 64, _allocator_t<_buffer_ptr>>& nbufs,
-        size_type ncap) {
-        for (size_type i = 0; i < kinds(); ++i) {
-            const type_traits info = comp_traits_[i];
-            if (info.size == 0) {
-                continue;
-            }
-
-            nbufs[i] = _archetype::_new_ptr(info.size, ncap, info.align);
-        }
-    }
-
-    constexpr void _relocate_data(
-        small_vector<_buffer_ptr, 64, _allocator_t<_buffer_ptr>>& nbufs) {
-        size_type idx = kinds();
-        // On throw at `idx`, kinds (idx, kinds()) were already relocated.
-        auto guard = make_exception_guard([this, &nbufs, &idx]() noexcept {
-            for (size_type i = idx + 1; i < kinds(); ++i) {
-                const type_traits info = comp_traits_[i];
-                if (info.size == 0) {
-                    continue;
-                }
-
-                destructors_[i](nbufs[i].get(), size_);
-            }
-        });
-
-        for (; idx-- > 0;) {
-            const type_traits info = comp_traits_[idx];
-            if (info.size == 0) {
-                continue;
-            }
-
-            move_constructors_[idx](
-                storage_[idx].get(), size_, nbufs[idx].get());
-        }
-
-        guard.dismiss();
-
-        // `idx` wrapped around above; commit every kind.
-        for (size_type i = 0; i < kinds(); ++i) {
-            destructors_[i](storage_[i].get(), size_);
-            storage_[i] = std::move(nbufs[i]);
-        }
-    }
-
-    ATOM_CONSTEXPR_SINCE_CXX26 void _relocate(size_type capacity) {
-        // jump to inline version
-        if (relocate_fn_ != nullptr) {
-            relocate_fn_(this, capacity);
-            return;
-        }
-
-        small_vector<_buffer_ptr, 64, _allocator_t<_buffer_ptr>> nbufs(
-            kinds(), entity2index_.get_allocator());
-        _prepare_for_relocation(nbufs, capacity);
-        _relocate_data(nbufs);
-        capacity_ = capacity;
     }
 
     // emplace<...>();
 
     template <component... Components>
-    auto _emplace(entity_t entity, [[maybe_unused]] type_list<Components...>) {
-        const index_t index = size_;
-        std::span<_buffer_ptr, sizeof...(Components)> bufs{ storage_ };
+    ATOM_CONSTEXPR_SINCE_CXX26 auto
+        _emplace(entity_t entity, [[maybe_unused]] type_list<Components...>) {
         if (size_ == capacity_) [[unlikely]] {
-            _archetype::_relocate<Components...>(
-                bufs, capacity_, capacity_ << 1);
-            capacity_ <<= 1;
+            _relocate_as<Components...>(capacity_ << 1);
         }
-        _archetype::_emplace_one_normally<Components...>(bufs, size_);
-        entity2index_.try_emplace(entity, index);
-        index2entity_.push_back(entity);
+        _stage_entity(entity);
+        auto guard = make_exception_guard([this, entity]() noexcept {
+            _unstage_entity(entity);
+        });
+        _archetype::_emplace_one_normally<Components...>(
+            std::span<void* const, sizeof...(Components)>{ storage_, kinds_ },
+            size_);
+        guard.dismiss();
         ++size_;
     }
 
     // emplace<...>(range);
 
     template <
-        size_t Index, typename TypeList, compatible_range<entity_t> Rng,
+        size_t Index, typename TypeList,
         typename Ty = type_list_element_t<Index, TypeList>>
-    auto _emplace_n_noexcept(size_type size) noexcept {
-        if constexpr (std::is_empty_v<Ty>) {
-            return;
-        }
-
-        _buffer_ptr& data = storage_[Index];
-        auto* const ptr   = data.get();
-        auto* const addr  = reinterpret_cast<Ty*>(ptr + (sizeof(Ty) * size_));
-        std::uninitialized_value_construct_n(addr, size);
-    }
-
-    template <
-        size_t Index, typename TypeList, compatible_range<entity_t> Rng,
-        typename Ty = type_list_element_t<Index, TypeList>>
-    auto _clean_n(
-        // NOLINTNEXTLINE
-        size_type finished, size_type original, size_type count) noexcept {
-        if (Index < finished) {
-            constexpr auto align = _get_align(alignof(Ty));
-            auto* const ptr      = static_cast<Ty*>(storage_[Index].get());
-            auto* const addr =
-                std::assume_aligned<align>(ptr + (sizeof(Ty) * original));
-            std::destroy_n(addr, count);
+    ATOM_CONSTEXPR_SINCE_CXX26 void
+        _emplace_n_noexcept(size_type count) noexcept {
+        if constexpr (!std::is_empty_v<Ty>) {
+            std::uninitialized_value_construct_n(
+                _archetype::_column<Ty>(storage_[Index]) + size_, count);
         }
     }
 
@@ -1346,7 +1048,7 @@ private:
         compatible_range<entity_t> Rng, component... Components,
         typename BindEntity, typename UnbindEntity>
     requires(std::is_nothrow_default_constructible_v<Components> && ...)
-    auto _emplace_with_entity_binding(
+    ATOM_CONSTEXPR_SINCE_CXX26 auto _emplace_with_entity_binding(
         Rng&& range, size_type append,
         [[maybe_unused]] const type_list<Components...> tl,
         BindEntity&& bind_entity, UnbindEntity&& unbind_entity) {
@@ -1367,8 +1069,7 @@ private:
 
         // noexcept part
         [this, append]<size_t... Is>(std::index_sequence<Is...>) {
-            (_emplace_n_noexcept<Is, type_list<Components...>, Rng>(append),
-             ...);
+            (_emplace_n_noexcept<Is, type_list<Components...>>(append), ...);
         }(std::index_sequence_for<Components...>());
         guard.dismiss();
     }
@@ -1377,7 +1078,7 @@ private:
         compatible_range<entity_t> Rng, component... Components,
         typename BindEntity, typename UnbindEntity>
     requires(!(std::is_nothrow_default_constructible_v<Components> && ...))
-    auto _emplace_with_entity_binding(
+    ATOM_CONSTEXPR_SINCE_CXX26 auto _emplace_with_entity_binding(
         Rng&& range, size_type append,
         [[maybe_unused]] const type_list<Components...> tl,
         BindEntity&& bind_entity, UnbindEntity&& unbind_entity) {
@@ -1418,7 +1119,7 @@ private:
     template <
         compatible_range<entity_t> Rng, component... Components,
         typename BindEntity, typename UnbindEntity>
-    auto _emplace_with_entity_binding(
+    ATOM_CONSTEXPR_SINCE_CXX26 auto _emplace_with_entity_binding(
         Rng&& range, [[maybe_unused]] const type_list<Components...> tl,
         BindEntity&& bind_entity, UnbindEntity&& unbind_entity) {
         if constexpr (std::ranges::sized_range<Rng>) {
@@ -1427,11 +1128,8 @@ private:
             entity2index_.reserve(final_size);
             index2entity_.reserve(final_size);
             if (final_size > capacity_) {
-                std::span<_buffer_ptr, sizeof...(Components)> bufs{ storage_ };
-                const auto ncap = std::max(final_size, capacity_ << 1);
-                _archetype::_relocate<Components...>(bufs, size_, ncap);
-                capacity_ = ncap;
-                // _relocate<Components...>(std::max(final_size, capacity_));
+                _relocate_as<Components...>(
+                    (std::max)(final_size, capacity_ << 1));
             }
             _emplace_with_entity_binding(
                 std::forward<Rng>(range), append, tl,
@@ -1456,7 +1154,7 @@ private:
     template <
         component... Components, compatible_range<entity_t> Rng,
         typename BindEntity, typename UnbindEntity>
-    auto _emplace_with_entity_binding(
+    ATOM_CONSTEXPR_SINCE_CXX26 auto _emplace_with_entity_binding(
         Rng&& range, BindEntity&& bind_entity, UnbindEntity&& unbind_entity) {
         using type_list = type_list<Components...>;
         using hash_list = hash_list_t<type_list>;
@@ -1467,7 +1165,7 @@ private:
     }
 
     template <compatible_range<entity_t> Rng, component... Components>
-    auto _emplace(
+    ATOM_CONSTEXPR_SINCE_CXX26 auto _emplace(
         Rng&& range, [[maybe_unused]] const type_list<Components...> tl) {
         auto ignore_entity = [](entity_t) noexcept {
         };
@@ -1478,32 +1176,27 @@ private:
     template <
         size_t Index, typename TypeList,
         typename Ty = type_list_element_t<Index, TypeList>>
-    void _clean_for_emplace_n(
+    ATOM_CONSTEXPR_SINCE_CXX26 void _clean_for_emplace_n(
         size_type finished, size_type original_size, size_type count) noexcept {
-        if constexpr (std::is_empty_v<Ty>) {
-            return;
-        }
-
-        if (Index < finished) {
-            _buffer_ptr& data = storage_[Index];
-            auto* const ptr = reinterpret_cast<Ty*>(data.get()) + original_size;
-            std::destroy_n(ptr, count);
+        if constexpr (!std::is_empty_v<Ty>) {
+            if (Index < finished) {
+                std::destroy_n(
+                    _archetype::_column<Ty>(storage_[Index]) + original_size,
+                    count);
+            }
         }
     }
 
     template <
         size_t Index, typename TypeList,
         typename Ty = type_list_element_t<Index, TypeList>>
-    void _emplace_n(size_type& finished, size_type size_appending) {
-        if constexpr (std::is_empty_v<Ty>) {
-            ++finished;
-            return;
+    ATOM_CONSTEXPR_SINCE_CXX26 void
+        _emplace_n(size_type& finished, size_type size_appending) {
+        if constexpr (!std::is_empty_v<Ty>) {
+            std::uninitialized_value_construct_n(
+                _archetype::_column<Ty>(storage_[Index]) + size_,
+                size_appending);
         }
-
-        _buffer_ptr& data = storage_[Index];
-        auto* const ptr   = data.get();
-        auto* const addr  = reinterpret_cast<Ty*>(ptr + (sizeof(Ty) * size_));
-        std::uninitialized_value_construct_n(addr, size_appending);
 
         ++finished;
     }
@@ -1511,33 +1204,36 @@ private:
     // emplace(...);
 
     template <component... Components>
-    constexpr void _emplace(entity_t entity, Components&&... comps) {
-        const auto index = size_;
-        std::span<_buffer_ptr, sizeof...(Components)> bufs{ storage_ };
+    ATOM_CONSTEXPR_SINCE_CXX26 void
+        _emplace(entity_t entity, Components&&... comps) {
         if (size_ == capacity_) [[unlikely]] {
-            _archetype::_relocate<Components...>(bufs, size_, capacity_ << 1);
-            capacity_ <<= 1;
+            _relocate_as<Components...>(capacity_ << 1);
         }
+        _stage_entity(entity);
+        auto guard = make_exception_guard([this, entity]() noexcept {
+            _unstage_entity(entity);
+        });
         _archetype::_emplace_one_normally(
-            bufs, size_, std::forward<Components>(comps)...);
-        entity2index_.try_emplace(entity, index);
-        index2entity_.push_back(entity);
+            std::span<void* const, sizeof...(Components)>{ storage_, kinds_ },
+            size_, std::forward<Components>(comps)...);
+        guard.dismiss();
         ++size_;
     }
 
     template <component... Components, typename Tup>
-    constexpr void
+    ATOM_CONSTEXPR_SINCE_CXX26 void
         _emplace(entity_t entity, type_list<Components...>, Tup&& vals) {
-        const auto index = size_;
-        std::span<_buffer_ptr, sizeof...(Components)> bufs{ storage_ };
         if (size_ == capacity_) [[unlikely]] {
-            _archetype::_relocate<Components...>(bufs, size_, capacity_ << 1);
-            capacity_ <<= 1;
+            _relocate_as<Components...>(capacity_ << 1);
         }
+        _stage_entity(entity);
+        auto guard = make_exception_guard([this, entity]() noexcept {
+            _unstage_entity(entity);
+        });
         _archetype::_emplace_one_normally<Components...>(
-            bufs, size_, std::forward<Tup>(vals));
-        entity2index_.try_emplace(entity, index);
-        index2entity_.push_back(entity);
+            std::span<void* const, sizeof...(Components)>{ storage_, kinds_ },
+            size_, std::forward<Tup>(vals));
+        guard.dismiss();
         ++size_;
     }
 
@@ -1546,7 +1242,7 @@ private:
     template <
         compatible_range<entity_t> Rng, typename BindEntity,
         typename UnbindEntity, component... Components>
-    constexpr void _emplace_with_entity_binding(
+    ATOM_CONSTEXPR_SINCE_CXX26 void _emplace_with_entity_binding(
         Rng&& range, BindEntity&& bind_entity, UnbindEntity&& unbind_entity,
         Components&&... components) {
         using sorted =
@@ -1558,10 +1254,8 @@ private:
             entity2index_.reserve(final_size);
             index2entity_.reserve(final_size);
             if (final_size > capacity_) {
-                const auto ncap = std::max(final_size, capacity_ << 1);
-                std::span<_buffer_ptr, sizeof...(Components)> bufs{ storage_ };
-                _archetype::_relocate<Components...>(bufs, size_, ncap);
-                capacity_ = ncap;
+                _relocate_as<std::remove_cvref_t<Components>...>(
+                    (std::max)(final_size, capacity_ << 1));
             }
         }
 
@@ -1585,7 +1279,8 @@ private:
     }
 
     template <compatible_range<entity_t> Rng, component... Components>
-    constexpr void _emplace(Rng&& range, Components&&... components) {
+    ATOM_CONSTEXPR_SINCE_CXX26 void
+        _emplace(Rng&& range, Components&&... components) {
         auto ignore_entity = [](entity_t) noexcept {
         };
         _emplace_with_entity_binding(
@@ -1593,104 +1288,446 @@ private:
             std::forward<Components>(components)...);
     }
 
-    // vw
+    // views
 
-    template <size_t Index, typename TypeList>
-    constexpr void _get_sorted(auto& result, auto& hint) const noexcept {
-        using type = type_list_element_t<Index, TypeList>;
+    /// @brief A missing kind would index past the last column.
+    static constexpr void _assert_stored(
+        [[maybe_unused]] const _hash_type* found,
+        [[maybe_unused]] const _hash_type* end,
+        [[maybe_unused]] _hash_type hash) noexcept {
+        ATOM_ASSERT(
+            found != end && *found == hash &&
+            "the archetype does not store the component");
+    }
 
-        hint = branchless_lower_bound(hint, hash_list_.end(), hash_of<type>());
-        const auto index = std::distance(hash_list_.begin(), hint);
-        result[Index]    = storage_[index].get();
+    /// @brief Index of each of the hash-sorted `Components` among the
+    /// kinds.
+    template <component... Components>
+    ATOM_ATTRS(ATOM_NODISCARD)
+    constexpr auto _kind_indices(type_list<Components...>) const noexcept
+        -> std::array<size_type, sizeof...(Components)> {
+        std::array<size_type, sizeof...(Components)> result{};
+        const _hash_type* hint      = hash_list_;
+        const _hash_type* const end = hash_list_ + kinds_;
+        size_type i                 = 0;
+        ((hint = branchless_lower_bound(hint, end, hash_of<Components>()),
+          _assert_stored(hint, end, hash_of<Components>()),
+          result[i++] = static_cast<size_type>(hint - hash_list_)),
+         ...);
+        return result;
     }
 
     template <component... Components>
-    constexpr auto _get_sorted(type_list<Components...>) const noexcept
-        -> std::array<std::byte*, sizeof...(Components)> {
-        using type_list = type_list<Components...>;
-        return [this]<size_t... Is>(std::index_sequence<Is...>) {
-            std::array<std::byte*, sizeof...(Components)> result;
-            auto hint = hash_list_.begin();
-            (_get_sorted<Is, type_list>(result, hint), ...);
-            return result;
-        }(std::index_sequence_for<Components...>());
-    }
-
-    template <component... Components>
-    ATOM_NODISCARD auto _get()
+    ATOM_ATTRS(ATOM_NODISCARD)
+    ATOM_CONSTEXPR_SINCE_CXX26 auto _get()
         -> std::tuple<std::remove_cvref_t<Components>*...> {
         using tlist     = type_list<std::remove_cvref_t<Components>...>;
         using hash_list = hash_list_t<tlist>;
-        auto sorted     = _get_sorted(hash_list{});
+        const auto kind = _kind_indices(hash_list{});
         using isequence = hash_sequence_t<tlist>;
         using vlist     = value_list_from_t<isequence>;
-        return [&sorted]<size_t... Is>(std::index_sequence<Is...>) {
+        return [this, &kind]<size_t... Is>(std::index_sequence<Is...>) {
             return std::make_tuple(
-                reinterpret_cast<std::remove_cvref_t<Components>*>(
-                    sorted[value_list_element_v<Is, vlist>])...);
-        }(std::index_sequence_for<Components...>());
-    }
-
-    void _commit_relocation(_vector_t<_buffer_ptr>& buffers) noexcept {
-        const auto kinds = this->kinds();
-        for (size_type index = 0; index < kinds; ++index) {
-            storage_[index] = std::move(buffers[index]);
-        }
-    }
-
-    template <size_t Index, typename TypeList>
-    constexpr void _get_buffer_sorted(auto& result, auto& hint) noexcept {
-        using type = type_list_element_t<Index, TypeList>;
-
-        hint = branchless_lower_bound(hint, hash_list_.end(), hash_of<type>());
-        const auto index = std::distance(hash_list_.begin(), hint);
-        result[Index]    = &storage_[index];
-    }
-
-    template <component... Components>
-    constexpr auto _get_buffer_sorted(type_list<Components...>) noexcept
-        -> std::array<_buffer_ptr*, sizeof...(Components)> {
-        using type_list = type_list<Components...>;
-        return [this]<size_t... Is>(std::index_sequence<Is...>) {
-            std::array<_buffer_ptr*, sizeof...(Components)> result;
-            auto hint = hash_list_.begin();
-            (_get_buffer_sorted<Is, type_list>(result, hint), ...);
-            return result;
+                _archetype::_column<std::remove_cvref_t<Components>>(
+                    storage_[kind[value_list_element_v<Is, vlist>]])...);
         }(std::index_sequence_for<Components...>());
     }
 
     template <component... Components>
-    ATOM_NODISCARD auto _get_buffers() {
+    ATOM_ATTRS(ATOM_NODISCARD)
+    constexpr auto _get_buffers() noexcept {
         using tlist     = type_list<std::remove_cvref_t<Components>...>;
         using hash_list = hash_list_t<tlist>;
-        auto sorted     = _get_buffer_sorted(hash_list{});
+        const auto kind = _kind_indices(hash_list{});
         using isequence = hash_sequence_t<tlist>;
         using vlist     = value_list_from_t<isequence>;
-        return [&sorted]<size_t... Is>(std::index_sequence<Is...>) {
-            return std::make_tuple(sorted[value_list_element_v<Is, vlist>]...);
+        return [this, &kind]<size_t... Is>(std::index_sequence<Is...>) {
+            return std::make_tuple(
+                static_cast<void* const*>(
+                    storage_ + kind[value_list_element_v<Is, vlist>])...);
         }(std::index_sequence_for<Components...>());
     }
 
-    ATOM_NODISCARD auto _entities() const noexcept -> const entity_t* const& {
+    ATOM_ATTRS(ATOM_NODISCARD)
+    auto _entities() const noexcept -> const entity_t* const& {
         return index2entity_.data();
     }
 
+    /// @brief Typed relocation routine, set when the kinds are known at
+    /// compile time.
     void (*relocate_fn_)(archetype*, size_type) = nullptr;
-    _vector_t<_hash_type> hash_list_;
-    _vector_t<type_traits> comp_traits_;
-    _vector_t<_ctor_fn> constructors_;
-    _vector_t<_mov_ctor_fn> move_constructors_;
-    _vector_t<_mov_assign_fn> move_assignments_;
-    _vector_t<_dtor_fn> destructors_;
-    _vector_t<_buffer_ptr> storage_;
-    size_type size_{};
-    size_type capacity_{};
-    std::uint64_t hash_{};
+    ATOM_NO_UNIQUE_ADDR allocator_type alloc_;
+    // Per-kind metadata, `kinds_` entries each, sorted by hash.
+    _hash_type* hash_list_       = nullptr;
+    type_traits* comp_traits_    = nullptr;
+    _alloc_fn* allocs_           = nullptr;
+    _dealloc_fn* deallocs_       = nullptr;
+    _ctor_fn* ctors_             = nullptr;
+    _mov_ctor_fn* mov_ctors_     = nullptr;
+    _mov_assign_fn* mov_assigns_ = nullptr;
+    _dtor_fn* dtors_             = nullptr;
+    /// @brief One column per kind; null for empty components.
+    void** storage_     = nullptr;
+    size_type kinds_    = 0;
+    size_type size_     = 0;
+    size_type capacity_ = 0;
+    std::uint64_t hash_ = 0;
     shift_map<entity_t, index_t, 256UL, half_bits<entity_t>, Alloc>
         entity2index_;
-    // _vector_t<bool> created_;
     anchor<entity_t, _allocator_t<entity_t>> index2entity_;
 };
+
+template <unfancy_byte_allocator Alloc>
+template <component... Components, typename Al>
+requires(sizeof...(Components) != 0)
+ATOM_CONSTEXPR_SINCE_CXX26 archetype<Alloc>::archetype(
+    immediately_t, type_list<Components...>, const Al& alloc)
+    : relocate_fn_([](archetype* self, size_type capacity) {
+          self->template _relocate_as<Components...>(capacity);
+      }),
+      alloc_(alloc), hash_(make_array_hash<type_list<Components...>>()),
+      entity2index_(alloc), index2entity_(alloc) {
+    using table = _kind_table<Components...>;
+
+    _allocate_kinds(table::count);
+    auto guard = make_exception_guard([this]() noexcept {
+        _release(initial_capacity);
+    });
+    for (size_type i = 0; i < table::count; ++i) {
+        _set_kind<table>(i, i);
+    }
+    _allocate_columns(initial_capacity);
+    capacity_ = initial_capacity;
+    guard.dismiss();
+}
+
+template <unfancy_byte_allocator Alloc>
+template <component... Components>
+ATOM_CONSTEXPR_SINCE_CXX26 archetype<Alloc>::archetype(
+    const archetype& that, add_components_t<Components...>)
+    : alloc_(that.alloc_), entity2index_(that.alloc_),
+      index2entity_(that.alloc_) {
+    using table = type_list_rebind_t<
+        _kind_table,
+        hash_list_t<type_list<std::remove_cvref_t<Components>...>>>;
+    constexpr auto& added = table::hashes;
+    const auto* const own = that.hash_list_;
+    const size_type kinds = that.kinds_;
+
+    // Merge the two sorted lists: first count, then fill.
+    auto merge = [&](auto&& keep_own, auto&& keep_added) {
+        size_type i = 0;
+        size_type j = 0;
+        size_type k = 0;
+        while (i < kinds || j < added.size()) {
+            if (j == added.size() || (i < kinds && own[i] < added[j])) {
+                keep_own(k++, i++);
+            } else if (i == kinds || added[j] < own[i]) {
+                keep_added(k++, j++);
+            } else {
+                keep_own(k++, i++);
+                ++j;
+            }
+        }
+        return k;
+    };
+    auto ignore = [](size_type, size_type) noexcept {
+    };
+
+    _allocate_kinds(merge(ignore, ignore));
+    auto guard = make_exception_guard([this]() noexcept {
+        _release(initial_capacity);
+    });
+    merge(
+        [this, &that](size_type k, size_type i) noexcept {
+            _copy_kind(k, that, i);
+        },
+        [this](size_type k, size_type j) noexcept {
+            _set_kind<table>(k, j);
+        });
+    _allocate_columns(initial_capacity);
+    capacity_ = initial_capacity;          // NOLINT
+    hash_     = hash_combine(hash_list()); // NOLINT
+    guard.dismiss();
+}
+
+template <unfancy_byte_allocator Alloc>
+template <component... Components, typename Al>
+requires(sizeof...(Components) != 0)
+ATOM_CONSTEXPR_SINCE_CXX26
+    archetype<Alloc>::archetype(type_spreader<Components...>, const Al& alloc)
+    : archetype(immediately, hash_list_t<type_list<Components...>>{}, alloc) {}
+
+template <unfancy_byte_allocator Alloc>
+template <component... Components>
+ATOM_CONSTEXPR_SINCE_CXX26 archetype<Alloc>::archetype(
+    const archetype& that, remove_components_t<Components...>)
+    : alloc_(that.alloc_), entity2index_(that.alloc_),
+      index2entity_(that.alloc_) {
+    constexpr auto removed =
+        make_hash_array<type_list<std::remove_cvref_t<Components>...>>();
+    const auto* const own = that.hash_list_;
+    const size_type kinds = that.kinds_;
+
+    auto filter = [&](auto&& keep) {
+        size_type j = 0;
+        size_type k = 0;
+        for (size_type i = 0; i < kinds; ++i) {
+            while (j < removed.size() && removed[j] < own[i]) {
+                ++j;
+            }
+            if (j == removed.size() || removed[j] != own[i]) {
+                keep(k++, i);
+            }
+        }
+        return k;
+    };
+
+    _allocate_kinds(filter([](size_type, size_type) noexcept {
+    }));
+    auto guard = make_exception_guard([this]() noexcept {
+        _release(initial_capacity);
+    });
+    filter([this, &that](size_type k, size_type i) noexcept {
+        _copy_kind(k, that, i);
+    });
+    _allocate_columns(initial_capacity);
+    capacity_ = initial_capacity;          // NOLINT
+    hash_     = hash_combine(hash_list()); // NOLINT
+    guard.dismiss();
+}
+
+template <unfancy_byte_allocator Alloc>
+ATOM_CONSTEXPR_SINCE_CXX20
+    archetype<Alloc>::archetype(archetype&& that) noexcept
+    : relocate_fn_(that.relocate_fn_), alloc_(that.alloc_),
+      hash_list_(std::exchange(that.hash_list_, nullptr)),
+      comp_traits_(std::exchange(that.comp_traits_, nullptr)),
+      allocs_(std::exchange(that.allocs_, nullptr)),
+      deallocs_(std::exchange(that.deallocs_, nullptr)),
+      ctors_(std::exchange(that.ctors_, nullptr)),
+      mov_ctors_(std::exchange(that.mov_ctors_, nullptr)),
+      mov_assigns_(std::exchange(that.mov_assigns_, nullptr)),
+      dtors_(std::exchange(that.dtors_, nullptr)),
+      storage_(std::exchange(that.storage_, nullptr)),
+      kinds_(std::exchange(that.kinds_, 0)),
+      size_(std::exchange(that.size_, 0)),
+      capacity_(std::exchange(that.capacity_, 0)),
+      hash_(std::exchange(that.hash_, 0)),
+      entity2index_(std::move(that.entity2index_)),
+      index2entity_(std::move(that.index2entity_)) {}
+
+template <unfancy_byte_allocator Alloc>
+ATOM_CONSTEXPR_SINCE_CXX26 archetype<Alloc>::~archetype() noexcept {
+    for (size_type i = 0; i < kinds_; ++i) {
+        dtors_[i](storage_[i], 0, size_);
+    }
+    _release(capacity_);
+}
+
+template <unfancy_byte_allocator Alloc>
+template <typename... Args>
+ATOM_ATTRS(ATOM_NODISCARD)
+constexpr auto archetype<Alloc>::has() const noexcept {
+    using sorted_list = hash_list_t<type_list<Args...>>;
+    return _has_impl<sorted_list>();
+}
+
+template <unfancy_byte_allocator Alloc>
+ATOM_ATTRS(ATOM_NODISCARD)
+ATOM_CONSTEXPR_SINCE_CXX26 auto archetype<Alloc>::emplace(entity_t entity) {
+    _emplace(entity);
+}
+
+template <unfancy_byte_allocator Alloc>
+template <component... Components>
+ATOM_ATTRS(ATOM_NODISCARD)
+ATOM_CONSTEXPR_SINCE_CXX26 auto archetype<Alloc>::emplace(entity_t entity) {
+    using type_list                       = type_list<Components...>;
+    using hash_list                       = hash_list_t<type_list>;
+    constexpr std::uint64_t combined_hash = make_array_hash<type_list>();
+    ATOM_ASSUME(combined_hash == hash_);
+
+    _emplace(entity, hash_list{});
+}
+
+template <unfancy_byte_allocator Alloc>
+template <component... Components>
+ATOM_ATTRS(ATOM_NODISCARD)
+ATOM_CONSTEXPR_SINCE_CXX26 auto archetype<Alloc>::emplace(auto&& range)
+requires compatible_range<decltype(range), entity_t>
+{
+    using type_list                       = type_list<Components...>;
+    using hash_list                       = hash_list_t<type_list>;
+    constexpr std::uint64_t combined_hash = make_array_hash<type_list>();
+    ATOM_ASSERT(combined_hash == hash_);
+    ATOM_ASSUME(combined_hash == hash_);
+
+    _emplace(std::forward<decltype(range)>(range), hash_list{});
+}
+
+template <unfancy_byte_allocator Alloc>
+template <component... Components>
+ATOM_ATTRS(ATOM_NODISCARD)
+ATOM_CONSTEXPR_SINCE_CXX26 auto archetype<Alloc>::emplace(
+    entity_t entity, Components&&... components) {
+    constexpr std::uint64_t combined_hash =
+        make_array_hash<type_list<std::remove_cvref_t<Components>...>>();
+    ATOM_ASSERT(combined_hash == hash_);
+    ATOM_ASSUME(combined_hash == hash_);
+
+    _emplace(entity, std::forward<Components>(components)...);
+}
+
+template <unfancy_byte_allocator Alloc>
+template <component... Components>
+ATOM_ATTRS(ATOM_NODISCARD)
+ATOM_CONSTEXPR_SINCE_CXX26
+    auto archetype<Alloc>::emplace(auto&& range, Components&&... components)
+requires compatible_range<decltype(range), entity_t>
+{
+    constexpr std::uint64_t combined_hash =
+        make_array_hash<type_list<std::remove_cvref_t<Components>...>>();
+    ATOM_ASSERT(combined_hash == hash_);
+    ATOM_ASSUME(combined_hash == hash_);
+
+    _emplace(
+        std::forward<decltype(range)>(range),
+        std::forward<Components>(components)...);
+}
+
+template <unfancy_byte_allocator Alloc>
+ATOM_CONSTEXPR_SINCE_CXX26 void archetype<Alloc>::erase(entity_t entity) {
+    _erase_known_index(entity, entity2index_.at(entity));
+}
+
+template <unfancy_byte_allocator Alloc>
+template <component... Components>
+requires(!std::is_empty_v<std::remove_cvref_t<Components>> && ...)
+ATOM_ATTRS(ATOM_NODISCARD)
+ATOM_CONSTEXPR_SINCE_CXX26 auto archetype<Alloc>::at(entity_t entity)
+    -> std::tuple<Components...> {
+    const auto index = entity2index_.at(entity);
+    auto storage     = _get<Components...>();
+    return std::apply(
+        [index](auto*... ptrs) -> std::tuple<Components...> {
+            return std::tuple<Components...>(ptrs[index]...);
+        },
+        storage);
+}
+
+template <unfancy_byte_allocator Alloc>
+ATOM_ATTRS(ATOM_NODISCARD)
+constexpr long_hash_t archetype<Alloc>::hash() const noexcept {
+    return hash_;
+}
+
+template <unfancy_byte_allocator Alloc>
+ATOM_ATTRS(ATOM_NODISCARD)
+constexpr auto archetype<Alloc>::hash_list() const noexcept
+    -> std::span<const _hash_type> {
+    return { hash_list_, kinds_ };
+}
+
+template <unfancy_byte_allocator Alloc>
+ATOM_ATTRS(ATOM_NODISCARD)
+constexpr void* const* archetype<Alloc>::data() const noexcept {
+    return storage_;
+}
+
+template <unfancy_byte_allocator Alloc>
+ATOM_ATTRS(ATOM_NODISCARD)
+constexpr auto archetype<Alloc>::size() const noexcept -> const size_type& {
+    return size_;
+}
+
+template <unfancy_byte_allocator Alloc>
+ATOM_ATTRS(ATOM_NODISCARD)
+constexpr bool archetype<Alloc>::empty() const noexcept {
+    return size_ == 0UL;
+}
+
+template <unfancy_byte_allocator Alloc>
+ATOM_ATTRS(ATOM_NODISCARD)
+constexpr auto archetype<Alloc>::capacity() const noexcept
+    -> archetype<Alloc>::size_type {
+    return capacity_;
+}
+
+template <unfancy_byte_allocator Alloc>
+template <component... Components>
+ATOM_ATTRS(ATOM_NODISCARD)
+constexpr auto archetype<Alloc>::view_buffers() noexcept {
+    return _get_buffers<Components...>();
+}
+
+template <unfancy_byte_allocator Alloc>
+ATOM_ATTRS(ATOM_NODISCARD)
+constexpr auto archetype<Alloc>::entities() noexcept -> std::span<entity_t> {
+    return index2entity_;
+}
+
+template <unfancy_byte_allocator Alloc>
+ATOM_CONSTEXPR_SINCE_CXX26 void archetype<Alloc>::reserve(size_type n) {
+    entity2index_.reserve(n);
+    index2entity_.reserve(n);
+    if (capacity_ >= n) {
+        return;
+    }
+
+    _relocate(n);
+}
+
+template <unfancy_byte_allocator Alloc>
+ATOM_CONSTEXPR_SINCE_CXX26 void archetype<Alloc>::clear() {
+    for (size_type i = 0; i < kinds_; ++i) {
+        dtors_[i](storage_[i], 0, size_);
+    }
+    index2entity_.clear();
+    entity2index_.clear();
+    size_ = 0;
+}
+
+template <unfancy_byte_allocator Alloc>
+ATOM_ATTRS(ATOM_NODISCARD)
+constexpr auto archetype<Alloc>::get_allocator() const noexcept
+    -> allocator_type {
+    return alloc_;
+}
+
+template <unfancy_byte_allocator Alloc>
+ATOM_CONSTEXPR_SINCE_CXX26 void
+    archetype<Alloc>::transfer(entity_t entity, archetype& target) {
+    _transfer(entity, target, [](size_type, size_type, _hash_type) {
+        ATOM_ASSERT(
+            false && "target archetype unexpectedly requires new components");
+    });
+}
+
+template <unfancy_byte_allocator Alloc>
+template <component... Components>
+ATOM_CONSTEXPR_SINCE_CXX26 void archetype<Alloc>::transfer(
+    entity_t entity, archetype& target,
+    [[maybe_unused]] add_components_t<Components...>) {
+    _transfer(
+        entity, target, [&target](size_type kind, size_type index, _hash_type) {
+            target.ctors_[kind](target.storage_[kind], index, 1);
+        });
+}
+
+template <unfancy_byte_allocator Alloc>
+template <component... Added, component... Components>
+ATOM_CONSTEXPR_SINCE_CXX26 void archetype<Alloc>::transfer(
+    entity_t entity, archetype& target,
+    [[maybe_unused]] add_components_t<Added...>, Components&&... components) {
+    auto tuple = std::forward_as_tuple(std::forward<Components>(components)...);
+    _transfer(
+        entity, target,
+        [&target, &tuple](size_type kind, size_type index, _hash_type hash) {
+            target.template _construct_added_from_tuple<
+                std::remove_cvref_t<Added>...>(kind, index, hash, tuple);
+        });
+}
 
 // NOLINTEND(modernize-avoid-c-arrays)
 // NOLINTEND(cppcoreguidelines-avoid-c-arrays)

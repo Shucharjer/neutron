@@ -2,6 +2,7 @@
 #include <initializer_list>
 #include <memory>
 #include <memory_resource>
+#include <new>
 #include <tuple>
 #include <utility>
 #include <neutron/shift_map.hpp>
@@ -163,6 +164,56 @@ void test_pmr_initializer_list_with_allocator_arg() {
     require(map.at(1) == 1);
 }
 
+/// Fails the allocation numbered `fail_call`, counting from zero.
+class failing_resource : public std::pmr::memory_resource {
+public:
+    std::size_t calls     = 0;
+    std::size_t fail_call = static_cast<std::size_t>(-1);
+
+private:
+    void* do_allocate(std::size_t bytes, std::size_t align) override {
+        if (calls++ == fail_call) {
+            throw std::bad_alloc{};
+        }
+        return std::pmr::new_delete_resource()->allocate(bytes, align);
+    }
+
+    void do_deallocate(
+        void* ptr, std::size_t bytes, std::size_t align) override {
+        std::pmr::new_delete_resource()->deallocate(ptr, bytes, align);
+    }
+
+    bool do_is_equal(const memory_resource& that) const noexcept override {
+        return this == &that;
+    }
+};
+
+void test_failed_try_emplace_leaves_the_map_unchanged() {
+    failing_resource resource;
+    auto alloc = std::pmr::polymorphic_allocator<>{ &resource };
+
+    // Fail each allocation of the insertion, one at a time.
+    for (std::size_t failing = 0;; ++failing) {
+        pmr_map_type map{ alloc };
+        map.try_emplace(1, 1);
+        resource.fail_call = resource.calls + failing;
+        bool thrown        = false;
+        try {
+            map.try_emplace(1000, 2);
+        } catch (const std::bad_alloc&) {
+            thrown = true;
+        }
+        resource.fail_call = static_cast<std::size_t>(-1);
+
+        require(map.size() == (thrown ? 1U : 2U));
+        require(map.contains(1));
+        require(map.contains(1000) != thrown);
+        if (!thrown) {
+            break;
+        }
+    }
+}
+
 } // namespace
 
 int main() {
@@ -171,5 +222,6 @@ int main() {
     test_pmr_allocator_constructors_construct_empty();
     test_pmr_initializer_list_with_trailing_allocator();
     test_pmr_initializer_list_with_allocator_arg();
+    test_failed_try_emplace_leaves_the_map_unchanged();
     return neutron_test::result();
 }

@@ -27,7 +27,7 @@ public:
         }
     }
 
-    ATOM_NODISCARD ATOM_CONSTEXPR_SINCE_CXX26 bool empty() const noexcept {
+    ATOM_ATTRS(ATOM_NODISCARD) ATOM_CONSTEXPR_SINCE_CXX26 bool empty() const noexcept {
         const auto head = head_.load(std::memory_order_relaxed);
         return sequence_[head & (Size - 1)].load(std::memory_order_acquire) !=
                head + 1;
@@ -48,12 +48,12 @@ public:
         sequence.store(pos + 1, std::memory_order_release);
     }
 
-    ATOM_NODISCARD ATOM_CONSTEXPR_SINCE_CXX26 T& front() noexcept {
+    ATOM_ATTRS(ATOM_NODISCARD) ATOM_CONSTEXPR_SINCE_CXX26 T& front() noexcept {
         const auto head = head_.load(std::memory_order_relaxed);
         return *(this->data() + (head & (Size - 1)));
     }
 
-    ATOM_NODISCARD ATOM_CONSTEXPR_SINCE_CXX26 const T& front() const noexcept {
+    ATOM_ATTRS(ATOM_NODISCARD) ATOM_CONSTEXPR_SINCE_CXX26 const T& front() const noexcept {
         const auto head = head_.load(std::memory_order_relaxed);
         return *(this->data() + (head & (Size - 1)));
     }

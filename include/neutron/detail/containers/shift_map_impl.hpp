@@ -331,7 +331,7 @@ public:
      * @param key Key to search for.
      * @return Iterator to the matching element, or `end()` if not found.
      */
-    ATOM_NODISCARD constexpr iterator find(key_type key) noexcept {
+    ATOM_ATTRS(ATOM_NODISCARD) constexpr iterator find(key_type key) noexcept {
         const auto kept   = _kept(key);
         const auto page   = _page_of(kept);
         const auto offset = _offset_of(kept);
@@ -346,7 +346,7 @@ public:
      * @param key Key to search for.
      * @return Iterator to the matching element, or `end()` if not found.
      */
-    ATOM_NODISCARD constexpr const_iterator find(key_type key) const noexcept {
+    ATOM_ATTRS(ATOM_NODISCARD) constexpr const_iterator find(key_type key) const noexcept {
         const auto kept   = _kept(key);
         const auto page   = _page_of(kept);
         const auto offset = _offset_of(kept);
@@ -362,7 +362,7 @@ public:
      * @return Reference to the mapped value.
      * @throws std::out_of_range The key is not present.
      */
-    ATOM_NODISCARD constexpr mapped_type& at(key_type key) {
+    ATOM_ATTRS(ATOM_NODISCARD) constexpr mapped_type& at(key_type key) {
         const auto kept   = _kept(key);
         const auto page   = _page_of(kept);
         const auto offset = _offset_of(kept);
@@ -378,7 +378,7 @@ public:
      * @return Reference to the mapped value.
      * @throws std::out_of_range The key is not present.
      */
-    ATOM_NODISCARD constexpr const mapped_type& at(key_type key) const {
+    ATOM_ATTRS(ATOM_NODISCARD) constexpr const mapped_type& at(key_type key) const {
         const auto kept   = _kept(key);
         const auto page   = _page_of(kept);
         const auto offset = _offset_of(kept);
@@ -410,48 +410,48 @@ public:
      * @param key Key to test.
      * @return `true` if the key is present, otherwise `false`.
      */
-    ATOM_NODISCARD constexpr bool contains(key_type key) const noexcept {
+    ATOM_ATTRS(ATOM_NODISCARD) constexpr bool contains(key_type key) const noexcept {
         const auto kept   = _kept(key);
         const auto page   = _page_of(kept);
         const auto offset = _offset_of(kept);
         return _contains(key, page, offset);
     }
 
-    ATOM_NODISCARD constexpr iterator begin() noexcept {
+    ATOM_ATTRS(ATOM_NODISCARD) constexpr iterator begin() noexcept {
         return dense_.begin();
     }
-    ATOM_NODISCARD constexpr const_iterator begin() const noexcept {
+    ATOM_ATTRS(ATOM_NODISCARD) constexpr const_iterator begin() const noexcept {
         return dense_.begin();
     }
-    ATOM_NODISCARD constexpr const_iterator cbegin() const noexcept {
+    ATOM_ATTRS(ATOM_NODISCARD) constexpr const_iterator cbegin() const noexcept {
         return dense_.cbegin();
     }
 
-    ATOM_NODISCARD constexpr iterator end() noexcept { return dense_.end(); }
-    ATOM_NODISCARD constexpr const_iterator end() const noexcept {
+    ATOM_ATTRS(ATOM_NODISCARD) constexpr iterator end() noexcept { return dense_.end(); }
+    ATOM_ATTRS(ATOM_NODISCARD) constexpr const_iterator end() const noexcept {
         return dense_.end();
     }
-    ATOM_NODISCARD constexpr const_iterator cend() const noexcept {
+    ATOM_ATTRS(ATOM_NODISCARD) constexpr const_iterator cend() const noexcept {
         return dense_.cend();
     }
 
-    ATOM_NODISCARD constexpr reverse_iterator rbegin() noexcept {
+    ATOM_ATTRS(ATOM_NODISCARD) constexpr reverse_iterator rbegin() noexcept {
         return dense_.rbegin();
     }
-    ATOM_NODISCARD constexpr const_reverse_iterator rbegin() const noexcept {
+    ATOM_ATTRS(ATOM_NODISCARD) constexpr const_reverse_iterator rbegin() const noexcept {
         return dense_.rbegin();
     }
-    ATOM_NODISCARD constexpr const_reverse_iterator crbegin() const noexcept {
+    ATOM_ATTRS(ATOM_NODISCARD) constexpr const_reverse_iterator crbegin() const noexcept {
         return dense_.crbegin();
     }
 
-    ATOM_NODISCARD constexpr reverse_iterator rend() noexcept {
+    ATOM_ATTRS(ATOM_NODISCARD) constexpr reverse_iterator rend() noexcept {
         return dense_.rend();
     }
-    ATOM_NODISCARD constexpr const_reverse_iterator rend() const noexcept {
+    ATOM_ATTRS(ATOM_NODISCARD) constexpr const_reverse_iterator rend() const noexcept {
         return dense_.rend();
     }
-    ATOM_NODISCARD constexpr const_reverse_iterator crend() const noexcept {
+    ATOM_ATTRS(ATOM_NODISCARD) constexpr const_reverse_iterator crend() const noexcept {
         return dense_.crend();
     }
 
@@ -459,7 +459,7 @@ public:
      * @brief Check whether the map contains no elements.
      * @return `true` if the map is empty, otherwise `false`.
      */
-    ATOM_NODISCARD constexpr bool empty() const noexcept {
+    ATOM_ATTRS(ATOM_NODISCARD) constexpr bool empty() const noexcept {
         return dense_.empty();
     }
 
@@ -467,7 +467,7 @@ public:
      * @brief Get the number of stored elements.
      * @return Current element count.
      */
-    ATOM_NODISCARD constexpr size_t size() const noexcept {
+    ATOM_ATTRS(ATOM_NODISCARD) constexpr size_t size() const noexcept {
         return dense_.size();
     }
 
@@ -476,7 +476,7 @@ public:
      * @return Number of elements that can be stored without reallocating the
      * dense array.
      */
-    ATOM_NODISCARD constexpr size_t capacity() const noexcept {
+    ATOM_ATTRS(ATOM_NODISCARD) constexpr size_t capacity() const noexcept {
         return dense_.capacity();
     }
 
@@ -497,11 +497,11 @@ public:
      * @brief Get the allocator used by the dense storage.
      * @return Allocator instance associated with this container.
      */
-    ATOM_NODISCARD constexpr allocator_type get_allocator() const noexcept {
+    ATOM_ATTRS(ATOM_NODISCARD) constexpr allocator_type get_allocator() const noexcept {
         return dense_.get_allocator();
     }
 
-    ATOM_NODISCARD constexpr const _dense_type& dense() const noexcept {
+    ATOM_ATTRS(ATOM_NODISCARD) constexpr const _dense_type& dense() const noexcept {
         return dense_;
     }
 

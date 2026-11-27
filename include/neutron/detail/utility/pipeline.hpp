@@ -111,7 +111,7 @@ public:
                  same_cvref_t<Second, const self_type&>,
                  std::invoke_result_t<
                      same_cvref_t<First, const self_type&>, Arg>>
-    ATOM_NODISCARD constexpr auto operator()(Arg&& arg) const& noexcept(
+    ATOM_ATTRS(ATOM_NODISCARD) constexpr auto operator()(Arg&& arg) const& noexcept(
         noexcept((pair_.second())(pair_.first()(std::forward<Arg>(arg)))))
         -> _invoke_result_t<const self_type&, Arg> {
         return (pair_.second())(pair_.first()(std::forward<Arg>(arg)));
@@ -122,7 +122,7 @@ public:
              std::is_invocable_v<
                  same_cvref_t<Second, self_type&>,
                  std::invoke_result_t<same_cvref_t<First, self_type&>, Arg>>
-    ATOM_NODISCARD constexpr auto operator()(Arg&& arg) & noexcept(
+    ATOM_ATTRS(ATOM_NODISCARD) constexpr auto operator()(Arg&& arg) & noexcept(
         noexcept((pair_.second())(pair_.first()(std::forward<Arg>(arg)))))
         -> _invoke_result_t<self_type&, Arg> {
         return (pair_.second())(pair_.first()(std::forward<Arg>(arg)));
@@ -139,7 +139,7 @@ public:
              std::is_invocable_v<
                  same_cvref_t<Second, self_type&&>,
                  std::invoke_result_t<same_cvref_t<First, self_type&&>, Arg>>
-    ATOM_NODISCARD constexpr auto
+    ATOM_ATTRS(ATOM_NODISCARD) constexpr auto
         operator()(Arg&& arg) && noexcept(noexcept(std::move(pair_.second())(
             std::move(pair_.first())(std::forward<Arg>(arg)))))
             -> _invoke_result_t<self_type&&, Arg> {
@@ -153,7 +153,7 @@ public:
                  same_cvref_t<Second, const self_type&&>,
                  std::invoke_result_t<
                      same_cvref_t<First, const self_type&&>, Arg>>
-    ATOM_NODISCARD constexpr auto
+    ATOM_ATTRS(ATOM_NODISCARD) constexpr auto
         operator()(Arg&& arg) const&& noexcept(noexcept(std::move(
             pair_.second())(std::move(pair_.first())(std::forward<Arg>(arg)))))
             -> _invoke_result_t<const self_type&&, Arg> {

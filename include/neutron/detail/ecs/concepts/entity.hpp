@@ -19,7 +19,7 @@ public:
     constexpr explicit future_entity_t(index_t inframe_index) noexcept
         : identity_(inframe_index) {}
 
-    ATOM_NODISCARD constexpr index_t get() const noexcept { return identity_; }
+    ATOM_ATTRS(ATOM_NODISCARD) constexpr index_t get() const noexcept { return identity_; }
 
 private:
     index_t identity_;

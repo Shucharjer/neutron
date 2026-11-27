@@ -20,7 +20,7 @@ constexpr bool padded_to_line =
     std::is_convertible_v<padded<T>*, T*>;
 
 struct empty {
-    ATOM_NODISCARD static constexpr int answer() noexcept { return 42; }
+    ATOM_ATTRS(ATOM_NODISCARD) static constexpr int answer() noexcept { return 42; }
 };
 
 struct one_byte {
