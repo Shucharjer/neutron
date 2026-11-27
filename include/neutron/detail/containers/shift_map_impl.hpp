@@ -534,8 +534,6 @@ private:
     constexpr std::pair<iterator, bool> _emplace_one_at_back(
         key_type key, _kept_type kept, size_type page, size_type offset,
         Args&&... args) {
-        auto dense_guard =
-            make_exception_guard([this]() noexcept { dense_.pop_back(); });
         const auto index = dense_.size();
         if constexpr (std::is_constructible_v<value_type, key_type, Args...>) {
             dense_.emplace_back(key, std::forward<Args>(args)...);
@@ -544,6 +542,10 @@ private:
                 std::piecewise_construct, std::forward_as_tuple(key),
                 std::forward_as_tuple(std::forward<Args>(args)...));
         }
+        // Armed only now: a failed emplace_back adds no element to pop.
+        auto dense_guard = make_exception_guard([this]() noexcept {
+            dense_.pop_back();
+        });
         _set_index(kept, page, offset, index);
         dense_guard.dismiss();
         return std::make_pair(dense_.begin() + index, true);
