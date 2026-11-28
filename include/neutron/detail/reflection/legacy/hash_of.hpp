@@ -2,10 +2,11 @@
 #pragma once
 #include "neutron/detail/reflection/hash_fn.hpp"
 #include "neutron/detail/reflection/legacy/name_of.hpp"
+#include "neutron/detail/utility/macros.hpp"
 
 namespace neutron::_refl_legacy {
 
-template <typename Ty, auto Hasher = ::neutron::internal::hash>
+ATOM_EXPORT template <typename Ty, auto Hasher = ::neutron::internal::hash>
 requires std::is_same_v<Ty, std::remove_cvref_t<Ty>>
 consteval auto hash_of() noexcept {
     constexpr auto name = name_of<Ty>();

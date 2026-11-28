@@ -1,11 +1,13 @@
 // IWYU pragma: private, include <neutron/fstream.hpp>
 #pragma once
-#include <filesystem>
-#include <ios>
-#include <istream>
-#include <memory>
-#include <string>
-#include <utility>
+#ifndef ATOM_BUILDING_MODULE
+    #include <filesystem>
+    #include <ios>
+    #include <istream>
+    #include <memory>
+    #include <string>
+    #include <utility>
+#endif
 #include "neutron/detail/fstream/fmbuf.hpp"
 #include "neutron/detail/utility/macros.hpp"
 
@@ -28,7 +30,7 @@ namespace neutron {
  * }
  * @endcode
  */
-template <typename CharT, typename Traits = std::char_traits<CharT>>
+ATOM_EXPORT template <typename CharT, typename Traits = std::char_traits<CharT>>
 requires _mappable_char<CharT>
 class basic_ifmstream : public std::basic_istream<CharT, Traits> {
     using _istream = std::basic_istream<CharT, Traits>;
@@ -156,7 +158,7 @@ private:
     mutable _buffer buf_;
 };
 
-using ifmstream  = basic_ifmstream<char>;
-using wifmstream = basic_ifmstream<wchar_t>;
+ATOM_EXPORT using ifmstream  = basic_ifmstream<char>;
+ATOM_EXPORT using wifmstream = basic_ifmstream<wchar_t>;
 
 } // namespace neutron

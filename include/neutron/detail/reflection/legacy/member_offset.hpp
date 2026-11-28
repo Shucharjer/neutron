@@ -1,7 +1,9 @@
 // IWYU pragma: private, include <neutron/reflection.hpp>
 #pragma once
-#include <array>
-#include <cstdint>
+#ifndef ATOM_BUILDING_MODULE
+    #include <array>
+    #include <cstdint>
+#endif
 #include "neutron/detail/concepts/value.hpp"
 #include "neutron/detail/reflection/legacy/access.hpp"
 #include "neutron/detail/reflection/legacy/concepts.hpp"
@@ -15,19 +17,19 @@ namespace neutron::_refl_legacy {
 
 using namespace ::neutron::_refl;
 
-const auto offset_count = 2048;
+inline constexpr auto offset_count = 2048;
 
 template <aggregate Ty>
-static inline const auto& offsets_of() noexcept {
+inline const auto& _offset_array_of() noexcept {
     constexpr auto count = member_count_of<Ty>();
     auto& outline        = get_object_outline<Ty>();
     auto tuple           = object_to_tuple_view(outline);
-    [[maybe_unused]] static std::array<size_t, count> array = {
+    [[maybe_unused]] static std::array<std::size_t, count> array = {
         [&]<std::size_t... Is>(std::index_sequence<Is...>) {
-            std::array<size_t, count> arr;
-            ((arr[Is] =
-                  (size_t)((const char*)std::addressof(std::get<Is>(tuple)) -
-                           (char*)(std::addressof(outline)))),
+            std::array<std::size_t, count> arr;
+            ((arr[Is] = (std::size_t)((const char*)std::addressof(
+                                          std::get<Is>(tuple)) -
+                                      (char*)(std::addressof(outline)))),
              ...);
             return arr;
         }(std::make_index_sequence<count>())
@@ -37,21 +39,21 @@ static inline const auto& offsets_of() noexcept {
 
 template <aggregate Ty, typename... Args>
 requires value<Ty>
-consteval static auto make_offset_tuple(const std::tuple<Args...>&) noexcept {
+consteval auto make_offset_tuple(const std::tuple<Args...>&) noexcept {
     return std::make_tuple(
         static_cast<std::remove_cv_t<std::remove_pointer_t<Args>> Ty::*>(
             nullptr)...);
 }
 
 template <aggregate Ty>
-static inline auto offset_tuple() noexcept {
+inline auto offset_tuple() noexcept {
     static_assert(
         sizeof(Ty) < offset_count,
         "The size is larger than the max offset could get "
         "automatically! Please get the offsets manually.");
     constexpr auto view = struct_to_tuple_view<Ty>();
     auto tuple          = make_offset_tuple<Ty>(view);
-    const auto& offsets = offsets_of<Ty>();
+    const auto& offsets = _offset_array_of<Ty>();
 
     // set offsets in tuple
     [&]<std::size_t... Is>(std::index_sequence<Is...>) {
@@ -66,15 +68,15 @@ static inline auto offset_tuple() noexcept {
 
 template <default_reflectible_aggregate Ty>
 inline const auto& offset_array_of() noexcept {
-    return offsets_of<Ty>();
+    return _offset_array_of<Ty>();
 }
 
-template <std::size_t Index, default_reflectible_aggregate Ty>
+ATOM_EXPORT template <std::size_t Index, default_reflectible_aggregate Ty>
 inline auto offset_value_of() noexcept {
-    return offsets_of<Ty>()[Index];
+    return _offset_array_of<Ty>()[Index];
 }
 
-template <default_reflectible_aggregate Ty>
+ATOM_EXPORT template <default_reflectible_aggregate Ty>
 inline const auto& offsets_of() noexcept {
     [[maybe_unused]] static const auto tuple = offset_tuple<Ty>();
     return tuple;
@@ -93,7 +95,7 @@ inline auto offset_of() noexcept {
     return offset_of<index, Ty>();
 }
 
-template <has_field_traits Ty>
+ATOM_EXPORT template <has_field_traits Ty>
 [[nodiscard]] consteval auto offsets_of() noexcept {
     constexpr auto traits = Ty::field_traits();
     constexpr auto offsets =

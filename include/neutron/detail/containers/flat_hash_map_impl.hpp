@@ -6,16 +6,18 @@
 
 #pragma once
 
-#include <algorithm>
-#include <array>
-#include <cmath>
-#include <cstddef>
-#include <cstdint>
-#include <functional>
-#include <iterator>
-#include <stdexcept>
-#include <type_traits>
-#include <utility>
+#ifndef ATOM_BUILDING_MODULE
+    #include <algorithm>
+    #include <array>
+    #include <cmath>
+    #include <cstddef>
+    #include <cstdint>
+    #include <functional>
+    #include <iterator>
+    #include <stdexcept>
+    #include <type_traits>
+    #include <utility>
+#endif
 #include "neutron/detail/utility/completion_guard.hpp"
 #include "neutron/detail/utility/macros.hpp"
 
@@ -27,9 +29,9 @@
 
 namespace neutron {
 inline namespace ska {
-struct prime_number_hash_policy;
-struct power_of_two_hash_policy;
-struct fibonacci_hash_policy;
+ATOM_EXPORT struct prime_number_hash_policy;
+ATOM_EXPORT struct power_of_two_hash_policy;
+ATOM_EXPORT struct fibonacci_hash_policy;
 
 namespace detailv3 {
 template <typename Result, typename Functor>
@@ -57,28 +59,28 @@ struct functor_storage<Result, Result (*)(Args...)> {
     operator const function_ptr&() { return function; }
 };
 template <typename key_type, typename value_type, typename hasher>
-struct KeyOrValueHasher : functor_storage<size_t, hasher> {
-    typedef functor_storage<size_t, hasher> hasher_storage;
+struct KeyOrValueHasher : functor_storage<std::size_t, hasher> {
+    typedef functor_storage<std::size_t, hasher> hasher_storage;
     KeyOrValueHasher() = default;
     KeyOrValueHasher(const hasher& hash) : hasher_storage(hash) {}
-    size_t operator()(const key_type& key) {
+    std::size_t operator()(const key_type& key) {
         return static_cast<hasher_storage&>(*this)(key);
     }
-    size_t operator()(const key_type& key) const {
+    std::size_t operator()(const key_type& key) const {
         return static_cast<const hasher_storage&>(*this)(key);
     }
-    size_t operator()(const value_type& value) {
+    std::size_t operator()(const value_type& value) {
         return static_cast<hasher_storage&>(*this)(value.first);
     }
-    size_t operator()(const value_type& value) const {
+    std::size_t operator()(const value_type& value) const {
         return static_cast<const hasher_storage&>(*this)(value.first);
     }
     template <typename F, typename S>
-    size_t operator()(const std::pair<F, S>& value) {
+    std::size_t operator()(const std::pair<F, S>& value) {
         return static_cast<hasher_storage&>(*this)(value.first);
     }
     template <typename F, typename S>
-    size_t operator()(const std::pair<F, S>& value) const {
+    std::size_t operator()(const std::pair<F, S>& value) const {
         return static_cast<const hasher_storage&>(*this)(value.first);
     }
 };
@@ -122,11 +124,11 @@ struct KeyOrValueEquality : functor_storage<bool, key_equal> {
         return static_cast<equality_storage&>(*this)(lhs.first, rhs.first);
     }
 };
-static constexpr int8_t min_lookups = 4;
+inline constexpr std::int8_t min_lookups = 4;
 template <typename T>
 struct sherwood_v3_entry {
     sherwood_v3_entry() {}
-    sherwood_v3_entry(int8_t distance_from_desired)
+    sherwood_v3_entry(std::int8_t distance_from_desired)
         : distance_from_desired(distance_from_desired) {}
     ~sherwood_v3_entry() {}
     static sherwood_v3_entry* empty_default_table() {
@@ -140,7 +142,7 @@ struct sherwood_v3_entry {
     bool is_empty() const { return distance_from_desired < 0; }
     bool is_at_desired_position() const { return distance_from_desired <= 0; }
     template <typename... Args>
-    void emplace(int8_t distance, Args&&... args) {
+    void emplace(std::int8_t distance, Args&&... args) {
         new (std::addressof(value)) T(std::forward<Args>(args)...);
         distance_from_desired = distance;
     }
@@ -150,15 +152,15 @@ struct sherwood_v3_entry {
         distance_from_desired = -1;
     }
 
-    int8_t distance_from_desired              = -1;
-    static constexpr int8_t special_end_value = 0;
+    std::int8_t distance_from_desired              = -1;
+    static constexpr std::int8_t special_end_value = 0;
     union {
         T value;
     };
 };
 
-constexpr int8_t log2(size_t value) {
-    ATOM_STATIC_SINCE_CXX23 constexpr std::array<int8_t, 64> table = {
+constexpr std::int8_t log2(std::size_t value) {
+    ATOM_STATIC_SINCE_CXX23 constexpr std::array<std::int8_t, 64> table = {
         63, 0,  58, 1,  59, 47, 53, 2,  60, 39, 48, 27, 54, 33, 42, 3,
         61, 51, 37, 40, 49, 18, 28, 20, 55, 30, 34, 11, 43, 14, 22, 4,
         62, 57, 46, 52, 38, 26, 32, 41, 50, 36, 17, 19, 29, 10, 13, 21,
@@ -184,7 +186,7 @@ struct AssignIfTrue<T, false> {
     void operator()(T&, T&&) {}
 };
 
-constexpr size_t next_power_of_two(size_t i) {
+constexpr std::size_t next_power_of_two(std::size_t i) {
     --i;
     i |= i >> 1;
     i |= i >> 2;
@@ -220,7 +222,7 @@ class sherwood_v3_table : private EntryAlloc, private Hasher, private Equal {
 
 public:
     using value_type      = T;
-    using size_type       = size_t;
+    using size_type       = std::size_t;
     using difference_type = std::ptrdiff_t;
     using hasher          = ArgumentHash;
     using key_equal       = ArgumentEqual;
@@ -409,7 +411,7 @@ public:
 
         using iterator_category = std::forward_iterator_tag;
         using value_type        = ValueType;
-        using difference_type   = ptrdiff_t;
+        using difference_type   = std::ptrdiff_t;
         using pointer           = ValueType*;
         using reference         = ValueType&;
 
@@ -458,20 +460,20 @@ public:
     }
     const_iterator cbegin() const { return begin(); }
     iterator end() {
-        return { entries +
-                 static_cast<ptrdiff_t>(num_slots_minus_one + max_lookups) };
+        return { entries + static_cast<std::ptrdiff_t>(
+                               num_slots_minus_one + max_lookups) };
     }
     const_iterator end() const {
-        return { entries +
-                 static_cast<ptrdiff_t>(num_slots_minus_one + max_lookups) };
+        return { entries + static_cast<std::ptrdiff_t>(
+                               num_slots_minus_one + max_lookups) };
     }
     const_iterator cend() const { return end(); }
 
     iterator find(const FindKey& key) {
-        size_t index =
+        std::size_t index =
             hash_policy.index_for_hash(hash_object(key), num_slots_minus_one);
-        EntryPointer it = entries + ptrdiff_t(index);
-        for (int8_t distance = 0; it->distance_from_desired >= distance;
+        EntryPointer it = entries + std::ptrdiff_t(index);
+        for (std::int8_t distance = 0; it->distance_from_desired >= distance;
              ++distance, ++it) {
             if (compares_equal(key, it->value))
                 return { it };
@@ -481,7 +483,7 @@ public:
     const_iterator find(const FindKey& key) const {
         return const_cast<sherwood_v3_table*>(this)->find(key);
     }
-    size_t count(const FindKey& key) const {
+    std::size_t count(const FindKey& key) const {
         return find(key) == end() ? 0 : 1;
     }
     std::pair<iterator, iterator> equal_range(const FindKey& key) {
@@ -502,10 +504,10 @@ public:
 
     template <typename Key, typename... Args>
     std::pair<iterator, bool> emplace(Key&& key, Args&&... args) {
-        size_t index =
+        std::size_t index =
             hash_policy.index_for_hash(hash_object(key), num_slots_minus_one);
-        EntryPointer current_entry   = entries + ptrdiff_t(index);
-        int8_t distance_from_desired = 0;
+        EntryPointer current_entry        = entries + std::ptrdiff_t(index);
+        std::int8_t distance_from_desired = 0;
         for (; current_entry->distance_from_desired >= distance_from_desired;
              ++current_entry, ++distance_from_desired) {
             if (compares_equal(key, current_entry->value))
@@ -543,10 +545,10 @@ public:
         insert(il.begin(), il.end());
     }
 
-    void rehash(size_t num_buckets) {
+    void rehash(std::size_t num_buckets) {
         num_buckets = std::max(
             num_buckets,
-            static_cast<size_t>(std::ceil(
+            static_cast<std::size_t>(std::ceil(
                 num_elements / static_cast<double>(_max_load_factor))));
         if (num_buckets == 0) {
             reset_to_empty_state();
@@ -555,12 +557,12 @@ public:
         auto new_prime_index = hash_policy.next_size_over(num_buckets);
         if (num_buckets == bucket_count())
             return;
-        int8_t new_max_lookups = compute_max_lookups(num_buckets);
+        std::int8_t new_max_lookups = compute_max_lookups(num_buckets);
         EntryPointer new_buckets(
             AllocatorTraits::allocate(*this, num_buckets + new_max_lookups));
         EntryPointer special_end_item =
             new_buckets +
-            static_cast<ptrdiff_t>(num_buckets + new_max_lookups - 1);
+            static_cast<std::ptrdiff_t>(num_buckets + new_max_lookups - 1);
         for (EntryPointer it = new_buckets; it != special_end_item; ++it)
             it->distance_from_desired = -1;
         special_end_item->distance_from_desired = Entry::special_end_value;
@@ -568,11 +570,11 @@ public:
         std::swap(num_slots_minus_one, num_buckets);
         --num_slots_minus_one;
         hash_policy.commit(new_prime_index);
-        int8_t old_max_lookups = max_lookups;
+        std::int8_t old_max_lookups = max_lookups;
         max_lookups            = new_max_lookups;
         num_elements           = 0;
         for (EntryPointer it  = new_buckets,
-                          end = it + static_cast<ptrdiff_t>(
+                          end = it + static_cast<std::ptrdiff_t>(
                                          num_buckets + old_max_lookups);
              it != end; ++it) {
             if (it->has_value()) {
@@ -583,8 +585,8 @@ public:
         deallocate_data(new_buckets, num_buckets, old_max_lookups);
     }
 
-    void reserve(size_t num_elements) {
-        size_t required_buckets = num_buckets_for_reserve(num_elements);
+    void reserve(std::size_t num_elements) {
+        std::size_t required_buckets = num_buckets_for_reserve(num_elements);
         if (required_buckets > bucket_count())
             rehash(required_buckets);
     }
@@ -597,7 +599,7 @@ public:
         EntryPointer current = to_erase.current;
         current->destroy_value();
         --num_elements;
-        for (EntryPointer next = current + ptrdiff_t(1);
+        for (EntryPointer next = current + std::ptrdiff_t(1);
              !next->is_at_desired_position(); ++current, ++next) {
             current->emplace(
                 next->distance_from_desired - 1, std::move(next->value));
@@ -618,8 +620,8 @@ public:
         }
         if (end_it == this->end())
             return this->end();
-        ptrdiff_t num_to_move = std::min(
-            static_cast<ptrdiff_t>(end_it.current->distance_from_desired),
+        std::ptrdiff_t num_to_move = std::min(
+            static_cast<std::ptrdiff_t>(end_it.current->distance_from_desired),
             end_it.current - begin_it.current);
         EntryPointer to_return = end_it.current - num_to_move;
         for (EntryPointer it = end_it.current; !it->is_at_desired_position();) {
@@ -629,12 +631,13 @@ public:
             it->destroy_value();
             ++it;
             num_to_move = std::min(
-                static_cast<ptrdiff_t>(it->distance_from_desired), num_to_move);
+                static_cast<std::ptrdiff_t>(it->distance_from_desired),
+                num_to_move);
         }
         return { to_return };
     }
 
-    size_t erase(const FindKey& key) {
+    std::size_t erase(const FindKey& key) {
         auto found = find(key);
         if (found == end())
             return 0;
@@ -646,7 +649,7 @@ public:
 
     void clear() {
         for (EntryPointer it  = entries,
-                          end = it + static_cast<ptrdiff_t>(
+                          end = it + static_cast<std::ptrdiff_t>(
                                          num_slots_minus_one + max_lookups);
              it != end; ++it) {
             if (it->has_value())
@@ -672,22 +675,22 @@ public:
                 static_cast<EntryAlloc&>(other));
     }
 
-    size_t size() const { return num_elements; }
-    size_t max_size() const {
+    std::size_t size() const { return num_elements; }
+    std::size_t max_size() const {
         return (AllocatorTraits::max_size(*this)) / sizeof(Entry);
     }
-    size_t bucket_count() const {
+    std::size_t bucket_count() const {
         return num_slots_minus_one ? num_slots_minus_one + 1 : 0;
     }
     size_type max_bucket_count() const {
         return (AllocatorTraits::max_size(*this) - min_lookups) / sizeof(Entry);
     }
-    size_t bucket(const FindKey& key) const {
+    std::size_t bucket(const FindKey& key) const {
         return hash_policy.index_for_hash(
             hash_object(key), num_slots_minus_one);
     }
     float load_factor() const {
-        size_t buckets = bucket_count();
+        std::size_t buckets = bucket_count();
         if (buckets)
             return static_cast<float>(num_elements) / bucket_count();
         else
@@ -700,19 +703,19 @@ public:
 
 private:
     EntryPointer entries       = Entry::empty_default_table();
-    size_t num_slots_minus_one = 0;
+    std::size_t num_slots_minus_one = 0;
     typename HashPolicySelector<ArgumentHash>::type hash_policy;
-    int8_t max_lookups     = detailv3::min_lookups - 1;
+    std::int8_t max_lookups  = detailv3::min_lookups - 1;
     float _max_load_factor = 0.5f;
-    size_t num_elements    = 0;
+    std::size_t num_elements = 0;
 
-    static int8_t compute_max_lookups(size_t num_buckets) {
-        int8_t desired = detailv3::log2(num_buckets);
+    static std::int8_t compute_max_lookups(std::size_t num_buckets) {
+        std::int8_t desired = detailv3::log2(num_buckets);
         return std::max(detailv3::min_lookups, desired);
     }
 
-    size_t num_buckets_for_reserve(size_t num_elements) const {
-        return static_cast<size_t>(std::ceil(
+    std::size_t num_buckets_for_reserve(std::size_t num_elements) const {
+        return static_cast<std::size_t>(std::ceil(
             num_elements /
             std::min(0.5, static_cast<double>(_max_load_factor))));
     }
@@ -735,8 +738,8 @@ private:
     template <typename Key, typename... Args>
     SKA_NOINLINE(std::pair<iterator, bool>)
     emplace_new_key(
-        int8_t distance_from_desired, EntryPointer current_entry, Key&& key,
-        Args&&... args) {
+        std::int8_t distance_from_desired, EntryPointer current_entry,
+        Key&& key, Args&&... args) {
         using std::swap;
         if (num_slots_minus_one == 0 || distance_from_desired == max_lookups ||
             num_elements + 1 > (num_slots_minus_one + 1) *
@@ -779,10 +782,11 @@ private:
         }
     }
 
-    void grow() { rehash(std::max(size_t(4), 2 * bucket_count())); }
+    void grow() { rehash(std::max(std::size_t(4), 2 * bucket_count())); }
 
     void deallocate_data(
-        EntryPointer begin, size_t num_slots_minus_one, int8_t max_lookups) {
+        EntryPointer begin, std::size_t num_slots_minus_one,
+        std::int8_t max_lookups) {
         if (begin != Entry::empty_default_table()) {
             AllocatorTraits::deallocate(
                 *this, begin, num_slots_minus_one + max_lookups + 1);
@@ -798,11 +802,11 @@ private:
     }
 
     template <typename U>
-    size_t hash_object(const U& key) {
+    std::size_t hash_object(const U& key) {
         return static_cast<Hasher&>(*this)(key);
     }
     template <typename U>
-    size_t hash_object(const U& key) const {
+    std::size_t hash_object(const U& key) const {
         return static_cast<const Hasher&>(*this)(key);
     }
     template <typename L, typename R>
@@ -831,199 +835,199 @@ private:
 
 // NOLINTBEGIN
 // clang-format off
-struct prime_number_hash_policy
+ATOM_EXPORT struct prime_number_hash_policy
 {
-    static constexpr size_t mod0(size_t) noexcept { return 0llu; }
-    static constexpr size_t mod2(size_t hash) noexcept { return hash % 2llu; }
-    static constexpr size_t mod3(size_t hash) noexcept { return hash % 3llu; }
-    static constexpr size_t mod5(size_t hash) noexcept { return hash % 5llu; }
-    static constexpr size_t mod7(size_t hash) noexcept { return hash % 7llu; }
-    static constexpr size_t mod11(size_t hash) noexcept { return hash % 11llu; }
-    static constexpr size_t mod13(size_t hash) noexcept { return hash % 13llu; }
-    static constexpr size_t mod17(size_t hash) noexcept { return hash % 17llu; }
-    static constexpr size_t mod23(size_t hash) noexcept { return hash % 23llu; }
-    static constexpr size_t mod29(size_t hash) noexcept { return hash % 29llu; }
-    static constexpr size_t mod37(size_t hash) noexcept { return hash % 37llu; }
-    static constexpr size_t mod47(size_t hash) noexcept { return hash % 47llu; }
-    static constexpr size_t mod59(size_t hash) noexcept { return hash % 59llu; }
-    static constexpr size_t mod73(size_t hash) noexcept { return hash % 73llu; }
-    static constexpr size_t mod97(size_t hash) noexcept { return hash % 97llu; }
-    static constexpr size_t mod127(size_t hash) noexcept { return hash % 127llu; }
-    static constexpr size_t mod151(size_t hash) noexcept { return hash % 151llu; }
-    static constexpr size_t mod197(size_t hash) noexcept { return hash % 197llu; }
-    static constexpr size_t mod251(size_t hash) noexcept { return hash % 251llu; }
-    static constexpr size_t mod313(size_t hash) noexcept { return hash % 313llu; }
-    static constexpr size_t mod397(size_t hash) noexcept { return hash % 397llu; }
-    static constexpr size_t mod499(size_t hash) noexcept { return hash % 499llu; }
-    static constexpr size_t mod631(size_t hash) noexcept { return hash % 631llu; }
-    static constexpr size_t mod797(size_t hash) noexcept { return hash % 797llu; }
-    static constexpr size_t mod1009(size_t hash) noexcept { return hash % 1009llu; }
-    static constexpr size_t mod1259(size_t hash) noexcept { return hash % 1259llu; }
-    static constexpr size_t mod1597(size_t hash) noexcept { return hash % 1597llu; }
-    static constexpr size_t mod2011(size_t hash) noexcept { return hash % 2011llu; }
-    static constexpr size_t mod2539(size_t hash) noexcept { return hash % 2539llu; }
-    static constexpr size_t mod3203(size_t hash) noexcept { return hash % 3203llu; }
-    static constexpr size_t mod4027(size_t hash) noexcept { return hash % 4027llu; }
-    static constexpr size_t mod5087(size_t hash) noexcept { return hash % 5087llu; }
-    static constexpr size_t mod6421(size_t hash) noexcept { return hash % 6421llu; }
-    static constexpr size_t mod8089(size_t hash) noexcept { return hash % 8089llu; }
-    static constexpr size_t mod10193(size_t hash) noexcept { return hash % 10193llu; }
-    static constexpr size_t mod12853(size_t hash) noexcept { return hash % 12853llu; }
-    static constexpr size_t mod16193(size_t hash) noexcept { return hash % 16193llu; }
-    static constexpr size_t mod20399(size_t hash) noexcept { return hash % 20399llu; }
-    static constexpr size_t mod25717(size_t hash) noexcept { return hash % 25717llu; }
-    static constexpr size_t mod32401(size_t hash) noexcept { return hash % 32401llu; }
-    static constexpr size_t mod40823(size_t hash) noexcept { return hash % 40823llu; }
-    static constexpr size_t mod51437(size_t hash) noexcept { return hash % 51437llu; }
-    static constexpr size_t mod64811(size_t hash) noexcept { return hash % 64811llu; }
-    static constexpr size_t mod81649(size_t hash) noexcept { return hash % 81649llu; }
-    static constexpr size_t mod102877(size_t hash) noexcept { return hash % 102877llu; }
-    static constexpr size_t mod129607(size_t hash) noexcept { return hash % 129607llu; }
-    static constexpr size_t mod163307(size_t hash) noexcept { return hash % 163307llu; }
-    static constexpr size_t mod205759(size_t hash) noexcept { return hash % 205759llu; }
-    static constexpr size_t mod259229(size_t hash) noexcept { return hash % 259229llu; }
-    static constexpr size_t mod326617(size_t hash) noexcept { return hash % 326617llu; }
-    static constexpr size_t mod411527(size_t hash) noexcept { return hash % 411527llu; }
-    static constexpr size_t mod518509(size_t hash) noexcept { return hash % 518509llu; }
-    static constexpr size_t mod653267(size_t hash) noexcept { return hash % 653267llu; }
-    static constexpr size_t mod823117(size_t hash) noexcept { return hash % 823117llu; }
-    static constexpr size_t mod1037059(size_t hash) noexcept { return hash % 1037059llu; }
-    static constexpr size_t mod1306601(size_t hash) noexcept { return hash % 1306601llu; }
-    static constexpr size_t mod1646237(size_t hash) noexcept { return hash % 1646237llu; }
-    static constexpr size_t mod2074129(size_t hash) noexcept { return hash % 2074129llu; }
-    static constexpr size_t mod2613229(size_t hash) noexcept { return hash % 2613229llu; }
-    static constexpr size_t mod3292489(size_t hash) noexcept { return hash % 3292489llu; }
-    static constexpr size_t mod4148279(size_t hash) noexcept { return hash % 4148279llu; }
-    static constexpr size_t mod5226491(size_t hash) noexcept { return hash % 5226491llu; }
-    static constexpr size_t mod6584983(size_t hash) noexcept { return hash % 6584983llu; }
-    static constexpr size_t mod8296553(size_t hash) noexcept { return hash % 8296553llu; }
-    static constexpr size_t mod10453007(size_t hash) noexcept { return hash % 10453007llu; }
-    static constexpr size_t mod13169977(size_t hash) noexcept { return hash % 13169977llu; }
-    static constexpr size_t mod16593127(size_t hash) noexcept { return hash % 16593127llu; }
-    static constexpr size_t mod20906033(size_t hash) noexcept { return hash % 20906033llu; }
-    static constexpr size_t mod26339969(size_t hash) noexcept { return hash % 26339969llu; }
-    static constexpr size_t mod33186281(size_t hash) noexcept { return hash % 33186281llu; }
-    static constexpr size_t mod41812097(size_t hash) noexcept { return hash % 41812097llu; }
-    static constexpr size_t mod52679969(size_t hash) noexcept { return hash % 52679969llu; }
-    static constexpr size_t mod66372617(size_t hash) noexcept { return hash % 66372617llu; }
-    static constexpr size_t mod83624237(size_t hash) noexcept { return hash % 83624237llu; }
-    static constexpr size_t mod105359939(size_t hash) noexcept { return hash % 105359939llu; }
-    static constexpr size_t mod132745199(size_t hash) noexcept { return hash % 132745199llu; }
-    static constexpr size_t mod167248483(size_t hash) noexcept { return hash % 167248483llu; }
-    static constexpr size_t mod210719881(size_t hash) noexcept { return hash % 210719881llu; }
-    static constexpr size_t mod265490441(size_t hash) noexcept { return hash % 265490441llu; }
-    static constexpr size_t mod334496971(size_t hash) noexcept { return hash % 334496971llu; }
-    static constexpr size_t mod421439783(size_t hash) noexcept { return hash % 421439783llu; }
-    static constexpr size_t mod530980861(size_t hash) noexcept { return hash % 530980861llu; }
-    static constexpr size_t mod668993977(size_t hash) noexcept { return hash % 668993977llu; }
-    static constexpr size_t mod842879579(size_t hash) noexcept { return hash % 842879579llu; }
-    static constexpr size_t mod1061961721(size_t hash) noexcept { return hash % 1061961721llu; }
-    static constexpr size_t mod1337987929(size_t hash) noexcept { return hash % 1337987929llu; }
-    static constexpr size_t mod1685759167(size_t hash) noexcept { return hash % 1685759167llu; }
-    static constexpr size_t mod2123923447(size_t hash) noexcept { return hash % 2123923447llu; }
-    static constexpr size_t mod2675975881(size_t hash) noexcept { return hash % 2675975881llu; }
-    static constexpr size_t mod3371518343(size_t hash) noexcept { return hash % 3371518343llu; }
-    static constexpr size_t mod4247846927(size_t hash) noexcept { return hash % 4247846927llu; }
-    static constexpr size_t mod5351951779(size_t hash) noexcept { return hash % 5351951779llu; }
-    static constexpr size_t mod6743036717(size_t hash) noexcept { return hash % 6743036717llu; }
-    static constexpr size_t mod8495693897(size_t hash) noexcept { return hash % 8495693897llu; }
-    static constexpr size_t mod10703903591(size_t hash) noexcept { return hash % 10703903591llu; }
-    static constexpr size_t mod13486073473(size_t hash) noexcept { return hash % 13486073473llu; }
-    static constexpr size_t mod16991387857(size_t hash) noexcept { return hash % 16991387857llu; }
-    static constexpr size_t mod21407807219(size_t hash) noexcept { return hash % 21407807219llu; }
-    static constexpr size_t mod26972146961(size_t hash) noexcept { return hash % 26972146961llu; }
-    static constexpr size_t mod33982775741(size_t hash) noexcept { return hash % 33982775741llu; }
-    static constexpr size_t mod42815614441(size_t hash) noexcept { return hash % 42815614441llu; }
-    static constexpr size_t mod53944293929(size_t hash) noexcept { return hash % 53944293929llu; }
-    static constexpr size_t mod67965551447(size_t hash) noexcept { return hash % 67965551447llu; }
-    static constexpr size_t mod85631228929(size_t hash) noexcept { return hash % 85631228929llu; }
-    static constexpr size_t mod107888587883(size_t hash) noexcept { return hash % 107888587883llu; }
-    static constexpr size_t mod135931102921(size_t hash) noexcept { return hash % 135931102921llu; }
-    static constexpr size_t mod171262457903(size_t hash) noexcept { return hash % 171262457903llu; }
-    static constexpr size_t mod215777175787(size_t hash) noexcept { return hash % 215777175787llu; }
-    static constexpr size_t mod271862205833(size_t hash) noexcept { return hash % 271862205833llu; }
-    static constexpr size_t mod342524915839(size_t hash) noexcept { return hash % 342524915839llu; }
-    static constexpr size_t mod431554351609(size_t hash) noexcept { return hash % 431554351609llu; }
-    static constexpr size_t mod543724411781(size_t hash) noexcept { return hash % 543724411781llu; }
-    static constexpr size_t mod685049831731(size_t hash) noexcept { return hash % 685049831731llu; }
-    static constexpr size_t mod863108703229(size_t hash) noexcept { return hash % 863108703229llu; }
-    static constexpr size_t mod1087448823553(size_t hash) noexcept { return hash % 1087448823553llu; }
-    static constexpr size_t mod1370099663459(size_t hash) noexcept { return hash % 1370099663459llu; }
-    static constexpr size_t mod1726217406467(size_t hash) noexcept { return hash % 1726217406467llu; }
-    static constexpr size_t mod2174897647073(size_t hash) noexcept { return hash % 2174897647073llu; }
-    static constexpr size_t mod2740199326961(size_t hash) noexcept { return hash % 2740199326961llu; }
-    static constexpr size_t mod3452434812973(size_t hash) noexcept { return hash % 3452434812973llu; }
-    static constexpr size_t mod4349795294267(size_t hash) noexcept { return hash % 4349795294267llu; }
-    static constexpr size_t mod5480398654009(size_t hash) noexcept { return hash % 5480398654009llu; }
-    static constexpr size_t mod6904869625999(size_t hash) noexcept { return hash % 6904869625999llu; }
-    static constexpr size_t mod8699590588571(size_t hash) noexcept { return hash % 8699590588571llu; }
-    static constexpr size_t mod10960797308051(size_t hash) noexcept { return hash % 10960797308051llu; }
-    static constexpr size_t mod13809739252051(size_t hash) noexcept { return hash % 13809739252051llu; }
-    static constexpr size_t mod17399181177241(size_t hash) noexcept { return hash % 17399181177241llu; }
-    static constexpr size_t mod21921594616111(size_t hash) noexcept { return hash % 21921594616111llu; }
-    static constexpr size_t mod27619478504183(size_t hash) noexcept { return hash % 27619478504183llu; }
-    static constexpr size_t mod34798362354533(size_t hash) noexcept { return hash % 34798362354533llu; }
-    static constexpr size_t mod43843189232363(size_t hash) noexcept { return hash % 43843189232363llu; }
-    static constexpr size_t mod55238957008387(size_t hash) noexcept { return hash % 55238957008387llu; }
-    static constexpr size_t mod69596724709081(size_t hash) noexcept { return hash % 69596724709081llu; }
-    static constexpr size_t mod87686378464759(size_t hash) noexcept { return hash % 87686378464759llu; }
-    static constexpr size_t mod110477914016779(size_t hash) noexcept { return hash % 110477914016779llu; }
-    static constexpr size_t mod139193449418173(size_t hash) noexcept { return hash % 139193449418173llu; }
-    static constexpr size_t mod175372756929481(size_t hash) noexcept { return hash % 175372756929481llu; }
-    static constexpr size_t mod220955828033581(size_t hash) noexcept { return hash % 220955828033581llu; }
-    static constexpr size_t mod278386898836457(size_t hash) noexcept { return hash % 278386898836457llu; }
-    static constexpr size_t mod350745513859007(size_t hash) noexcept { return hash % 350745513859007llu; }
-    static constexpr size_t mod441911656067171(size_t hash) noexcept { return hash % 441911656067171llu; }
-    static constexpr size_t mod556773797672909(size_t hash) noexcept { return hash % 556773797672909llu; }
-    static constexpr size_t mod701491027718027(size_t hash) noexcept { return hash % 701491027718027llu; }
-    static constexpr size_t mod883823312134381(size_t hash) noexcept { return hash % 883823312134381llu; }
-    static constexpr size_t mod1113547595345903(size_t hash) noexcept { return hash % 1113547595345903llu; }
-    static constexpr size_t mod1402982055436147(size_t hash) noexcept { return hash % 1402982055436147llu; }
-    static constexpr size_t mod1767646624268779(size_t hash) noexcept { return hash % 1767646624268779llu; }
-    static constexpr size_t mod2227095190691797(size_t hash) noexcept { return hash % 2227095190691797llu; }
-    static constexpr size_t mod2805964110872297(size_t hash) noexcept { return hash % 2805964110872297llu; }
-    static constexpr size_t mod3535293248537579(size_t hash) noexcept { return hash % 3535293248537579llu; }
-    static constexpr size_t mod4454190381383713(size_t hash) noexcept { return hash % 4454190381383713llu; }
-    static constexpr size_t mod5611928221744609(size_t hash) noexcept { return hash % 5611928221744609llu; }
-    static constexpr size_t mod7070586497075177(size_t hash) noexcept { return hash % 7070586497075177llu; }
-    static constexpr size_t mod8908380762767489(size_t hash) noexcept { return hash % 8908380762767489llu; }
-    static constexpr size_t mod11223856443489329(size_t hash) noexcept { return hash % 11223856443489329llu; }
-    static constexpr size_t mod14141172994150357(size_t hash) noexcept { return hash % 14141172994150357llu; }
-    static constexpr size_t mod17816761525534927(size_t hash) noexcept { return hash % 17816761525534927llu; }
-    static constexpr size_t mod22447712886978529(size_t hash) noexcept { return hash % 22447712886978529llu; }
-    static constexpr size_t mod28282345988300791(size_t hash) noexcept { return hash % 28282345988300791llu; }
-    static constexpr size_t mod35633523051069991(size_t hash) noexcept { return hash % 35633523051069991llu; }
-    static constexpr size_t mod44895425773957261(size_t hash) noexcept { return hash % 44895425773957261llu; }
-    static constexpr size_t mod56564691976601587(size_t hash) noexcept { return hash % 56564691976601587llu; }
-    static constexpr size_t mod71267046102139967(size_t hash) noexcept { return hash % 71267046102139967llu; }
-    static constexpr size_t mod89790851547914507(size_t hash) noexcept { return hash % 89790851547914507llu; }
-    static constexpr size_t mod113129383953203213(size_t hash) noexcept { return hash % 113129383953203213llu; }
-    static constexpr size_t mod142534092204280003(size_t hash) noexcept { return hash % 142534092204280003llu; }
-    static constexpr size_t mod179581703095829107(size_t hash) noexcept { return hash % 179581703095829107llu; }
-    static constexpr size_t mod226258767906406483(size_t hash) noexcept { return hash % 226258767906406483llu; }
-    static constexpr size_t mod285068184408560057(size_t hash) noexcept { return hash % 285068184408560057llu; }
-    static constexpr size_t mod359163406191658253(size_t hash) noexcept { return hash % 359163406191658253llu; }
-    static constexpr size_t mod452517535812813007(size_t hash) noexcept { return hash % 452517535812813007llu; }
-    static constexpr size_t mod570136368817120201(size_t hash) noexcept { return hash % 570136368817120201llu; }
-    static constexpr size_t mod718326812383316683(size_t hash) noexcept { return hash % 718326812383316683llu; }
-    static constexpr size_t mod905035071625626043(size_t hash) noexcept { return hash % 905035071625626043llu; }
-    static constexpr size_t mod1140272737634240411(size_t hash) noexcept { return hash % 1140272737634240411llu; }
-    static constexpr size_t mod1436653624766633509(size_t hash) noexcept { return hash % 1436653624766633509llu; }
-    static constexpr size_t mod1810070143251252131(size_t hash) noexcept { return hash % 1810070143251252131llu; }
-    static constexpr size_t mod2280545475268481167(size_t hash) noexcept { return hash % 2280545475268481167llu; }
-    static constexpr size_t mod2873307249533267101(size_t hash) noexcept { return hash % 2873307249533267101llu; }
-    static constexpr size_t mod3620140286502504283(size_t hash) noexcept { return hash % 3620140286502504283llu; }
-    static constexpr size_t mod4561090950536962147(size_t hash) noexcept { return hash % 4561090950536962147llu; }
-    static constexpr size_t mod5746614499066534157(size_t hash) noexcept { return hash % 5746614499066534157llu; }
-    static constexpr size_t mod7240280573005008577(size_t hash) noexcept { return hash % 7240280573005008577llu; }
-    static constexpr size_t mod9122181901073924329(size_t hash) noexcept { return hash % 9122181901073924329llu; }
-    static constexpr size_t mod11493228998133068689(size_t hash) noexcept { return hash % 11493228998133068689llu; }
-    static constexpr size_t mod14480561146010017169(size_t hash) noexcept { return hash % 14480561146010017169llu; }
-    static constexpr size_t mod18446744073709551557(size_t hash) noexcept { return hash % 18446744073709551557llu; }
+    static constexpr std::size_t mod0(std::size_t) noexcept { return 0llu; }
+    static constexpr std::size_t mod2(std::size_t hash) noexcept { return hash % 2llu; }
+    static constexpr std::size_t mod3(std::size_t hash) noexcept { return hash % 3llu; }
+    static constexpr std::size_t mod5(std::size_t hash) noexcept { return hash % 5llu; }
+    static constexpr std::size_t mod7(std::size_t hash) noexcept { return hash % 7llu; }
+    static constexpr std::size_t mod11(std::size_t hash) noexcept { return hash % 11llu; }
+    static constexpr std::size_t mod13(std::size_t hash) noexcept { return hash % 13llu; }
+    static constexpr std::size_t mod17(std::size_t hash) noexcept { return hash % 17llu; }
+    static constexpr std::size_t mod23(std::size_t hash) noexcept { return hash % 23llu; }
+    static constexpr std::size_t mod29(std::size_t hash) noexcept { return hash % 29llu; }
+    static constexpr std::size_t mod37(std::size_t hash) noexcept { return hash % 37llu; }
+    static constexpr std::size_t mod47(std::size_t hash) noexcept { return hash % 47llu; }
+    static constexpr std::size_t mod59(std::size_t hash) noexcept { return hash % 59llu; }
+    static constexpr std::size_t mod73(std::size_t hash) noexcept { return hash % 73llu; }
+    static constexpr std::size_t mod97(std::size_t hash) noexcept { return hash % 97llu; }
+    static constexpr std::size_t mod127(std::size_t hash) noexcept { return hash % 127llu; }
+    static constexpr std::size_t mod151(std::size_t hash) noexcept { return hash % 151llu; }
+    static constexpr std::size_t mod197(std::size_t hash) noexcept { return hash % 197llu; }
+    static constexpr std::size_t mod251(std::size_t hash) noexcept { return hash % 251llu; }
+    static constexpr std::size_t mod313(std::size_t hash) noexcept { return hash % 313llu; }
+    static constexpr std::size_t mod397(std::size_t hash) noexcept { return hash % 397llu; }
+    static constexpr std::size_t mod499(std::size_t hash) noexcept { return hash % 499llu; }
+    static constexpr std::size_t mod631(std::size_t hash) noexcept { return hash % 631llu; }
+    static constexpr std::size_t mod797(std::size_t hash) noexcept { return hash % 797llu; }
+    static constexpr std::size_t mod1009(std::size_t hash) noexcept { return hash % 1009llu; }
+    static constexpr std::size_t mod1259(std::size_t hash) noexcept { return hash % 1259llu; }
+    static constexpr std::size_t mod1597(std::size_t hash) noexcept { return hash % 1597llu; }
+    static constexpr std::size_t mod2011(std::size_t hash) noexcept { return hash % 2011llu; }
+    static constexpr std::size_t mod2539(std::size_t hash) noexcept { return hash % 2539llu; }
+    static constexpr std::size_t mod3203(std::size_t hash) noexcept { return hash % 3203llu; }
+    static constexpr std::size_t mod4027(std::size_t hash) noexcept { return hash % 4027llu; }
+    static constexpr std::size_t mod5087(std::size_t hash) noexcept { return hash % 5087llu; }
+    static constexpr std::size_t mod6421(std::size_t hash) noexcept { return hash % 6421llu; }
+    static constexpr std::size_t mod8089(std::size_t hash) noexcept { return hash % 8089llu; }
+    static constexpr std::size_t mod10193(std::size_t hash) noexcept { return hash % 10193llu; }
+    static constexpr std::size_t mod12853(std::size_t hash) noexcept { return hash % 12853llu; }
+    static constexpr std::size_t mod16193(std::size_t hash) noexcept { return hash % 16193llu; }
+    static constexpr std::size_t mod20399(std::size_t hash) noexcept { return hash % 20399llu; }
+    static constexpr std::size_t mod25717(std::size_t hash) noexcept { return hash % 25717llu; }
+    static constexpr std::size_t mod32401(std::size_t hash) noexcept { return hash % 32401llu; }
+    static constexpr std::size_t mod40823(std::size_t hash) noexcept { return hash % 40823llu; }
+    static constexpr std::size_t mod51437(std::size_t hash) noexcept { return hash % 51437llu; }
+    static constexpr std::size_t mod64811(std::size_t hash) noexcept { return hash % 64811llu; }
+    static constexpr std::size_t mod81649(std::size_t hash) noexcept { return hash % 81649llu; }
+    static constexpr std::size_t mod102877(std::size_t hash) noexcept { return hash % 102877llu; }
+    static constexpr std::size_t mod129607(std::size_t hash) noexcept { return hash % 129607llu; }
+    static constexpr std::size_t mod163307(std::size_t hash) noexcept { return hash % 163307llu; }
+    static constexpr std::size_t mod205759(std::size_t hash) noexcept { return hash % 205759llu; }
+    static constexpr std::size_t mod259229(std::size_t hash) noexcept { return hash % 259229llu; }
+    static constexpr std::size_t mod326617(std::size_t hash) noexcept { return hash % 326617llu; }
+    static constexpr std::size_t mod411527(std::size_t hash) noexcept { return hash % 411527llu; }
+    static constexpr std::size_t mod518509(std::size_t hash) noexcept { return hash % 518509llu; }
+    static constexpr std::size_t mod653267(std::size_t hash) noexcept { return hash % 653267llu; }
+    static constexpr std::size_t mod823117(std::size_t hash) noexcept { return hash % 823117llu; }
+    static constexpr std::size_t mod1037059(std::size_t hash) noexcept { return hash % 1037059llu; }
+    static constexpr std::size_t mod1306601(std::size_t hash) noexcept { return hash % 1306601llu; }
+    static constexpr std::size_t mod1646237(std::size_t hash) noexcept { return hash % 1646237llu; }
+    static constexpr std::size_t mod2074129(std::size_t hash) noexcept { return hash % 2074129llu; }
+    static constexpr std::size_t mod2613229(std::size_t hash) noexcept { return hash % 2613229llu; }
+    static constexpr std::size_t mod3292489(std::size_t hash) noexcept { return hash % 3292489llu; }
+    static constexpr std::size_t mod4148279(std::size_t hash) noexcept { return hash % 4148279llu; }
+    static constexpr std::size_t mod5226491(std::size_t hash) noexcept { return hash % 5226491llu; }
+    static constexpr std::size_t mod6584983(std::size_t hash) noexcept { return hash % 6584983llu; }
+    static constexpr std::size_t mod8296553(std::size_t hash) noexcept { return hash % 8296553llu; }
+    static constexpr std::size_t mod10453007(std::size_t hash) noexcept { return hash % 10453007llu; }
+    static constexpr std::size_t mod13169977(std::size_t hash) noexcept { return hash % 13169977llu; }
+    static constexpr std::size_t mod16593127(std::size_t hash) noexcept { return hash % 16593127llu; }
+    static constexpr std::size_t mod20906033(std::size_t hash) noexcept { return hash % 20906033llu; }
+    static constexpr std::size_t mod26339969(std::size_t hash) noexcept { return hash % 26339969llu; }
+    static constexpr std::size_t mod33186281(std::size_t hash) noexcept { return hash % 33186281llu; }
+    static constexpr std::size_t mod41812097(std::size_t hash) noexcept { return hash % 41812097llu; }
+    static constexpr std::size_t mod52679969(std::size_t hash) noexcept { return hash % 52679969llu; }
+    static constexpr std::size_t mod66372617(std::size_t hash) noexcept { return hash % 66372617llu; }
+    static constexpr std::size_t mod83624237(std::size_t hash) noexcept { return hash % 83624237llu; }
+    static constexpr std::size_t mod105359939(std::size_t hash) noexcept { return hash % 105359939llu; }
+    static constexpr std::size_t mod132745199(std::size_t hash) noexcept { return hash % 132745199llu; }
+    static constexpr std::size_t mod167248483(std::size_t hash) noexcept { return hash % 167248483llu; }
+    static constexpr std::size_t mod210719881(std::size_t hash) noexcept { return hash % 210719881llu; }
+    static constexpr std::size_t mod265490441(std::size_t hash) noexcept { return hash % 265490441llu; }
+    static constexpr std::size_t mod334496971(std::size_t hash) noexcept { return hash % 334496971llu; }
+    static constexpr std::size_t mod421439783(std::size_t hash) noexcept { return hash % 421439783llu; }
+    static constexpr std::size_t mod530980861(std::size_t hash) noexcept { return hash % 530980861llu; }
+    static constexpr std::size_t mod668993977(std::size_t hash) noexcept { return hash % 668993977llu; }
+    static constexpr std::size_t mod842879579(std::size_t hash) noexcept { return hash % 842879579llu; }
+    static constexpr std::size_t mod1061961721(std::size_t hash) noexcept { return hash % 1061961721llu; }
+    static constexpr std::size_t mod1337987929(std::size_t hash) noexcept { return hash % 1337987929llu; }
+    static constexpr std::size_t mod1685759167(std::size_t hash) noexcept { return hash % 1685759167llu; }
+    static constexpr std::size_t mod2123923447(std::size_t hash) noexcept { return hash % 2123923447llu; }
+    static constexpr std::size_t mod2675975881(std::size_t hash) noexcept { return hash % 2675975881llu; }
+    static constexpr std::size_t mod3371518343(std::size_t hash) noexcept { return hash % 3371518343llu; }
+    static constexpr std::size_t mod4247846927(std::size_t hash) noexcept { return hash % 4247846927llu; }
+    static constexpr std::size_t mod5351951779(std::size_t hash) noexcept { return hash % 5351951779llu; }
+    static constexpr std::size_t mod6743036717(std::size_t hash) noexcept { return hash % 6743036717llu; }
+    static constexpr std::size_t mod8495693897(std::size_t hash) noexcept { return hash % 8495693897llu; }
+    static constexpr std::size_t mod10703903591(std::size_t hash) noexcept { return hash % 10703903591llu; }
+    static constexpr std::size_t mod13486073473(std::size_t hash) noexcept { return hash % 13486073473llu; }
+    static constexpr std::size_t mod16991387857(std::size_t hash) noexcept { return hash % 16991387857llu; }
+    static constexpr std::size_t mod21407807219(std::size_t hash) noexcept { return hash % 21407807219llu; }
+    static constexpr std::size_t mod26972146961(std::size_t hash) noexcept { return hash % 26972146961llu; }
+    static constexpr std::size_t mod33982775741(std::size_t hash) noexcept { return hash % 33982775741llu; }
+    static constexpr std::size_t mod42815614441(std::size_t hash) noexcept { return hash % 42815614441llu; }
+    static constexpr std::size_t mod53944293929(std::size_t hash) noexcept { return hash % 53944293929llu; }
+    static constexpr std::size_t mod67965551447(std::size_t hash) noexcept { return hash % 67965551447llu; }
+    static constexpr std::size_t mod85631228929(std::size_t hash) noexcept { return hash % 85631228929llu; }
+    static constexpr std::size_t mod107888587883(std::size_t hash) noexcept { return hash % 107888587883llu; }
+    static constexpr std::size_t mod135931102921(std::size_t hash) noexcept { return hash % 135931102921llu; }
+    static constexpr std::size_t mod171262457903(std::size_t hash) noexcept { return hash % 171262457903llu; }
+    static constexpr std::size_t mod215777175787(std::size_t hash) noexcept { return hash % 215777175787llu; }
+    static constexpr std::size_t mod271862205833(std::size_t hash) noexcept { return hash % 271862205833llu; }
+    static constexpr std::size_t mod342524915839(std::size_t hash) noexcept { return hash % 342524915839llu; }
+    static constexpr std::size_t mod431554351609(std::size_t hash) noexcept { return hash % 431554351609llu; }
+    static constexpr std::size_t mod543724411781(std::size_t hash) noexcept { return hash % 543724411781llu; }
+    static constexpr std::size_t mod685049831731(std::size_t hash) noexcept { return hash % 685049831731llu; }
+    static constexpr std::size_t mod863108703229(std::size_t hash) noexcept { return hash % 863108703229llu; }
+    static constexpr std::size_t mod1087448823553(std::size_t hash) noexcept { return hash % 1087448823553llu; }
+    static constexpr std::size_t mod1370099663459(std::size_t hash) noexcept { return hash % 1370099663459llu; }
+    static constexpr std::size_t mod1726217406467(std::size_t hash) noexcept { return hash % 1726217406467llu; }
+    static constexpr std::size_t mod2174897647073(std::size_t hash) noexcept { return hash % 2174897647073llu; }
+    static constexpr std::size_t mod2740199326961(std::size_t hash) noexcept { return hash % 2740199326961llu; }
+    static constexpr std::size_t mod3452434812973(std::size_t hash) noexcept { return hash % 3452434812973llu; }
+    static constexpr std::size_t mod4349795294267(std::size_t hash) noexcept { return hash % 4349795294267llu; }
+    static constexpr std::size_t mod5480398654009(std::size_t hash) noexcept { return hash % 5480398654009llu; }
+    static constexpr std::size_t mod6904869625999(std::size_t hash) noexcept { return hash % 6904869625999llu; }
+    static constexpr std::size_t mod8699590588571(std::size_t hash) noexcept { return hash % 8699590588571llu; }
+    static constexpr std::size_t mod10960797308051(std::size_t hash) noexcept { return hash % 10960797308051llu; }
+    static constexpr std::size_t mod13809739252051(std::size_t hash) noexcept { return hash % 13809739252051llu; }
+    static constexpr std::size_t mod17399181177241(std::size_t hash) noexcept { return hash % 17399181177241llu; }
+    static constexpr std::size_t mod21921594616111(std::size_t hash) noexcept { return hash % 21921594616111llu; }
+    static constexpr std::size_t mod27619478504183(std::size_t hash) noexcept { return hash % 27619478504183llu; }
+    static constexpr std::size_t mod34798362354533(std::size_t hash) noexcept { return hash % 34798362354533llu; }
+    static constexpr std::size_t mod43843189232363(std::size_t hash) noexcept { return hash % 43843189232363llu; }
+    static constexpr std::size_t mod55238957008387(std::size_t hash) noexcept { return hash % 55238957008387llu; }
+    static constexpr std::size_t mod69596724709081(std::size_t hash) noexcept { return hash % 69596724709081llu; }
+    static constexpr std::size_t mod87686378464759(std::size_t hash) noexcept { return hash % 87686378464759llu; }
+    static constexpr std::size_t mod110477914016779(std::size_t hash) noexcept { return hash % 110477914016779llu; }
+    static constexpr std::size_t mod139193449418173(std::size_t hash) noexcept { return hash % 139193449418173llu; }
+    static constexpr std::size_t mod175372756929481(std::size_t hash) noexcept { return hash % 175372756929481llu; }
+    static constexpr std::size_t mod220955828033581(std::size_t hash) noexcept { return hash % 220955828033581llu; }
+    static constexpr std::size_t mod278386898836457(std::size_t hash) noexcept { return hash % 278386898836457llu; }
+    static constexpr std::size_t mod350745513859007(std::size_t hash) noexcept { return hash % 350745513859007llu; }
+    static constexpr std::size_t mod441911656067171(std::size_t hash) noexcept { return hash % 441911656067171llu; }
+    static constexpr std::size_t mod556773797672909(std::size_t hash) noexcept { return hash % 556773797672909llu; }
+    static constexpr std::size_t mod701491027718027(std::size_t hash) noexcept { return hash % 701491027718027llu; }
+    static constexpr std::size_t mod883823312134381(std::size_t hash) noexcept { return hash % 883823312134381llu; }
+    static constexpr std::size_t mod1113547595345903(std::size_t hash) noexcept { return hash % 1113547595345903llu; }
+    static constexpr std::size_t mod1402982055436147(std::size_t hash) noexcept { return hash % 1402982055436147llu; }
+    static constexpr std::size_t mod1767646624268779(std::size_t hash) noexcept { return hash % 1767646624268779llu; }
+    static constexpr std::size_t mod2227095190691797(std::size_t hash) noexcept { return hash % 2227095190691797llu; }
+    static constexpr std::size_t mod2805964110872297(std::size_t hash) noexcept { return hash % 2805964110872297llu; }
+    static constexpr std::size_t mod3535293248537579(std::size_t hash) noexcept { return hash % 3535293248537579llu; }
+    static constexpr std::size_t mod4454190381383713(std::size_t hash) noexcept { return hash % 4454190381383713llu; }
+    static constexpr std::size_t mod5611928221744609(std::size_t hash) noexcept { return hash % 5611928221744609llu; }
+    static constexpr std::size_t mod7070586497075177(std::size_t hash) noexcept { return hash % 7070586497075177llu; }
+    static constexpr std::size_t mod8908380762767489(std::size_t hash) noexcept { return hash % 8908380762767489llu; }
+    static constexpr std::size_t mod11223856443489329(std::size_t hash) noexcept { return hash % 11223856443489329llu; }
+    static constexpr std::size_t mod14141172994150357(std::size_t hash) noexcept { return hash % 14141172994150357llu; }
+    static constexpr std::size_t mod17816761525534927(std::size_t hash) noexcept { return hash % 17816761525534927llu; }
+    static constexpr std::size_t mod22447712886978529(std::size_t hash) noexcept { return hash % 22447712886978529llu; }
+    static constexpr std::size_t mod28282345988300791(std::size_t hash) noexcept { return hash % 28282345988300791llu; }
+    static constexpr std::size_t mod35633523051069991(std::size_t hash) noexcept { return hash % 35633523051069991llu; }
+    static constexpr std::size_t mod44895425773957261(std::size_t hash) noexcept { return hash % 44895425773957261llu; }
+    static constexpr std::size_t mod56564691976601587(std::size_t hash) noexcept { return hash % 56564691976601587llu; }
+    static constexpr std::size_t mod71267046102139967(std::size_t hash) noexcept { return hash % 71267046102139967llu; }
+    static constexpr std::size_t mod89790851547914507(std::size_t hash) noexcept { return hash % 89790851547914507llu; }
+    static constexpr std::size_t mod113129383953203213(std::size_t hash) noexcept { return hash % 113129383953203213llu; }
+    static constexpr std::size_t mod142534092204280003(std::size_t hash) noexcept { return hash % 142534092204280003llu; }
+    static constexpr std::size_t mod179581703095829107(std::size_t hash) noexcept { return hash % 179581703095829107llu; }
+    static constexpr std::size_t mod226258767906406483(std::size_t hash) noexcept { return hash % 226258767906406483llu; }
+    static constexpr std::size_t mod285068184408560057(std::size_t hash) noexcept { return hash % 285068184408560057llu; }
+    static constexpr std::size_t mod359163406191658253(std::size_t hash) noexcept { return hash % 359163406191658253llu; }
+    static constexpr std::size_t mod452517535812813007(std::size_t hash) noexcept { return hash % 452517535812813007llu; }
+    static constexpr std::size_t mod570136368817120201(std::size_t hash) noexcept { return hash % 570136368817120201llu; }
+    static constexpr std::size_t mod718326812383316683(std::size_t hash) noexcept { return hash % 718326812383316683llu; }
+    static constexpr std::size_t mod905035071625626043(std::size_t hash) noexcept { return hash % 905035071625626043llu; }
+    static constexpr std::size_t mod1140272737634240411(std::size_t hash) noexcept { return hash % 1140272737634240411llu; }
+    static constexpr std::size_t mod1436653624766633509(std::size_t hash) noexcept { return hash % 1436653624766633509llu; }
+    static constexpr std::size_t mod1810070143251252131(std::size_t hash) noexcept { return hash % 1810070143251252131llu; }
+    static constexpr std::size_t mod2280545475268481167(std::size_t hash) noexcept { return hash % 2280545475268481167llu; }
+    static constexpr std::size_t mod2873307249533267101(std::size_t hash) noexcept { return hash % 2873307249533267101llu; }
+    static constexpr std::size_t mod3620140286502504283(std::size_t hash) noexcept { return hash % 3620140286502504283llu; }
+    static constexpr std::size_t mod4561090950536962147(std::size_t hash) noexcept { return hash % 4561090950536962147llu; }
+    static constexpr std::size_t mod5746614499066534157(std::size_t hash) noexcept { return hash % 5746614499066534157llu; }
+    static constexpr std::size_t mod7240280573005008577(std::size_t hash) noexcept { return hash % 7240280573005008577llu; }
+    static constexpr std::size_t mod9122181901073924329(std::size_t hash) noexcept { return hash % 9122181901073924329llu; }
+    static constexpr std::size_t mod11493228998133068689(std::size_t hash) noexcept { return hash % 11493228998133068689llu; }
+    static constexpr std::size_t mod14480561146010017169(std::size_t hash) noexcept { return hash % 14480561146010017169llu; }
+    static constexpr std::size_t mod18446744073709551557(std::size_t hash) noexcept { return hash % 18446744073709551557llu; }
 
-    using mod_function = size_t (*)(size_t) noexcept;
+    using mod_function = std::size_t (*)(std::size_t) noexcept;
 
-    mod_function next_size_over(size_t & size) const noexcept
+    mod_function next_size_over(std::size_t & size) const noexcept
     {
         // prime numbers generated by the following method:
         // 1. start with a prime p = 2
@@ -1032,7 +1036,7 @@ struct prime_number_hash_policy
         // you now have large gaps which you would hit if somebody called reserve() with an unlucky number.
         // 4. to fill the gaps for every prime p go to wolfram alpha and get ClosestPrime(p * 2^(1/3)) and ClosestPrime(p * 2^(2/3)) and put those in the gaps
         // 5. get PrevPrime(2^64) and put it at the end
-        static constexpr const size_t prime_list[] =
+        static constexpr const std::size_t prime_list[] =
         {
             2llu, 3llu, 5llu, 7llu, 11llu, 13llu, 17llu, 23llu, 29llu, 37llu, 47llu,
             59llu, 73llu, 97llu, 127llu, 151llu, 197llu, 251llu, 313llu, 397llu,
@@ -1077,7 +1081,7 @@ struct prime_number_hash_policy
             5746614499066534157llu, 7240280573005008577llu, 9122181901073924329llu,
             11493228998133068689llu, 14480561146010017169llu, 18446744073709551557llu
         };
-        static constexpr size_t (* const mod_functions[])(size_t) noexcept =
+        static constexpr std::size_t (* const mod_functions[])(std::size_t) noexcept =
         {
             &mod0, &mod2, &mod3, &mod5, &mod7, &mod11, &mod13, &mod17, &mod23, &mod29, &mod37,
             &mod47, &mod59, &mod73, &mod97, &mod127, &mod151, &mod197, &mod251, &mod313, &mod397,
@@ -1119,7 +1123,7 @@ struct prime_number_hash_policy
             &mod5746614499066534157, &mod7240280573005008577, &mod9122181901073924329,
             &mod11493228998133068689, &mod14480561146010017169, &mod18446744073709551557
         };
-        const size_t * found = std::lower_bound(std::begin(prime_list), std::end(prime_list) - 1, size);
+        const std::size_t * found = std::lower_bound(std::begin(prime_list), std::end(prime_list) - 1, size);
         size = *found;
         return mod_functions[1 + found - prime_list];
     }
@@ -1132,11 +1136,11 @@ struct prime_number_hash_policy
         current_mod_function = &mod0;
     }
 
-    constexpr size_t index_for_hash(size_t hash, size_t /*num_slots_minus_one*/) const noexcept
+    constexpr std::size_t index_for_hash(std::size_t hash, std::size_t /*num_slots_minus_one*/) const noexcept
     {
         return current_mod_function(hash);
     }
-    constexpr size_t keep_in_range(size_t index, size_t num_slots_minus_one) const noexcept
+    constexpr std::size_t keep_in_range(std::size_t index, std::size_t num_slots_minus_one) const noexcept
     {
         return index > num_slots_minus_one ? current_mod_function(index) : index;
     }
@@ -1147,45 +1151,45 @@ private:
 // clang-format on
 // NOLINTEND
 
-struct power_of_two_hash_policy {
-    constexpr size_t
-        index_for_hash(size_t hash, size_t num_slots_minus_one) const noexcept {
+ATOM_EXPORT struct power_of_two_hash_policy {
+    constexpr std::size_t index_for_hash(
+        std::size_t hash, std::size_t num_slots_minus_one) const noexcept {
         return hash & num_slots_minus_one;
     }
-    constexpr size_t
-        keep_in_range(size_t index, size_t num_slots_minus_one) const noexcept {
+    constexpr std::size_t keep_in_range(
+        std::size_t index, std::size_t num_slots_minus_one) const noexcept {
         return index_for_hash(index, num_slots_minus_one);
     }
-    constexpr int8_t next_size_over(size_t& size) const noexcept {
+    constexpr std::int8_t next_size_over(std::size_t& size) const noexcept {
         size = detailv3::next_power_of_two(size);
         return 0;
     }
-    constexpr void commit(int8_t) noexcept {}
+    constexpr void commit(std::int8_t) noexcept {}
     constexpr void reset() noexcept {}
 };
 
-struct fibonacci_hash_policy {
-    constexpr size_t index_for_hash(
-        size_t hash, size_t /*num_slots_minus_one*/) const noexcept {
+ATOM_EXPORT struct fibonacci_hash_policy {
+    constexpr std::size_t index_for_hash(
+        std::size_t hash, std::size_t /*num_slots_minus_one*/) const noexcept {
         return (11400714819323198485ull * hash) >> shift;
     }
-    constexpr size_t
-        keep_in_range(size_t index, size_t num_slots_minus_one) const noexcept {
+    constexpr std::size_t keep_in_range(
+        std::size_t index, std::size_t num_slots_minus_one) const noexcept {
         return index & num_slots_minus_one;
     }
 
-    constexpr int8_t next_size_over(size_t& size) const noexcept {
-        size = std::max(size_t(2), detailv3::next_power_of_two(size));
+    constexpr std::int8_t next_size_over(std::size_t& size) const noexcept {
+        size = std::max(std::size_t(2), detailv3::next_power_of_two(size));
         return 64 - detailv3::log2(size);
     }
-    constexpr void commit(int8_t shift) noexcept { this->shift = shift; }
+    constexpr void commit(std::int8_t shift) noexcept { this->shift = shift; }
     constexpr void reset() noexcept { shift = 63; }
 
 private:
-    int8_t shift = 63;
+    std::int8_t shift = 63;
 };
 
-template <
+ATOM_EXPORT template <
     typename K, typename V, typename H = std::hash<K>,
     typename E = std::equal_to<K>, typename A = std::allocator<std::pair<K, V>>>
 class flat_hash_map :
@@ -1283,17 +1287,17 @@ private:
     };
 };
 
-template <
+ATOM_EXPORT template <
     typename T, typename H = std::hash<T>, typename E = std::equal_to<T>,
     typename A = std::allocator<T>>
 class flat_hash_set :
     public detailv3::sherwood_v3_table<
-        T, T, H, detailv3::functor_storage<size_t, H>, E,
+        T, T, H, detailv3::functor_storage<std::size_t, H>, E,
         detailv3::functor_storage<bool, E>, A,
         typename std::allocator_traits<A>::template rebind_alloc<
             detailv3::sherwood_v3_entry<T>>> {
     using Table = detailv3::sherwood_v3_table<
-        T, T, H, detailv3::functor_storage<size_t, H>, E,
+        T, T, H, detailv3::functor_storage<std::size_t, H>, E,
         detailv3::functor_storage<bool, E>, A,
         typename std::allocator_traits<A>::template rebind_alloc<
             detailv3::sherwood_v3_entry<T>>>;
@@ -1335,7 +1339,7 @@ public:
     }
 };
 
-template <typename T>
+ATOM_EXPORT template <typename T>
 struct power_of_two_std_hash : std::hash<T> {
     typedef ska::power_of_two_hash_policy hash_policy;
 };

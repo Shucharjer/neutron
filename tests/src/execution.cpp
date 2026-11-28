@@ -1,8 +1,13 @@
-#include <stdexcept>
-#include <thread>
-#include <tuple>
-#include <utility>
-#include <neutron/execution.hpp>
+#ifdef ATOM_USES_MODULES
+import std;
+import neutron;
+#else
+    #include <stdexcept>
+    #include <thread>
+    #include <tuple>
+    #include <utility>
+    #include <neutron/execution.hpp>
+#endif
 #include "require.hpp"
 
 namespace ex = neutron::execution;

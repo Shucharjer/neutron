@@ -1,7 +1,10 @@
 // IWYU pragma: private, include <neutron/iterator.hpp>
 #pragma once
-#include <iterator>
-#include <type_traits>
+#ifndef ATOM_BUILDING_MODULE
+    #include <iterator>
+    #include <type_traits>
+#endif
+#include "neutron/detail/utility/macros.hpp"
 
 namespace neutron {
 
@@ -76,21 +79,21 @@ private:
     iterator_type iter_;
 };
 
-template <typename It>
+ATOM_EXPORT template <typename It>
 constexpr auto operator+(
     typename _iter_wrapper<It>::difference_type n,
     const _iter_wrapper<It>& iter) noexcept -> _iter_wrapper<It> {
     return iter + n;
 }
 
-template <typename It>
+ATOM_EXPORT template <typename It>
 constexpr auto operator-(
     const _iter_wrapper<It>& lhs, const _iter_wrapper<It>& rhs) noexcept ->
     typename _iter_wrapper<It>::difference_type {
     return lhs.base() - rhs.base();
 }
 
-template <typename It1, typename It2>
+ATOM_EXPORT template <typename It1, typename It2>
 constexpr auto operator-(
     const _iter_wrapper<It1>& lhs, const _iter_wrapper<It2>& rhs) noexcept
     -> std::common_type_t<
@@ -99,7 +102,7 @@ constexpr auto operator-(
     return lhs.base() - rhs.base();
 }
 
-template <typename It>
+ATOM_EXPORT template <typename It>
 constexpr std::strong_ordering operator<=>(
     const _iter_wrapper<It>& lhs, const _iter_wrapper<It>& rhs) noexcept {
     if constexpr (std::three_way_comparable_with<
@@ -116,7 +119,7 @@ constexpr std::strong_ordering operator<=>(
     }
 }
 
-template <typename It1, typename It2>
+ATOM_EXPORT template <typename It1, typename It2>
 constexpr std::strong_ordering operator<=>(
     const _iter_wrapper<It1>& lhs, const _iter_wrapper<It2>& rhs) noexcept {
     if constexpr (std::three_way_comparable_with<
@@ -133,25 +136,25 @@ constexpr std::strong_ordering operator<=>(
     }
 }
 
-template <typename It>
+ATOM_EXPORT template <typename It>
 constexpr bool operator!=(
     const _iter_wrapper<It>& lhs, const _iter_wrapper<It>& rhs) noexcept {
     return lhs.base() != rhs.base();
 }
 
-template <typename It1, typename It2>
+ATOM_EXPORT template <typename It1, typename It2>
 constexpr bool operator!=(
     const _iter_wrapper<It1>& lhs, const _iter_wrapper<It2>& rhs) noexcept {
     return lhs.base() != rhs.base();
 }
 
-template <typename It>
+ATOM_EXPORT template <typename It>
 constexpr bool operator==(
     const _iter_wrapper<It>& lhs, const _iter_wrapper<It>& rhs) noexcept {
     return lhs.base() == rhs.base();
 }
 
-template <typename It1, typename It2>
+ATOM_EXPORT template <typename It1, typename It2>
 constexpr bool operator==(
     const _iter_wrapper<It1>& lhs, const _iter_wrapper<It2>& rhs) noexcept {
     return lhs.base() == rhs.base();

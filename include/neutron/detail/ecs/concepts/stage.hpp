@@ -1,10 +1,13 @@
 // IWYU pragma: private, include <neutron/ecs.hpp>
 #pragma once
-#include <cstdint>
+#ifndef ATOM_BUILDING_MODULE
+    #include <cstdint>
+#endif
+#include "neutron/detail/utility/macros.hpp"
 
 namespace neutron {
 
-enum class stage : std::uint8_t {
+ATOM_EXPORT enum class stage : std::uint8_t {
     prestartup,
     startup,
     poststartup,

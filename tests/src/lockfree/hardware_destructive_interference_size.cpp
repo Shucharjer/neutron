@@ -1,10 +1,15 @@
-#include <atomic>
-#include <bit>
 #include <cstddef>
-#include <cstdint>
-#include <new>
-#include <type_traits>
-#include <neutron/lockfree.hpp>
+#ifdef ATOM_USES_MODULES
+import std;
+import neutron;
+#else
+    #include <atomic>
+    #include <bit>
+    #include <cstdint>
+    #include <new>
+    #include <type_traits>
+    #include <neutron/lockfree.hpp>
+#endif
 #include "require.hpp"
 
 using namespace neutron;

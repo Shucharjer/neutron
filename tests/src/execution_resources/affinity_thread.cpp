@@ -1,10 +1,15 @@
-#include <cstdint>
-#include <cstdlib>
-#include <ctime>
-#include <iostream>
-#include <thread>
-#include <neutron/execution.hpp>
-#include <neutron/execution_resource.hpp>
+#ifdef ATOM_USES_MODULES
+import std;
+import neutron;
+#else
+    #include <cstdint>
+    #include <cstdlib>
+    #include <ctime>
+    #include <iostream>
+    #include <thread>
+    #include <neutron/execution.hpp>
+    #include <neutron/execution_resource.hpp>
+#endif
 #include "require.hpp"
 
 using namespace neutron;
@@ -22,13 +27,13 @@ void test_sender_completes_on_thread_pinned_to_last_cpu() {
     affinity_thread thread(concurrency - 1);
     scheduler auto sch = thread.get_scheduler();
     auto sndr = just(1024 * 32ULL) // run for a while, check cpu use percentage
-                | continues_on(sch) | then([](uint64_t val) {
-                      uint64_t num{};
-                      srand(time(nullptr));
+                | continues_on(sch) | then([](std::uint64_t val) {
+                      std::uint64_t num{};
+                      std::srand(std::time(nullptr));
                       for (auto i = 0; i < val; ++i) {
                           for (auto j = 0; j < val; ++j) {
                               if ((j & 0x1) == 0) {
-                                  num += rand();
+                                  num += std::rand();
                               } else {
                                   num -= j;
                               }
@@ -36,7 +41,7 @@ void test_sender_completes_on_thread_pinned_to_last_cpu() {
                       }
                       return num;
                   }) |
-                then([](uint64_t num) {
+                then([](std::uint64_t num) {
                     std::cout << num << '\n';
                 });
 

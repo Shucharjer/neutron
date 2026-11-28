@@ -3,14 +3,16 @@
 
 #if ATOM_HAS_REFLECTION
 
-    #include <array>
-    #include <ranges>
-    #include <string_view>
+    #ifndef ATOM_BUILDING_MODULE
+        #include <array>
+        #include <ranges>
+        #include <string_view>
+    #endif
     #include "neutron/detail/reflection/meta/member_count.hpp"
 
 namespace neutron {
 
-template <typename T>
+ATOM_EXPORT template <typename T>
 constexpr std::array<std::string_view, member_count_of<T>()> member_names_of() {
     return [] consteval {
         constexpr std::size_t count = member_count_of<T>();

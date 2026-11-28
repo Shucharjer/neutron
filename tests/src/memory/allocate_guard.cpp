@@ -1,10 +1,16 @@
-#include <cstddef>
-#include <cstdint>
-#include <memory>
-#include <memory_resource>
-#include <new>
-#include <type_traits>
-#include <neutron/memory.hpp>
+#include "neutron/detail/utility/macros.hpp"
+#ifdef ATOM_USES_MODULES
+import std;
+import neutron;
+#else
+    #include <cstddef>
+    #include <cstdint>
+    #include <memory>
+    #include <memory_resource>
+    #include <new>
+    #include <type_traits>
+    #include <neutron/memory.hpp>
+#endif
 #include "require.hpp"
 
 using namespace neutron;

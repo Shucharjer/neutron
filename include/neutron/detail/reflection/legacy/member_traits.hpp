@@ -1,6 +1,9 @@
 // IWYU pragma: private, include <neutron/reflection.hpp>
 #pragma once
-#include <string_view>
+#ifndef ATOM_BUILDING_MODULE
+    #include <string_view>
+#endif
+#include "neutron/detail/utility/macros.hpp"
 
 namespace neutron::_refl_legacy {
 
@@ -13,7 +16,7 @@ struct basic_field_traits;
 /**
  * @brief Traits of filed.
  */
-template <typename = void>
+ATOM_EXPORT template <typename = void>
 struct field_traits;
 
 struct basic_field_traits {
@@ -108,7 +111,7 @@ struct basic_function_traits;
 /**
  * @brief Traits of function.
  */
-template <typename>
+ATOM_EXPORT template <typename>
 struct function_traits;
 
 struct basic_function_traits {

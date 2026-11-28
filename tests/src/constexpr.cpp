@@ -1,7 +1,11 @@
-#include <cstddef>
-#include <cstdlib>
-#include <type_traits>
-#include <neutron/constexpr.hpp>
+// With modules, an implementation unit of neutron that imports std, see
+// `internal_tests`.
+#ifndef ATOM_USES_MODULES
+    #include <cstddef>
+    #include <cstdlib>
+    #include <type_traits>
+    #include <neutron/constexpr.hpp>
+#endif
 #include "require.hpp"
 
 using namespace neutron;
@@ -99,7 +103,7 @@ void test_non_constant_functions_remain_callable() {
 
 } // namespace
 
-int main() {
+extern "C++" int main() {
     test_non_constant_callable_takes_the_runtime_branch();
     test_non_constant_functions_remain_callable();
     return neutron_test::result();

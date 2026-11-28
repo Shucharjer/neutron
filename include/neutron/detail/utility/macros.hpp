@@ -1,18 +1,32 @@
 // IWYU pragma: private
 #pragma once
 
+// Only macros: the headers of neutron include this one in every mode,
+// including the importers of the `neutron` module, which must not see any
+// declaration of the standard library before `import std;`.
 #if defined(__i386__) || defined(__x86_64__) || defined(_M_IX86) ||            \
     defined(_M_X64)
     #define ATOM_TARGET_X86
-    #include <immintrin.h>
 #elif defined(__arm__) || defined(__aarch64__) || defined(__arm64ec__)
     #define ATOM_TARGET_ARM
-    #include <arm_neon.h>
 #else
     #error "not supported yet"
 #endif
 
 #include <version>
+
+// Modules
+
+/// @brief Exports a declaration from the `neutron` module.
+///
+/// `ATOM_BUILDING_MODULE` is defined only by the module interface unit of
+/// neutron, which also provides the standard library through `import std;`.
+/// Every other declaration of neutron is internal to the module.
+#ifdef ATOM_BUILDING_MODULE
+    #define ATOM_EXPORT export
+#else
+    #define ATOM_EXPORT
+#endif
 
 // Feature-detection fallbacks for non-clang compilers
 #ifndef __has_feature
@@ -293,7 +307,7 @@
 #ifndef ATOM_NODEBUG
     #ifdef _MSC_VER
         #define ATOM_NODEBUG
-        #elif defined(__clang__)
+    #elif defined(__clang__)
         #define ATOM_NODEBUG gnu::nodebug
     #elif defined(__GNUC__)
         #define ATOM_NODEBUG gnu::artificial

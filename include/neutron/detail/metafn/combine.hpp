@@ -4,10 +4,11 @@
 #include "neutron/detail/metafn/erase.hpp"
 #include "neutron/detail/metafn/filter.hpp"
 #include "neutron/detail/metafn/same.hpp"
+#include "neutron/detail/utility/macros.hpp"
 
 namespace neutron {
 
-template <typename TypeList>
+ATOM_EXPORT template <typename TypeList>
 struct type_list_combine;
 template <template <typename...> typename Template>
 struct type_list_combine<Template<>> {
@@ -24,6 +25,6 @@ struct type_list_combine<Template<Ty, Others...>> {
                       typename type_list_combine<type_list_erase_if_t<
                           _has_same_template, Template<Ty, Others...>>>::type>;
 };
-template <typename TypeList>
+ATOM_EXPORT template <typename TypeList>
 using type_list_conbine_t = typename type_list_combine<TypeList>::type;
 } // namespace neutron

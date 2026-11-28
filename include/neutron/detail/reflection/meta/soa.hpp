@@ -1,13 +1,15 @@
 #pragma once
-#include <array>
-#include <cstddef>
-#include <memory>
-#include <meta>
-#include <vector>
+#ifndef ATOM_BUILDING_MODULE
+    #include <array>
+    #include <cstddef>
+    #include <memory>
+    #include <meta>
+    #include <vector>
+#endif
 
 namespace neutron {
 
-template <typename T, size_t Count>
+template <typename T, std::size_t Count>
 using struct_of_arrays = [:[] {
     using namespace std::meta;
     struct _impl;

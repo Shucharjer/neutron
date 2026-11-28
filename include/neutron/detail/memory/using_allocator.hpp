@@ -1,24 +1,26 @@
 // IWYU pragma: private, include <neutron/memory.hpp>
 #pragma once
-#include <cstddef>
-#include <memory>
-#include <type_traits>
-#include <utility>
-#include <neutron/concepts.hpp>
-#include <neutron/utility.hpp>
+#ifndef ATOM_BUILDING_MODULE
+    #include <cstddef>
+    #include <memory>
+    #include <type_traits>
+    #include <utility>
+#endif
+#include "neutron/concepts.hpp"
 #include "neutron/detail/concepts/allocator.hpp"
 #include "neutron/detail/utility/macros.hpp"
+#include "neutron/utility.hpp"
 
 namespace neutron {
 
-template <
+ATOM_EXPORT template <
     std_simple_allocator Alloc,
     typename SizeT = typename std::allocator_traits<Alloc>::size_type>
 ATOM_CONSTEXPR_SINCE_CXX20 auto allocate(Alloc& alloc, SizeT n = 1) {
     return std::allocator_traits<Alloc>::allocate(alloc, n);
 }
 
-template <
+ATOM_EXPORT template <
     std_simple_allocator Alloc, typename... Args,
     typename Ty      = typename std::allocator_traits<Alloc>::value_type,
     typename Pointer = typename std::allocator_traits<Alloc>::pointer>
@@ -29,7 +31,7 @@ ATOM_CONSTEXPR_SINCE_CXX20 void construct(
         std::to_address(ptr), alloc, std::forward<Args>(args)...);
 }
 
-template <
+ATOM_EXPORT template <
     std_simple_allocator Alloc,
     typename Ty      = typename std::allocator_traits<Alloc>::value_type,
     typename Pointer = typename std::allocator_traits<Alloc>::pointer>
@@ -38,11 +40,11 @@ ATOM_CONSTEXPR_SINCE_CXX20 void destroy(Alloc& alloc, Pointer ptr) noexcept(
     return std::allocator_traits<Alloc>::destroy(alloc, ptr);
 }
 
-template <
+ATOM_EXPORT template <
     std_simple_allocator Alloc,
     typename Pointer = typename std::allocator_traits<Alloc>::pointer>
 ATOM_CONSTEXPR_SINCE_CXX20 void
-    deallocate(Alloc& alloc, Pointer ptr, size_t n = 1) noexcept {
+    deallocate(Alloc& alloc, Pointer ptr, std::size_t n = 1) noexcept {
     return std::allocator_traits<Alloc>::deallocate(alloc, ptr, n);
 }
 
@@ -104,7 +106,7 @@ struct _construct<Alloc, Ty, true> {
 
 } // namespace _default_construct_using_allocator
 
-template <
+ATOM_EXPORT template <
     std_simple_allocator Alloc,
     typename Ty      = std::allocator_traits<Alloc>::value_type,
     typename Pointer = std::allocator_traits<Alloc>::pointer,
@@ -117,7 +119,7 @@ ATOM_CONSTEXPR_SINCE_CXX20 Pointer
         Alloc, Ty, uses_allocator>::construct_n(alloc, ptr, n);
 }
 
-template <
+ATOM_EXPORT template <
     std_simple_allocator Alloc,
     typename Ty      = std::allocator_traits<Alloc>::value_type,
     typename Pointer = std::allocator_traits<Alloc>::pointer,
@@ -131,7 +133,7 @@ ATOM_CONSTEXPR_SINCE_CXX20 Pointer
         Alloc, Ty, true>::construct_n(alloc, ptr, n);
 }
 
-template <
+ATOM_EXPORT template <
     std_simple_allocator Alloc,
     typename Ty      = std::allocator_traits<Alloc>::value_type,
     typename Pointer = std::allocator_traits<Alloc>::pointer,
@@ -155,7 +157,7 @@ ATOM_CONSTEXPR_SINCE_CXX20 Pointer uninitialized_fill_n_using_allocator(
     return ptr + n;
 }
 
-template <
+ATOM_EXPORT template <
     std_simple_allocator Alloc, typename InputIter,
     typename Ty      = std::allocator_traits<Alloc>::value_type,
     typename Pointer = std::allocator_traits<Alloc>::pointer,
@@ -187,7 +189,7 @@ ATOM_CONSTEXPR_SINCE_CXX20 Pointer uninitialized_copy_using_allocator(
     return it;
 }
 
-template <
+ATOM_EXPORT template <
     std_simple_allocator Alloc,
     typename Ty        = std::allocator_traits<Alloc>::value_type,
     typename Pointer   = std::allocator_traits<Alloc>::pointer,
@@ -222,7 +224,7 @@ ATOM_CONSTEXPR_SINCE_CXX20 Pointer uninitialized_copy_n_using_allocator(
     return dst + n;
 }
 
-template <
+ATOM_EXPORT template <
     std_simple_allocator Alloc,
     typename Ty        = std::allocator_traits<Alloc>::value_type,
     typename Pointer   = std::allocator_traits<Alloc>::pointer,
@@ -261,7 +263,7 @@ ATOM_CONSTEXPR_SINCE_CXX20 Pointer uninitialized_move_n_using_allocator(
     return dst + n;
 }
 
-template <
+ATOM_EXPORT template <
     std_simple_allocator Alloc,
     typename Ty      = std::allocator_traits<Alloc>::value_type,
     typename Pointer = std::allocator_traits<Alloc>::pointer,

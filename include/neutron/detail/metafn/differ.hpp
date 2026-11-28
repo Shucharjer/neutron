@@ -1,10 +1,11 @@
 // IWYU pragma: private, include <neutron/metafn.hpp>
 #pragma once
 #include "neutron/detail/metafn/has.hpp"
+#include "neutron/detail/utility/macros.hpp"
 
 namespace neutron {
 
-template <typename TypeList1, typename TypeList2>
+ATOM_EXPORT template <typename TypeList1, typename TypeList2>
 struct type_list_all_differs_from;
 template <
     template <typename...> typename Template1,
@@ -14,7 +15,7 @@ struct type_list_all_differs_from<Template1<Tys1...>, Template2<Tys2...>> {
     constexpr static bool value =
         !(type_list_has_v<Template2<Tys2...>, Tys1> || ...);
 };
-template <typename TypeList1, typename TypeList2>
+ATOM_EXPORT template <typename TypeList1, typename TypeList2>
 constexpr auto type_list_all_differs_from_v =
     type_list_all_differs_from<TypeList1, TypeList2>::value;
 

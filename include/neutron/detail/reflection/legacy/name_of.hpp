@@ -1,11 +1,13 @@
 // IWYU pragma: private, include <neutron/reflection.hpp>
 #pragma once
-#include <array>
-#include <concepts>
-#include <cstddef>
-#include <string_view>
-#include <tuple>
-#include <utility>
+#ifndef ATOM_BUILDING_MODULE
+    #include <array>
+    #include <concepts>
+    #include <cstddef>
+    #include <string_view>
+    #include <tuple>
+    #include <utility>
+#endif
 #include "neutron/detail/utility/macros.hpp"
 
 namespace neutron::_refl_legacy {
@@ -275,8 +277,9 @@ struct name_of_type {
  * Type-only templates omit trailing default arguments. Other types use the
  * normalized compiler spelling, which may still be compiler-specific.
  */
-template <typename Ty>
-ATOM_ATTRS(ATOM_NODISCARD) consteval std::string_view name_of() noexcept {
+ATOM_EXPORT template <typename Ty>
+ATOM_ATTRS(ATOM_NODISCARD)
+consteval std::string_view name_of() noexcept {
     return name_of_type<Ty>::value;
 }
 

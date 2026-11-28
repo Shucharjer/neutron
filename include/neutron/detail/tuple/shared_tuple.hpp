@@ -1,13 +1,16 @@
 #pragma once
-#include <concepts>
-#include <cstddef>
-#include <new>
-#include <tuple>
-#include <type_traits>
-#include <utility>
+#ifndef ATOM_BUILDING_MODULE
+    #include <concepts>
+    #include <cstddef>
+    #include <new>
+    #include <tuple>
+    #include <type_traits>
+    #include <utility>
+#endif
 #include "neutron/detail/lockfree/hardware_destructive_interference_size.hpp"
 #include "neutron/detail/tuple/first.hpp"
 #include "neutron/detail/tuple/last.hpp"
+#include "neutron/detail/utility/macros.hpp"
 
 #ifdef __clang__
 #elif defined(__GNUC__)
@@ -23,7 +26,7 @@ namespace neutron {
  *
  * @tparam
  */
-template <typename...>
+ATOM_EXPORT template <typename...>
 class shared_tuple;
 
 template <>
@@ -145,7 +148,7 @@ public:
     }
 };
 
-template <typename Ty, typename... Tys>
+ATOM_EXPORT template <typename Ty, typename... Tys>
 requires(
     tuple_first_v<Ty, shared_tuple<Tys...>> != static_cast<std::size_t>(-1))
 constexpr Ty& get_first(shared_tuple<Tys...>&& tup) noexcept {
@@ -153,34 +156,34 @@ constexpr Ty& get_first(shared_tuple<Tys...>&& tup) noexcept {
         .template get<tuple_first_v<Ty, shared_tuple<Tys...>>>();
 }
 
-template <typename Ty, typename... Tys>
+ATOM_EXPORT template <typename Ty, typename... Tys>
 requires(
     tuple_first_v<Ty, shared_tuple<Tys...>> != static_cast<std::size_t>(-1))
 constexpr Ty& get_first(shared_tuple<Tys...>& tup) noexcept {
     return tup.template get<tuple_first_v<Ty, shared_tuple<Tys...>>>();
 }
 
-template <typename Ty, typename... Tys>
+ATOM_EXPORT template <typename Ty, typename... Tys>
 requires(
     tuple_first_v<Ty, shared_tuple<Tys...>> != static_cast<std::size_t>(-1))
 constexpr const Ty& get_first(const shared_tuple<Tys...>& tup) noexcept {
     return tup.template get<tuple_first_v<Ty, shared_tuple<Tys...>>>();
 }
 
-template <typename Ty, typename... Tys>
+ATOM_EXPORT template <typename Ty, typename... Tys>
 requires(tuple_last_v<Ty, shared_tuple<Tys...>> != static_cast<std::size_t>(-1))
 constexpr Ty& get_last(shared_tuple<Tys...>&& tup) noexcept {
     return std::move(tup)
         .template get<tuple_last_v<Ty, shared_tuple<Tys...>>>();
 }
 
-template <typename Ty, typename... Tys>
+ATOM_EXPORT template <typename Ty, typename... Tys>
 requires(tuple_last_v<Ty, shared_tuple<Tys...>> != static_cast<std::size_t>(-1))
 constexpr Ty& get_last(shared_tuple<Tys...>& tup) noexcept {
     return tup.template get<tuple_last_v<Ty, shared_tuple<Tys...>>>();
 }
 
-template <typename Ty, typename... Tys>
+ATOM_EXPORT template <typename Ty, typename... Tys>
 requires(tuple_last_v<Ty, shared_tuple<Tys...>> != static_cast<std::size_t>(-1))
 constexpr const Ty& get_last(const shared_tuple<Tys...>& tup) noexcept {
     return tup.template get<tuple_last_v<Ty, shared_tuple<Tys...>>>();

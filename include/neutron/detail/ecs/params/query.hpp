@@ -3,12 +3,14 @@
 #include "neutron/detail/concepts/nonempty.hpp"
 #include "neutron/detail/ecs/fwd.hpp"
 
-#include <cstddef>
-#include <memory>
-#include <ranges>
-#include <span>
-#include <tuple>
-#include <type_traits>
+#ifndef ATOM_BUILDING_MODULE
+    #include <cstddef>
+    #include <memory>
+    #include <ranges>
+    #include <span>
+    #include <tuple>
+    #include <type_traits>
+#endif
 #include "neutron/detail/ecs/compile-time/descriptor.hpp"
 #include "neutron/detail/ecs/core/querior.hpp"
 #include "neutron/detail/utility/macros.hpp"
@@ -144,7 +146,7 @@ template <component... Components>
 struct _view_base {
     _view_base(const slice<std::remove_cvref_t<Components>...>& slice) noexcept
         : size(slice.size()) {
-        [this, &slice]<size_t... Is>(std::index_sequence<Is...>) {
+        [this, &slice]<std::size_t... Is>(std::index_sequence<Is...>) {
             const auto& buffers = slice.buffers();
             bufs = tuple_t{ static_cast<std::remove_cvref_t<Components>*>(
                 *std::get<Is>(buffers))... };
@@ -152,11 +154,11 @@ struct _view_base {
     }
     using tuple_t = std::tuple<std::remove_cvref_t<Components>*...>;
 
-    size_t size;
+    std::size_t size;
     tuple_t bufs;
 };
 
-template <component... Components>
+ATOM_EXPORT template <component... Components>
 class view : private _view_base<Components...> {
     using _base = _view_base<Components...>;
     using typename _base::tuple_t;
@@ -174,8 +176,8 @@ public:
     public:
         using value_type       = std::tuple<Components...>;
         using reference_type   = value_type;
-        using size_type        = size_t;
-        using difference_type  = ptrdiff_t;
+        using size_type        = std::size_t;
+        using difference_type  = std::ptrdiff_t;
         using iterator_concept = std::contiguous_iterator_tag;
 
         constexpr auto operator*() const noexcept -> std::tuple<Components...> {
@@ -187,7 +189,7 @@ public:
         }
 
         constexpr auto operator++() noexcept -> iterator& {
-            [this]<size_t... Is>(std::index_sequence<Is...>) {
+            [this]<std::size_t... Is>(std::index_sequence<Is...>) {
                 (++std::get<Is>(comps_), ...);
             }(std::index_sequence_for<Components...>());
             return *this;
@@ -195,7 +197,7 @@ public:
 
         constexpr auto operator++(int) noexcept -> iterator {
             iterator temp = *this;
-            [this]<size_t... Is>(std::index_sequence<Is...>) {
+            [this]<std::size_t... Is>(std::index_sequence<Is...>) {
                 (++std::get<Is>(comps_), ...);
             }(std::index_sequence_for<Components...>());
             return temp;
@@ -215,7 +217,7 @@ public:
         }
 
         constexpr auto operator--() noexcept -> iterator& {
-            [this]<size_t... Is>(std::index_sequence<Is...>) {
+            [this]<std::size_t... Is>(std::index_sequence<Is...>) {
                 (--std::get<Is>(comps_), ...);
             }(std::index_sequence_for<Components...>());
             return *this;
@@ -223,39 +225,41 @@ public:
 
         constexpr auto operator--(int) noexcept -> iterator {
             iterator temp = *this;
-            [this]<size_t... Is>(std::index_sequence<Is...>) {
+            [this]<std::size_t... Is>(std::index_sequence<Is...>) {
                 (--std::get<Is>(comps_), ...);
             }(std::index_sequence_for<Components...>());
             return temp;
         }
 
-        constexpr auto operator+=(ptrdiff_t diff) noexcept -> iterator& {
-            [this, diff]<size_t... Is>(std::index_sequence<Is...>) {
+        constexpr auto operator+=(std::ptrdiff_t diff) noexcept -> iterator& {
+            [this, diff]<std::size_t... Is>(std::index_sequence<Is...>) {
                 ((std::get<Is>(comps_) += diff), ...);
             }(std::index_sequence_for<Components...>());
             return *this;
         }
 
-        constexpr auto operator+(ptrdiff_t diff) const noexcept -> iterator {
+        constexpr auto operator+(std::ptrdiff_t diff) const noexcept
+            -> iterator {
             iterator temp = *this;
             temp += diff;
             return temp;
         }
 
-        constexpr auto operator-=(ptrdiff_t diff) noexcept -> iterator& {
-            [this, diff]<size_t... Is>(std::index_sequence<Is...>) {
+        constexpr auto operator-=(std::ptrdiff_t diff) noexcept -> iterator& {
+            [this, diff]<std::size_t... Is>(std::index_sequence<Is...>) {
                 ((std::get<Is>(comps_) -= diff), ...);
             }(std::index_sequence_for<Components...>());
             return *this;
         }
 
-        constexpr auto operator-(ptrdiff_t diff) noexcept -> iterator {
+        constexpr auto operator-(std::ptrdiff_t diff) noexcept -> iterator {
             iterator temp = *this;
             temp -= diff;
             return temp;
         }
 
-        constexpr ptrdiff_t operator-(const iterator& that) const noexcept {
+        constexpr std::ptrdiff_t
+            operator-(const iterator& that) const noexcept {
             return std::get<0>(comps_) - std::get<0>(that.comps_);
         }
 
@@ -269,14 +273,14 @@ public:
 
     iterator end() const noexcept {
         tuple_t comps = _base::bufs;
-        [this, &comps]<size_t... Is>(std::index_sequence<Is...>) {
+        [this, &comps]<std::size_t... Is>(std::index_sequence<Is...>) {
             ((std::get<Is>(comps) += this->size), ...);
         }(std::index_sequence_for<Components...>());
         return iterator{ comps };
     }
 };
 
-template <component... Components>
+ATOM_EXPORT template <component... Components>
 class eview : private _view_base<Components...> {
     using _base = _view_base<Components...>;
     using typename _base::tuple_t;
@@ -295,8 +299,8 @@ public:
     public:
         using value_type       = std::tuple<entity_t, Components...>;
         using reference_type   = value_type;
-        using size_type        = size_t;
-        using difference_type  = ptrdiff_t;
+        using size_type        = std::size_t;
+        using difference_type  = std::ptrdiff_t;
         using iterator_concept = std::contiguous_iterator_tag;
 
         constexpr auto operator*() const noexcept
@@ -311,7 +315,7 @@ public:
 
         constexpr auto operator++() noexcept -> iterator& {
             ++entity_; // NOLINT
-            [this]<size_t... Is>(std::index_sequence<Is...>) {
+            [this]<std::size_t... Is>(std::index_sequence<Is...>) {
                 (++std::get<Is>(comps_), ...);
             }(std::index_sequence_for<Components...>());
             return *this;
@@ -320,7 +324,7 @@ public:
         constexpr auto operator++(int) noexcept -> iterator {
             iterator temp = *this;
             ++entity_; // NOLINT
-            [this]<size_t... Is>(std::index_sequence<Is...>) {
+            [this]<std::size_t... Is>(std::index_sequence<Is...>) {
                 (++std::get<Is>(comps_), ...);
             }(std::index_sequence_for<Components...>());
             return temp;
@@ -341,7 +345,7 @@ public:
 
         constexpr auto operator--() noexcept -> iterator& {
             --entity_; // NOLINT
-            [this]<size_t... Is>(std::index_sequence<Is...>) {
+            [this]<std::size_t... Is>(std::index_sequence<Is...>) {
                 (--std::get<Is>(comps_), ...);
             }(std::index_sequence_for<Components...>());
             return *this;
@@ -350,41 +354,43 @@ public:
         constexpr auto operator--(int) noexcept -> iterator {
             iterator temp = *this;
             --entity_; // NOLINT
-            [this]<size_t... Is>(std::index_sequence<Is...>) {
+            [this]<std::size_t... Is>(std::index_sequence<Is...>) {
                 (--std::get<Is>(comps_), ...);
             }(std::index_sequence_for<Components...>());
             return temp;
         }
 
-        constexpr auto operator+=(ptrdiff_t diff) noexcept -> iterator& {
+        constexpr auto operator+=(std::ptrdiff_t diff) noexcept -> iterator& {
             entity_ += diff; // NOLINT
-            [this, diff]<size_t... Is>(std::index_sequence<Is...>) {
+            [this, diff]<std::size_t... Is>(std::index_sequence<Is...>) {
                 ((std::get<Is>(comps_) += diff), ...);
             }(std::index_sequence_for<Components...>());
             return *this;
         }
 
-        constexpr auto operator+(ptrdiff_t diff) const noexcept -> iterator {
+        constexpr auto operator+(std::ptrdiff_t diff) const noexcept
+            -> iterator {
             iterator temp = *this;
             temp += diff;
             return temp;
         }
 
-        constexpr auto operator-=(ptrdiff_t diff) noexcept -> iterator& {
+        constexpr auto operator-=(std::ptrdiff_t diff) noexcept -> iterator& {
             entity_ -= diff; // NOLINT
-            [this, diff]<size_t... Is>(std::index_sequence<Is...>) {
+            [this, diff]<std::size_t... Is>(std::index_sequence<Is...>) {
                 ((std::get<Is>(comps_) -= diff), ...);
             }(std::index_sequence_for<Components...>());
             return *this;
         }
 
-        constexpr auto operator-(ptrdiff_t diff) noexcept -> iterator {
+        constexpr auto operator-(std::ptrdiff_t diff) noexcept -> iterator {
             iterator temp = *this;
             temp -= diff;
             return temp;
         }
 
-        constexpr ptrdiff_t operator-(const iterator& that) const noexcept {
+        constexpr std::ptrdiff_t
+            operator-(const iterator& that) const noexcept {
             return entity_ - that.entity_;
         }
 
@@ -401,7 +407,7 @@ public:
 
     iterator end() const noexcept {
         tuple_t comps = _base::bufs;
-        [this, &comps]<size_t... Is>(std::index_sequence<Is...>) {
+        [this, &comps]<std::size_t... Is>(std::index_sequence<Is...>) {
             ((std::get<Is>(comps) += this->size), ...);
         }(std::index_sequence_for<Components...>());
         return iterator{ entities_ + this->size, comps };
@@ -411,7 +417,7 @@ private:
     const entity_t* entities_;
 };
 
-template <typename... Filters>
+ATOM_EXPORT template <typename... Filters>
 class query {
     template <typename Alloc>
     using _manual_querior_t =

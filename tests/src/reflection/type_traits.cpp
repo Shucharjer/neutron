@@ -1,13 +1,18 @@
 // type_traits_of<T>() field-by-field checks live in traits.cpp; this file
 // covers traits_list_of and the packed layout.
-#include <cstddef>
-#include <cstdint>
-#include <string>
-#include <tuple>
-#include <type_traits>
-#include <vector>
-#include <neutron/metafn.hpp>
-#include <neutron/reflection.hpp>
+#ifdef ATOM_USES_MODULES
+import std;
+import neutron;
+#else
+    #include <cstddef>
+    #include <cstdint>
+    #include <string>
+    #include <tuple>
+    #include <type_traits>
+    #include <vector>
+    #include <neutron/metafn.hpp>
+    #include <neutron/reflection.hpp>
+#endif
 #include "require.hpp"
 
 using namespace neutron;

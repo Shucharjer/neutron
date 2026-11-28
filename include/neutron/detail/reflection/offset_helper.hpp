@@ -1,7 +1,9 @@
 #pragma once
-#include <array>
-#include <cstddef>
-#include <cstdint>
+#ifndef ATOM_BUILDING_MODULE
+    #include <array>
+    #include <cstddef>
+    #include <cstdint>
+#endif
 #include "neutron/detail/utility/macros.hpp"
 
 namespace neutron::_refl {
@@ -2058,14 +2060,12 @@ struct offset_helper {
     std::uint8_t off2047;
 };
 
-constexpr std::size_t offset_map_size = 256;
+inline constexpr std::size_t offset_map_size = 256;
 
 // NOLINTBEGIN(cppcoreguidelines-macro-usage)
 #define ATOM_CONCAT_(a, b) a##b
 #define ATOM_CONCAT(a, b) ATOM_CONCAT_(a, b)
 #define ATOM_SET_THE_OFFSET_(n, o) arr[n] = ATOM_CONCAT(&offset_helper::off, o);
-
-inline namespace {
 
 consteval auto offset_map0() noexcept {
     std::array<std::uint8_t offset_helper::*, offset_map_size> arr{};
@@ -4464,11 +4464,9 @@ constexpr auto offset_mapping7(const std::size_t off) noexcept {
     return offsets.at(off);
 }
 
-} // namespace
-
-constexpr static auto _offset_mapping(const std::size_t offset) noexcept {
+constexpr auto _offset_mapping(const std::size_t offset) noexcept {
     using mappingfunc =
-        unsigned char offset_helper::* (*)(const size_t) noexcept;
+        unsigned char offset_helper::* (*)(const std::size_t) noexcept;
     constexpr auto mapping_count = sizeof(offset_helper) / offset_map_size;
 
     const std::size_t map = offset / offset_map_size;

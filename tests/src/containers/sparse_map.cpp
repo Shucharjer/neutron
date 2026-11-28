@@ -1,11 +1,16 @@
-#include <cstddef>
-#include <initializer_list>
-#include <memory>
-#include <memory_resource>
-#include <tuple>
-#include <utility>
-#include <neutron/sparse_map.hpp>
-#include <neutron/utility.hpp>
+#ifdef ATOM_USES_MODULES
+import std;
+import neutron;
+#else
+    #include <cstddef>
+    #include <initializer_list>
+    #include <memory>
+    #include <memory_resource>
+    #include <tuple>
+    #include <utility>
+    #include <neutron/sparse_map.hpp>
+    #include <neutron/utility.hpp>
+#endif
 #include "require.hpp"
 
 using namespace neutron;

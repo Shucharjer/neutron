@@ -1,12 +1,15 @@
 // IWYU pragma: private, include <neutron/metafn.hpp>
 #pragma once
-#include <concepts>
+#ifndef ATOM_BUILDING_MODULE
+    #include <concepts>
+#endif
 #include "neutron/detail/metafn/cat.hpp"
 #include "neutron/detail/metafn/convert.hpp"
+#include "neutron/detail/utility/macros.hpp"
 
 namespace neutron {
 
-template <template <typename...> typename Tmp, typename TypeList>
+ATOM_EXPORT template <template <typename...> typename Tmp, typename TypeList>
 struct type_list_expose;
 template <
     template <typename...> typename Tmp,
@@ -29,7 +32,7 @@ struct type_list_expose<Tmp, Template<Tys...>> {
 
     using type = type_list_cat_t<typename expose<Tys>::type...>;
 };
-template <template <typename...> typename Tmp, typename TypeList>
+ATOM_EXPORT template <template <typename...> typename Tmp, typename TypeList>
 using type_list_expose_t = typename type_list_expose<Tmp, TypeList>::type;
 
 /**
@@ -38,7 +41,7 @@ using type_list_expose_t = typename type_list_expose<Tmp, TypeList>::type;
  * @note Matter the identifier of a type by using class template like `same_cv`.
  * @note The reference do not means something like `&`.
  */
-template <typename To, typename Reference>
+ATOM_EXPORT template <typename To, typename Reference>
 using ignore_cvref = std::remove_cvref<To>;
 
 /** @brief Recursively flattens nested instantiations of a given template within
@@ -60,7 +63,7 @@ using ignore_cvref = std::remove_cvref<To>;
  *                    needed. Defaults to `ignore_cvref`, which discards
  *                    qualifiers.
  */
-template <
+ATOM_EXPORT template <
     template <typename...> typename Tmp, typename TypeList,
     template <typename, typename> typename Qualifier = ignore_cvref>
 struct type_list_recurse_expose;
@@ -129,7 +132,7 @@ struct type_list_recurse_expose<Tmp, Template<Tys...>, Qualifier> {
  * @tparam TypeList   Input type list (e.g., `std::tuple<A, B, std::tuple<C>>`).
  * @tparam Qualifier  Qualifier handling policy (default: `ignore_cvref`).
  */
-template <
+ATOM_EXPORT template <
     template <typename...> typename Tmp, typename TypeList,
     template <typename, typename> typename Qualifier = ignore_cvref>
 using type_list_recurse_expose_t =

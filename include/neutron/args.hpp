@@ -1,14 +1,22 @@
 #pragma once
-#include <cstddef>
-#include <string_view>
-#include <tuple>
-#include <utility>
-#include <vector>
-#include "neutron/detail/string/tstring.hpp"
+
+#if defined(ATOM_USES_MODULES) && !defined(ATOM_BUILDING_MODULE)
+    #include "neutron/macros.hpp"
+#else
+
+    #ifndef ATOM_BUILDING_MODULE
+        #include <cstddef>
+        #include <string_view>
+        #include <tuple>
+        #include <utility>
+        #include <vector>
+    #endif
+    #include "neutron/detail/string/tstring.hpp"
+    #include "neutron/detail/utility/macros.hpp"
 
 namespace neutron {
 
-template <typename Ty, tstring Alpha, tstring Meaning>
+ATOM_EXPORT template <typename Ty, tstring Alpha, tstring Meaning>
 struct argument {
     constexpr static auto alpha() noexcept -> std::string_view {
         return Alpha.view();
@@ -19,7 +27,7 @@ struct argument {
     Ty value;
 };
 
-template <typename Ty, tstring Alpha, tstring Meaning>
+ATOM_EXPORT template <typename Ty, tstring Alpha, tstring Meaning>
 struct multi_argument {
     constexpr static auto alpha() noexcept -> std::string_view {
         return Alpha.view();
@@ -30,19 +38,20 @@ struct multi_argument {
     std::vector<Ty> values;
 };
 
-using remain_arguments = argument<const char* const*, "-", "remains">;
+ATOM_EXPORT using remain_arguments =
+    argument<const char* const*, "-", "remains">;
 
-template <typename... Args>
+ATOM_EXPORT template <typename... Args>
 requires((Args::alpha() != "-") && ...)
 class parser {
     using tuple_type                   = std::tuple<Args..., remain_arguments>;
-    constexpr static size_t args_count = sizeof...(Args) + 1;
+    constexpr static std::size_t args_count = sizeof...(Args) + 1;
     tuple_type args_;
 
     template <tstring Alpha>
-    consteval static size_t _index() noexcept {
-        size_t result = args_count;
-        [&]<size_t... Is>(std::index_sequence<Is...>) {
+    consteval static std::size_t _index() noexcept {
+        std::size_t result = args_count;
+        [&]<std::size_t... Is>(std::index_sequence<Is...>) {
             (..., (result = std::tuple_element_t<Is, tuple_type>::alpha() ==
                                     Alpha.view()
                                 ? Is
@@ -79,3 +88,5 @@ public:
 };
 
 } // namespace neutron
+
+#endif

@@ -1,3 +1,7 @@
+#ifdef ATOM_USES_MODULES
+import std;
+import neutron;
+#endif
 #include "require.hpp"
 
 // No tests yet.

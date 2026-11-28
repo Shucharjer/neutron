@@ -4,10 +4,12 @@
 
 #if ATOM_HAS_REFLECTION && false
 
-    #include <array>
-    #include <cstddef>
-    #include <meta>
-    #include <string_view>
+    #ifndef ATOM_BUILDING_MODULE
+        #include <array>
+        #include <cstddef>
+        #include <meta>
+        #include <string_view>
+    #endif
 
 namespace neutron {
 
@@ -75,8 +77,7 @@ consteval std::string_view name_of() noexcept {
 
 namespace neutron {
 
-using _refl_legacy::name_of;
-
+ATOM_EXPORT using _refl_legacy::name_of;
 }
 
 #endif

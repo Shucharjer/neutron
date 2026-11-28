@@ -1,6 +1,8 @@
 #pragma once
-#include <concepts>
-#include <memory>
+#ifndef ATOM_BUILDING_MODULE
+    #include <concepts>
+    #include <memory>
+#endif
 
 namespace neutron::internal {
 

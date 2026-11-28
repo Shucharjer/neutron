@@ -1,14 +1,17 @@
 // IWYU pragma: private, include <neutron/reflection.hpp>
 #pragma once
+#include "neutron/detail/utility/macros.hpp"
 
 // some errors would be caused when compile simdjson.h with gcc
 #if __has_include(<simdjson.h>)
-    #include <cstddef>
-    #include <string>
-    #include <string_view>
-    #include <type_traits>
-    #include <utility>
-    #include <simdjson.h>
+    #ifndef ATOM_BUILDING_MODULE
+        #include <cstddef>
+        #include <string>
+        #include <string_view>
+        #include <type_traits>
+        #include <utility>
+        #include <simdjson.h>
+    #endif
     #include "neutron/detail/utility/macros.hpp"
     #include "neutron/detail/reflection/refl.hpp"
     #include "neutron/detail/utility/get.hpp"

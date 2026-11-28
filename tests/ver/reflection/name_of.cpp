@@ -1,10 +1,12 @@
-#include <array>
-#include <cstddef>
-#include <iostream>
-#include <map>
-#include <optional>
-#include <tuple>
-#include <utility>
+#ifndef ATOM_USES_MODULES
+    #include <array>
+    #include <cstddef>
+    #include <iostream>
+    #include <map>
+    #include <optional>
+    #include <tuple>
+    #include <utility>
+#endif
 
 #include "neutron/reflection.hpp"
 

@@ -1,18 +1,24 @@
-#include <algorithm>
-#include <bit>
-#include <concepts>
-#include <cstddef>
-#include <functional>
-#include <iterator>
-#include <memory>
-#include <ranges>
-#include <stdexcept>
-#include <string>
-#include <type_traits>
-#include <utility>
-#include <vector>
-#include <neutron/flat_hash_map.hpp>
-#include <neutron/utility.hpp>
+#include "neutron/detail/utility/macros.hpp"
+#ifdef ATOM_USES_MODULES
+import std;
+import neutron;
+#else
+    #include <algorithm>
+    #include <bit>
+    #include <concepts>
+    #include <cstddef>
+    #include <functional>
+    #include <iterator>
+    #include <memory>
+    #include <ranges>
+    #include <stdexcept>
+    #include <string>
+    #include <type_traits>
+    #include <utility>
+    #include <vector>
+    #include <neutron/flat_hash_map.hpp>
+    #include <neutron/utility.hpp>
+#endif
 #include "require.hpp"
 
 namespace {

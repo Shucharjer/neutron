@@ -1,8 +1,10 @@
 // IWYU pragma: private, include <neutron/utility.hpp>
 #pragma once
-#include <cstddef>
-#include <type_traits>
-#include <utility>
+#ifndef ATOM_BUILDING_MODULE
+    #include <cstddef>
+    #include <type_traits>
+    #include <utility>
+#endif
 #include "neutron/detail/utility/macros.hpp"
 
 namespace neutron {

@@ -1,9 +1,10 @@
 // IWYU pragma: private, include <neutron/metafn.hpp>
 #pragma once
+#include "neutron/detail/utility/macros.hpp"
 
 namespace neutron {
 
-template <template <typename...> typename List, typename>
+ATOM_EXPORT template <template <typename...> typename List, typename>
 struct append_type_list;
 template <
     template <typename...> typename List,
@@ -11,10 +12,10 @@ template <
 struct append_type_list<List, Template<Tys...>> {
     using type = Template<Tys..., List<>>;
 };
-template <template <typename...> typename List, typename Target>
+ATOM_EXPORT template <template <typename...> typename List, typename Target>
 using append_type_list_t = typename append_type_list<List, Target>::type;
 
-template <template <auto...> typename List, typename>
+ATOM_EXPORT template <template <auto...> typename List, typename>
 struct append_value_list;
 template <
     template <auto...> typename List, template <typename...> typename Template,
@@ -22,7 +23,7 @@ template <
 struct append_value_list<List, Template<Tys...>> {
     using type = Template<Tys..., List<>>;
 };
-template <template <auto...> typename List, typename Target>
+ATOM_EXPORT template <template <auto...> typename List, typename Target>
 using append_value_list_t = typename append_value_list<List, Target>::type;
 
 } // namespace neutron

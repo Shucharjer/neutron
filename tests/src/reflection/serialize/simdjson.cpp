@@ -1,11 +1,21 @@
 #if __has_include(<simdjson.h>)
-    #include <cstdint>
-    #include <optional>
-    #include <string>
-    #include <string_view>
-    #include <vector>
+    // Before `import std;`, as a third-party header.
     #include <simdjson.h>
-    #include <neutron/reflection.hpp>
+    #include "neutron/detail/utility/macros.hpp"
+    #if !ATOM_HAS_REFLECTION
+        #include "neutron/detail/reflection/legacy/user_macros.hpp"
+    #endif
+    #ifdef ATOM_USES_MODULES
+import std;
+import neutron;
+    #else
+        #include <cstdint>
+        #include <optional>
+        #include <string>
+        #include <string_view>
+        #include <vector>
+        #include <neutron/reflection.hpp>
+    #endif
     #include "require.hpp"
 
 using namespace neutron;

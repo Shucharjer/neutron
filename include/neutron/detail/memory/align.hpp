@@ -1,18 +1,21 @@
 // IWYU pragma: private, include <neutron/memory.hpp>
 #pragma once
-#include <concepts>
-#include <cstddef>
+#ifndef ATOM_BUILDING_MODULE
+    #include <concepts>
+    #include <cstddef>
+#endif
+#include "neutron/detail/utility/macros.hpp"
 
 namespace neutron {
 
-template <std::unsigned_integral T>
-constexpr T align_up(T val, size_t align) noexcept {
+ATOM_EXPORT template <std::unsigned_integral T>
+constexpr T align_up(T val, std::size_t align) noexcept {
     const auto mask = static_cast<T>(align - 1U);
     return (val + mask) & ~mask;
 }
 
-template <std::unsigned_integral T>
-constexpr T align_down(T val, size_t align) noexcept {
+ATOM_EXPORT template <std::unsigned_integral T>
+constexpr T align_down(T val, std::size_t align) noexcept {
     const auto mask = static_cast<T>(align - 1U);
     return val & ~mask;
 }

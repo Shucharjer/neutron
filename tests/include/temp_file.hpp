@@ -1,9 +1,12 @@
 #pragma once
-#include <atomic>
-#include <chrono>
-#include <filesystem>
-#include <string>
-#include <system_error>
+// With modules, the includer imports std.
+#ifndef ATOM_USES_MODULES
+    #include <atomic>
+    #include <chrono>
+    #include <filesystem>
+    #include <string>
+    #include <system_error>
+#endif
 #include "neutron/detail/utility/macros.hpp"
 
 namespace neutron_test {

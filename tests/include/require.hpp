@@ -1,7 +1,10 @@
 #pragma once
-#include <atomic>
-#include <cstdio>
-#include <source_location>
+// With modules, the includer imports std.
+#ifndef ATOM_USES_MODULES
+    #include <atomic>
+    #include <iostream>
+    #include <source_location>
+#endif
 
 /**
  * @file
@@ -33,10 +36,12 @@ inline bool check(
     const std::source_location& loc) noexcept {
     if (passed != expected) {
         failures.fetch_add(1, std::memory_order_relaxed);
-        std::fprintf(
-            stderr, "%s:%u: in %s\n  %s(%s) failed\n", loc.file_name(),
-            static_cast<unsigned>(loc.line()), loc.function_name(),
-            expected ? "require" : "require_false", expression);
+        // `std::cerr` instead of `stderr`, which is a macro that modules do
+        // not export.
+        std::cerr << loc.file_name() << ':' << loc.line() << ": in "
+                  << loc.function_name() << "\n  "
+                  << (expected ? "require" : "require_false") << '('
+                  << expression << ") failed\n";
     }
     return passed == expected;
 }

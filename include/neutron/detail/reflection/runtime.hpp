@@ -1,6 +1,8 @@
 #pragma once
-#include <cstdint>
-#include <string_view>
+#ifndef ATOM_BUILDING_MODULE
+    #include <cstdint>
+    #include <string_view>
+#endif
 #include "neutron/detail/reflection/hash_t.hpp"
 #include "neutron/detail/reflection/refl.hpp"
 #include "neutron/detail/reflection/type_traits.hpp"

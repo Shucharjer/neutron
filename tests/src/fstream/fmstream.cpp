@@ -1,11 +1,16 @@
-#include <cstddef>
-#include <fstream>
-#include <ios>
-#include <iterator>
-#include <string>
-#include <type_traits>
-#include <utility>
-#include <neutron/fstream.hpp>
+#include "neutron/detail/utility/macros.hpp"
+// With modules, an implementation unit of neutron that imports std, see
+// `internal_tests`.
+#ifndef ATOM_USES_MODULES
+    #include <cstddef>
+    #include <fstream>
+    #include <ios>
+    #include <iterator>
+    #include <string>
+    #include <type_traits>
+    #include <utility>
+    #include <neutron/fstream.hpp>
+#endif
 #include "require.hpp"
 #include "temp_file.hpp"
 
@@ -216,7 +221,7 @@ void test_app_and_trunc_together_set_failbit() {
 
 } // namespace
 
-int main() {
+extern "C++" int main() {
     test_bytes_survive_a_round_trip();
     test_written_bytes_read_back_in_the_same_stream();
     test_reading_stops_at_the_written_size();

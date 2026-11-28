@@ -1,5 +1,10 @@
-#include <tuple>
-#include <neutron/ecs.hpp>
+#ifdef ATOM_USES_MODULES
+import std;
+import neutron;
+#else
+    #include <tuple>
+    #include <neutron/ecs.hpp>
+#endif
 #include "require.hpp"
 
 using namespace neutron;

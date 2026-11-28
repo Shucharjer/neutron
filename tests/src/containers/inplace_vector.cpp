@@ -1,9 +1,15 @@
-#include <array>
-#include <cstddef>
-#include <string>
-#include <utility>
-#include <vector>
-#include <neutron/inplace_vector.hpp>
+#include "neutron/detail/utility/macros.hpp"
+#ifdef ATOM_USES_MODULES
+import std;
+import neutron;
+#else
+    #include <array>
+    #include <cstddef>
+    #include <string>
+    #include <utility>
+    #include <vector>
+    #include <neutron/inplace_vector.hpp>
+#endif
 #include "require.hpp"
 
 using namespace neutron;

@@ -1,11 +1,16 @@
-#include <algorithm>
-#include <array>
-#include <list>
-#include <map>
-#include <ranges>
-#include <string>
-#include <vector>
-#include <neutron/ranges.hpp>
+#ifdef ATOM_USES_MODULES
+import std;
+import neutron;
+#else
+    #include <algorithm>
+    #include <array>
+    #include <list>
+    #include <map>
+    #include <ranges>
+    #include <string>
+    #include <vector>
+    #include <neutron/ranges.hpp>
+#endif
 #include "require.hpp"
 
 using namespace neutron;

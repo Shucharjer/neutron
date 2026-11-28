@@ -1,13 +1,15 @@
 #pragma once
-#include <algorithm>
-#include <atomic>
-#include <bit>
-#include <concepts>
-#include <cstddef>
-#include <memory>
-#include <new>
-#include <type_traits>
-#include <utility>
+#ifndef ATOM_BUILDING_MODULE
+    #include <algorithm>
+    #include <atomic>
+    #include <bit>
+    #include <concepts>
+    #include <cstddef>
+    #include <memory>
+    #include <new>
+    #include <type_traits>
+    #include <utility>
+#endif
 #include "neutron/detail/lockfree/hardware_destructive_interference_size.hpp"
 #include "neutron/detail/memory/rebind_alloc.hpp"
 #include "neutron/detail/utility/completion_guard.hpp"
@@ -40,7 +42,7 @@ namespace neutron {
  * @tparam T The type of the stored values.
  * @tparam Alloc The allocator type, rebound to the internal blocks.
  */
-template <typename T, typename Alloc = std::allocator<T>>
+ATOM_EXPORT template <typename T, typename Alloc = std::allocator<T>>
 class spsc_queue {
     static_assert(
         std::is_nothrow_destructible_v<T>,
@@ -265,7 +267,7 @@ private:
     /// @note The producer must own a free slot.
     template <typename... Args>
     ATOM_ATTRS(ATOM_ALWAYS_INLINE)
-    void _emplace(Args&&... args) {
+    inline void _emplace(Args&&... args) {
         _slot_t& slot = prod_.slots[prod_.index & prod_.mask];
         alloc_traits::construct(
             alloc_, slot.raw(), std::forward<Args>(args)...);
@@ -335,7 +337,7 @@ private:
     }
 
     /// @brief Checks whether the consumer's current slot holds a value.
-    ATOM_ATTRS(ATOM_ALWAYS_INLINE) auto _ready() const noexcept -> bool {
+    ATOM_ATTRS(ATOM_ALWAYS_INLINE) inline auto _ready() const noexcept -> bool {
         const size_type index = cons_.index;
         if (cons_.slots[index & cons_.mask].seq.load(
                 std::memory_order_acquire) == index + 1) {
@@ -346,7 +348,7 @@ private:
     }
 
     ATOM_ATTRS(ATOM_ALWAYS_INLINE)
-    auto _front_slot() const noexcept -> _slot_t& {
+    inline auto _front_slot() const noexcept -> _slot_t& {
         if (cons_.index == cons_.limit) [[unlikely]] {
             _refill();
         }

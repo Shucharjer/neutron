@@ -3,12 +3,14 @@
 
 #if ATOM_HAS_REFLECTION
 
-    #include <cstddef>
-    #include <meta>
+    #ifndef ATOM_BUILDING_MODULE
+        #include <cstddef>
+        #include <meta>
+    #endif
 
 namespace neutron {
 
-template <typename T>
+ATOM_EXPORT template <typename T>
 constexpr std::size_t member_count_of() {
     using namespace std::meta;
     constexpr auto ctx = access_context::unchecked();

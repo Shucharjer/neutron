@@ -1,7 +1,10 @@
 #pragma once
-#include <array>
-#include <cstddef>
-#include <neutron/detail/metafn/size.hpp>
+#ifndef ATOM_BUILDING_MODULE
+    #include <array>
+    #include <cstddef>
+#endif
+#include "neutron/detail/metafn/size.hpp"
+#include "neutron/detail/utility/macros.hpp"
 
 namespace neutron {
 
@@ -24,7 +27,10 @@ struct _make_helper<Template<Values...>> {
 
 } // namespace _make_array
 
-template <typename ValueList>
+// Constrained, so that `make_array<Ty>()` of <neutron/utility.hpp> is chosen
+// for an element type.
+ATOM_EXPORT template <typename ValueList>
+requires requires { _make_array::_make_helper<ValueList>{}(); }
 constexpr auto make_array() {
     return _make_array::_make_helper<ValueList>{}();
 }

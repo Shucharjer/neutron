@@ -1,12 +1,14 @@
 // IWYU pragma: private, include <neutron/string.hpp>
 #pragma once
-#include <algorithm>
-#include <cstddef>
-#include <cstdint>
-#include <format>
-#include <limits>
-#include <string_view>
-#include <type_traits>
+#ifndef ATOM_BUILDING_MODULE
+    #include <algorithm>
+    #include <cstddef>
+    #include <cstdint>
+    #include <format>
+    #include <limits>
+    #include <string_view>
+    #include <type_traits>
+#endif
 #include "neutron/detail/utility/macros.hpp"
 
 namespace neutron {
@@ -23,7 +25,7 @@ namespace neutron {
  * @tparam CharT The character type.
  * @tparam Capacity The maximum number of characters kept.
  */
-template <typename CharT, std::size_t Capacity>
+ATOM_EXPORT template <typename CharT, std::size_t Capacity>
 requires(Capacity != 0 && Capacity <= std::numeric_limits<std::uint16_t>::max())
 class basic_inplace_string {
 public:
@@ -80,7 +82,7 @@ private:
     bool truncated_     = false;
 };
 
-template <std::size_t Capacity>
+ATOM_EXPORT template <std::size_t Capacity>
 using inplace_string = basic_inplace_string<char, Capacity>;
 
 } // namespace neutron

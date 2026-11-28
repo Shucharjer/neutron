@@ -1,14 +1,17 @@
 // IWYU pragma: private, include <neutron/algorithm.hpp>
 #pragma once
-#include <bit>
-#include <concepts>
-#include <functional>
-#include <iterator>
-#include <ranges>
+#ifndef ATOM_BUILDING_MODULE
+    #include <bit>
+    #include <concepts>
+    #include <functional>
+    #include <iterator>
+    #include <ranges>
+#endif
+#include "neutron/detail/utility/macros.hpp"
 
 namespace neutron {
 
-template <
+ATOM_EXPORT template <
     std::random_access_iterator RandomAccessIter, typename Val, typename Comp>
 requires std::strict_weak_order<Comp, std::iter_value_t<RandomAccessIter>, Val>
 constexpr auto branchless_lower_bound(
@@ -36,7 +39,8 @@ constexpr auto branchless_lower_bound(
     return first + comp(*first, val);
 }
 
-template <std::random_access_iterator RandomAccessIter, typename Val>
+ATOM_EXPORT template <
+    std::random_access_iterator RandomAccessIter, typename Val>
 constexpr auto branchless_lower_bound(
     RandomAccessIter first, RandomAccessIter last, const Val& val) noexcept {
     return branchless_lower_bound(first, last, val, std::less<>{});
@@ -53,7 +57,7 @@ struct _branchless_lower_bound_t {
     }
 };
 
-inline constexpr _branchless_lower_bound_t branchless_lower_bound;
+ATOM_EXPORT inline constexpr _branchless_lower_bound_t branchless_lower_bound;
 
 } // namespace ranges
 

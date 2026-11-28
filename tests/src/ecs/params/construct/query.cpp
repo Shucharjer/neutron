@@ -1,8 +1,14 @@
-#include <atomic>
-#include <cstddef>
-#include <memory>
-#include <neutron/ecs.hpp>
-#include <neutron/execution.hpp>
+#include "neutron/detail/utility/macros.hpp"
+#ifdef ATOM_USES_MODULES
+import std;
+import neutron;
+#else
+    #include <atomic>
+    #include <cstddef>
+    #include <memory>
+    #include <neutron/ecs.hpp>
+    #include <neutron/execution.hpp>
+#endif
 #include "require.hpp"
 #include "thread_pool.hpp"
 

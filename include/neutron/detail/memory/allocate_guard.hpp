@@ -1,11 +1,13 @@
 // IWYU pragma: private, include <neutron/memory.hpp>
 #pragma once
-#include <concepts>
-#include <cstddef>
-#include <memory>
-#include <tuple>
-#include <type_traits>
-#include <utility>
+#ifndef ATOM_BUILDING_MODULE
+    #include <concepts>
+    #include <cstddef>
+    #include <memory>
+    #include <tuple>
+    #include <type_traits>
+    #include <utility>
+#endif
 #include "neutron/detail/memory/rebind_alloc.hpp"
 #include "neutron/detail/utility/macros.hpp"
 #include "neutron/detail/utility/spreader.hpp"
@@ -97,7 +99,7 @@ private:
 
 } // namespace internal
 
-template <typename Alloc, typename... Args>
+ATOM_EXPORT template <typename Alloc, typename... Args>
 struct allocate_guard :
     internal::_allocate_guard_impl<
         rebind_alloc_t<Alloc, std::byte>, std::index_sequence_for<Args...>,
@@ -115,16 +117,18 @@ struct allocate_guard :
  * Allocations not taken by `get() &&` return to the allocator when the guard
  * is destroyed, including when a later allocation throws.
  */
-template <typename... Args, typename Alloc = std::allocator<std::byte>>
-ATOM_ATTRS(ATOM_NODISCARD) ATOM_CONSTEXPR_SINCE_CXX20 auto
-    make_allocate_guard(std::size_t n, const Alloc& alloc = {}) {
+ATOM_EXPORT template <
+    typename... Args, typename Alloc = std::allocator<std::byte>>
+ATOM_ATTRS(ATOM_NODISCARD)
+ATOM_CONSTEXPR_SINCE_CXX20
+    auto make_allocate_guard(std::size_t n, const Alloc& alloc = {}) {
     return allocate_guard<Alloc, Args...>(n, alloc);
 }
 
 /**
  * @brief Moves every allocation of the guard into `ptrs`.
  */
-template <typename... Args, typename Alloc>
+ATOM_EXPORT template <typename... Args, typename Alloc>
 ATOM_CONSTEXPR_SINCE_CXX20 void apply_allocation(
     allocate_guard<Alloc, Args...>& guard, Args*&... ptrs) noexcept {
     [&]<std::size_t... Is>(std::index_sequence<Is...>) {

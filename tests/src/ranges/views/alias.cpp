@@ -1,8 +1,13 @@
-#include <map>
-#include <ranges>
-#include <type_traits>
-#include <vector>
-#include <neutron/ranges.hpp>
+#ifdef ATOM_USES_MODULES
+import std;
+import neutron;
+#else
+    #include <map>
+    #include <ranges>
+    #include <type_traits>
+    #include <vector>
+    #include <neutron/ranges.hpp>
+#endif
 #include "require.hpp"
 
 // Declarations added to neutron::ranges::views are visible through the alias.

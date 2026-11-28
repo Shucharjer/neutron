@@ -1,4 +1,9 @@
-#include <neutron/lockfree.hpp>
+#ifdef ATOM_USES_MODULES
+import std;
+import neutron;
+#else
+    #include <neutron/lockfree.hpp>
+#endif
 #include "require.hpp"
 
 // mpsc_queue is still a draft, so this only checks that the header compiles.

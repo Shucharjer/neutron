@@ -1,5 +1,10 @@
-#include <coroutine>
-#include <neutron/concepts.hpp>
+#ifdef ATOM_USES_MODULES
+import std;
+import neutron;
+#else
+    #include <coroutine>
+    #include <neutron/concepts.hpp>
+#endif
 #include "require.hpp"
 
 using namespace neutron;

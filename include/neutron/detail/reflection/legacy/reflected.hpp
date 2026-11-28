@@ -1,7 +1,9 @@
 // IWYU pragma: private, include <neutron/reflection.hpp>
 #pragma once
-#include <string_view>
-#include <tuple>
+#ifndef ATOM_BUILDING_MODULE
+    #include <string_view>
+    #include <tuple>
+#endif
 #include "neutron/detail/reflection/legacy/concepts.hpp"
 #include "neutron/detail/reflection/legacy/destroy.hpp"
 #include "neutron/detail/reflection/legacy/hash_of.hpp"
@@ -9,17 +11,18 @@
 #include "neutron/detail/reflection/legacy/name_of.hpp"
 #include "neutron/detail/reflection/type_traits.hpp"
 #include "neutron/detail/string/tstring.hpp"
+#include "neutron/detail/utility/macros.hpp"
 
 namespace neutron::_refl_legacy {
 
-constexpr static inline std::string_view empty_string;
-constexpr static inline std::tuple<> empty_tuple{};
+inline constexpr std::string_view empty_string;
+inline constexpr std::tuple<> empty_tuple{};
 
 /**
  * @brief Recording basic information about a type.
  *
  */
-struct basic_reflected {
+ATOM_EXPORT struct basic_reflected {
 public:
     constexpr basic_reflected(const basic_reflected&) noexcept = default;
     constexpr basic_reflected&
@@ -73,7 +76,7 @@ private:
  *
  * @tparam Ty The reflected type.
  */
-template <value Ty>
+ATOM_EXPORT template <value Ty>
 struct reflected final : public basic_reflected {
     constexpr reflected() noexcept
         : basic_reflected(

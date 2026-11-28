@@ -1,11 +1,16 @@
-#include <algorithm>
-#include <array>
-#include <cstddef>
-#include <thread>
-#include <type_traits>
-#include <utility>
-#include <vector>
-#include <neutron/identity.hpp>
+#ifdef ATOM_USES_MODULES
+import std;
+import neutron;
+#else
+    #include <algorithm>
+    #include <array>
+    #include <cstddef>
+    #include <thread>
+    #include <type_traits>
+    #include <utility>
+    #include <vector>
+    #include <neutron/identity.hpp>
+#endif
 #include "require.hpp"
 
 using namespace neutron;

@@ -1,7 +1,9 @@
 // IWYU pragma: private, include <neutron/memory.hpp>
 #pragma once
-#include <concepts>
-#include <memory>
+#ifndef ATOM_BUILDING_MODULE
+    #include <concepts>
+    #include <memory>
+#endif
 #include "neutron/detail/concepts/allocator.hpp"
 #include "neutron/detail/utility/macros.hpp"
 #include "neutron/detail/memory/using_allocator.hpp"
@@ -11,7 +13,7 @@
 
 namespace neutron {
 
-struct memstorage {
+ATOM_EXPORT struct memstorage {
     template <typename Base>
     struct interface : Base {
         ATOM_ATTRS(ATOM_NODISCARD) void* raw() noexcept {
@@ -36,7 +38,8 @@ struct memstorage {
  * @tparam Alloc The allocator to be used for the storage.
  * @note This class is not thread-safe.
  */
-template <typename Ty, std_simple_allocator Alloc = std::allocator<Ty>>
+ATOM_EXPORT template <
+    typename Ty, std_simple_allocator Alloc = std::allocator<Ty>>
 class unique_storage :
     private std::allocator_traits<Alloc>::template rebind_alloc<Ty> {
     template <typename T, std_simple_allocator Al>

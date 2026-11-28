@@ -1,13 +1,18 @@
-#include <atomic>
-#include <chrono>
-#include <cstdint>
-#include <stdexcept>
-#include <string>
-#include <neutron/detail/ecs/runtime/runtime.hpp>
-#include <neutron/ecs.hpp>
-#include <neutron/execution.hpp>
-#include "neutron/detail/reflection/refl.hpp"
-#include "neutron/print.hpp"
+#include "neutron/detail/utility/macros.hpp"
+// With modules, an implementation unit of neutron that imports std, see
+// `internal_tests`.
+#ifndef ATOM_USES_MODULES
+    #include <atomic>
+    #include <chrono>
+    #include <cstdint>
+    #include <stdexcept>
+    #include <string>
+    #include <neutron/detail/ecs/runtime/runtime.hpp>
+    #include <neutron/ecs.hpp>
+    #include <neutron/execution.hpp>
+    #include "neutron/detail/reflection/refl.hpp"
+    #include "neutron/print.hpp"
+#endif
 #include "require.hpp"
 #include "thread_pool.hpp"
 
@@ -100,7 +105,7 @@ void test_worlds_in_different_groups_run_together() {
     rt.run();
 }
 
-int main() {
+extern "C++" int main() {
     test_single_world_runs_until_payload_stops();
     test_individual_world_runs_beside_main_world();
     test_worlds_in_the_same_group_run_together();

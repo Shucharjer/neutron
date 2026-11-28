@@ -1,11 +1,14 @@
 // IWYU pragma: private, include <neutron/metafn.hpp>
 #pragma once
-#include <cstddef>
-#include <tuple>
-#include <utility>
+#ifndef ATOM_BUILDING_MODULE
+    #include <cstddef>
+    #include <tuple>
+    #include <utility>
+#endif
+#include "neutron/detail/utility/macros.hpp"
 
 namespace neutron {
-template <typename Ty, typename Tuple>
+ATOM_EXPORT template <typename Ty, typename Tuple>
 struct tuple_first;
 template <
     typename Ty, template <typename...> typename Template, typename... Types>
@@ -18,16 +21,16 @@ struct tuple_first<Ty, Template<Types...>> {
         }(std::index_sequence_for<Types...>());
     static_assert(value < sizeof...(Types), "Type not found in tuple");
 };
-template <typename Ty, typename Tuple>
+ATOM_EXPORT template <typename Ty, typename Tuple>
 constexpr std::size_t tuple_first_v = tuple_first<Ty, Tuple>::value;
 
-template <typename Ty, typename... Tys>
+ATOM_EXPORT template <typename Ty, typename... Tys>
 requires(tuple_first_v<Ty, std::tuple<Tys...>> != static_cast<std::size_t>(-1))
 constexpr Ty& get_first(std::tuple<Tys...>& tuple) noexcept {
     return std::get<tuple_first_v<Ty, std::tuple<Tys...>>>(tuple);
 }
 
-template <typename Ty, typename... Tys>
+ATOM_EXPORT template <typename Ty, typename... Tys>
 requires(tuple_first_v<Ty, std::tuple<Tys...>> != static_cast<std::size_t>(-1))
 constexpr const Ty& get_first(const std::tuple<Tys...>& tuple) noexcept {
     return std::get<tuple_first_v<Ty, std::tuple<Tys...>>>(tuple);

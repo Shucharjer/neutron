@@ -1,6 +1,5 @@
 // IWYU pragma: private, include <neutron/metafn.hpp>
 #pragma once
-#include <neutron/metafn.hpp>
 #include "neutron/detail/metafn/append.hpp"
 #include "neutron/detail/metafn/cat.hpp"
 #include "neutron/detail/metafn/definition.hpp"
@@ -10,6 +9,8 @@
 #include "neutron/detail/metafn/has.hpp"
 #include "neutron/detail/metafn/specific.hpp"
 #include "neutron/detail/metafn/substitute.hpp"
+#include "neutron/detail/utility/macros.hpp"
+#include "neutron/metafn.hpp"
 
 namespace neutron {
 
@@ -45,18 +46,18 @@ struct _type_list_impl<Template, Tmp<Tys...>, Ty> {
 
 } // namespace _metafn_insert_inplace
 
-template <
+ATOM_EXPORT template <
     template <typename...> typename Template, typename TypeList, typename Ty>
 struct insert_type_list_inplace {
     using type = typename _metafn_insert_inplace::_type_list_impl<
         Template, Ty, TypeList>::type;
 };
-template <
+ATOM_EXPORT template <
     template <typename...> typename Template, typename Ty, typename Target>
 using insert_type_list_inplace_t =
     typename insert_type_list_inplace<Template, Ty, Target>::type;
 
-template <
+ATOM_EXPORT template <
     typename Tag, typename TypeList, typename Ty,
     template <typename, typename...> typename TaggedList = tagged_type_list>
 struct insert_tagged_type_list_inplace;
@@ -95,14 +96,14 @@ struct insert_tagged_type_list_inplace<Tag, Template<Tls...>, Ty, TaggedList> {
     using type = typename _metafn_insert_inplace::_tagged_type_list_impl<
         Tag, Template, Ty, TaggedList, Tls...>::type;
 };
-template <
+ATOM_EXPORT template <
     typename Tag, typename TypeList, typename Ty,
     template <typename, typename...> typename TaggedList = tagged_type_list>
 using insert_tagged_type_list_inplace_t =
     typename insert_tagged_type_list_inplace<
         Tag, TypeList, Ty, TaggedList>::type;
 
-template <
+ATOM_EXPORT template <
     typename Tag, typename TypeList, auto Vals,
     template <typename, auto...> typename TaggedList = tagged_value_list>
 struct insert_tagged_value_list_inplace;
@@ -142,14 +143,14 @@ struct insert_tagged_value_list_inplace<
     using type = typename _metafn_insert_inplace::_tagged_value_list_impl<
         Tag, Template, Val, TaggedList, Tls...>::type;
 };
-template <
+ATOM_EXPORT template <
     typename Tag, typename TypeList, auto Val,
     template <typename, auto...> typename TaggedList = tagged_value_list>
 using insert_tagged_value_list_inplace_t =
     typename insert_tagged_value_list_inplace<
         Tag, TypeList, Val, TaggedList>::type;
 
-template <
+ATOM_EXPORT template <
     typename Tag, typename TypeList,
     template <typename, auto...> typename TaggedList, auto... Vals>
 struct insert_range_tagged_value_list_inplace;
@@ -179,7 +180,7 @@ struct insert_range_tagged_value_list_inplace<
         TaggedList, Others...>::type;
 };
 
-template <
+ATOM_EXPORT template <
     typename Tag, typename TypeList,
     template <typename, auto...> typename TaggedList, auto... Vals>
 using insert_range_tagged_value_list_inplace_t =

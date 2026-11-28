@@ -1,17 +1,20 @@
 // IWYU pragma: private, include <neutron/concepts.hpp>
 #pragma once
-#include <array>
-#include <cstddef>
+#ifndef ATOM_BUILDING_MODULE
+    #include <array>
+    #include <cstddef>
+#endif
+#include "neutron/detail/utility/macros.hpp"
 
 namespace neutron {
 
-template <typename T>
+ATOM_EXPORT template <typename T>
 constexpr bool has_fixed_size = false;
 
-template <typename T>
+ATOM_EXPORT template <typename T>
 concept fixed_array = has_fixed_size<T>;
 
-template <typename T>
+ATOM_EXPORT template <typename T>
 constexpr std::size_t fixed_size = 0;
 
 template <typename T, std::size_t Size>

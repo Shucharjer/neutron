@@ -1,10 +1,15 @@
-#include <concepts>
-#include <cstddef>
-#include <cstdint>
-#include <memory>
-#include <string>
-#include <type_traits>
-#include <neutron/memory.hpp>
+#ifdef ATOM_USES_MODULES
+import std;
+import neutron;
+#else
+    #include <concepts>
+    #include <cstddef>
+    #include <cstdint>
+    #include <memory>
+    #include <string>
+    #include <type_traits>
+    #include <neutron/memory.hpp>
+#endif
 #include "require.hpp"
 
 using namespace neutron;
@@ -75,7 +80,7 @@ static_assert(
     std::is_trivially_default_constructible_v<inplace_storage<int, 4, false>>);
 static_assert(std::is_trivially_copyable_v<inplace_storage<int, 4, true>>);
 
-// data() is typed and const-correct; capacity() and max_size() are size_t.
+// data() is typed and const-correct; capacity() and max_size() are std::size_t.
 static_assert(data_of<inplace_storage<int, 4>, int>);
 static_assert(data_of<inplace_storage<int, 4, false>, int>);
 static_assert(data_of<inplace_storage<int, 0>, int>);

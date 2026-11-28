@@ -3,10 +3,11 @@
 #include "neutron/detail/metafn/cat.hpp"
 #include "neutron/detail/metafn/empty.hpp"
 #include "neutron/detail/metafn/has.hpp"
+#include "neutron/detail/utility/macros.hpp"
 
 namespace neutron {
 
-template <typename TypeList, typename = empty_type_list_t<TypeList>>
+ATOM_EXPORT template <typename TypeList, typename = empty_type_list_t<TypeList>>
 struct unique_type_list;
 template <template <typename...> typename Template, typename Prev>
 struct unique_type_list<Template<>, Prev> {
@@ -21,10 +22,11 @@ struct unique_type_list<Template<Ty, Others...>, Prev> {
     using type = unique_type_list<
         Template<Others...>, type_list_cat_t<Prev, current_list>>::type;
 };
-template <typename Tl>
+ATOM_EXPORT template <typename Tl>
 using unique_type_list_t = typename unique_type_list<Tl>::type;
 
-template <typename ValueList, typename = empty_value_list_t<ValueList>>
+ATOM_EXPORT template <
+    typename ValueList, typename = empty_value_list_t<ValueList>>
 struct unique_value_list;
 template <template <auto...> typename Template, typename Prev>
 struct unique_value_list<Template<>, Prev> {
@@ -39,7 +41,7 @@ struct unique_value_list<Template<Val, Others...>, Prev> {
     using type = unique_value_list<
         Template<Others...>, value_list_cat_t<Prev, current_list>>::type;
 };
-template <typename Vl>
+ATOM_EXPORT template <typename Vl>
 using unique_value_list_t = typename unique_value_list<Vl>::type;
 
 } // namespace neutron

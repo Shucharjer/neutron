@@ -1,23 +1,26 @@
 // IWYU pragma: private, include <neutron/sparse_map.hpp>
 #pragma once
-#include <array>
-#include <concepts>
-#include <initializer_list>
-#include <iterator>
-#include <memory>
-#include <memory_resource>
-#include <tuple>
-#include <type_traits>
-#include <utility>
-#include <vector>
+#ifndef ATOM_BUILDING_MODULE
+    #include <array>
+    #include <concepts>
+    #include <initializer_list>
+    #include <iterator>
+    #include <memory>
+    #include <memory_resource>
+    #include <tuple>
+    #include <type_traits>
+    #include <utility>
+    #include <vector>
+#endif
+
 #include "neutron/detail/concepts/allocator.hpp"
 #include "neutron/detail/concepts/pair.hpp"
-#include "neutron/detail/utility/macros.hpp"
 #include "neutron/detail/mask.hpp"
 #include "neutron/detail/memory/rebind_alloc.hpp"
 #include "neutron/detail/memory/unique_storage.hpp"
 #include "neutron/detail/utility/compressed_pair.hpp"
 #include "neutron/detail/utility/const_identity.hpp"
+#include "neutron/detail/utility/macros.hpp"
 
 #if ATOM_HAS_CXX23
     #include "neutron/detail/concepts/map_like.hpp"
@@ -26,7 +29,7 @@
 
 namespace neutron {
 
-template <
+ATOM_EXPORT template <
     std::unsigned_integral Kty, typename Ty, std::size_t PageSize = 32UL,
     std_simple_allocator Alloc = std::allocator<std::pair<const Kty, Ty>>>
 class sparse_map {
@@ -55,9 +58,9 @@ public:
     using alloc_traits           = _dense_alloc_traits_t;
 
     using size_type              = Kty; // may smaller than typename alloc_traits::size_type
-    using difference_type        = typename alloc_traits::difference_type;
-    using pointer                = typename alloc_traits::pointer;
-    using const_pointer          = typename alloc_traits::const_pointer;
+    using difference_type        = alloc_traits::difference_type;
+    using pointer                = alloc_traits::pointer;
+    using const_pointer          = alloc_traits::const_pointer;
     using reference              = value_type&;
     using const_reference        = const value_type&;
 
@@ -69,10 +72,10 @@ public:
     using _sparse_alloc_t        = _allocator_t<_storage_t>;
     using _sparse_alloc_traits   = std::allocator_traits<_sparse_alloc_t>;
 
-    using iterator               = typename _dense_type::iterator;
-    using const_iterator         = typename _dense_type::const_iterator;
-    using reverse_iterator       = typename _dense_type::reverse_iterator;
-    using const_reverse_iterator = typename _dense_type::const_reverse_iterator;
+    using iterator               = _dense_type::iterator;
+    using const_iterator         = _dense_type::const_iterator;
+    using reverse_iterator       = _dense_type::reverse_iterator;
+    using const_reverse_iterator = _dense_type::const_reverse_iterator;
 
     // clang-format on
 
@@ -192,7 +195,8 @@ public:
         return dense_[sparse_[page]->at(offset)].second;
     }
 
-    ATOM_ATTRS(ATOM_NODISCARD) constexpr auto at(const key_type key) const -> const Ty& {
+    ATOM_ATTRS(ATOM_NODISCARD)
+    constexpr auto at(const key_type key) const -> const Ty& {
         auto page   = _page_of(key);
         auto offset = _offset_of(key);
         return dense_[sparse_[page]->at(offset)].second;
@@ -297,8 +301,8 @@ public:
         return _contains_impl(key, page, offset);
     }
 
-    ATOM_ATTRS(ATOM_NODISCARD) constexpr auto find(const key_type key) noexcept
-        -> iterator {
+    ATOM_ATTRS(ATOM_NODISCARD)
+    constexpr auto find(const key_type key) noexcept -> iterator {
         auto page   = _page_of(key);
         auto offset = _offset_of(key);
 
@@ -308,8 +312,8 @@ public:
         return dense_.end();
     }
 
-    ATOM_ATTRS(ATOM_NODISCARD) constexpr auto find(const key_type key) const noexcept
-        -> const_iterator {
+    ATOM_ATTRS(ATOM_NODISCARD)
+    constexpr auto find(const key_type key) const noexcept -> const_iterator {
         auto page   = _page_of(key);
         auto offset = _offset_of(key);
 
@@ -335,58 +339,60 @@ public:
     ATOM_ATTRS(ATOM_NODISCARD) constexpr auto front() -> value_type& {
         return dense_.front();
     }
-    ATOM_ATTRS(ATOM_NODISCARD) constexpr auto front() const -> const value_type& {
-        return dense_.front();
-    }
+    ATOM_ATTRS(ATOM_NODISCARD)
+    constexpr auto front() const -> const value_type& { return dense_.front(); }
 
     ATOM_ATTRS(ATOM_NODISCARD) constexpr auto back() -> value_type& {
         return dense_.back();
     }
-    ATOM_ATTRS(ATOM_NODISCARD) constexpr auto back() const -> const value_type& {
-        return dense_.back();
-    }
+    ATOM_ATTRS(ATOM_NODISCARD)
+    constexpr auto back() const -> const value_type& { return dense_.back(); }
 
     ATOM_ATTRS(ATOM_NODISCARD) constexpr auto begin() noexcept -> iterator {
         return dense_.begin();
     }
-    ATOM_ATTRS(ATOM_NODISCARD) constexpr auto begin() const noexcept -> const_iterator {
+    ATOM_ATTRS(ATOM_NODISCARD)
+    constexpr auto begin() const noexcept -> const_iterator {
         return dense_.begin();
     }
-    ATOM_ATTRS(ATOM_NODISCARD) constexpr auto cbegin() const noexcept -> const_iterator {
+    ATOM_ATTRS(ATOM_NODISCARD)
+    constexpr auto cbegin() const noexcept -> const_iterator {
         return dense_.cbegin();
     }
 
     ATOM_ATTRS(ATOM_NODISCARD) constexpr auto end() noexcept -> iterator {
         return dense_.end();
     }
-    ATOM_ATTRS(ATOM_NODISCARD) constexpr auto end() const noexcept -> const_iterator {
+    ATOM_ATTRS(ATOM_NODISCARD)
+    constexpr auto end() const noexcept -> const_iterator {
         return dense_.end();
     }
-    ATOM_ATTRS(ATOM_NODISCARD) constexpr auto cend() const noexcept -> const_iterator {
+    ATOM_ATTRS(ATOM_NODISCARD)
+    constexpr auto cend() const noexcept -> const_iterator {
         return dense_.cend();
     }
 
-    ATOM_ATTRS(ATOM_NODISCARD) constexpr auto rbegin() noexcept -> reverse_iterator {
+    ATOM_ATTRS(ATOM_NODISCARD)
+    constexpr auto rbegin() noexcept -> reverse_iterator {
         return dense_.rbegin();
     }
-    ATOM_ATTRS(ATOM_NODISCARD) constexpr auto rbegin() const noexcept
-        -> const_reverse_iterator {
+    ATOM_ATTRS(ATOM_NODISCARD)
+    constexpr auto rbegin() const noexcept -> const_reverse_iterator {
         return dense_.rbegin();
     }
-    ATOM_ATTRS(ATOM_NODISCARD) constexpr auto crbegin() const noexcept
-        -> const_reverse_iterator {
+    ATOM_ATTRS(ATOM_NODISCARD)
+    constexpr auto crbegin() const noexcept -> const_reverse_iterator {
         return dense_.crbegin();
     }
 
-    ATOM_ATTRS(ATOM_NODISCARD) constexpr auto rend() noexcept -> reverse_iterator {
+    ATOM_ATTRS(ATOM_NODISCARD)
+    constexpr auto rend() noexcept -> reverse_iterator { return dense_.rend(); }
+    ATOM_ATTRS(ATOM_NODISCARD)
+    constexpr auto rend() const noexcept -> const_reverse_iterator {
         return dense_.rend();
     }
-    ATOM_ATTRS(ATOM_NODISCARD) constexpr auto rend() const noexcept
-        -> const_reverse_iterator {
-        return dense_.rend();
-    }
-    ATOM_ATTRS(ATOM_NODISCARD) constexpr auto crend() const noexcept
-        -> const_reverse_iterator {
+    ATOM_ATTRS(ATOM_NODISCARD)
+    constexpr auto crend() const noexcept -> const_reverse_iterator {
         return dense_.crend();
     }
 
@@ -437,7 +443,8 @@ private:
         }
     }
 
-    ATOM_ATTRS(ATOM_NODISCARD) constexpr auto _contains_impl(
+    ATOM_ATTRS(ATOM_NODISCARD)
+    constexpr auto _contains_impl(
         const key_type key, const size_type page,
         const size_type offset) const noexcept -> bool {
         if (dense_.empty() || sparse_.size() <= page) {
@@ -451,8 +458,9 @@ private:
     constexpr std::pair<iterator, bool> _emplace_one_at_back(
         const key_type key, const size_type page, const size_type offset,
         Args&&... args) {
-        auto dense_guard =
-            make_exception_guard([this]() noexcept { dense_.pop_back(); });
+        auto dense_guard = make_exception_guard([this]() noexcept {
+            dense_.pop_back();
+        });
         const auto index = dense_.size();
         dense_.emplace_back(
             std::piecewise_construct, std::forward_as_tuple(key),
@@ -489,35 +497,40 @@ private:
     _sparse_type sparse_;
 };
 
-template <
+ATOM_EXPORT template <
     typename Kty, typename Ty,
-    typename Alloc = std::allocator<std::pair<Kty, Ty>>, size_t PageSize = 32UL,
-    typename = std::enable_if_t<std::is_unsigned_v<Kty>>>
+    typename Alloc       = std::allocator<std::pair<Kty, Ty>>,
+    std::size_t PageSize = 32UL,
+    typename             = std::enable_if_t<std::is_unsigned_v<Kty>>>
 sparse_map(std::initializer_list<std::pair<Kty, Ty>>, Alloc = Alloc())
     -> sparse_map<Kty, Ty, PageSize, Alloc>;
-template <
+ATOM_EXPORT template <
     typename Kty, typename Ty,
-    typename Alloc = std::allocator<std::pair<Kty, Ty>>, size_t PageSize = 32UL,
-    typename = std::enable_if_t<std::is_unsigned_v<Kty>>>
+    typename Alloc       = std::allocator<std::pair<Kty, Ty>>,
+    std::size_t PageSize = 32UL,
+    typename             = std::enable_if_t<std::is_unsigned_v<Kty>>>
 sparse_map(std::initializer_list<std::pair<const Kty, Ty>>, Alloc = Alloc())
     -> sparse_map<Kty, Ty, PageSize, Alloc>;
-template <
+ATOM_EXPORT template <
     typename Kty, typename Ty,
-    typename Alloc = std::allocator<std::pair<Kty, Ty>>, size_t PageSize = 32UL,
-    typename = std::enable_if_t<std::is_unsigned_v<Kty>>>
+    typename Alloc       = std::allocator<std::pair<Kty, Ty>>,
+    std::size_t PageSize = 32UL,
+    typename             = std::enable_if_t<std::is_unsigned_v<Kty>>>
 sparse_map(std::initializer_list<compressed_pair<Kty, Ty>>, Alloc = Alloc())
     -> sparse_map<Kty, Ty, PageSize, Alloc>;
-template <
+ATOM_EXPORT template <
     typename Kty, typename Ty,
-    typename Alloc = std::allocator<std::pair<Kty, Ty>>, size_t PageSize = 32UL,
-    typename = std::enable_if_t<std::is_unsigned_v<Kty>>>
+    typename Alloc       = std::allocator<std::pair<Kty, Ty>>,
+    std::size_t PageSize = 32UL,
+    typename             = std::enable_if_t<std::is_unsigned_v<Kty>>>
 sparse_map(
     std::initializer_list<compressed_pair<const Kty, Ty>>, Alloc = Alloc())
     -> sparse_map<Kty, Ty, PageSize, Alloc>;
 
 namespace pmr {
 
-template <std::unsigned_integral Kty, typename Ty, size_t PageSize = 32UL>
+ATOM_EXPORT template <
+    std::unsigned_integral Kty, typename Ty, std::size_t PageSize = 32UL>
 using sparse_map =
     sparse_map<Kty, Ty, PageSize, std::pmr::polymorphic_allocator<>>;
 
@@ -528,7 +541,8 @@ using sparse_map =
 /*! @cond TURN_OFF_DOXYGEN */
 namespace std {
 
-template <unsigned_integral Kty, typename Ty, typename Alloc, size_t PageSize>
+template <
+    unsigned_integral Kty, typename Ty, typename Alloc, std::size_t PageSize>
 struct uses_allocator<neutron::sparse_map<Kty, Ty, PageSize, Alloc>, Alloc> :
     std::true_type {};
 

@@ -1,16 +1,18 @@
 // IWYU pragma: private, include <neutron/fstream.hpp>
 #pragma once
-#include <algorithm>
-#include <bit>
-#include <cstddef>
-#include <filesystem>
-#include <ios>
-#include <limits>
-#include <streambuf>
-#include <string>
-#include <system_error>
-#include <type_traits>
-#include <utility>
+#ifndef ATOM_BUILDING_MODULE
+    #include <algorithm>
+    #include <bit>
+    #include <cstddef>
+    #include <filesystem>
+    #include <ios>
+    #include <limits>
+    #include <streambuf>
+    #include <string>
+    #include <system_error>
+    #include <type_traits>
+    #include <utility>
+#endif
 #include "neutron/detail/fstream/file_mapping.hpp"
 #include "neutron/detail/utility/macros.hpp"
 
@@ -39,7 +41,7 @@ concept _mappable_char =
  * throws. The behaviour is undefined if the file is truncated by someone else
  * while it is open.
  */
-template <typename CharT, typename Traits = std::char_traits<CharT>>
+ATOM_EXPORT template <typename CharT, typename Traits = std::char_traits<CharT>>
 requires _mappable_char<CharT>
 class basic_fmbuf : public std::basic_streambuf<CharT, Traits> {
     using _streambuf = std::basic_streambuf<CharT, Traits>;
@@ -568,7 +570,7 @@ private:
     std::ios_base::openmode mode_{};
 };
 
-using fmbuf  = basic_fmbuf<char>;
-using wfmbuf = basic_fmbuf<wchar_t>;
+ATOM_EXPORT using fmbuf  = basic_fmbuf<char>;
+ATOM_EXPORT using wfmbuf = basic_fmbuf<wchar_t>;
 
 } // namespace neutron

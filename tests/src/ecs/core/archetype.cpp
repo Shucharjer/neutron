@@ -1,14 +1,20 @@
 // Basic tests for neutron::archetype: creation, emplace/view, erase, reserve,
 // pmr
-#include <array>
-#include <cstddef>
-#include <cstdint>
-#include <memory>
-#include <memory_resource>
-#include <new>
-#include <stdexcept>
-#include <utility>
-#include <neutron/ecs.hpp>
+#include "neutron/detail/utility/macros.hpp"
+#ifdef ATOM_USES_MODULES
+import std;
+import neutron;
+#else
+    #include <array>
+    #include <cstddef>
+    #include <cstdint>
+    #include <memory>
+    #include <memory_resource>
+    #include <new>
+    #include <stdexcept>
+    #include <utility>
+    #include <neutron/ecs.hpp>
+#endif
 #include "require.hpp"
 
 using namespace neutron;
@@ -76,10 +82,10 @@ struct SlowCopy {
 using archetype_t = archetype<std::allocator<std::byte>>;
 
 void require_position(
-    archetype_t& arche, float x, float y, size_t expected_count = 1) {
+    archetype_t& arche, float x, float y, std::size_t expected_count = 1) {
     using position_query = query<with<Position&>>;
 
-    size_t count = 0;
+    std::size_t count = 0;
     auto slice   = slice_of<Position>(arche);
     for (auto [position] : typename position_query::view_t{ slice }) {
         require(position.x == x);
@@ -91,10 +97,10 @@ void require_position(
 
 void require_position_velocity(
     archetype_t& arche, float px, float py, float vx, float vy,
-    size_t expected_count = 1) {
+    std::size_t expected_count = 1) {
     using position_velocity_query = query<with<Position&, Velocity&>>;
 
-    size_t count = 0;
+    std::size_t count = 0;
     auto slice   = slice_of<Position, Velocity>(arche);
     for (auto [position, velocity] :
          typename position_velocity_query::view_t{ slice }) {
@@ -108,7 +114,7 @@ void require_position_velocity(
 }
 
 void test_new_archetype_is_empty_and_knows_its_components() {
-    constexpr size_t min_initial_capacity = 64;
+    constexpr std::size_t min_initial_capacity = 64;
 
     archetype_t arche{ type_spreader<Position, Velocity, TagEmpty>{} };
 
@@ -226,7 +232,7 @@ void test_emplace_range_with_copy_ctor_that_may_throw() {
         require_or_return(std::get<0>(buffers) != nullptr, );
         require_or_return(std::get<1>(buffers) != nullptr, );
 
-        size_t count = 0;
+        std::size_t count = 0;
         for (auto [position, copy] :
              typename position_copy_query::view_t{ slice }) {
             require(position.x == 1);
@@ -258,15 +264,15 @@ void test_erase_removes_one_entity() {
 
 void test_reserve_grows_capacity_and_emplace_relocates() {
     archetype_t arche{ type_spreader<Position, Velocity>{} };
-    const size_t initial = arche.capacity();
+    const std::size_t initial = arche.capacity();
 
     arche.reserve(initial * 2);
 
     require(arche.capacity() >= initial * 2);
 
     // Fill across multiple relocations and validate data integrity
-    const size_t N = initial * 3 + 5;
-    for (size_t i = 0; i < N; ++i) {
+    const std::size_t N = initial * 3 + 5;
+    for (std::size_t i = 0; i < N; ++i) {
         arche.emplace(
             static_cast<entity_t>(i + 1), Position{ float(i), float(i + 1) },
             Velocity{ float(2 * i), float(2 * i + 1) });
@@ -333,13 +339,13 @@ void test_transfer_target_grows_beyond_initial_capacity() {
     // routine, so growing it takes the type-erased path.
     archetype_t source{ type_spreader<Position>{} };
     archetype_t target{ source, add_components_t<Velocity>{} };
-    const size_t count = source.capacity() * 3;
-    for (size_t i = 0; i < count; ++i) {
+    const std::size_t count = source.capacity() * 3;
+    for (std::size_t i = 0; i < count; ++i) {
         source.emplace(
             static_cast<entity_t>(i + 1), Position{ float(i), float(i) });
     }
 
-    for (size_t i = 0; i < count; ++i) {
+    for (std::size_t i = 0; i < count; ++i) {
         source.transfer(
             static_cast<entity_t>(i + 1), target, add_components_t<Velocity>{},
             Velocity{ float(2 * i), 0 });
@@ -347,7 +353,7 @@ void test_transfer_target_grows_beyond_initial_capacity() {
 
     require(target.size() == count);
     require(target.capacity() >= count);
-    size_t matched = 0;
+    std::size_t matched = 0;
     auto slice     = slice_of<Position, Velocity>(target);
     for (auto [position, velocity] :
          typename query<with<Position&, Velocity&>>::view_t{ slice }) {
@@ -420,16 +426,16 @@ void test_transfer_removes_empty_tag() {
 /// Only the `Wide` column asks for 64-byte alignment.
 class recording_resource : public std::pmr::memory_resource {
 public:
-    size_t wide_allocations   = 0;
-    size_t wide_deallocations = 0;
-    size_t outstanding_bytes  = 0;
-    size_t calls              = 0;
-    size_t fail_call          = static_cast<size_t>(-1);
+    std::size_t wide_allocations   = 0;
+    std::size_t wide_deallocations = 0;
+    std::size_t outstanding_bytes  = 0;
+    std::size_t calls              = 0;
+    std::size_t fail_call          = static_cast<std::size_t>(-1);
 
 private:
-    static constexpr size_t wide_alignment = 64;
+    static constexpr std::size_t wide_alignment = 64;
 
-    void* do_allocate(size_t bytes, size_t align) override {
+    void* do_allocate(std::size_t bytes, std::size_t align) override {
         if (calls++ == fail_call) {
             throw std::bad_alloc{};
         }
@@ -440,7 +446,8 @@ private:
         return std::pmr::new_delete_resource()->allocate(bytes, align);
     }
 
-    void do_deallocate(void* ptr, size_t bytes, size_t align) override {
+    void do_deallocate(
+        void* ptr, std::size_t bytes, std::size_t align) override {
         if (align >= wide_alignment) {
             ++wide_deallocations;
         }
@@ -466,8 +473,8 @@ void test_columns_come_from_the_allocator() {
         // relocation path as well as the typed one.
         pmr::archetype source{ type_spreader<Position>{}, alloc };
         pmr::archetype arche{ source, add_components_t<Wide>{} };
-        const size_t count = arche.capacity() * 3;
-        for (size_t i = 0; i < count; ++i) {
+        const std::size_t count = arche.capacity() * 3;
+        for (std::size_t i = 0; i < count; ++i) {
             source.emplace(static_cast<entity_t>(i + 1), Position{ float(i) });
             source.transfer(
                 static_cast<entity_t>(i + 1), arche, add_components_t<Wide>{});
@@ -506,8 +513,8 @@ struct Fragile {
     ~Fragile() noexcept { --fragile_alive; }
 };
 
-bool fragile_values_are_intact(pmr::archetype& arche, size_t count) {
-    size_t matched = 0;
+bool fragile_values_are_intact(pmr::archetype& arche, std::size_t count) {
+    std::size_t matched = 0;
     auto slice     = slice_of<Position, Fragile>(arche);
     for (auto [position, fragile] :
          typename query<with<Position&, Fragile&>>::view_t{ slice }) {
@@ -518,7 +525,7 @@ bool fragile_values_are_intact(pmr::archetype& arche, size_t count) {
 
 template <typename Grow>
 void require_failed_growth_rolls_back(pmr::archetype& arche, Grow&& grow) {
-    const size_t count = arche.size();
+    const std::size_t count = arche.size();
     // Fail half way through copying the Fragile column.
     fragile_budget = static_cast<int>(count / 2);
     bool thrown    = false;
@@ -538,8 +545,8 @@ void test_typed_growth_rolls_back_when_a_copy_throws() {
     {
         std::pmr::polymorphic_allocator<> alloc{ &resource };
         pmr::archetype arche{ type_spreader<Position, Fragile>{}, alloc };
-        const size_t count = arche.capacity();
-        for (size_t i = 0; i < count; ++i) {
+        const std::size_t count = arche.capacity();
+        for (std::size_t i = 0; i < count; ++i) {
             arche.emplace(
                 static_cast<entity_t>(i + 1), Position{ float(i) },
                 Fragile{ static_cast<int>(i) });
@@ -562,8 +569,8 @@ void test_type_erased_growth_rolls_back_when_a_copy_throws() {
         std::pmr::polymorphic_allocator<> alloc{ &resource };
         pmr::archetype source{ type_spreader<Position>{}, alloc };
         pmr::archetype arche{ source, add_components_t<Fragile>{} };
-        const size_t count = arche.capacity();
-        for (size_t i = 0; i < count; ++i) {
+        const std::size_t count = arche.capacity();
+        for (std::size_t i = 0; i < count; ++i) {
             const auto entity = static_cast<entity_t>(i + 1);
             source.emplace(entity, Position{ float(i) });
             source.transfer(
@@ -579,8 +586,8 @@ void test_type_erased_growth_rolls_back_when_a_copy_throws() {
     require(resource.outstanding_bytes == 0);
 }
 
-bool positions_are_intact(pmr::archetype& arche, size_t count) {
-    size_t matched = 0;
+bool positions_are_intact(pmr::archetype& arche, std::size_t count) {
+    std::size_t matched = 0;
     auto slice     = slice_of<Position>(arche);
     for (auto [position] : typename query<with<Position&>>::view_t{ slice }) {
         matched += position.x == float(matched) ? 1 : 0;
@@ -594,17 +601,17 @@ void require_failed_allocation_leaves_growth_intact(Make&& make) {
     std::pmr::polymorphic_allocator<> alloc{ &resource };
 
     // Fail each allocation the growth makes, one at a time, until it succeeds.
-    for (size_t failing = 0;; ++failing) {
+    for (std::size_t failing = 0;; ++failing) {
         bool thrown = false;
         {
             auto [holder, arche] = make(alloc);
-            const size_t count   = arche->size();
-            const size_t before  = arche->capacity();
+            const std::size_t count  = arche->size();
+            const std::size_t before = arche->capacity();
 
             resource.fail_call = resource.calls + failing;
             ATOM_TRY { arche->reserve(before * 2); }
             ATOM_CATCH(const std::bad_alloc&) { thrown = true; }
-            resource.fail_call = static_cast<size_t>(-1);
+            resource.fail_call = static_cast<std::size_t>(-1);
 
             if (thrown) {
                 require(arche->capacity() == before);
@@ -624,8 +631,8 @@ void test_failed_typed_column_allocation_leaves_the_archetype_intact() {
     require_failed_allocation_leaves_growth_intact([](auto alloc) {
         auto arche = std::make_unique<pmr::archetype>(
             type_spreader<Position, Wide>{}, alloc);
-        const size_t count = arche->capacity();
-        for (size_t i = 0; i < count; ++i) {
+        const std::size_t count = arche->capacity();
+        for (std::size_t i = 0; i < count; ++i) {
             arche->emplace(
                 static_cast<entity_t>(i + 1), Position{ float(i) }, Wide{});
         }
@@ -647,8 +654,8 @@ struct transition_pair {
 void test_failed_type_erased_column_allocation_leaves_the_archetype_intact() {
     require_failed_allocation_leaves_growth_intact([](auto alloc) {
         auto pair          = std::make_unique<transition_pair>(alloc);
-        const size_t count = pair->arche.capacity();
-        for (size_t i = 0; i < count; ++i) {
+        const std::size_t count = pair->arche.capacity();
+        for (std::size_t i = 0; i < count; ++i) {
             const auto entity = static_cast<entity_t>(i + 1);
             pair->source.emplace(entity, Velocity{});
             pair->source.transfer(
@@ -664,10 +671,10 @@ void test_failed_construction_releases_everything() {
     recording_resource resource;
     std::pmr::polymorphic_allocator<> alloc{ &resource };
     pmr::archetype source{ type_spreader<Position, Velocity>{}, alloc };
-    const size_t baseline = resource.outstanding_bytes;
+    const std::size_t baseline = resource.outstanding_bytes;
 
     // Fail each allocation the constructions make, one at a time.
-    for (size_t failing = 0;; ++failing) {
+    for (std::size_t failing = 0;; ++failing) {
         resource.fail_call = resource.calls + failing;
         bool thrown        = false;
         ATOM_TRY {
@@ -676,7 +683,7 @@ void test_failed_construction_releases_everything() {
             pmr::archetype removed{ source, remove_components_t<Velocity>{} };
         }
         ATOM_CATCH(const std::bad_alloc&) { thrown = true; }
-        resource.fail_call = static_cast<size_t>(-1);
+        resource.fail_call = static_cast<std::size_t>(-1);
 
         require(resource.outstanding_bytes == baseline);
         if (!thrown) {
@@ -690,7 +697,7 @@ void test_failed_bookkeeping_destroys_the_new_row() {
     std::pmr::polymorphic_allocator<> alloc{ &resource };
 
     // Fail each allocation the first emplace makes, one at a time.
-    for (size_t failing = 0;; ++failing) {
+    for (std::size_t failing = 0;; ++failing) {
         SlowCopy::alive = 0;
         bool thrown     = false;
         {
@@ -700,7 +707,7 @@ void test_failed_bookkeeping_destroys_the_new_row() {
                 arche.emplace(entity_t{ 1 }, Position{}, SlowCopy{ 1 });
             }
             ATOM_CATCH(const std::bad_alloc&) { thrown = true; }
-            resource.fail_call = static_cast<size_t>(-1);
+            resource.fail_call = static_cast<std::size_t>(-1);
 
             require(arche.size() == (thrown ? 0U : 1U));
             require(arche.entities().size() == arche.size());
@@ -718,7 +725,7 @@ void test_emplace_grows_entity_bookkeeping_geometrically() {
     std::pmr::polymorphic_allocator<> alloc{ &resource };
     pmr::archetype arche{ type_spreader<Position>{}, alloc };
 
-    const size_t before = resource.calls;
+    const std::size_t before = resource.calls;
     for (entity_t entity = 1; entity <= 10000; ++entity) {
         arche.emplace(entity, Position{});
     }
@@ -732,8 +739,8 @@ struct MoveOnly {
 
 void test_move_only_components_relocate() {
     archetype_t arche{ type_spreader<MoveOnly>{} };
-    const size_t count = arche.capacity() * 2;
-    for (size_t i = 0; i < count; ++i) {
+    const std::size_t count = arche.capacity() * 2;
+    for (std::size_t i = 0; i < count; ++i) {
         arche.emplace(
             static_cast<entity_t>(i + 1),
             MoveOnly{ std::make_unique<int>(static_cast<int>(i)) });

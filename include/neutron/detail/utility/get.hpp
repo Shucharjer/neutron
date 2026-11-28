@@ -1,13 +1,17 @@
 // IWYU pragma: private, include <neutron/utility.hpp>
 #pragma once
-#include <cstddef>
+#ifndef ATOM_BUILDING_MODULE
+    #include <cstddef>
+#endif
+#include "neutron/detail/reflection/legacy/get.hpp"
+#include "neutron/detail/utility/macros.hpp"
 
 // for std::get
-#include <array>   // IWYU pragma: keep
-#include <tuple>   // IWYU pragma: keep
-#include <utility> // IWYU pragma: keep
-
-#include "../reflection/legacy/get.hpp"
+#ifndef ATOM_BUILDING_MODULE
+    #include <array>   // IWYU pragma: keep
+    #include <tuple>   // IWYU pragma: keep
+    #include <utility> // IWYU pragma: keep
+#endif
 
 namespace neutron {
 
@@ -28,50 +32,50 @@ constexpr auto
 
 }
 
-template <typename T, size_t Index>
+template <typename T, std::size_t Index>
 concept _has_member_get =
     requires(T&& obj) { std::forward<T>(obj).template get<Index>(); };
 
-template <typename T, size_t Index>
+template <typename T, std::size_t Index>
 concept _has_adl_get =
     requires(T&& obj) { _get_adl::call<Index>(std::forward<T>(obj)); };
 
 #if !ATOM_HAS_REFLECTION
-template <typename T, size_t Index>
+template <typename T, std::size_t Index>
 concept _has_reflection_get = _refl_legacy::reflectible<T>;
 #endif
 
 // BUG: std::get is not SFINAE friendly
-template <typename T, size_t Index>
+template <typename T, std::size_t Index>
 concept _has_std_get =
     requires(T&& obj) { typename std::tuple_element<Index, T>::type; };
 
-template <typename T, size_t Index>
+ATOM_EXPORT template <typename T, std::size_t Index>
 concept gettible = _has_member_get<T, Index> || _has_adl_get<T, Index>
 #if !ATOM_HAS_REFLECTION
                    || _has_reflection_get<T, Index>
 #endif
                    || _has_std_get<T, Index>;
 
-template <typename T, size_t Index>
+template <typename T, std::size_t Index>
 concept _has_nothrow_member_get = requires(T&& obj) {
     { std::forward<T>(obj).template get<Index>() } noexcept;
 };
 
-template <typename T, size_t Index>
+template <typename T, std::size_t Index>
 concept _has_nothrow_adl_get = requires(T&& obj) {
     { _get_adl::call<Index>(std::forward<T>(obj)) } noexcept;
 };
 
-template <typename T, size_t Index>
+template <typename T, std::size_t Index>
 concept _has_nothrow_reflection_get = true;
 
-template <typename T, size_t Index>
+template <typename T, std::size_t Index>
 concept _has_nothrow_std_get = requires(T&& obj) {
     { std::get<Index>(std::forward<T>(obj)) } noexcept;
 };
 
-template <typename T, size_t Index>
+template <typename T, std::size_t Index>
 concept nothrow_gettible =
     _has_nothrow_member_get<T, Index> || _has_nothrow_adl_get<T, Index>
 #if !ATOM_HAS_REFLECTION
@@ -79,7 +83,7 @@ concept nothrow_gettible =
 #endif
     || _has_nothrow_std_get<T, Index>;
 
-template <size_t Index>
+template <std::size_t Index>
 struct get_t {
     template <gettible<Index> T>
     requires(!nothrow_gettible<T, Index>)
@@ -117,11 +121,11 @@ struct get_t {
     }
 };
 
-template <size_t Index>
+ATOM_EXPORT template <std::size_t Index>
 constexpr inline _get::get_t<Index> get{};
 
-template <size_t Index, typename Ty>
-constexpr size_t gettible_size() noexcept {
+template <std::size_t Index, typename Ty>
+constexpr std::size_t gettible_size() noexcept {
     if constexpr (gettible<Ty, Index + 1>) {
         return gettible_size<Index + 1, Ty>();
     } else {
@@ -132,15 +136,15 @@ constexpr size_t gettible_size() noexcept {
 } // namespace _get
 /*! @endcond */
 
-using _get::get;
+ATOM_EXPORT using _get::get;
 
-using _get::gettible;
+ATOM_EXPORT using _get::gettible;
 
-template <size_t Index, typename Ty>
+ATOM_EXPORT template <std::size_t Index, typename Ty>
 using gettible_element_t = decltype(get<Index>(std::declval<Ty>()));
 
-template <typename Ty>
-constexpr size_t gettible_size =
+ATOM_EXPORT template <typename Ty>
+constexpr std::size_t gettible_size =
     gettible<Ty, 0> ? _get::gettible_size<0, Ty>() : 0;
 
 } // namespace neutron

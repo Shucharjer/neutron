@@ -1,10 +1,14 @@
-#include <array>
-#include <cstdint>
-#include <span>
-#include <string>
-#include <string_view>
-#include <vector>
-#include <neutron/reflection.hpp>
+// With modules, an implementation unit of neutron that imports std, see
+// `internal_tests`.
+#ifndef ATOM_USES_MODULES
+    #include <array>
+    #include <cstdint>
+    #include <span>
+    #include <string>
+    #include <string_view>
+    #include <vector>
+    #include <neutron/reflection.hpp>
+#endif
 #include "require.hpp"
 
 using namespace neutron;
@@ -126,7 +130,7 @@ void test_runtime_combine_of_nothing_is_offset_basis() {
 
 } // namespace
 
-int main() {
+extern "C++" int main() {
     test_runtime_hash_matches_reference();
     test_runtime_hash_covers_every_byte_value();
     test_runtime_combine_matches_reference();

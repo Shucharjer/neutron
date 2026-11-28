@@ -1,10 +1,15 @@
-#include <cstddef>
-#include <string>
-#include <string_view>
-#include <type_traits>
-#include <utility>
-#include <vector>
-#include <neutron/args.hpp>
+#ifdef ATOM_USES_MODULES
+import std;
+import neutron;
+#else
+    #include <cstddef>
+    #include <string>
+    #include <string_view>
+    #include <type_traits>
+    #include <utility>
+    #include <vector>
+    #include <neutron/args.hpp>
+#endif
 #include "require.hpp"
 
 using namespace neutron;

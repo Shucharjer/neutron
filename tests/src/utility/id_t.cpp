@@ -1,12 +1,18 @@
-#include <atomic>
-#include <cstdint>
-#include <limits>
-#include <type_traits>
-#include <neutron/utility.hpp>
+#ifdef ATOM_USES_MODULES
+import std;
+import neutron;
+#else
+    #include <atomic>
+    #include <cstdint>
+    #include <limits>
+    #include <type_traits>
+    #include <neutron/utility.hpp>
+#endif
 #include "require.hpp"
-
 #if __has_include(<sys/types.h>)
-    #include <sys/types.h>
+    #ifndef ATOM_USES_MODULES
+        #include <sys/types.h>
+    #endif
 #endif
 
 namespace {

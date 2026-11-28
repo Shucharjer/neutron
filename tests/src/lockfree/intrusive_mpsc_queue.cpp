@@ -1,8 +1,12 @@
-#include <array>
-#include <atomic>
-#include <cstddef>
-#include <future>
-#include <neutron/detail/lockfree/intrusive_mpsc_queue.hpp>
+// With modules, an implementation unit of neutron that imports std, see
+// `internal_tests`.
+#ifndef ATOM_USES_MODULES
+    #include <array>
+    #include <atomic>
+    #include <cstddef>
+    #include <future>
+    #include <neutron/detail/lockfree/intrusive_mpsc_queue.hpp>
+#endif
 #include "require.hpp"
 
 using namespace neutron;
@@ -35,7 +39,7 @@ void test_pushes_from_other_threads_pop_in_order() {
 
 } // namespace
 
-int main() {
+extern "C++" int main() {
     test_pushes_from_other_threads_pop_in_order();
     return neutron_test::result();
 }

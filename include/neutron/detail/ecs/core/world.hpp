@@ -2,12 +2,14 @@
 #pragma once
 #include "neutron/detail/ecs/fwd.hpp"
 
-#include <chrono>
-#include <cstddef>
-#include <memory>
-#include <stdexcept>
-#include <tuple>
-#include <vector>
+#ifndef ATOM_BUILDING_MODULE
+    #include <chrono>
+    #include <cstddef>
+    #include <memory>
+    #include <stdexcept>
+    #include <tuple>
+    #include <vector>
+#endif
 #include "neutron/detail/concepts/allocator.hpp"
 #include "neutron/detail/ecs/compile-time/collect_params/local.hpp"
 #include "neutron/detail/ecs/compile-time/collect_params/query.hpp"
@@ -21,6 +23,7 @@
 #include "neutron/detail/ecs/utility/byte_allocator.hpp"
 #include "neutron/detail/memory/rebind_alloc.hpp"
 #include "neutron/detail/tuple/shared_tuple.hpp"
+#include "neutron/detail/utility/macros.hpp"
 #include "neutron/memory.hpp"
 #include "neutron/metafn.hpp"
 #include "neutron/tuple.hpp"
@@ -88,7 +91,8 @@ protected:
     ATOM_NO_UNIQUE_ADDR internal::world_tasks<Descriptor> tasks_;
 };
 
-template <typename Desc, unfancy_allocator Alloc = std::allocator<std::byte>>
+ATOM_EXPORT template <
+    typename Desc, unfancy_allocator Alloc = std::allocator<std::byte>>
 class basic_world;
 
 template <typename Alloc>
@@ -220,16 +224,16 @@ private:
     ATOM_NO_UNIQUE_ADDR _shared_tuple<locals_type> locals_;
 };
 
-template <typename Desc, unfancy_allocator Alloc>
+ATOM_EXPORT template <typename Desc, unfancy_allocator Alloc>
 class basic_world : public basic_world<Desc, rebind_alloc_t<Alloc, std::byte>> {
 public:
     using basic_world<Desc, rebind_alloc_t<Alloc, std::byte>>::basic_world;
 };
 
-template <auto Desc, typename Alloc = std::allocator<std::byte>>
+ATOM_EXPORT template <auto Desc, typename Alloc = std::allocator<std::byte>>
 using world_of = basic_world<std::remove_cvref_t<decltype(Desc)>, Alloc>;
 
-template <
+ATOM_EXPORT template <
     descriptor auto Descriptor,
     unfancy_allocator Alloc = std::allocator<std::byte>>
 auto make_world(const Alloc& alloc = {})
@@ -237,7 +241,7 @@ auto make_world(const Alloc& alloc = {})
     return basic_world<decltype(Descriptor), Alloc>(alloc);
 }
 
-template <
+ATOM_EXPORT template <
     descriptor auto... Descriptors,
     unfancy_allocator Alloc = std::allocator<std::byte>>
 auto make_worlds(const Alloc& alloc = {}) -> std::tuple<

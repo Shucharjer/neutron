@@ -1,8 +1,11 @@
 // IWYU pragma: private, include <neutron/reflection.hpp>
 #pragma once
-#include <concepts>
-#include <tuple>
+#ifndef ATOM_BUILDING_MODULE
+    #include <concepts>
+    #include <tuple>
+#endif
 #include "neutron/detail/reflection/legacy/concepts.hpp"
+#include "neutron/detail/utility/macros.hpp"
 
 namespace neutron {
 
@@ -34,7 +37,7 @@ constexpr auto member_count_of_impl() noexcept {
  * @brief Get the member count of a type.
  *
  */
-template <reflectible Ty>
+ATOM_EXPORT template <reflectible Ty>
 consteval auto member_count_of() noexcept {
     using pure_t = std::remove_cvref_t<Ty>;
     if constexpr (default_reflectible_aggregate<Ty>) {
@@ -46,6 +49,6 @@ consteval auto member_count_of() noexcept {
 
 } // namespace _refl_legacy
 
-using _refl_legacy::member_count_of;
+ATOM_EXPORT using _refl_legacy::member_count_of;
 
 } // namespace neutron

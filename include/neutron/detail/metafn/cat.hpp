@@ -1,12 +1,13 @@
 // IWYU pragma: private, include <neutron/metafn.hpp>
 #pragma once
 #include "neutron/detail/metafn/definition.hpp"
+#include "neutron/detail/utility/macros.hpp"
 
 namespace neutron {
 
 // type_list_cat<...>
 
-template <typename... Tls>
+ATOM_EXPORT template <typename... Tls>
 struct type_list_cat;
 template <>
 struct type_list_cat<> {
@@ -27,12 +28,12 @@ struct type_list_cat<Tl1, Tl2, Tls...> {
     using type = typename type_list_cat<
         typename type_list_cat<Tl1, Tl2>::type, Tls...>::type;
 };
-template <typename... Tls>
+ATOM_EXPORT template <typename... Tls>
 using type_list_cat_t = typename type_list_cat<Tls...>::type;
 
 // value_list_cat<...>
 
-template <typename...>
+ATOM_EXPORT template <typename...>
 struct value_list_cat;
 template <template <auto...> typename Template>
 struct value_list_cat<Template<>> {
@@ -51,12 +52,12 @@ struct value_list_cat<Vl1, Vl2, Vls...> {
     using type = typename value_list_cat<
         typename value_list_cat<Vl1, Vl2>::type, Vls...>::type;
 };
-template <typename... Vls>
+ATOM_EXPORT template <typename... Vls>
 using value_list_cat_t = typename value_list_cat<Vls...>::type;
 
 // type_list_list_cat<...>
 
-template <typename>
+ATOM_EXPORT template <typename>
 struct type_list_list_cat;
 template <template <typename...> typename Template>
 struct type_list_list_cat<Template<>> {
@@ -66,22 +67,22 @@ template <template <typename...> typename Template, typename... Lists>
 struct type_list_list_cat<Template<Lists...>> {
     using type = Template<type_list_cat_t<Lists...>>;
 };
-template <typename TypeList>
+ATOM_EXPORT template <typename TypeList>
 using type_list_list_cat_t = typename type_list_list_cat<TypeList>::type;
 
 // type_list_value_list_cat<...>
 
-template <typename TypeList>
+ATOM_EXPORT template <typename TypeList>
 struct type_list_value_list_cat;
 template <template <typename...> typename Template, typename... ValueLists>
 struct type_list_value_list_cat<Template<ValueLists...>> {
     using type = Template<value_list_cat_t<ValueLists...>>;
 };
-template <typename TypeList>
+ATOM_EXPORT template <typename TypeList>
 using type_list_value_list_cat_t =
     typename type_list_value_list_cat<TypeList>::type;
 
-template <typename...>
+ATOM_EXPORT template <typename...>
 struct tagged_type_list_cat;
 template <
     template <typename, typename...> typename Template, typename Tag,
@@ -100,7 +101,7 @@ struct tagged_type_list_cat<Tl1, Tl2, Tls...> {
     using type = typename tagged_type_list_cat<
         typename tagged_type_list_cat<Tl1, Tl2>::type, Tls...>::type;
 };
-template <typename... Tls>
+ATOM_EXPORT template <typename... Tls>
 using tagged_type_list_cat_t = typename tagged_type_list_cat<Tls...>::type;
 
 } // namespace neutron

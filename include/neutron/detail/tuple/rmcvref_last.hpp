@@ -1,10 +1,13 @@
 // IWYU pragma: private, include <neutron/metafn.hpp>
 #pragma once
-#include <cstddef>
-#include <type_traits>
-#include <utility>
+#ifndef ATOM_BUILDING_MODULE
+    #include <cstddef>
+    #include <type_traits>
+    #include <utility>
+#endif
 #include "neutron/detail/metafn/size.hpp"
 #include "neutron/detail/utility/get.hpp"
+#include "neutron/detail/utility/macros.hpp"
 
 namespace neutron {
 
@@ -20,7 +23,7 @@ constexpr std::size_t _rmcvref_last<Ty, Template<Tys...>> =
         return index;
     }(std::index_sequence_for<Tys...>());
 
-template <typename Ty, typename Tup>
+ATOM_EXPORT template <typename Ty, typename Tup>
 requires(
     _rmcvref_last<Ty, std::remove_cvref_t<Tup>> <
     type_list_size_v<std::remove_cvref_t<Tup>>)

@@ -1,6 +1,9 @@
 // IWYU pragma: private, include <neutron/concepts.hpp>
 #pragma once
-#include <type_traits>
+#ifndef ATOM_BUILDING_MODULE
+    #include <type_traits>
+#endif
+#include "neutron/detail/utility/macros.hpp"
 
 namespace neutron {
 
@@ -9,7 +12,7 @@ namespace neutron {
  *
  * Requires first/second members and first_type/second_type typedefs
  */
-template <typename Ty>
+ATOM_EXPORT template <typename Ty>
 concept public_pair = requires(const Ty& val) {
     typename Ty::first_type;
     typename Ty::second_type;
@@ -24,7 +27,7 @@ concept public_pair = requires(const Ty& val) {
  *
  * Requires first()/second() methods and first_type/second_type typedefs
  */
-template <typename Ty>
+ATOM_EXPORT template <typename Ty>
 concept private_pair = requires(const Ty& val) {
     typename Ty::first_type;
     typename Ty::second_type;
@@ -37,7 +40,7 @@ concept private_pair = requires(const Ty& val) {
  *
  * Matches either public or private pair types
  */
-template <typename Ty>
+ATOM_EXPORT template <typename Ty>
 concept pair = public_pair<Ty> || private_pair<Ty>;
 
 } // namespace neutron

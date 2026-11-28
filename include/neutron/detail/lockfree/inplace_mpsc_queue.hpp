@@ -1,12 +1,14 @@
 #pragma once
-#include <array>
-#include <atomic>
-#include <cassert>
-#include <cstddef>
-#include <memory>
-#include <thread>
-#include <type_traits>
-#include <utility>
+#ifndef ATOM_BUILDING_MODULE
+    #include <array>
+    #include <atomic>
+    #include <cassert>
+    #include <cstddef>
+    #include <memory>
+    #include <thread>
+    #include <type_traits>
+    #include <utility>
+#endif
 #include "neutron/detail/lockfree/hardware_destructive_interference_size.hpp"
 #include "neutron/detail/memory/inplace.hpp"
 #include "neutron/detail/utility/macros.hpp"
@@ -14,7 +16,7 @@
 
 namespace neutron {
 
-template <typename T, std::size_t Size>
+ATOM_EXPORT template <typename T, std::size_t Size>
 class inplace_mpsc_queue : private inplace_storage<T, Size> {
     using _base = inplace_storage<T, Size>;
 

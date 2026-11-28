@@ -1,8 +1,10 @@
 // IWYU pragma: private, include <neutron/utility.hpp>
 #pragma once
-#include <cerrno>
-#include <cstdlib>
-#include <system_error>
+#ifndef ATOM_BUILDING_MODULE
+    #include <cerrno>
+    #include <cstdlib>
+    #include <system_error>
+#endif
 #include "neutron/detail/utility/macros.hpp"
 
 #if defined(_WIN32)
@@ -18,7 +20,7 @@ namespace neutron {
  *
  * `GetLastError()` on Windows, `errno` elsewhere.
  */
-ATOM_ATTRS(ATOM_NODISCARD) inline int last_system_error() noexcept {
+ATOM_EXPORT ATOM_ATTRS(ATOM_NODISCARD) inline int last_system_error() noexcept {
 #if defined(_WIN32)
     return static_cast<int>(::GetLastError());
 #else
@@ -31,7 +33,8 @@ ATOM_ATTRS(ATOM_NODISCARD) inline int last_system_error() noexcept {
  *
  * Calls `std::abort()` instead when exceptions are disabled.
  */
-[[noreturn]] inline void throw_system_error(int code, const char* what) {
+ATOM_EXPORT [[noreturn]] inline void
+    throw_system_error(int code, const char* what) {
 #if ATOM_ENABLE_EXCEPTIONS
     throw std::system_error(code, std::system_category(), what);
 #else
@@ -44,7 +47,7 @@ ATOM_ATTRS(ATOM_NODISCARD) inline int last_system_error() noexcept {
 /**
  * @brief Throw `std::system_error` for the last failed system call.
  */
-[[noreturn]] inline void throw_last_system_error(const char* what) {
+ATOM_EXPORT [[noreturn]] inline void throw_last_system_error(const char* what) {
     throw_system_error(last_system_error(), what);
 }
 

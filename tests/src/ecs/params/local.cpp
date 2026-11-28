@@ -1,5 +1,10 @@
-#include <neutron/ecs.hpp>
-#include <neutron/print.hpp>
+#ifdef ATOM_USES_MODULES
+import std;
+import neutron;
+#else
+    #include <neutron/ecs.hpp>
+    #include <neutron/print.hpp>
+#endif
 #include "require.hpp"
 
 using namespace neutron;

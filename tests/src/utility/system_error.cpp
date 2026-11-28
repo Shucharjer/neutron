@@ -1,12 +1,19 @@
 #include <cerrno>
-#include <cstring>
-#include <optional>
-#include <system_error>
-#include <neutron/utility.hpp>
+#include "neutron/detail/utility/macros.hpp"
+#ifdef ATOM_USES_MODULES
+import std;
+import neutron;
+#else
+    #include <cstring>
+    #include <optional>
+    #include <system_error>
+    #include <neutron/utility.hpp>
+#endif
 #include "require.hpp"
-
 #if defined(_WIN32)
-    #include <windows.h>
+    #ifndef ATOM_USES_MODULES
+        #include <windows.h>
+    #endif
 #endif
 
 using namespace neutron;

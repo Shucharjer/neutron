@@ -1,23 +1,26 @@
 // IWYU pragma: private, include <neutron/ecs.hpp>
 #pragma once
-#include <array>
-#include <concepts>
-#include <cstddef>
-#include <cstdint>
-#include <type_traits>
-#include <utility>
-#include <neutron/metafn.hpp>
+#ifndef ATOM_BUILDING_MODULE
+    #include <array>
+    #include <concepts>
+    #include <cstddef>
+    #include <cstdint>
+    #include <type_traits>
+    #include <utility>
+#endif
 #include "neutron/detail/ecs/concepts/stage.hpp"
 #include "neutron/detail/metafn/definition.hpp"
 #include "neutron/detail/metafn/element.hpp"
 #include "neutron/detail/string/tstring.hpp"
+#include "neutron/detail/utility/macros.hpp"
 #include "neutron/inplace_vector.hpp"
+#include "neutron/metafn.hpp"
 
 namespace neutron {
 
-struct description_tag {};
+ATOM_EXPORT struct description_tag {};
 
-template <typename... Args>
+ATOM_EXPORT template <typename... Args>
 struct world_descriptor_t;
 
 namespace internal {
@@ -29,19 +32,19 @@ constexpr bool _is_world_descriptor<world_descriptor_t<Args...>> = true;
 
 } // namespace internal
 
-template <typename T>
+ATOM_EXPORT template <typename T>
 concept description =
     std::derived_from<T, description_tag> && !internal::_is_world_descriptor<T>;
 
 template <description... Args>
 struct world_descriptor_t<Args...> : Args... {};
 
-template <typename T>
+ATOM_EXPORT template <typename T>
 concept descriptor = internal::_is_world_descriptor<std::remove_cvref_t<T>>;
 
-inline constexpr world_descriptor_t<> world_desc;
+ATOM_EXPORT inline constexpr world_descriptor_t<> world_desc;
 
-template <descriptor Descriptor, description Description>
+ATOM_EXPORT template <descriptor Descriptor, description Description>
 consteval auto operator|(Descriptor desc, Description description) noexcept {
     return description(desc);
 }
@@ -54,7 +57,7 @@ struct _description_compose : description_tag {
     }
 };
 
-template <description Desc1, description Desc2>
+ATOM_EXPORT template <description Desc1, description Desc2>
 consteval auto operator|(Desc1, Desc2) noexcept {
     return _description_compose<Desc1, Desc2>{};
 }
@@ -91,7 +94,7 @@ struct _cat_if_same_template<Tmp<Stage, Vals...>, Tmp<Stage, Args...>> {
     using type = Tmp<Stage, Vals..., Args...>;
 };
 
-template <typename TypeList, typename T>
+ATOM_EXPORT template <typename TypeList, typename T>
 struct cat_or_insert;
 template <template <typename...> typename Tmp, typename... Tys, typename T>
 requires(false || ... || _has_same_template<Tys, T>)
@@ -103,10 +106,10 @@ requires(!(false || ... || _has_same_template<Tys, T>))
 struct cat_or_insert<Tmp<Tys...>, T> {
     using type = Tmp<Tys..., T>;
 };
-template <typename TypeList, typename T>
+ATOM_EXPORT template <typename TypeList, typename T>
 using cat_or_insert_t = typename cat_or_insert<TypeList, T>::type;
 
-template <typename TypeList, typename T>
+ATOM_EXPORT template <typename TypeList, typename T>
 struct get_if_exist;
 template <template <typename...> typename Tmp, typename... Tys, typename T>
 struct get_if_exist<Tmp<Tys...>, T> {
@@ -126,23 +129,25 @@ struct _enabled_features_t : description_tag, Features... {
 struct _enable_events_t {
     static constexpr bool enabled_events = true;
 };
-inline constexpr _enabled_features_t<_enable_events_t> enable_events;
+ATOM_EXPORT inline constexpr _enabled_features_t<_enable_events_t>
+    enable_events;
 
 struct _enable_render_t {
     static constexpr bool enabled_render = true;
 };
-inline constexpr _enabled_features_t<_enable_render_t> enable_render;
+ATOM_EXPORT inline constexpr _enabled_features_t<_enable_render_t>
+    enable_render;
 
 template <auto... Fn>
 struct _before_t {};
-template <auto... Fn>
+ATOM_EXPORT template <auto... Fn>
 inline constexpr _before_t<Fn...> before;
 template <auto... Fn>
 struct _after_t {};
-template <auto... Fn>
+ATOM_EXPORT template <auto... Fn>
 inline constexpr _after_t<Fn...> after;
 
-template <typename Fn, auto... Requires>
+ATOM_EXPORT template <typename Fn, auto... Requires>
 struct system_spec;
 template <typename Ret, typename... Args, auto... Requires>
 struct system_spec<Ret (*)(Args...), Requires...> {
@@ -166,9 +171,9 @@ template <typename Fn>
 system_spec(Fn) -> system_spec<Fn>;
 
 struct _individual_t {};
-inline constexpr _individual_t individual;
+ATOM_EXPORT inline constexpr _individual_t individual;
 
-template <typename Tasks>
+ATOM_EXPORT template <typename Tasks>
 struct graph_builder;
 
 template <stage Stage, system_spec... Specs>
@@ -296,11 +301,11 @@ public:
     }
 };
 
-enum class accessibility : std::uint8_t {
+ATOM_EXPORT enum class accessibility : std::uint8_t {
     read,
     write
 };
-template <typename T>
+ATOM_EXPORT template <typename T>
 struct request_accessibility;
 template <typename T>
 requires std::same_as<std::remove_cvref_t<T>, T>
@@ -318,12 +323,12 @@ struct request_accessibility<T&> {
     static constexpr accessibility ability = accessibility::write;
 };
 
-template <typename T>
+ATOM_EXPORT template <typename T>
 struct requested_accessibility {
     using type = request_accessibility<T>;
 };
 
-template <typename T>
+ATOM_EXPORT template <typename T>
 struct param_spec {
     using accessibilities = type_list<>;
 };
@@ -403,7 +408,7 @@ public:
     }
 };
 
-template <stage Stage, system_spec... Specs>
+ATOM_EXPORT template <stage Stage, system_spec... Specs>
 inline constexpr _add_systems_t<Stage, Specs...> add_systems;
 
 template <typename TypeList, typename T>
@@ -423,16 +428,16 @@ struct _tick_rate_t {
     int value = Ticks;
 };
 
-template <int Ticks>
+ATOM_EXPORT template <int Ticks>
 inline constexpr _tick_rate_t<Ticks> tick_rate;
 
-inline constexpr auto dynamic_tick_rate = tick_rate<-1>;
+ATOM_EXPORT inline constexpr auto dynamic_tick_rate = tick_rate<-1>;
 
 template <std::size_t I>
 struct _group_t {
     static constexpr std::size_t id = I;
 };
-template <std::size_t I>
+ATOM_EXPORT template <std::size_t I>
 inline constexpr _group_t<I> group;
 
 template <typename Val>
@@ -459,7 +464,8 @@ struct _execute_t : description_tag {
             return 0;
         } else {
             int val              = sizeof...(Args);
-            constexpr auto index = []<size_t... Is>(index_sequence<Is...>) {
+            constexpr auto index = []<std::size_t... Is>(
+                                       index_sequence<Is...>) {
                 constexpr auto num = sizeof...(Args);
                 auto index         = num;
                 auto curr          = 0;
@@ -528,10 +534,10 @@ struct _execute_t : description_tag {
     }
 };
 
-template <auto... Args>
+ATOM_EXPORT template <auto... Args>
 inline constexpr _execute_t<Args...> execute;
 
-constexpr bool is_hifreq_stage(stage stage) noexcept {
+ATOM_EXPORT constexpr bool is_hifreq_stage(stage stage) noexcept {
     using enum ::neutron::stage;
     return stage >= events && stage <= render;
 }
@@ -548,7 +554,7 @@ struct _set_identifier_t : description_tag {
     }
 };
 
-template <tstring Identifier>
+ATOM_EXPORT template <tstring Identifier>
 inline constexpr _set_identifier_t<Identifier> set_identifier;
 
 } // namespace neutron

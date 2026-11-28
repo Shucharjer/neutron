@@ -1,9 +1,15 @@
-#include <atomic>
-#include <cstddef>
-#include <memory>
-#include <string>
-#include <thread>
-#include <neutron/lockfree.hpp>
+#include "neutron/detail/utility/macros.hpp"
+#ifdef ATOM_USES_MODULES
+import std;
+import neutron;
+#else
+    #include <atomic>
+    #include <cstddef>
+    #include <memory>
+    #include <string>
+    #include <thread>
+    #include <neutron/lockfree.hpp>
+#endif
 #include "require.hpp"
 
 namespace {

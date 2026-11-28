@@ -1,12 +1,17 @@
-#include <cstddef>
-#include <filesystem>
-#include <fstream>
-#include <ios>
-#include <iterator>
-#include <string>
-#include <string_view>
-#include <utility>
-#include <neutron/fstream.hpp>
+#include "neutron/detail/utility/macros.hpp"
+// With modules, an implementation unit of neutron that imports std, see
+// `internal_tests`.
+#ifndef ATOM_USES_MODULES
+    #include <cstddef>
+    #include <filesystem>
+    #include <fstream>
+    #include <ios>
+    #include <iterator>
+    #include <string>
+    #include <string_view>
+    #include <utility>
+    #include <neutron/fstream.hpp>
+#endif
 #include "require.hpp"
 #include "temp_file.hpp"
 
@@ -262,7 +267,7 @@ void test_wide_characters_round_trip() {
 
 } // namespace
 
-int main() {
+extern "C++" int main() {
     test_open_rejects_invalid_modes();
     test_open_fails_when_already_open();
     test_open_rejects_a_zero_window_size();

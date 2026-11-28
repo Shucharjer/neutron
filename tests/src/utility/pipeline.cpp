@@ -1,8 +1,12 @@
-#include <memory>
-#include <string>
-#include <type_traits>
-#include <utility>
-#include <neutron/utility.hpp>
+// With modules, an implementation unit of neutron that imports std, see
+// `internal_tests`.
+#ifndef ATOM_USES_MODULES
+    #include <memory>
+    #include <string>
+    #include <type_traits>
+    #include <utility>
+    #include <neutron/utility.hpp>
+#endif
 #include "require.hpp"
 
 using namespace neutron;
@@ -355,7 +359,7 @@ void test_self_consuming_stage_runs_as_rvalue() {
 
 } // namespace
 
-int main() {
+extern "C++" int main() {
     test_value_pipes_into_closures_left_to_right();
     test_composition_is_associative();
     test_compositions_compose();

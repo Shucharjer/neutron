@@ -1,15 +1,17 @@
 #pragma once
-#include <algorithm>
-#include <cassert>
-#include <cstddef>
-#include <functional>
-#include <iterator>
-#include <numeric>
-#include <ranges>
-#include <tuple>
-#include <type_traits>
-#include <utility>
-#include <vector>
+#ifndef ATOM_BUILDING_MODULE
+    #include <algorithm>
+    #include <cassert>
+    #include <cstddef>
+    #include <functional>
+    #include <iterator>
+    #include <numeric>
+    #include <ranges>
+    #include <tuple>
+    #include <type_traits>
+    #include <utility>
+    #include <vector>
+#endif
 #include "neutron/detail/utility/macros.hpp"
 
 namespace neutron {
@@ -67,7 +69,7 @@ constexpr void
     }
 }
 
-template <
+ATOM_EXPORT template <
     std::ranges::random_access_range R,
     std::ranges::random_access_range... Ranges,
     typename Comp = std::ranges::less, typename Proj = std::identity>
@@ -96,7 +98,7 @@ constexpr std::ranges::borrowed_iterator_t<R> inplace_merge(
         indices.resize(size);
     }
 #else
-    std::vector<size_t> indices(size);
+    std::vector<std::size_t> indices(size);
 #endif
     std::iota(indices.begin(), indices.begin() + size, 0);
 

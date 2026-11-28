@@ -2,21 +2,23 @@
 #pragma once
 #include "neutron/detail/ecs/fwd.hpp"
 
-#include <algorithm>
-#include <array>
-#include <concepts>
-#include <cstddef>
-#include <cstdint>
-#include <cstring>
-#include <iterator>
-#include <memory>
-#include <memory_resource> // IWYU pragma: keep, for std::pmr::polymorphic_allocator
-#include <ranges>
-#include <span>
-#include <tuple>
-#include <type_traits>
-#include <utility>
-#include <version>
+#ifndef ATOM_BUILDING_MODULE
+    #include <algorithm>
+    #include <array>
+    #include <concepts>
+    #include <cstddef>
+    #include <cstdint>
+    #include <cstring>
+    #include <iterator>
+    #include <memory>
+    #include <memory_resource> // IWYU pragma: keep, for std::pmr::polymorphic_allocator
+    #include <ranges>
+    #include <span>
+    #include <tuple>
+    #include <type_traits>
+    #include <utility>
+    #include <version>
+#endif
 #include "neutron/detail/algorithm/branchless_lower_bound.hpp"
 #include "neutron/detail/concepts/allocator.hpp"
 #include "neutron/detail/ecs/concepts/component.hpp"
@@ -37,21 +39,21 @@
 
 namespace neutron {
 
-template <component...>
+ATOM_EXPORT template <component...>
 class slice;
 
 // NOLINTBEGIN(cppcoreguidelines-pro-bounds-pointer-arithmetic)
 // NOLINTBEGIN(cppcoreguidelines-avoid-c-arrays)
 // NOLINTBEGIN(modernize-avoid-c-arrays)
 
-template <component... Comp>
+ATOM_EXPORT template <component... Comp>
 struct add_components_t {};
-template <component... Comp>
+ATOM_EXPORT template <component... Comp>
 struct remove_components_t {};
 
 namespace _archetype {
 
-constexpr std::size_t _initial_capacity = 64U;
+inline constexpr std::size_t _initial_capacity = 64U;
 
 // Component columns come from the archetype's allocator rebound to the
 // element type, so the allocator sees the natural alignment of the component.
@@ -334,7 +336,7 @@ ATOM_CONSTEXPR_SINCE_CXX26 void _emplace_one_normally(
  * and cache-friendly access.
  * @tparam Alloc Allocator type conforming to `std_simple_allocator` concept.
  */
-template <unfancy_allocator Alloc = std::allocator<std::byte>>
+ATOM_EXPORT template <unfancy_allocator Alloc = std::allocator<std::byte>>
 class archetype;
 
 // do not support this
@@ -353,11 +355,12 @@ class archetype<Alloc> {
     template <typename Ty>
     using _allocator_t = rebind_alloc_t<Alloc, Ty>;
 
-    static constexpr size_t initial_capacity = _archetype::_initial_capacity;
+    static constexpr std::size_t initial_capacity =
+        _archetype::_initial_capacity;
 
 public:
-    using size_type        = size_t;
-    using difference_type  = ptrdiff_t;
+    using size_type        = std::size_t;
+    using difference_type  = std::ptrdiff_t;
     using allocator_type   = Alloc;
     using allocator_traits = std::allocator_traits<allocator_type>;
 
@@ -1034,7 +1037,7 @@ private:
     // emplace<...>(range);
 
     template <
-        size_t Index, typename TypeList,
+        std::size_t Index, typename TypeList,
         typename Ty = type_list_element_t<Index, TypeList>>
     ATOM_CONSTEXPR_SINCE_CXX26 void
         _emplace_n_noexcept(size_type count) noexcept {
@@ -1068,7 +1071,7 @@ private:
         }
 
         // noexcept part
-        [this, append]<size_t... Is>(std::index_sequence<Is...>) {
+        [this, append]<std::size_t... Is>(std::index_sequence<Is...>) {
             (_emplace_n_noexcept<Is, type_list<Components...>>(append), ...);
         }(std::index_sequence_for<Components...>());
         guard.dismiss();
@@ -1102,13 +1105,14 @@ private:
         size_type finished = 0;
         auto clean         = [this, &finished, currsize, append]() noexcept {
             [this, &finished, currsize,
-             append]<size_t... Is>(std::index_sequence<Is...>) {
+             append]<std::size_t... Is>(std::index_sequence<Is...>) {
                 (_clean_for_emplace_n<Is, clist>(finished, currsize, append),
                  ...);
             }(isequence());
         };
         auto emplace_guard = make_exception_guard(clean);
-        [this, &finished, append]<size_t... Is>(std::index_sequence<Is...>) {
+        [this, &finished,
+         append]<std::size_t... Is>(std::index_sequence<Is...>) {
             (_emplace_n<Is, clist>(finished, append), ...);
         }(isequence());
         emplace_guard.dismiss();
@@ -1174,7 +1178,7 @@ private:
     }
 
     template <
-        size_t Index, typename TypeList,
+        std::size_t Index, typename TypeList,
         typename Ty = type_list_element_t<Index, TypeList>>
     ATOM_CONSTEXPR_SINCE_CXX26 void _clean_for_emplace_n(
         size_type finished, size_type original_size, size_type count) noexcept {
@@ -1188,7 +1192,7 @@ private:
     }
 
     template <
-        size_t Index, typename TypeList,
+        std::size_t Index, typename TypeList,
         typename Ty = type_list_element_t<Index, TypeList>>
     ATOM_CONSTEXPR_SINCE_CXX26 void
         _emplace_n(size_type& finished, size_type size_appending) {
@@ -1326,7 +1330,7 @@ private:
         const auto kind = _kind_indices(hash_list{});
         using isequence = hash_sequence_t<tlist>;
         using vlist     = value_list_from_t<isequence>;
-        return [this, &kind]<size_t... Is>(std::index_sequence<Is...>) {
+        return [this, &kind]<std::size_t... Is>(std::index_sequence<Is...>) {
             return std::make_tuple(
                 _archetype::_column<std::remove_cvref_t<Components>>(
                     storage_[kind[value_list_element_v<Is, vlist>]])...);
@@ -1341,7 +1345,7 @@ private:
         const auto kind = _kind_indices(hash_list{});
         using isequence = hash_sequence_t<tlist>;
         using vlist     = value_list_from_t<isequence>;
-        return [this, &kind]<size_t... Is>(std::index_sequence<Is...>) {
+        return [this, &kind]<std::size_t... Is>(std::index_sequence<Is...>) {
             return std::make_tuple(
                 static_cast<void* const*>(
                     storage_ + kind[value_list_element_v<Is, vlist>])...);
@@ -1735,7 +1739,7 @@ ATOM_CONSTEXPR_SINCE_CXX26 void archetype<Alloc>::transfer(
 
 namespace pmr {
 
-using archetype = archetype<std::pmr::polymorphic_allocator<>>;
+ATOM_EXPORT using archetype = archetype<std::pmr::polymorphic_allocator<>>;
 
 } // namespace pmr
 

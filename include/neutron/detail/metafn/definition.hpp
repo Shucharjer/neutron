@@ -1,39 +1,42 @@
 // IWYU pragma: private, include <neutron/metafn.hpp>
 #pragma once
-#include <type_traits>
+#ifndef ATOM_BUILDING_MODULE
+    #include <type_traits>
+#endif
+#include "neutron/detail/utility/macros.hpp"
 
 namespace neutron {
 
-template <typename...>
+ATOM_EXPORT template <typename...>
 struct type_list {};
 
-template <typename>
+ATOM_EXPORT template <typename>
 struct is_type_list : std::false_type {};
 template <typename... Tparams>
 struct is_type_list<type_list<Tparams...>> : std::true_type {};
-template <typename Ty>
+ATOM_EXPORT template <typename Ty>
 constexpr bool is_type_list_v = is_type_list<Ty>::value;
 
-template <auto...>
+ATOM_EXPORT template <auto...>
 struct value_list {};
 
-template <typename>
+ATOM_EXPORT template <typename>
 struct is_value_list : std::false_type {};
 template <auto... Tparams>
 struct is_value_list<value_list<Tparams...>> : std::true_type {};
-template <typename Ty>
+ATOM_EXPORT template <typename Ty>
 constexpr bool is_value_list_v = is_value_list<Ty>::value;
 
-template <typename... Args>
+ATOM_EXPORT template <typename... Args>
 using decayed_type_list = type_list<std::decay_t<Args>...>;
 
-template <typename Tag, typename... Args>
+ATOM_EXPORT template <typename Tag, typename... Args>
 struct tagged_type_list {
     using tag       = Tag;
     using type_list = ::neutron::type_list<Args...>;
 };
 
-template <typename Tag, auto... Args>
+ATOM_EXPORT template <typename Tag, auto... Args>
 struct tagged_value_list {
     using tag        = Tag;
     using value_list = ::neutron::value_list<Args...>;

@@ -1,15 +1,19 @@
-#include <cstddef>
-#include <cstdint>
-#include <cstring>
-#include <filesystem>
-#include <fstream>
-#include <ios>
-#include <iterator>
-#include <string>
-#include <type_traits>
-#include <utility>
-#include <neutron/fstream.hpp>
 #include "neutron/detail/utility/macros.hpp"
+// With modules, an implementation unit of neutron that imports std, see
+// `internal_tests`.
+#ifndef ATOM_USES_MODULES
+    #include <cstddef>
+    #include <cstdint>
+    #include <cstring>
+    #include <filesystem>
+    #include <fstream>
+    #include <ios>
+    #include <iterator>
+    #include <string>
+    #include <type_traits>
+    #include <utility>
+    #include <neutron/fstream.hpp>
+#endif
 #include "require.hpp"
 #include "temp_file.hpp"
 
@@ -262,7 +266,7 @@ void test_move_assignment_closes_the_previous_file() {
 
 } // namespace
 
-int main() {
+extern "C++" int main() {
     test_out_creates_the_file();
     test_out_truncates_an_existing_file();
     test_long_text_spans_windows();

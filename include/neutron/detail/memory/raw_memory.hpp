@@ -1,9 +1,11 @@
 // IWYU pragma: private, include <neutron/memory.hpp>
 #pragma once
-#include <iterator>
-#include <memory>
-#include <utility>
-#include <version>
+#ifndef ATOM_BUILDING_MODULE
+    #include <iterator>
+    #include <memory>
+    #include <utility>
+    #include <version>
+#endif
 #include "neutron/detail/iterator/concepts.hpp"
 
 // NOTE: The raw memory algorithms in stl is constexpr since c++26.
@@ -11,7 +13,9 @@
 
 #include "neutron/detail/utility/macros.hpp"
 #if !defined(__cpp_if_consteval) || __cpp_if_consteval < 202106L
-    #include <type_traits> // IWYU pragma: keep, mis-report
+    #ifndef ATOM_BUILDING_MODULE
+        #include <type_traits> // IWYU pragma: keep, mis-report
+    #endif
 #endif
 
 #if defined(__cpp_lib_raw_memory_algorithms) &&                                \
@@ -53,7 +57,7 @@ constexpr bool _n_fill =
 
 } // namespace _raw_mem_algos
 
-template <nothrow_forward_iterator NoThrowForwardIt>
+ATOM_EXPORT template <nothrow_forward_iterator NoThrowForwardIt>
 ATOM_CONSTEXPR_SINCE_CXX20 auto uninitialized_default_construct(
     NoThrowForwardIt first,
     NoThrowForwardIt
@@ -72,7 +76,7 @@ ATOM_CONSTEXPR_SINCE_CXX20 auto uninitialized_default_construct(
     }
 }
 
-template <nothrow_forward_iterator NoThrowForwardIt, typename Size>
+ATOM_EXPORT template <nothrow_forward_iterator NoThrowForwardIt, typename Size>
 ATOM_CONSTEXPR_SINCE_CXX20 auto uninitialized_default_construct_n(
     NoThrowForwardIt first,
     Size count) noexcept(_raw_mem_algos::_n_default_construct<NoThrowForwardIt>)
@@ -91,7 +95,7 @@ ATOM_CONSTEXPR_SINCE_CXX20 auto uninitialized_default_construct_n(
     }
 }
 
-template <nothrow_forward_iterator NoThrowForwardIt>
+ATOM_EXPORT template <nothrow_forward_iterator NoThrowForwardIt>
 ATOM_CONSTEXPR_SINCE_CXX20 auto uninitialized_value_construct(
     NoThrowForwardIt first,
     NoThrowForwardIt
@@ -109,7 +113,7 @@ ATOM_CONSTEXPR_SINCE_CXX20 auto uninitialized_value_construct(
     }
 }
 
-template <nothrow_forward_iterator NoThrowForwardIt, typename Size>
+ATOM_EXPORT template <nothrow_forward_iterator NoThrowForwardIt, typename Size>
 ATOM_CONSTEXPR_SINCE_CXX20 auto uninitialized_value_construct_n(
     NoThrowForwardIt first,
     Size count) noexcept(_raw_mem_algos::_n_value_construct<NoThrowForwardIt>)
@@ -127,7 +131,8 @@ ATOM_CONSTEXPR_SINCE_CXX20 auto uninitialized_value_construct_n(
     }
 } // namespace neutron
 
-template <input_iterator InputIt, nothrow_forward_iterator NoThrowForwardIt>
+ATOM_EXPORT template <
+    input_iterator InputIt, nothrow_forward_iterator NoThrowForwardIt>
 ATOM_CONSTEXPR_SINCE_CXX20 auto uninitialized_copy(
     InputIt first, InputIt last,
     NoThrowForwardIt
@@ -146,7 +151,7 @@ ATOM_CONSTEXPR_SINCE_CXX20 auto uninitialized_copy(
     }
 } // namespace neutron
 
-template <
+ATOM_EXPORT template <
     input_iterator InputIt, typename Size,
     nothrow_forward_iterator NoThrowForwardIt>
 ATOM_CONSTEXPR_SINCE_CXX20 auto uninitialized_copy_n(
@@ -167,7 +172,8 @@ ATOM_CONSTEXPR_SINCE_CXX20 auto uninitialized_copy_n(
     }
 }
 
-template <input_iterator InputIt, nothrow_forward_iterator NoThrowForwardIt>
+ATOM_EXPORT template <
+    input_iterator InputIt, nothrow_forward_iterator NoThrowForwardIt>
 ATOM_CONSTEXPR_SINCE_CXX20 auto uninitialized_move(
     InputIt first, InputIt last,
     NoThrowForwardIt
@@ -177,7 +183,7 @@ ATOM_CONSTEXPR_SINCE_CXX20 auto uninitialized_move(
         std::make_move_iterator(first), std::make_move_iterator(last), d_first);
 }
 
-template <
+ATOM_EXPORT template <
     input_iterator InputIt, typename Size,
     nothrow_forward_iterator NoThrowForwardIt>
 constexpr auto
@@ -186,7 +192,7 @@ constexpr auto
     return uninitialized_copy_n(std::make_move_iterator(first), count, d_first);
 }
 
-template <nothrow_forward_iterator NoThrowForwardIt, typename T>
+ATOM_EXPORT template <nothrow_forward_iterator NoThrowForwardIt, typename T>
 ATOM_CONSTEXPR_SINCE_CXX20 auto uninitialized_fill(
     NoThrowForwardIt first, NoThrowForwardIt last,
     const T& value) noexcept(_raw_mem_algos::_n_fill<NoThrowForwardIt, T>)
@@ -202,7 +208,8 @@ ATOM_CONSTEXPR_SINCE_CXX20 auto uninitialized_fill(
     std::uninitialized_fill(first, last, value);
 }
 
-template <nothrow_forward_iterator NoThrowForwardIt, typename Size, typename T>
+ATOM_EXPORT template <
+    nothrow_forward_iterator NoThrowForwardIt, typename Size, typename T>
 ATOM_CONSTEXPR_SINCE_CXX20 auto uninitialized_fill_n(
     NoThrowForwardIt first, Size count,
     const T& value) noexcept(_raw_mem_algos::_n_fill<NoThrowForwardIt, T>)

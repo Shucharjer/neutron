@@ -2,15 +2,18 @@
 #pragma once
 #include "neutron/detail/ecs/fwd.hpp"
 
-#include <cstddef>
-#include <memory>
+#ifndef ATOM_BUILDING_MODULE
+    #include <cstddef>
+    #include <memory>
+#endif
 #include "neutron/detail/concepts/allocator.hpp"
 #include "neutron/detail/ecs/concepts/component.hpp"
 #include "neutron/detail/ecs/core/command_buffer.hpp"
+#include "neutron/detail/utility/macros.hpp"
 
 namespace neutron {
 
-template <unfancy_allocator Alloc = std::allocator<std::byte>>
+ATOM_EXPORT template <unfancy_allocator Alloc = std::allocator<std::byte>>
 class basic_command_list {
 public:
     constexpr basic_command_list(command_buffer<Alloc>& cb) noexcept
@@ -63,13 +66,12 @@ private:
     command_buffer<Alloc>* command_buffer_;
 };
 
-using command_list = basic_command_list<std::allocator<std::byte>>;
+ATOM_EXPORT using command_list = basic_command_list<std::allocator<std::byte>>;
 
 namespace pmr {
 
-using command_list =
+ATOM_EXPORT using command_list =
     basic_command_list<std::pmr::polymorphic_allocator<std::byte>>;
-
 }
 
 } // namespace neutron

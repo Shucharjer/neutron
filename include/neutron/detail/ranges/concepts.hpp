@@ -1,11 +1,14 @@
 // IWYU pragma: private, include <neutron/ranges.hpp>
 #pragma once
-#include <ranges>
+#ifndef ATOM_BUILDING_MODULE
+    #include <ranges>
+#endif
+#include "neutron/detail/utility/macros.hpp"
 
 namespace neutron {
 
 // concept: ref_convertible
-template <typename Rng, typename Container>
+ATOM_EXPORT template <typename Rng, typename Container>
 concept ref_convertible_range = !std::ranges::input_range<Container> ||
                                 std::convertible_to<
                                     std::ranges::range_reference_t<Rng>,
@@ -16,7 +19,7 @@ concept ref_convertible_range = !std::ranges::input_range<Container> ||
  * @brief A range whose iterator type is the same as the sentinel type.
  *
  */
-template <typename Rng>
+ATOM_EXPORT template <typename Rng>
 concept common_range =
     ::std::ranges::range<Rng> &&
     ::std::same_as<
@@ -30,7 +33,7 @@ concept common_range =
  * Range should has input iterator, and we could construct the contains via
  * this.
  */
-template <typename Rng, typename Container, typename... Args>
+ATOM_EXPORT template <typename Rng, typename Container, typename... Args>
 concept common_constructible_range =
     neutron::common_range<Rng> &&
     // using of iterator_category
@@ -86,7 +89,7 @@ concept can_insert_end = requires(Container& cnt) {
  * to it from range.
  *
  */
-template <typename Rng, typename Container, typename... Args>
+ATOM_EXPORT template <typename Rng, typename Container, typename... Args>
 concept constructible_appendable_range =
     std::constructible_from<Container, Args...> &&
     (internal::can_emplace_back<
@@ -96,11 +99,11 @@ concept constructible_appendable_range =
          Container, std::ranges::range_reference_t<Rng>> ||
      internal::can_insert_end<Container, std::ranges::range_reference_t<Rng>>);
 
-template <typename Iter, typename Ty>
+ATOM_EXPORT template <typename Iter, typename Ty>
 concept constructible_from_iterator =
     std::same_as<typename std::iterator_traits<Iter>::value_type, Ty>;
 
-template <typename Rng, typename Ty>
+ATOM_EXPORT template <typename Rng, typename Ty>
 concept compatible_range = std::ranges::range<Rng> &&
                            std::same_as<std::ranges::range_value_t<Rng>, Ty>;
 

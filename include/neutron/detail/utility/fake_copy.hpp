@@ -2,7 +2,7 @@
 
 namespace neutron {
 
-constexpr auto fake_copy(auto&& value) {
+ATOM_EXPORT constexpr auto fake_copy(auto&& value) {
     auto val{ value };
     return static_cast<decltype(val)*>(nullptr);
 };

@@ -1,9 +1,12 @@
 #pragma once
-#include <algorithm>
-#include <atomic>
-#include <cstddef>
+#ifndef ATOM_BUILDING_MODULE
+    #include <algorithm>
+    #include <atomic>
+    #include <cstddef>
+#endif
 #include "neutron/detail/ecs/compile-time/descriptor.hpp"
 #include "neutron/detail/ecs/fwd.hpp"
+#include "neutron/detail/utility/macros.hpp"
 #include "neutron/execution.hpp"
 #include "neutron/inplace_vector.hpp"
 // #include "neutron/stop_token.hpp"
@@ -33,10 +36,10 @@ struct tasks_of_impl<Stage, world_descriptor_t<Args...>> {
     using type = typename _get_tasks<Stage, type_list<Args...>>::type;
 };
 
-template <stage Stage, typename Specs>
+ATOM_EXPORT template <stage Stage, typename Specs>
 using tasks_of = typename tasks_of_impl<Stage, Specs>::type;
 
-template <typename Alloc>
+ATOM_EXPORT template <typename Alloc>
 struct task_node {
     void (*const _task)(world_base<Alloc>&) = nullptr; // NOLINT
     std::atomic<bool>* _done                = nullptr;
@@ -47,7 +50,7 @@ struct task_node {
     }
 };
 
-template <auto Fn, typename = decltype(Fn)>
+ATOM_EXPORT template <auto Fn, typename = decltype(Fn)>
 struct task_invoker;
 template <auto Fn, typename... Args>
 struct task_invoker<Fn, void (*)(Args...)> {
@@ -70,7 +73,7 @@ template <auto Fn, typename Ret, typename... Args>
 constexpr bool _is_nothrow_invocable_function<Fn, Ret (*)(Args...) noexcept> =
     true;
 
-template <typename World, system_spec Spec>
+ATOM_EXPORT template <typename World, system_spec Spec>
 struct task;
 template <typename Descriptor, typename Alloc, system_spec Spec>
 struct task<basic_world<Descriptor, Alloc>, Spec> : task_node<Alloc> {
@@ -83,10 +86,10 @@ struct task<basic_world<Descriptor, Alloc>, Spec> : task_node<Alloc> {
     consteval task() noexcept : task_node<Alloc>{ .content = execute_fn } {}
 };
 
-template <typename Tasks, typename Alloc>
+ATOM_EXPORT template <typename Tasks, typename Alloc>
 class executor;
 
-template <typename Alloc>
+ATOM_EXPORT template <typename Alloc>
 struct task_context {
     task_node<Alloc>* task;
     world_base<Alloc>* world;
@@ -155,7 +158,7 @@ private:
 //     }
 // };
 
-template <typename Executor, typename Scheduler>
+ATOM_EXPORT template <typename Executor, typename Scheduler>
 constexpr void execute_until_done(Executor& executor, Scheduler& scheduler) {
     // struct _env_t {
     //     ATOM_ATTRS(ATOM_NODISCARD) constexpr auto

@@ -1,7 +1,9 @@
 // IWYU pragma: private, include <neutron/reflection.hpp>
 #pragma once
-#include <memory>
-#include <type_traits>
+#ifndef ATOM_BUILDING_MODULE
+    #include <memory>
+    #include <type_traits>
+#endif
 
 /*! @cond TURN_OFF_DOXYGEN */
 namespace neutron::_refl_legacy {

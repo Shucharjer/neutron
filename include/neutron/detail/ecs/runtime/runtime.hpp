@@ -1,10 +1,12 @@
 // IWYU pragma: private, include <neutron/ecs.hpp>
 #pragma once
-#include <concepts>
-#include <cstddef>
-#include <memory>
-#include <tuple>
-#include <utility>
+#ifndef ATOM_BUILDING_MODULE
+    #include <concepts>
+    #include <cstddef>
+    #include <memory>
+    #include <tuple>
+    #include <utility>
+#endif
 #include "neutron/detail/ecs/compile-time/descriptor.hpp"
 #include "neutron/detail/ecs/runtime/run_env.hpp"
 #include "neutron/detail/utility/macros.hpp"
@@ -16,19 +18,19 @@ namespace neutron {
 // scheduler provider like `stdexec::run_loop` or `exec::static_thread_pool`
 // do not satify.
 
-template <typename Sp>
+ATOM_EXPORT template <typename Sp>
 concept scheduler_provider = requires(Sp& sp) {
     // { execution::get_start_scheduler(sp) } -> execution::scheduler;
     { sp.get_scheduler() } -> execution::scheduler;
 };
 
-template <typename Sp>
+ATOM_EXPORT template <typename Sp>
 concept parallelism_scheduler_provider =
     scheduler_provider<Sp> && requires(const Sp& sp) {
         { sp.available_parallelism() } noexcept -> std::unsigned_integral;
     };
 
-template <typename Payload>
+ATOM_EXPORT template <typename Payload>
 concept run_payloay = requires(Payload& payload) {
     { payload.poll_events() } -> std::same_as<bool>;
     { payload.is_running() } -> std::same_as<bool>;
@@ -36,7 +38,7 @@ concept run_payloay = requires(Payload& payload) {
     payload.render_end();
 };
 
-template <
+ATOM_EXPORT template <
     scheduler_provider Sp, run_payloay Payload, typename Alloc, auto... Worlds>
 class runtime {
 public:
@@ -122,11 +124,11 @@ private:
     Sp& sp_; // NOLINT
 };
 
-template <
+ATOM_EXPORT template <
     auto... Worlds, scheduler_provider Sp, run_payloay Payload,
     typename Alloc = std::allocator<std::byte>>
-ATOM_ATTRS(ATOM_NODISCARD) constexpr auto
-    make_runtime(Sp& sp, Payload* payload, const Alloc& alloc = {}) {
+ATOM_ATTRS(ATOM_NODISCARD)
+constexpr auto make_runtime(Sp& sp, Payload* payload, const Alloc& alloc = {}) {
     return runtime<Sp, Payload, Alloc, Worlds...>(sp, payload, alloc);
 }
 

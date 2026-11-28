@@ -1,4 +1,9 @@
-#include <neutron/functional.hpp>
+#ifdef ATOM_USES_MODULES
+import std;
+import neutron;
+#else
+    #include <neutron/functional.hpp>
+#endif
 #include "require.hpp"
 
 using namespace neutron;

@@ -1,7 +1,16 @@
-#include <concepts>
-#include <tuple>
-#include <neutron/reflection.hpp>
-#include <neutron/utility.hpp>
+#include "neutron/detail/utility/macros.hpp"
+#if !ATOM_HAS_REFLECTION
+    #include "neutron/detail/reflection/legacy/user_macros.hpp"
+#endif
+#ifdef ATOM_USES_MODULES
+import std;
+import neutron;
+#else
+    #include <concepts>
+    #include <tuple>
+    #include <neutron/reflection.hpp>
+    #include <neutron/utility.hpp>
+#endif
 #include "require.hpp"
 
 using namespace neutron;

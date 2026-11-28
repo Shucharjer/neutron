@@ -1,13 +1,19 @@
-#include <atomic>
-#include <cstddef>
-#include <cstdlib>
-#include <memory>
-#include <new>
-#include <neutron/ecs.hpp>
+#ifdef ATOM_USES_MODULES
+import std;
+import neutron;
+#else
+    #include <atomic>
+    #include <cstddef>
+    #include <cstdlib>
+    #include <memory>
+    #include <new>
+    #include <neutron/ecs.hpp>
+#endif
 #include "require.hpp"
-
 #if defined(_WIN32)
-    #include <malloc.h>
+    #ifndef ATOM_USES_MODULES
+        #include <malloc.h>
+    #endif
 #endif
 
 using namespace neutron;
@@ -66,10 +72,10 @@ struct Position {
 
 using world_t = basic_world<world_descriptor_t<>>;
 
-size_t count_positions(world_t& world) {
+std::size_t count_positions(world_t& world) {
     basic_querior<std::allocator<std::byte>, with<Position&>> querior{ world };
     query<with<Position&>> qry{ querior };
-    size_t count = 0;
+    std::size_t count = 0;
     for (auto [position] : qry.get()) {
         static_cast<void>(position);
         ++count;

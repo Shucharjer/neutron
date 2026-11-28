@@ -1,13 +1,18 @@
-#include <algorithm>
-#include <array>
-#include <cstddef>
-#include <numeric>
-#include <ranges>
-#include <tuple>
-#include <vector>
-#include <neutron/reflection.hpp>
-#include <neutron/tuple.hpp>
-#include <neutron/utility.hpp>
+#ifdef ATOM_USES_MODULES
+import std;
+import neutron;
+#else
+    #include <algorithm>
+    #include <array>
+    #include <cstddef>
+    #include <numeric>
+    #include <ranges>
+    #include <tuple>
+    #include <vector>
+    #include <neutron/reflection.hpp>
+    #include <neutron/tuple.hpp>
+    #include <neutron/utility.hpp>
+#endif
 #include "require.hpp"
 
 using namespace neutron;

@@ -1,15 +1,18 @@
 // IWYU pragma, include <neutron/iterator.hpp>
 #pragma once
-#include <iterator>
+#ifndef ATOM_BUILDING_MODULE
+    #include <iterator>
+#endif
+#include "neutron/detail/utility/macros.hpp"
 
 namespace neutron {
 
-using ::std::input_iterator;
-using ::std::forward_iterator;
-using ::std::random_access_iterator;
-using ::std::contiguous_iterator;
+ATOM_EXPORT using ::std::input_iterator;
+ATOM_EXPORT using ::std::forward_iterator;
+ATOM_EXPORT using ::std::random_access_iterator;
+ATOM_EXPORT using ::std::contiguous_iterator;
 
-template <typename It>
+ATOM_EXPORT template <typename It>
 concept nothrow_forward_iterator =
     forward_iterator<It> && requires(It& it, It another) {
         { it++ } noexcept;

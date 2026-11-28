@@ -1,10 +1,13 @@
 #pragma once
-#include <cstddef>
+#ifndef ATOM_BUILDING_MODULE
+    #include <cstddef>
+#endif
 #include "neutron/detail/metafn/definition.hpp"
+#include "neutron/detail/utility/macros.hpp"
 
 namespace neutron {
 
-template <typename>
+ATOM_EXPORT template <typename>
 struct member_function_traits;
 template <typename Ret, typename Class, typename... Args>
 struct member_function_traits<Ret (Class::*)(Args...)> {
@@ -59,7 +62,7 @@ struct member_function_traits<Ret (Class::*)(Args...) const noexcept> {
     constexpr static std::size_t num_args = sizeof...(Args);
 };
 
-template <auto Fn, typename FnTy = decltype(Fn)>
+ATOM_EXPORT template <auto Fn, typename FnTy = decltype(Fn)>
 struct member_fn;
 template <auto Fn, typename Ret, typename Class, typename... Args>
 struct member_fn<Fn, Ret (Class::*)(Args...) const> {

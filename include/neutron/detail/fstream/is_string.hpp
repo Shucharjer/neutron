@@ -1,6 +1,8 @@
 // IWYU pragma: private, include <neutron/fstream.hpp>
 #pragma once
-#include <concepts>
+#ifndef ATOM_BUILDING_MODULE
+    #include <concepts>
+#endif
 #include "neutron/detail/utility/macros.hpp"
 
 namespace neutron {

@@ -1,16 +1,19 @@
 // IWYU pragma: private, include <neutron/ecs.hpp>
 #pragma once
-#include <cstddef>
-#include <ranges>
-#include <vector>
-#include <neutron/ecs.hpp>
-#include <neutron/memory.hpp>
+#ifndef ATOM_BUILDING_MODULE
+    #include <cstddef>
+    #include <ranges>
+    #include <vector>
+#endif
 #include "neutron/detail/ecs/core/archetype.hpp"
 #include "neutron/detail/ecs/core/world_base.hpp"
+#include "neutron/detail/utility/macros.hpp"
+#include "neutron/ecs.hpp"
+#include "neutron/memory.hpp"
 
 namespace neutron {
 
-template <typename Alloc>
+ATOM_EXPORT template <typename Alloc>
 class snapshot {
     template <typename T>
     using _allocator_t = rebind_alloc_t<Alloc, T>;

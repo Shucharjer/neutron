@@ -1,12 +1,15 @@
 // IWYU pragma: private, include <neutron/ecs.hpp>
 #pragma once
-#include <tuple>
-#include <type_traits>
+#ifndef ATOM_BUILDING_MODULE
+    #include <tuple>
+    #include <type_traits>
+#endif
 #include "neutron/detail/ecs/concepts/stage.hpp"
+#include "neutron/detail/utility/macros.hpp"
 
 namespace neutron {
 
-template <stage Stage, auto Sys, typename... Args>
+ATOM_EXPORT template <stage Stage, auto Sys, typename... Args>
 class systuple : public std::tuple<Args...> {
 public:
     using tuple_type = std::tuple<Args...>;

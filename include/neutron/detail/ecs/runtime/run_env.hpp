@@ -1,28 +1,31 @@
 // IWYU pragma: private, include <neutron/ecs.hpp>
 #pragma once
-#include <chrono>
-#include <cstddef>
-#include <memory>
-#include <tuple>
-#include <type_traits>
-#include <utility>
-#include <neutron/metafn.hpp>
+#ifndef ATOM_BUILDING_MODULE
+    #include <chrono>
+    #include <cstddef>
+    #include <memory>
+    #include <tuple>
+    #include <type_traits>
+    #include <utility>
+#endif
 #include "neutron/detail/ecs/compile-time/descriptor.hpp"
 #include "neutron/detail/ecs/compile-time/queries.hpp"
 #include "neutron/detail/ecs/core/world.hpp"
 #include "neutron/detail/execution/core.hpp"
 #include "neutron/detail/lockfree/hardware_destructive_interference_size.hpp"
 #include "neutron/detail/metafn/definition.hpp"
+#include "neutron/detail/utility/macros.hpp"
+#include "neutron/metafn.hpp"
 
 namespace neutron {
 
-template <typename T>
+ATOM_EXPORT template <typename T>
 concept run_env = requires(T& env) {
     typename T::policy_type;
     env.template get<0>();
 };
 
-template <std::size_t GroupId, typename... Worlds>
+ATOM_EXPORT template <std::size_t GroupId, typename... Worlds>
 class run_env_for_group;
 
 template <std::size_t GroupId, typename World>
@@ -100,7 +103,7 @@ private:
     shared_tuple<World, Others...> worlds_;
 };
 
-template <typename World>
+ATOM_EXPORT template <typename World>
 class alignas(hdi_size) run_env_for_individual {
 public:
     using policy_type     = _individual_t;
@@ -205,7 +208,7 @@ struct _run_envs_combine<Tmp<Envs...>> {
     using type = typename _run_envs_combine_impl<Tmp<Envs...>, Tmp<>>::type;
 };
 
-template <typename... Envs>
+ATOM_EXPORT template <typename... Envs>
 class run_envs;
 
 template <>
@@ -254,7 +257,7 @@ private:
         : std::tuple<Env, Others...>((static_cast<void>(Is), alloc)...) {}
 };
 
-template <typename Alloc, auto... Worlds>
+ATOM_EXPORT template <typename Alloc, auto... Worlds>
 using run_envs_for = type_list_rebind_t<
     run_envs, typename _run_envs_combine<typename _run_envs_for_impl<
                   Alloc, type_list<>, Worlds...>::type>::type>;
@@ -274,7 +277,7 @@ struct tuple_element<Index, ::neutron::run_env_for_group<GroupId, Worlds...>> :
 
 template <typename World>
 struct tuple_size<::neutron::run_env_for_individual<World>> :
-    integral_constant<size_t, 1> {};
+    integral_constant<std::size_t, 1> {};
 
 template <typename World>
 struct tuple_element<0, ::neutron::run_env_for_individual<World>> {

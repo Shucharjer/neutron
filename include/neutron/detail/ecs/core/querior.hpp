@@ -2,14 +2,16 @@
 #pragma once
 #include "neutron/detail/ecs/fwd.hpp"
 
-#include <atomic>
-#include <concepts>
-#include <cstddef>
-#include <cstdint>
-#include <mutex>
-#include <span>
-#include <type_traits>
-#include <vector>
+#ifndef ATOM_BUILDING_MODULE
+    #include <atomic>
+    #include <concepts>
+    #include <cstddef>
+    #include <cstdint>
+    #include <mutex>
+    #include <span>
+    #include <type_traits>
+    #include <vector>
+#endif
 #include "neutron/concepts.hpp"
 #include "neutron/detail/concepts/nonempty.hpp"
 #include "neutron/detail/ecs/concepts/bundle.hpp"
@@ -23,16 +25,16 @@
 
 namespace neutron {
 
-template <component_like...>
+ATOM_EXPORT template <component_like...>
 struct with;
-template <component_like...>
+ATOM_EXPORT template <component_like...>
 struct without;
-template <component_like...>
+ATOM_EXPORT template <component_like...>
 struct withany;
-template <component_like...>
+ATOM_EXPORT template <component_like...>
 struct changed;
 
-template <component_like... Args>
+ATOM_EXPORT template <component_like... Args>
 struct with {
     using _with_t =
         type_list_recurse_expose_t<bundle, with<Args...>, neutron::same_cvref>;
@@ -52,7 +54,7 @@ struct with {
     }
 };
 
-template <component_like... Args>
+ATOM_EXPORT template <component_like... Args>
 struct without {
     using _without_t = type_list_recurse_expose_t<
         bundle, without<Args...>, neutron::same_cvref>;
@@ -74,7 +76,7 @@ struct without {
     }
 };
 
-template <component_like... Args>
+ATOM_EXPORT template <component_like... Args>
 struct withany {
     using _withany_t = neutron::type_list_recurse_expose_t<
         bundle, withany<Args...>, neutron::same_cvref>;
@@ -96,7 +98,7 @@ struct withany {
     }
 };
 
-template <component_like... Args>
+ATOM_EXPORT template <component_like... Args>
 struct changed {
     using conflict_list = without<Args...>;
     constexpr bool fetch(const auto& archetype) { return true; }
@@ -143,7 +145,7 @@ concept _has_fetch =
 
 } // namespace _query_filter
 
-template <typename Filter, typename Alloc>
+ATOM_EXPORT template <typename Filter, typename Alloc>
 concept query_filter = _query_filter::_has_init<Filter, Alloc> ||
                        _query_filter::_has_fetch<Filter, Alloc>;
 
@@ -283,7 +285,9 @@ public:
         return _base::slices;
     }
 
-    ATOM_ATTRS(ATOM_NODISCARD) size_t size() const noexcept { return _base::slices.size(); }
+    ATOM_ATTRS(ATOM_NODISCARD) std::size_t size() const noexcept {
+        return _base::slices.size();
+    }
 
     ATOM_ATTRS(ATOM_NODISCARD) std::uint64_t version() const noexcept {
         return version_.load(std::memory_order_acquire);
@@ -315,12 +319,14 @@ public:
         return _base::slices;
     }
 
-    ATOM_ATTRS(ATOM_NODISCARD) size_t size() const noexcept { return _base::slices.size(); }
+    ATOM_ATTRS(ATOM_NODISCARD) std::size_t size() const noexcept {
+        return _base::slices.size();
+    }
 };
 
 } // namespace _basic_querior
 
-template <std_simple_allocator Alloc, typename... Filters>
+ATOM_EXPORT template <std_simple_allocator Alloc, typename... Filters>
 using basic_querior = _basic_querior::basic_querior<Alloc, false, Filters...>;
 
 namespace internal {

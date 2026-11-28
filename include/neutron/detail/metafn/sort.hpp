@@ -5,10 +5,12 @@
 #include "neutron/detail/metafn/filter.hpp"
 #include "neutron/detail/metafn/first_last.hpp"
 #include "neutron/detail/metafn/pop.hpp"
+#include "neutron/detail/utility/macros.hpp"
 
 namespace neutron {
 
-template <template <typename, typename> typename Predicate, typename TypeList>
+ATOM_EXPORT template <
+    template <typename, typename> typename Predicate, typename TypeList>
 struct type_list_sort;
 template <
     template <typename, typename> typename Predicate,
@@ -47,7 +49,8 @@ struct type_list_sort<Predicate, Template<Tys...>> {
         Predicate, type_list_erase_in_t<pop_first_t, left>>::type;
     using type = type_list_cat_t<left, Template<pivot_t>, right>;
 };
-template <template <typename, typename> typename Predicate, typename TypeList>
+ATOM_EXPORT template <
+    template <typename, typename> typename Predicate, typename TypeList>
 using type_list_sort_t = typename type_list_sort<Predicate, TypeList>::type;
 
 } // namespace neutron

@@ -1,10 +1,13 @@
 #pragma once
-#include <atomic>
-#include <concepts>
+#ifndef ATOM_BUILDING_MODULE
+    #include <atomic>
+    #include <concepts>
+#endif
+#include "neutron/detail/utility/macros.hpp"
 
 namespace neutron {
 
-template <auto Next>
+ATOM_EXPORT template <auto Next>
 class intrusive_mpsc_queue;
 
 template <typename Node, std::atomic<Node*> Node::* Next>

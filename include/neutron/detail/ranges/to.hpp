@@ -1,14 +1,16 @@
 // IWYU pragma: private, include <neutron/ranges.hpp>
 #pragma once
-#include <ranges>
-#include <version>
+#include "neutron/detail/utility/macros.hpp"
+#ifndef ATOM_BUILDING_MODULE
+    #include <ranges>
+    #include <version>
+#endif
 
 #if __cpp_lib_ranges_to_container >= 202202L
 
 namespace neutron::ranges {
 
-using std::ranges::to;
-
+ATOM_EXPORT using std::ranges::to;
 }
 
 #else
@@ -24,7 +26,8 @@ namespace neutron::ranges {
  * @brief Construct a container from a range and arguments.
  *
  */
-template <typename Container, std::ranges::input_range Rng, typename... Args>
+ATOM_EXPORT template <
+    typename Container, std::ranges::input_range Rng, typename... Args>
 requires(!std::ranges::view<Container>)
 [[nodiscard]] constexpr Container to(Rng&& range, Args&&... args) {
     static_assert(!std::is_const_v<Container>, "Container must not be const.");
@@ -133,7 +136,7 @@ struct to_class_fn {
  * @brief Construct a container from a range.
  *
  */
-template <typename Container, typename... Args>
+ATOM_EXPORT template <typename Container, typename... Args>
 [[nodiscard]] constexpr auto to(Args&&... args) {
     return make_closure<internal::to_class_fn<Container>>(
         std::forward<Args>(args)...);
@@ -196,7 +199,7 @@ auto to_helper() {
  * @param args
  * @return Deduced In most times, it could be deduced to as a completed type.
  */
-template <
+ATOM_EXPORT template <
     template <typename...> typename Container, std::ranges::input_range Rng,
     typename... Args,
     typename Deduced = std::remove_pointer_t<
@@ -225,7 +228,8 @@ struct to_template_fn {
 
 // compiler and analyzer always deduce we are using another override.
 // so, changed the function name
-template <template <typename...> typename Container, typename... Args>
+ATOM_EXPORT template <
+    template <typename...> typename Container, typename... Args>
 [[nodiscard]] constexpr auto to(Args&&... args) {
     return make_closure<internal::to_template_fn<Container>>(
         std::forward<Args>(args)...);

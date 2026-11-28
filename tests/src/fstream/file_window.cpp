@@ -1,11 +1,15 @@
-#include <cstddef>
-#include <iterator>
-#include <stdexcept>
-#include <string>
-#include <system_error>
-#include <utility>
-#include <neutron/fstream.hpp>
 #include "neutron/detail/utility/macros.hpp"
+// With modules, an implementation unit of neutron that imports std, see
+// `internal_tests`.
+#ifndef ATOM_USES_MODULES
+    #include <cstddef>
+    #include <iterator>
+    #include <stdexcept>
+    #include <string>
+    #include <system_error>
+    #include <utility>
+    #include <neutron/fstream.hpp>
+#endif
 #include "require.hpp"
 #include "temp_file.hpp"
 
@@ -147,7 +151,7 @@ void test_move_transfers_the_file() {
 
 } // namespace
 
-int main() {
+extern "C++" int main() {
     test_windows_tile_the_file();
     test_access_maps_one_window_at_a_time();
     test_accessing_the_same_window_keeps_the_mapping();

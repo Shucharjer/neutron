@@ -1,11 +1,13 @@
 #pragma once
-#include <thread>
+#ifndef ATOM_BUILDING_MODULE
+    #include <thread>
+#endif
 #include "neutron/detail/utility/macros.hpp"
 #include "neutron/execution.hpp" // IWYU pragma: keep
 
 namespace neutron {
 
-class normthread {
+ATOM_EXPORT class normthread {
 public:
     normthread() : thread_([this] { loop_.run(); }) {}
 

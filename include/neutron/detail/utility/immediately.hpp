@@ -1,10 +1,11 @@
 // IWYU pragma: private, include <neutron/utility.hpp>
 #pragma once
+#include "neutron/detail/utility/macros.hpp"
 
 namespace neutron {
 
-struct immediately_t {};
+ATOM_EXPORT struct immediately_t {};
 
-constexpr inline immediately_t immediately{};
+ATOM_EXPORT constexpr inline immediately_t immediately{};
 
 } // namespace neutron

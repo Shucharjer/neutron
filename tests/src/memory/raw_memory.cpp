@@ -1,8 +1,13 @@
-#include <algorithm>
-#include <array>
-#include <cstddef>
-#include <string>
-#include <neutron/memory.hpp>
+#ifdef ATOM_USES_MODULES
+import std;
+import neutron;
+#else
+    #include <algorithm>
+    #include <array>
+    #include <cstddef>
+    #include <string>
+    #include <neutron/memory.hpp>
+#endif
 #include "require.hpp"
 
 using namespace neutron;

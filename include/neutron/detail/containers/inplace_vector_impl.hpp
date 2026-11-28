@@ -1,29 +1,35 @@
 // IWYU pragma: private, include <neutron/inplace_vector.hpp>
 #pragma once
-#include <version>
+#include "neutron/detail/utility/macros.hpp"
+#ifndef ATOM_BUILDING_MODULE
+    #include <version>
+#endif
 
 #if defined(__cpp_lib_inplace_vector) && __cpp_lib_inplace_vector >= 202406L
 
-    #include <inplace_vector>
+    #ifndef ATOM_BUILDING_MODULE
+        #include <inplace_vector>
+    #endif
 
 namespace neutron {
 
-template <typename T, std::size_t N>
+ATOM_EXPORT template <typename T, std::size_t N>
 using inplace_vector = std::inplace_vector<T, N>;
-
 }
 
 #else
 
-    #include <algorithm>
-    #include <array>
-    #include <cstddef>
-    #include <initializer_list>
-    #include <iterator>
-    #include <memory>
-    #include <stdexcept>
-    #include <type_traits>
-    #include <utility>
+    #ifndef ATOM_BUILDING_MODULE
+        #include <algorithm>
+        #include <array>
+        #include <cstddef>
+        #include <initializer_list>
+        #include <iterator>
+        #include <memory>
+        #include <stdexcept>
+        #include <type_traits>
+        #include <utility>
+    #endif
     #include "neutron/detail/concepts/nothrow_conditional_movable.hpp"
     #include "neutron/detail/memory/raw_memory.hpp"
     #include "neutron/detail/utility/macros.hpp"
@@ -31,7 +37,9 @@ using inplace_vector = std::inplace_vector<T, N>;
 
     #if defined(__cpp_lib_containers_ranges) &&                                \
         __cpp_lib_containers_ranges >= 202202L
-        #include <ranges>
+        #ifndef ATOM_BUILDING_MODULE
+            #include <ranges>
+        #endif
         #include "neutron/detail/ranges/concepts.hpp"
     #endif
 
@@ -96,7 +104,7 @@ struct inplace_container_base {
 
 } // namespace internal
 
-template <typename T, std::size_t N>
+ATOM_EXPORT template <typename T, std::size_t N>
 class inplace_vector :
     private internal::storage_for_inplace_vector<T, N>,
     public internal::inplace_container_base<N> {

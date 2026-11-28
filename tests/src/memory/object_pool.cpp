@@ -1,12 +1,16 @@
-#include <algorithm>
-#include <cstddef>
-#include <cstdint>
-#include <memory>
-#include <string>
-#include <type_traits>
-#include <utility>
-#include <vector>
-#include <neutron/memory.hpp>
+// With modules, an implementation unit of neutron that imports std, see
+// `internal_tests`.
+#ifndef ATOM_USES_MODULES
+    #include <algorithm>
+    #include <cstddef>
+    #include <cstdint>
+    #include <memory>
+    #include <string>
+    #include <type_traits>
+    #include <utility>
+    #include <vector>
+    #include <neutron/memory.hpp>
+#endif
 #include "require.hpp"
 
 using namespace neutron;
@@ -532,7 +536,7 @@ void test_raw_deletor_releases_raw_allocation_once() {
 
 } // namespace
 
-int main() {
+extern "C++" int main() {
     test_constcapacity_pool_blocks_are_distinct_and_reusable();
     test_constcapacity_pool_reuses_blocks_lifo();
     test_constcapacity_pool_put_null_is_noop();

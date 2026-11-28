@@ -27,17 +27,17 @@
 
 namespace neutron {
 
-using _refl_legacy::name_of;
-using _refl_legacy::hash_of;
-using _refl_legacy::member_count_of;
-using _refl_legacy::member_names_of;
-using _refl_legacy::offsets_of;
-using _refl_legacy::offset_value_of;
-using _refl_legacy::member_type_of;
-using _refl_legacy::member_type_of_t;
-using _refl_legacy::basic_reflected;
-using _refl_legacy::reflected;
-using _refl_legacy::get_by_name;
+ATOM_EXPORT using _refl_legacy::name_of;
+ATOM_EXPORT using _refl_legacy::hash_of;
+ATOM_EXPORT using _refl_legacy::member_count_of;
+ATOM_EXPORT using _refl_legacy::member_names_of;
+ATOM_EXPORT using _refl_legacy::offsets_of;
+ATOM_EXPORT using _refl_legacy::offset_value_of;
+ATOM_EXPORT using _refl_legacy::member_type_of;
+ATOM_EXPORT using _refl_legacy::member_type_of_t;
+ATOM_EXPORT using _refl_legacy::basic_reflected;
+ATOM_EXPORT using _refl_legacy::reflected;
+ATOM_EXPORT using _refl_legacy::get_by_name;
 
 } // namespace neutron
 

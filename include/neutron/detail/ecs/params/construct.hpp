@@ -1,11 +1,14 @@
 #pragma once
-#include <type_traits>
+#ifndef ATOM_BUILDING_MODULE
+    #include <type_traits>
+#endif
 #include "neutron/detail/ecs/concepts/stage.hpp"
 #include "neutron/detail/ecs/fwd.hpp"
+#include "neutron/detail/utility/macros.hpp"
 
 namespace neutron {
 
-template <stage Stage, auto Sys, typename T>
+ATOM_EXPORT template <stage Stage, auto Sys, typename T>
 struct construct_from_world_t {
     template <internal::world World>
     constexpr T operator()(World& world) const
@@ -14,7 +17,7 @@ struct construct_from_world_t {
     }
 };
 
-template <stage Stage, auto Sys, typename T>
+ATOM_EXPORT template <stage Stage, auto Sys, typename T>
 inline constexpr construct_from_world_t<Stage, Sys, T> construct_from_world;
 
 } // namespace neutron

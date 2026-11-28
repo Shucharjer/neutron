@@ -1,13 +1,16 @@
 // IWYU pragma: private, include <neutron/metafn.hpp>
 #pragma once
-#include <type_traits>
+#ifndef ATOM_BUILDING_MODULE
+    #include <type_traits>
+#endif
+#include "neutron/detail/utility/macros.hpp"
 
 namespace neutron {
 
-template <typename Ty>
+ATOM_EXPORT template <typename Ty>
 struct always_true : std::true_type {};
 
-template <
+ATOM_EXPORT template <
     template <typename> typename Predicate, typename TypeList,
     template <typename> typename Continue  = always_true,
     template <typename> typename Qualifier = std::type_identity_t>
@@ -35,7 +38,7 @@ struct type_list_requires_recurse {
     };
     constexpr static bool value = try_requires_recurse<TypeList>::value;
 };
-template <
+ATOM_EXPORT template <
     template <typename> typename Predicate, typename TypeList,
     template <typename> typename Continue = always_true,
     template <typename> typename Qualifer = std::type_identity_t>

@@ -1,10 +1,12 @@
 // IWYU pragma: private, include <neutron/execution_resources.hpp>
 #pragma once
-#include <cstdint>
-#include <new>
-#include <stdexcept>
-#include <system_error>
-#include <thread>
+#ifndef ATOM_BUILDING_MODULE
+    #include <cstdint>
+    #include <new>
+    #include <stdexcept>
+    #include <system_error>
+    #include <thread>
+#endif
 #include "neutron/detail/utility/macros.hpp"
 #include "neutron/execution.hpp" // IWYU pragma: keep
 
@@ -12,13 +14,19 @@
     #ifndef NOMINMAX
         #define NOMINMAX
     #endif
-    #include <windows.h>
+    #ifndef ATOM_BUILDING_MODULE
+        #include <windows.h>
+    #endif
 
 #elif defined(__linux) || defined(__linux__)
-    #include <pthread.h>
-    #include <unistd.h>
+    #ifndef ATOM_BUILDING_MODULE
+        #include <pthread.h>
+        #include <unistd.h>
+    #endif
     #if ATOM_USES_NUMA && __has_include(<numa.h>)
-        #include <numa.h>
+        #ifndef ATOM_BUILDING_MODULE
+            #include <numa.h>
+        #endif
     #endif
 
 #elif false
@@ -31,13 +39,13 @@ namespace neutron {
 /*! @cond TURN_OFF_DOXYGEN */
 namespace _affinity_thread {
 
-inline bool _set_affinity(uint32_t core, uint32_t numa) // NOLINT
+inline bool _set_affinity(std::uint32_t core, std::uint32_t numa) // NOLINT
 {
 #if defined(__APPLE__) || defined(__MACH__)
     return true;
 #endif
 
-    uint32_t concurrency = std::thread::hardware_concurrency();
+    std::uint32_t concurrency = std::thread::hardware_concurrency();
     concurrency          = concurrency != 0 ? concurrency : 1;
     if (core >= concurrency) [[unlikely]] {
         throw std::runtime_error("try bind unexisted core");
@@ -64,7 +72,7 @@ inline bool _set_affinity(uint32_t core, uint32_t numa) // NOLINT
     if (numa_available() == -1) [[unlikely]] {
         throw std::runtime_error("numa not available");
     }
-    if (numa >= static_cast<uint32_t>(numa_max_node())) [[unlikely]] {
+    if (numa >= static_cast<std::uint32_t>(numa_max_node())) [[unlikely]] {
         throw std::runtime_error("try bind numa greater than max node");
     }
     err = numa_run_on_node(static_cast<int>(numa));
@@ -80,14 +88,14 @@ inline bool _set_affinity(uint32_t core, uint32_t numa) // NOLINT
     return true;
 }
 
-inline bool
-    _set_affinity(uint32_t core, uint32_t numa, std::nothrow_t) // NOLINT
+inline bool _set_affinity(
+    std::uint32_t core, std::uint32_t numa, std::nothrow_t) // NOLINT
 {
 #if defined(__APPLE__) || defined(__MACH__)
     return true;
 #endif
 
-    uint32_t concurrency = std::thread::hardware_concurrency();
+    std::uint32_t concurrency = std::thread::hardware_concurrency();
     concurrency          = concurrency != 0 ? concurrency : 1;
     if (core >= concurrency) [[unlikely]] {
         return false;
@@ -113,7 +121,7 @@ inline bool
     if (numa_available() == -1) [[unlikely]] {
         return false;
     }
-    if (numa >= static_cast<uint32_t>(numa_max_node())) [[unlikely]] {
+    if (numa >= static_cast<std::uint32_t>(numa_max_node())) [[unlikely]] {
         return false;
     }
     err = numa_run_on_node(static_cast<int>(numa));
@@ -157,7 +165,8 @@ inline bool
  * error.
  * @note This version uses exception-throwing semantics for error reporting.
  */
-inline bool set_affinity(uint32_t core, uint32_t numa = 0) {
+ATOM_EXPORT inline bool
+    set_affinity(std::uint32_t core, std::uint32_t numa = 0) {
     return _affinity_thread::_set_affinity(core, numa);
 }
 
@@ -184,44 +193,52 @@ inline bool set_affinity(uint32_t core, uint32_t numa = 0) {
  *         - or the platform does not support affinity control.
  * @note This overload never throws exceptions.
  */
-inline bool
-    set_affinity(uint32_t core, uint32_t numa, std::nothrow_t) noexcept {
+ATOM_EXPORT inline bool set_affinity(
+    std::uint32_t core, std::uint32_t numa, std::nothrow_t) noexcept {
     return _affinity_thread::_set_affinity(core, numa, std::nothrow);
 }
 
-class affinity_thread {
+ATOM_EXPORT class affinity_thread {
     class _affinity {
     public:
-        ATOM_ATTRS(ATOM_NODISCARD) uint32_t get_core() const noexcept { return core_; }
+        ATOM_ATTRS(ATOM_NODISCARD) std::uint32_t get_core() const noexcept {
+            return core_;
+        }
 
 #if defined(__linux) || defined(__linux__)
-        constexpr _affinity(uint32_t core, uint32_t numa) noexcept // NOLINT
+        constexpr _affinity(
+            std::uint32_t core, std::uint32_t numa) noexcept // NOLINT
             : core_(core), numa_(numa) {}
 
-        ATOM_ATTRS(ATOM_NODISCARD) uint32_t get_numa() const noexcept { return numa_; }
+        ATOM_ATTRS(ATOM_NODISCARD) std::uint32_t get_numa() const noexcept {
+            return numa_;
+        }
 #else
-        constexpr _affinity(uint32_t core, uint32_t numa) noexcept // NOLINT
+        constexpr _affinity(
+            std::uint32_t core, std::uint32_t numa) noexcept // NOLINT
             : core_(core) {}
 
-        ATOM_ATTRS(ATOM_NODISCARD) uint32_t get_numa() const noexcept { return 0; }
+        ATOM_ATTRS(ATOM_NODISCARD) std::uint32_t get_numa() const noexcept {
+            return 0;
+        }
 #endif
 
     private:
-        uint32_t core_;
+        std::uint32_t core_;
 #if defined(__linux) || defined(__linux__)
-        uint32_t numa_;
+        std::uint32_t numa_;
 #endif
     };
 
 public:
-    explicit affinity_thread(uint32_t core, uint32_t numa = 0)
+    explicit affinity_thread(std::uint32_t core, std::uint32_t numa = 0)
         : affinity_{ core, numa }, thread_([this] {
               consistancy_ =
                   set_affinity(affinity_.get_core(), affinity_.get_numa());
               loop_.run();
           }) {}
 
-    affinity_thread(uint32_t core, uint32_t numa, std::nothrow_t)
+    affinity_thread(std::uint32_t core, std::uint32_t numa, std::nothrow_t)
         : affinity_{ core, numa }, thread_([this] {
               consistancy_ = set_affinity(
                   affinity_.get_core(), affinity_.get_numa(), std::nothrow);
@@ -240,11 +257,11 @@ public:
 
     auto get_scheduler() noexcept { return loop_.get_scheduler(); }
 
-    ATOM_ATTRS(ATOM_NODISCARD) uint32_t core_id() const noexcept {
+    ATOM_ATTRS(ATOM_NODISCARD) std::uint32_t core_id() const noexcept {
         return affinity_.get_core();
     }
 
-    ATOM_ATTRS(ATOM_NODISCARD) uint32_t numa_id() const noexcept {
+    ATOM_ATTRS(ATOM_NODISCARD) std::uint32_t numa_id() const noexcept {
         return affinity_.get_numa();
     }
 

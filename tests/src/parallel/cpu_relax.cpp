@@ -1,7 +1,12 @@
-#include <atomic>
-#include <thread>
-#include <type_traits>
-#include <neutron/parallel.hpp>
+#ifdef ATOM_USES_MODULES
+import std;
+import neutron;
+#else
+    #include <atomic>
+    #include <thread>
+    #include <type_traits>
+    #include <neutron/parallel.hpp>
+#endif
 #include "require.hpp"
 
 using namespace neutron;

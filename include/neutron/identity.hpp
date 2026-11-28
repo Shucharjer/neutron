@@ -1,10 +1,18 @@
 #pragma once
-#include <atomic>
-#include "neutron/detail/utility/id_t.hpp"
+
+#if defined(ATOM_USES_MODULES) && !defined(ATOM_BUILDING_MODULE)
+    #include "neutron/macros.hpp"
+#else
+
+    #ifndef ATOM_BUILDING_MODULE
+        #include <atomic>
+    #endif
+    #include "neutron/detail/utility/id_t.hpp"
+    #include "neutron/detail/utility/macros.hpp"
 
 namespace neutron {
 
-class type_identity {
+ATOM_EXPORT class type_identity {
     static auto& _atomic() noexcept {
         static std::atomic<id_t> atomic = 0;
         return atomic;
@@ -18,7 +26,7 @@ public:
     }
 };
 
-class non_type_identity {
+ATOM_EXPORT class non_type_identity {
     static auto& _atomic() noexcept {
         static std::atomic<id_t> atomic = 0;
         return atomic;
@@ -33,3 +41,5 @@ public:
 };
 
 } // namespace neutron
+
+#endif

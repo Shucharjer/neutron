@@ -1,16 +1,19 @@
 // IWYU pragma: private, include <neutron/reflection.hpp>
 #pragma once
-#include <array>
-#include <cstdint>
-#include <ranges>
-#include <type_traits>
-#include <neutron/concepts.hpp>
+#ifndef ATOM_BUILDING_MODULE
+    #include <array>
+    #include <cstdint>
+    #include <ranges>
+    #include <type_traits>
+#endif
+#include "neutron/concepts.hpp"
 #include "neutron/detail/concepts/trivially_relocatible.hpp"
 #include "neutron/detail/concepts/tuple_like.hpp"
+#include "neutron/detail/utility/macros.hpp"
 
 namespace neutron {
 
-struct type_traits {
+ATOM_EXPORT struct type_traits {
     std::uint64_t size : 32;
     std::uint64_t align : 16;
     std::uint64_t is_trivially_default_constructible : 1;
@@ -33,7 +36,7 @@ struct type_traits {
 static_assert(
     sizeof(type_traits) == sizeof(std::uint64_t), "it should be easy to copy");
 
-template <typename T>
+ATOM_EXPORT template <typename T>
 consteval auto type_traits_of() noexcept -> type_traits {
     static_assert(sizeof(T) <= std::uint64_t(static_cast<std::uint32_t>(-1)));
     static_assert(alignof(T) <= std::uint64_t(static_cast<std::uint16_t>(-1)));
@@ -70,7 +73,7 @@ struct _type_traits_list_impl<Tmp<Args...>> {
     };
 };
 
-template <typename T>
+ATOM_EXPORT template <typename T>
 consteval auto traits_list_of() noexcept {
     return _type_traits_list_impl<T>::value;
 }

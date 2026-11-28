@@ -1,18 +1,21 @@
 // IWYU pragma: private, include <neutron/ranges.hpp>
 #pragma once
-#include <cstddef>
-#include <ranges>
+#ifndef ATOM_BUILDING_MODULE
+    #include <cstddef>
+    #include <ranges>
+#endif
 #include "neutron/detail/ranges/adaptor_closure.hpp"
-#include "../../utility/get.hpp"
+#include "neutron/detail/utility/get.hpp"
+#include "neutron/detail/utility/macros.hpp"
 
 namespace neutron::ranges::views {
 
-template <std::ranges::range Rng, size_t Index, bool IsConst>
+ATOM_EXPORT template <std::ranges::range Rng, std::size_t Index, bool IsConst>
 struct element_iterator {
     using iterator_type = std::ranges::iterator_t<Rng>;
     using value_type =
         std::tuple_element_t<Index, std::ranges::range_value_t<Rng>>;
-    using difference_type = ptrdiff_t;
+    using difference_type = std::ptrdiff_t;
 
     constexpr element_iterator() = default;
 
@@ -136,7 +139,7 @@ private:
  * @tparam Vw
  * @tparam Index
  */
-template <std::ranges::input_range Vw, size_t Index>
+ATOM_EXPORT template <std::ranges::input_range Vw, std::size_t Index>
 class elements_view : std::ranges::view_interface<elements_view<Vw, Index>> {
 public:
     /**
@@ -204,7 +207,7 @@ private:
     Vw range_;
 };
 
-template <size_t Index>
+ATOM_EXPORT template <std::size_t Index>
 struct element_fn : range_adaptor_closure<element_fn<Index>> {
 
     template <std::ranges::viewable_range Rng>
@@ -218,10 +221,10 @@ struct element_fn : range_adaptor_closure<element_fn<Index>> {
     }
 };
 
-template <size_t Index>
+ATOM_EXPORT template <std::size_t Index>
 constexpr element_fn<Index> elements;
 
-constexpr inline auto keys   = elements<0>;
-constexpr inline auto values = elements<1>;
+ATOM_EXPORT constexpr inline auto keys   = elements<0>;
+ATOM_EXPORT constexpr inline auto values = elements<1>;
 
 } // namespace neutron::ranges::views

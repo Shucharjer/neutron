@@ -1,6 +1,11 @@
-#include <cstddef>
-#include <string>
-#include <neutron/type_traits.hpp>
+#ifdef ATOM_USES_MODULES
+import std;
+import neutron;
+#else
+    #include <cstddef>
+    #include <string>
+    #include <neutron/type_traits.hpp>
+#endif
 #include "require.hpp"
 
 using namespace neutron;

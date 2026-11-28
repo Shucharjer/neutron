@@ -1,10 +1,12 @@
 #pragma once
-#include <utility>
+#ifndef ATOM_BUILDING_MODULE
+    #include <utility>
+#endif
 #include "neutron/detail/utility/macros.hpp"
 
 namespace neutron {
 
-template <auto Next>
+ATOM_EXPORT template <auto Next>
 class intrusive_queue;
 
 template <typename Node, Node* Node::* Next>

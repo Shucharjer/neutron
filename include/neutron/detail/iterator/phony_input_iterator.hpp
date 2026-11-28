@@ -1,6 +1,9 @@
 // IWYU pragma: private, include <neutron/iterator.hpp>
 #pragma once
-#include <ranges>
+#ifndef ATOM_BUILDING_MODULE
+    #include <ranges>
+#endif
+#include "neutron/detail/utility/macros.hpp"
 
 namespace neutron {
 
@@ -10,11 +13,11 @@ namespace neutron {
  * Can not really iterate.
  * @tparam Rng
  */
-template <std::ranges::input_range Rng>
+ATOM_EXPORT template <std::ranges::input_range Rng>
 struct phony_input_iterator {
     using iterator_category = std::input_iterator_tag;
     using value_type        = std::ranges::range_value_t<Rng>;
-    using difference_type   = ptrdiff_t;
+    using difference_type   = std::ptrdiff_t;
     using pointer   = std::add_pointer_t<std::ranges::range_reference_t<Rng>>;
     using reference = std::ranges::range_reference_t<Rng>;
 

@@ -1,10 +1,13 @@
 // IWYU pragma: private, include <neutron/ecs.hpp>
 #pragma once
-#include <type_traits>
+#ifndef ATOM_BUILDING_MODULE
+    #include <type_traits>
+#endif
+#include "neutron/detail/utility/macros.hpp"
 
 namespace neutron {
 
-template <typename...>
+ATOM_EXPORT template <typename...>
 struct bundle;
 
 /*! @cond TURN_OFF_DOXYGEN */
@@ -21,7 +24,7 @@ struct _rmcvref_is_bundle : _is_bundle<std::remove_cvref_t<Ty>> {};
 } // namespace internal
 /* @endcond */
 
-template <typename Ty>
+ATOM_EXPORT template <typename Ty>
 concept bundled = internal::_rmcvref_is_bundle<Ty>::value;
 
 } // namespace neutron

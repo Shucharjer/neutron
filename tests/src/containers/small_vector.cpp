@@ -1,9 +1,14 @@
-#include <cstddef>
-#include <iterator>
-#include <string>
-#include <utility>
-#include <vector>
-#include <neutron/small_vector.hpp>
+#ifdef ATOM_USES_MODULES
+import std;
+import neutron;
+#else
+    #include <cstddef>
+    #include <iterator>
+    #include <string>
+    #include <utility>
+    #include <vector>
+    #include <neutron/small_vector.hpp>
+#endif
 #include "require.hpp"
 
 using namespace neutron;

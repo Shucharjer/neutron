@@ -1,11 +1,13 @@
 #pragma once
-#include <array>
-#include <chrono>
-#include <cstddef>
-#include <stdexcept>
-#include <tuple>
-#include <type_traits>
-#include <utility>
+#ifndef ATOM_BUILDING_MODULE
+    #include <array>
+    #include <chrono>
+    #include <cstddef>
+    #include <stdexcept>
+    #include <tuple>
+    #include <type_traits>
+    #include <utility>
+#endif
 #include "neutron/detail/ecs/compile-time/descriptor.hpp"
 #include "neutron/detail/ecs/compile-time/queries.hpp"
 #include "neutron/detail/ecs/params/construct.hpp"

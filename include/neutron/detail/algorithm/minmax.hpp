@@ -1,15 +1,18 @@
 // IWYU pragma: private, include <neutron/algorithm.hpp>
 #pragma once
-#include <type_traits>
+#ifndef ATOM_BUILDING_MODULE
+    #include <type_traits>
+#endif
+#include "neutron/detail/utility/macros.hpp"
 
 namespace neutron {
 
-template <typename Lhs, typename Rhs>
+ATOM_EXPORT template <typename Lhs, typename Rhs>
 constexpr auto min(Lhs&& lhs, Rhs&& rhs) -> std::common_type_t<Lhs, Rhs> {
     return lhs <= rhs ? std::forward<Lhs>(lhs) : std::forward<Rhs>(rhs);
 }
 
-template <typename Lhs, typename Rhs, typename... Others>
+ATOM_EXPORT template <typename Lhs, typename Rhs, typename... Others>
 requires(sizeof...(Others) != 0)
 constexpr auto min(Lhs&& lhs, Rhs&& rhs, Others&&... others)
     -> std::common_type_t<Lhs, Rhs, Others...> {
@@ -18,12 +21,12 @@ constexpr auto min(Lhs&& lhs, Rhs&& rhs, Others&&... others)
         std::forward<Others>(others)...);
 }
 
-template <typename Lhs, typename Rhs>
+ATOM_EXPORT template <typename Lhs, typename Rhs>
 constexpr auto max(Lhs&& lhs, Rhs&& rhs) -> std::common_type_t<Lhs, Rhs> {
     return lhs >= rhs ? std::forward<Lhs>(lhs) : std::forward<Rhs>(rhs);
 }
 
-template <typename Lhs, typename Rhs, typename... Others>
+ATOM_EXPORT template <typename Lhs, typename Rhs, typename... Others>
 requires(sizeof...(Others) != 0)
 constexpr auto max(Lhs&& lhs, Rhs&& rhs, Others&&... others)
     -> std::common_type_t<Lhs, Rhs, Others...> {

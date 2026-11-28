@@ -1,19 +1,22 @@
 // IWYU pragma: private, include <neutron/functional.hpp>
 #pragma once
-#include <memory>
+#ifndef ATOM_BUILDING_MODULE
+    #include <memory>
+#endif
+#include "neutron/detail/containers/flat_hash_map_impl.hpp"
 #include "neutron/detail/functional/sink.hpp"
 #include "neutron/detail/memory/rebind_alloc.hpp"
-#include "neutron/detail/containers/flat_hash_map_impl.hpp"
+#include "neutron/detail/utility/macros.hpp"
 
 namespace neutron {
 
-template <typename Alloc = std::allocator<void>>
+ATOM_EXPORT template <typename Alloc = std::allocator<void>>
 class dispatcher {
     template <typename T>
     using _allocator_t = rebind_alloc_t<Alloc, T>;
 
 public:
-    using _hash_t   = uint32_t;
+    using _hash_t   = std::uint32_t;
     using _hash_map = flat_hash_map<
         _hash_t, _sink_base, std::hash<_hash_t>, std::equal_to<_hash_t>,
         _allocator_t<std::pair<_hash_t, _sink_base*>>>;

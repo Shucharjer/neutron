@@ -1,12 +1,16 @@
-#include <cstddef>
-#include <cstring>
-#include <stdexcept>
-#include <string>
-#include <system_error>
-#include <type_traits>
-#include <utility>
-#include <neutron/fstream.hpp>
 #include "neutron/detail/utility/macros.hpp"
+// With modules, an implementation unit of neutron that imports std, see
+// `internal_tests`.
+#ifndef ATOM_USES_MODULES
+    #include <cstddef>
+    #include <cstring>
+    #include <stdexcept>
+    #include <string>
+    #include <system_error>
+    #include <type_traits>
+    #include <utility>
+    #include <neutron/fstream.hpp>
+#endif
 #include "require.hpp"
 #include "temp_file.hpp"
 
@@ -102,7 +106,7 @@ void test_read_only_map_exposes_const_bytes() {
 
 } // namespace
 
-int main() {
+extern "C++" int main() {
     test_written_bytes_survive_reopening();
     test_grown_part_reads_as_zeros();
     test_at_throws_out_of_range();

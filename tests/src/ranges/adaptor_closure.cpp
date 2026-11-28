@@ -1,11 +1,15 @@
-#include <algorithm>
-#include <array>
-#include <memory>
-#include <ranges>
-#include <type_traits>
-#include <utility>
-#include <vector>
-#include <neutron/ranges.hpp>
+// With modules, an implementation unit of neutron that imports std, see
+// `internal_tests`.
+#ifndef ATOM_USES_MODULES
+    #include <algorithm>
+    #include <array>
+    #include <memory>
+    #include <ranges>
+    #include <type_traits>
+    #include <utility>
+    #include <vector>
+    #include <neutron/ranges.hpp>
+#endif
 #include "require.hpp"
 
 using namespace neutron;
@@ -282,7 +286,7 @@ void test_move_only_composition() {
 
 } // namespace
 
-int main() {
+extern "C++" int main() {
     test_pipe_forwards_closure_category();
     test_pipe_forwards_range_category();
     test_pipe_is_equivalent_to_call();

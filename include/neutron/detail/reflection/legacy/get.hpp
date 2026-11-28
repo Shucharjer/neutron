@@ -1,6 +1,8 @@
 // IWYU pragma: private, include <neutron/reflection.hpp>
 #pragma once
-#include <cstddef>
+#ifndef ATOM_BUILDING_MODULE
+    #include <cstddef>
+#endif
 #include "neutron/detail/reflection/legacy/concepts.hpp"
 #include "neutron/detail/reflection/legacy/tuple_view.hpp"
 

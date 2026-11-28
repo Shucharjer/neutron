@@ -1,12 +1,14 @@
 // IWYU pragma: private
 #pragma once
-#include <cstddef>
-#include <type_traits>
+#ifndef ATOM_BUILDING_MODULE
+    #include <cstddef>
+    #include <type_traits>
+#endif
 #include "neutron/detail/utility/macros.hpp"
 
 namespace neutron {
 
-template <
+ATOM_EXPORT template <
     typename T, std::size_t Size,
     bool Constexpr = std::is_trivially_constructible_v<T>>
 struct inplace_storage {

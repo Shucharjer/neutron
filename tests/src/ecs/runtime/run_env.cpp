@@ -1,17 +1,22 @@
-#include <atomic>
-#include <chrono>
-#include <cstddef>
-#include <cstdint>
-#include <exception>
-#include <memory>
-#include <stdexcept>
-#include <thread>
-#include <tuple>
-#include <type_traits>
-#include <vector>
-#include <neutron/ecs.hpp>
-#include <neutron/metafn.hpp>
-#include "neutron/print.hpp"
+#include "neutron/detail/utility/macros.hpp"
+// With modules, an implementation unit of neutron that imports std, see
+// `internal_tests`.
+#ifndef ATOM_USES_MODULES
+    #include <atomic>
+    #include <chrono>
+    #include <cstddef>
+    #include <cstdint>
+    #include <exception>
+    #include <memory>
+    #include <stdexcept>
+    #include <thread>
+    #include <tuple>
+    #include <type_traits>
+    #include <vector>
+    #include <neutron/ecs.hpp>
+    #include <neutron/metafn.hpp>
+    #include "neutron/print.hpp"
+#endif
 #include "require.hpp"
 #include "thread_pool.hpp"
 
@@ -356,7 +361,7 @@ void test_stop_request_cancels_the_run() {
     require(executions == previous + 1);
 }
 
-int main() {
+extern "C++" int main() {
     test_each_world_gets_a_run_env();
     test_run_returns_a_lazy_sender();
     test_systems_run_in_dependency_order();

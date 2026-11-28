@@ -1,8 +1,12 @@
-#include <cstddef>
-#include <cstdint>
-#include <limits>
-#include <type_traits>
-#include <neutron/detail/mask.hpp>
+// With modules, an implementation unit of neutron that imports std, see
+// `internal_tests`.
+#ifndef ATOM_USES_MODULES
+    #include <cstddef>
+    #include <cstdint>
+    #include <limits>
+    #include <type_traits>
+    #include <neutron/detail/mask.hpp>
+#endif
 #include "require.hpp"
 
 using namespace neutron;
@@ -117,7 +121,7 @@ void test_large_values_match_operators() {
 
 } // namespace
 
-int main() {
+extern "C++" int main() {
     test_size_t_matches_operators();
     test_narrow_types_match_operators();
     test_large_values_match_operators();

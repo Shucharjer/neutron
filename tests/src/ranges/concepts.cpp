@@ -1,17 +1,21 @@
-#include <algorithm>
-#include <array>
-#include <cstddef>
-#include <deque>
-#include <forward_list>
-#include <iterator>
-#include <list>
-#include <map>
-#include <memory>
-#include <ranges>
-#include <set>
-#include <string>
-#include <vector>
-#include <neutron/ranges.hpp>
+// With modules, an implementation unit of neutron that imports std, see
+// `internal_tests`.
+#ifndef ATOM_USES_MODULES
+    #include <algorithm>
+    #include <array>
+    #include <cstddef>
+    #include <deque>
+    #include <forward_list>
+    #include <iterator>
+    #include <list>
+    #include <map>
+    #include <memory>
+    #include <ranges>
+    #include <set>
+    #include <string>
+    #include <vector>
+    #include <neutron/ranges.hpp>
+#endif
 #include "require.hpp"
 
 using namespace neutron;
@@ -232,7 +236,7 @@ void test_dispatch_appends_from_cxx20_input_range() {
 
 } // namespace
 
-int main() {
+extern "C++" int main() {
     test_dispatch_constructs_from_common_range();
     test_dispatch_appends_from_non_common_range();
     test_dispatch_appends_from_cxx20_input_range();

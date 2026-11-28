@@ -1,13 +1,15 @@
 #pragma once
-#include <algorithm>
-#include <cstring>
-#include <format>
-#include <string_view>
+#ifndef ATOM_BUILDING_MODULE
+    #include <algorithm>
+    #include <cstring>
+    #include <format>
+    #include <string_view>
+#endif
 #include "neutron/detail/utility/macros.hpp"
 
 namespace neutron {
 
-template <std::size_t Length>
+ATOM_EXPORT template <std::size_t Length>
 struct tstring {
     // NOLINTBEGIN(cppcoreguidelines-avoid-c-arrays)
     // NOLINTBEGIN(modernize-avoid-c-arrays)
@@ -62,13 +64,17 @@ struct tstring {
         return value;
     }
 
-    ATOM_ATTRS(ATOM_NODISCARD) constexpr size_t size() const noexcept { return Length - 1; }
-
-    ATOM_ATTRS(ATOM_NODISCARD) constexpr size_t length() const noexcept {
+    ATOM_ATTRS(ATOM_NODISCARD) constexpr std::size_t size() const noexcept {
         return Length - 1;
     }
 
-    ATOM_ATTRS(ATOM_NODISCARD) constexpr size_t capacity() const noexcept { return Length; }
+    ATOM_ATTRS(ATOM_NODISCARD) constexpr std::size_t length() const noexcept {
+        return Length - 1;
+    }
+
+    ATOM_ATTRS(ATOM_NODISCARD) constexpr std::size_t capacity() const noexcept {
+        return Length;
+    }
 
     ATOM_ATTRS(ATOM_NODISCARD) constexpr std::string_view view() const noexcept {
         return value;
@@ -85,7 +91,7 @@ struct tstring {
 
 } // namespace neutron
 
-template <size_t Length>
+template <std::size_t Length>
 struct std::formatter<neutron::tstring<Length>, char> {
     std::formatter<std::string_view, char> underlying;
     constexpr auto parse(auto& ctx) { return underlying.parse(ctx); }

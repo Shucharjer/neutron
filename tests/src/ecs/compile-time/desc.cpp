@@ -1,4 +1,10 @@
-#include <neutron/ecs.hpp>
+#include "neutron/detail/utility/macros.hpp"
+#ifdef ATOM_USES_MODULES
+import std;
+import neutron;
+#else
+    #include <neutron/ecs.hpp>
+#endif
 #include "app.hpp"
 #include "require.hpp"
 

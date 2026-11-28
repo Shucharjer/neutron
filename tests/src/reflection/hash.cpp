@@ -1,12 +1,16 @@
-#include <concepts>
-#include <tuple>
-#include <neutron/metafn.hpp>
-#include <neutron/reflection.hpp>
+// With modules, an implementation unit of neutron that imports std, see
+// `internal_tests`.
+#ifndef ATOM_USES_MODULES
+    #include <concepts>
+    #include <tuple>
+    #include <neutron/metafn.hpp>
+    #include <neutron/reflection.hpp>
+#endif
 #include "require.hpp"
 
 using namespace neutron;
 
-int main() {
+extern "C++" int main() {
     // name_of yields the spelled type name; hash_of hashes that name.
     {
         static_assert(name_of<int>() == "int");

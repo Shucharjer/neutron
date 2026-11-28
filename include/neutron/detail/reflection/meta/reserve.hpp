@@ -4,9 +4,11 @@
 
 #if ATOM_HAS_REFLECTION
 
-    #include <meta>
-    #include <ranges>
-    #include <vector>
+    #ifndef ATOM_BUILDING_MODULE
+        #include <meta>
+        #include <ranges>
+        #include <vector>
+    #endif
 
 namespace neutron {
 
@@ -21,7 +23,7 @@ struct _replicator_type {
 };
 
 template <auto... Vals>
-static constexpr _replicator_type<Vals...> _replicator = {};
+constexpr _replicator_type<Vals...> _replicator = {};
 
 } // namespace _meta
 
@@ -34,8 +36,8 @@ struct (lambda) {
 };
 ```
 */
-template <std::ranges::range Rng>
-static consteval auto expand(Rng range) {
+ATOM_EXPORT template <std::ranges::range Rng>
+consteval auto expand(Rng range) {
     std::vector<std::meta::info> args;
     for (auto elem : range) {
         args.push_back(std::meta::reflect_constant(elem));
@@ -43,7 +45,7 @@ static consteval auto expand(Rng range) {
     return std::meta::substitute(^^_meta::_replicator, args);
 }
 
-consteval auto constructors_of(
+ATOM_EXPORT consteval auto constructors_of(
     std::meta::info info, std::meta::access_context ctx) noexcept {
     using namespace std::meta;
     return std::define_static_array(
@@ -52,7 +54,7 @@ consteval auto constructors_of(
         }));
 }
 
-consteval auto
+ATOM_EXPORT consteval auto
     destructor_of(std::meta::info info, std::meta::access_context ctx) noexcept
     -> std::meta::info {
     using namespace std::meta;
@@ -62,7 +64,7 @@ consteval auto
     return *std::begin(dtor);
 }
 
-consteval auto operator_functions_of(
+ATOM_EXPORT consteval auto operator_functions_of(
     std::meta::info info, std::meta::access_context ctx) noexcept {
     using namespace std::meta;
     return std::define_static_array(
@@ -71,7 +73,7 @@ consteval auto operator_functions_of(
         }));
 }
 
-consteval auto nonstatic_functions_of(
+ATOM_EXPORT consteval auto nonstatic_functions_of(
     std::meta::info info, std::meta::access_context ctx) noexcept {
     using namespace std::meta;
     return std::define_static_array(
@@ -80,7 +82,7 @@ consteval auto nonstatic_functions_of(
         }));
 }
 
-consteval auto static_functions_of(
+ATOM_EXPORT consteval auto static_functions_of(
     std::meta::info info, std::meta::access_context ctx) noexcept {
     using namespace std::meta;
     return std::define_static_array(
@@ -89,7 +91,7 @@ consteval auto static_functions_of(
         }));
 }
 
-consteval auto ordinary_nonstatic_functions_of(
+ATOM_EXPORT consteval auto ordinary_nonstatic_functions_of(
     std::meta::info info, std::meta::access_context ctx) noexcept {
     using namespace std::meta;
     return std::define_static_array(

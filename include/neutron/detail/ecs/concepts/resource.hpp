@@ -1,17 +1,20 @@
 // IWYU pragma: private, include <neutron/ecs.hpp>
 #pragma once
-#include <concepts>
+#ifndef ATOM_BUILDING_MODULE
+    #include <concepts>
+#endif
 #include "neutron/detail/ecs/concepts/bundle.hpp"
 #include "neutron/detail/metafn/requires.hpp"
+#include "neutron/detail/utility/macros.hpp"
 
 namespace neutron {
 
-struct resource_tag {};
+ATOM_EXPORT struct resource_tag {};
 
-template <typename Ty>
+ATOM_EXPORT template <typename Ty>
 constexpr bool as_resource = false;
 
-template <typename Ty>
+ATOM_EXPORT template <typename Ty>
 concept resource = requires {
     typename std::remove_cvref_t<Ty>::resource_concept;
     requires std::derived_from<
@@ -29,7 +32,7 @@ struct _is_resource {
 } // namespace _resource
 /* @endcond */
 
-template <typename Ty>
+ATOM_EXPORT template <typename Ty>
 concept resource_like =
     resource<Ty> ||
     (bundled<Ty> && neutron::type_list_requires_recurse<

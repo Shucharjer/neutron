@@ -1,7 +1,11 @@
-#include <concepts>
-#include <type_traits>
-#include <neutron/detail/ecs/compile-time/collect_params.hpp>
-#include <neutron/ecs.hpp>
+// With modules, an implementation unit of neutron that imports std, see
+// `internal_tests`.
+#ifndef ATOM_USES_MODULES
+    #include <concepts>
+    #include <type_traits>
+    #include <neutron/detail/ecs/compile-time/collect_params.hpp>
+    #include <neutron/ecs.hpp>
+#endif
 #include "require.hpp"
 
 using namespace neutron;
@@ -27,7 +31,7 @@ void query_int_with_cmds(query<with<int>>, commands cmds) {
     //
 }
 
-int main() {
+extern "C++" int main() {
     // A system without queries contributes nothing to the cache.
     {
         constexpr auto desc =

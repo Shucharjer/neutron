@@ -1,12 +1,17 @@
-#include <array>
-#include <atomic>
-#include <concepts>
-#include <cstddef>
-#include <string>
-#include <thread>
-#include <type_traits>
-#include <vector>
-#include <neutron/lockfree.hpp>
+#ifdef ATOM_USES_MODULES
+import std;
+import neutron;
+#else
+    #include <array>
+    #include <atomic>
+    #include <concepts>
+    #include <cstddef>
+    #include <string>
+    #include <thread>
+    #include <type_traits>
+    #include <vector>
+    #include <neutron/lockfree.hpp>
+#endif
 #include "require.hpp"
 
 namespace {

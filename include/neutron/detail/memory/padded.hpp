@@ -1,12 +1,15 @@
 #pragma once
-#include <cstddef>
-#include <type_traits>
+#ifndef ATOM_BUILDING_MODULE
+    #include <cstddef>
+    #include <type_traits>
+#endif
 #include "neutron/detail/lockfree/hardware_destructive_interference_size.hpp"
 #include "neutron/detail/memory/align.hpp"
+#include "neutron/detail/utility/macros.hpp"
 
 namespace neutron {
 
-template <typename T>
+ATOM_EXPORT template <typename T>
 struct padded;
 
 template <typename T>

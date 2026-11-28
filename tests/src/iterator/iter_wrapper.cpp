@@ -1,14 +1,18 @@
-#include <algorithm>
-#include <array>
-#include <compare>
-#include <cstddef>
-#include <iterator>
-#include <numeric>
-#include <ranges>
-#include <string>
-#include <type_traits>
-#include <utility>
-#include <neutron/iterator.hpp>
+// With modules, an implementation unit of neutron that imports std, see
+// `internal_tests`.
+#ifndef ATOM_USES_MODULES
+    #include <algorithm>
+    #include <array>
+    #include <compare>
+    #include <cstddef>
+    #include <iterator>
+    #include <numeric>
+    #include <ranges>
+    #include <string>
+    #include <type_traits>
+    #include <utility>
+    #include <neutron/iterator.hpp>
+#endif
 #include "require.hpp"
 
 using namespace neutron;
@@ -310,7 +314,7 @@ void test_empty_subrange() {
 
 } // namespace
 
-int main() {
+extern "C++" int main() {
     test_dereference_base_and_distance();
     test_increment_and_decrement();
     test_offsets_and_subscript();

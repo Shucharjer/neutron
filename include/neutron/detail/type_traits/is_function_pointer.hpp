@@ -1,8 +1,9 @@
 #pragma once
+#include "neutron/detail/utility/macros.hpp"
 
 namespace neutron {
 
-template <typename>
+ATOM_EXPORT template <typename>
 struct is_function_pointer {
     static constexpr bool value = false;
 };
@@ -12,7 +13,7 @@ struct is_function_pointer<Ret (*)(Args...)> {
     static constexpr bool value = true;
 };
 
-template <typename Ty>
+ATOM_EXPORT template <typename Ty>
 constexpr bool is_function_pointer_v = is_function_pointer<Ty>::value;
 
 } // namespace neutron

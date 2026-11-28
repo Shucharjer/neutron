@@ -1,29 +1,32 @@
 // IWYU pragma: private, include <neutron/ecs.hpp>
 #pragma once
-#include <type_traits>
+#ifndef ATOM_BUILDING_MODULE
+    #include <type_traits>
+#endif
 #include "neutron/detail/concepts/allocator.hpp"
+#include "neutron/detail/utility/macros.hpp"
 
 namespace neutron {
 
-template <unfancy_allocator Alloc>
+ATOM_EXPORT template <unfancy_allocator Alloc>
 class archetype;
 
-template <unfancy_allocator Alloc>
+ATOM_EXPORT template <unfancy_allocator Alloc>
 class world_base;
 
-template <unfancy_allocator Alloc>
+ATOM_EXPORT template <unfancy_allocator Alloc>
 class command_buffer;
 
-template <unfancy_allocator Alloc>
+ATOM_EXPORT template <unfancy_allocator Alloc>
 class basic_command_list;
 
-template <unfancy_allocator Alloc>
+ATOM_EXPORT template <unfancy_allocator Alloc>
 class basic_commands;
 
-template <typename Descriptor, unfancy_allocator Alloc>
+ATOM_EXPORT template <typename Descriptor, unfancy_allocator Alloc>
 class basic_world;
 
-template <typename...>
+ATOM_EXPORT template <typename...>
 class query;
 
 namespace internal {

@@ -1,20 +1,21 @@
 // IWYU pragma: private, include <neutron/ecs.hpp>
 #pragma once
-#include <algorithm>
-#include <array>
-#include <cassert>
-#include <cstddef>
-#include <cstdint>
-#include <functional>
-#include <iterator>
-#include <limits>
-#include <memory>
-#include <ranges>
-#include <type_traits>
-#include <utility>
-#include <vector>
-#include <neutron/concepts.hpp>
-#include <neutron/reflection.hpp>
+#ifndef ATOM_BUILDING_MODULE
+    #include <algorithm>
+    #include <array>
+    #include <cassert>
+    #include <cstddef>
+    #include <cstdint>
+    #include <functional>
+    #include <iterator>
+    #include <limits>
+    #include <memory>
+    #include <ranges>
+    #include <type_traits>
+    #include <utility>
+    #include <vector>
+#endif
+#include "neutron/concepts.hpp"
 #include "neutron/detail/ecs/concepts/component.hpp"
 #include "neutron/detail/ecs/core/archetype.hpp"
 #include "neutron/detail/ranges/concepts.hpp"
@@ -23,22 +24,23 @@
 #include "neutron/flat_hash_map.hpp"
 #include "neutron/memory.hpp"
 #include "neutron/metafn.hpp"
+#include "neutron/reflection.hpp"
 #include "neutron/utility.hpp"
 
 namespace neutron {
 
-struct world_accessor;
+ATOM_EXPORT struct world_accessor;
 
 namespace _world_base {
 
-enum class _transition_op : uint8_t {
+enum class _transition_op : std::uint8_t {
     add,
     remove,
 };
 
 struct _hash_transition {
-    uint64_t from;
-    uint64_t delta;
+    std::uint64_t from;
+    std::uint64_t delta;
     _transition_op op;
 
     constexpr bool operator==(const _hash_transition& that) const noexcept {
@@ -47,23 +49,22 @@ struct _hash_transition {
 };
 
 ATOM_ATTRS(ATOM_ALWAYS_INLINE)
-static constexpr generation_t _get_gen(entity_t entity) noexcept {
+constexpr generation_t _get_gen(entity_t entity) noexcept {
     return static_cast<generation_t>(entity >> 32U);
 }
 
 ATOM_ATTRS(ATOM_ALWAYS_INLINE)
-static constexpr index_t _get_index(entity_t entity) noexcept {
+constexpr index_t _get_index(entity_t entity) noexcept {
     return static_cast<index_t>(entity);
 }
 
 ATOM_ATTRS(ATOM_ALWAYS_INLINE)
-static constexpr void _reset_index(entity_t& entity) noexcept {
+constexpr void _reset_index(entity_t& entity) noexcept {
     entity = ((entity >> 32) << 32);
 }
 
 ATOM_ATTRS(ATOM_NODISCARD, ATOM_ALWAYS_INLINE)
-constexpr static entity_t
-    _make_entity(generation_t gen, index_t index) noexcept {
+constexpr entity_t _make_entity(generation_t gen, index_t index) noexcept {
     return (static_cast<entity_t>(gen) << 32UL) | index;
 }
 
@@ -77,15 +78,15 @@ class _spawn_n_result {
 
 public:
     using value_type      = entity_t;
-    using size_type       = size_t;
-    using difference_type = ptrdiff_t;
+    using size_type       = std::size_t;
+    using difference_type = std::ptrdiff_t;
 
     class _iterator {
     public:
         using iterator_category = std::forward_iterator_tag;
         using iterator_concept  = std::forward_iterator_tag;
         using value_type        = entity_t;
-        using difference_type   = ptrdiff_t;
+        using difference_type   = std::ptrdiff_t;
         using reference         = entity_t;
 
         constexpr _iterator() noexcept = default;
@@ -205,7 +206,7 @@ class _entity_slots_base {
     friend struct ::neutron::world_accessor;
 
 public:
-    using size_type = size_t;
+    using size_type = std::size_t;
     using archetype = ::neutron::archetype<Alloc>;
 
     struct entity_slot {
@@ -298,7 +299,8 @@ protected:
     constexpr void _release_entity(index_t index) noexcept {
         auto& slot = entities_[index];
         _reset_index(slot.first);
-        if (_get_gen(slot.first) != (std::numeric_limits<uint32_t>::max)()) {
+        if (_get_gen(slot.first) !=
+            (std::numeric_limits<std::uint32_t>::max)()) {
             slot.next_free = free_head_;
             free_head_     = index;
         } else {
@@ -364,7 +366,7 @@ class world_base : private _entity_slots_base<Alloc> {
     using archetype     = ::neutron::archetype<Alloc>;
 
     struct _transition_target {
-        uint64_t hash{};
+        std::uint64_t hash{};
         archetype* target{};
     };
 
@@ -380,9 +382,9 @@ class world_base : private _entity_slots_base<Alloc> {
     using _unordered_map = std::unordered_map<
         Kty, Ty, Hasher, Equal, _allocator_t<std::pair<const Kty, Ty>>>;
 
-    using archetype_map = _unordered_map<uint64_t, archetype>;
-    static constexpr uint64_t empty_archetype_hash =
-        neutron::hash_combine(std::array<uint32_t, 0>{});
+    using archetype_map = _unordered_map<std::uint64_t, archetype>;
+    static constexpr std::uint64_t empty_archetype_hash =
+        neutron::hash_combine(std::array<std::uint32_t, 0>{});
     using typename _entity_slots::entity_slot;
     using _entity_slots::_clear_entities;
     using _entity_slots::_entity_slot;
@@ -452,10 +454,10 @@ private:
     template <component... Components, compatible_range<entity_t> Rng>
     constexpr void _emplace_new_entities(Rng& range, Components&&...);
     template <component... Components>
-    auto _dst_transition_add(archetype* archetype, uint64_t delta)
+    auto _dst_transition_add(archetype* archetype, std::uint64_t delta)
         -> _transition_target&;
     template <component... Components>
-    auto _dst_transition_remove(archetype* archetype, uint64_t delta)
+    auto _dst_transition_remove(archetype* archetype, std::uint64_t delta)
         -> _transition_target&;
 
     /// @brief Version of the archetype set. Bumped whenever an archetype is
@@ -484,7 +486,7 @@ template <component... Components>
 constexpr void world_base<Alloc>::_emplace_new_entity(entity_t entity) {
     using namespace neutron;
     using list              = type_list<Components...>;
-    constexpr uint64_t hash = make_array_hash<list>();
+    constexpr std::uint64_t hash = make_array_hash<list>();
 
     const auto index = _get_index(entity);
     auto& slot       = _entity_slot(index);
@@ -506,7 +508,7 @@ template <component... Components, compatible_range<entity_t> Rng>
 constexpr void world_base<Alloc>::_emplace_new_entities(Rng& range) {
     using namespace neutron;
     using list              = type_list<Components...>;
-    constexpr uint64_t hash = make_array_hash<list>();
+    constexpr std::uint64_t hash = make_array_hash<list>();
 
     auto bind_archetype = [this](archetype* target_archetype) noexcept {
         return [this, target_archetype](entity_t entity) noexcept {
@@ -558,7 +560,7 @@ constexpr void world_base<Alloc>::_emplace_new_entity(
     entity_t entity, Components&&... components) {
     using namespace neutron;
     using list              = type_list<std::remove_cvref_t<Components>...>;
-    constexpr uint64_t hash = make_array_hash<list>();
+    constexpr std::uint64_t hash = make_array_hash<list>();
 
     const auto index = _get_index(entity);
     auto& slot       = _entity_slot(index);
@@ -581,7 +583,7 @@ constexpr void world_base<Alloc>::_emplace_new_entities(
     Rng& range, Components&&... components) {
     using namespace neutron;
     using list              = type_list<std::remove_cvref_t<Components>...>;
-    constexpr uint64_t hash = make_array_hash<list>();
+    constexpr std::uint64_t hash = make_array_hash<list>();
 
     auto bind_archetype = [this](archetype* target_archetype) noexcept {
         return [this, target_archetype](entity_t entity) noexcept {
@@ -633,7 +635,7 @@ constexpr auto
 template <unfancy_allocator Alloc>
 template <component... Components>
 auto world_base<Alloc>::_dst_transition_add(
-    archetype* archetype, uint64_t delta) -> _transition_target& {
+    archetype* archetype, std::uint64_t delta) -> _transition_target& {
     using tlist = type_list<std::remove_cvref_t<Components>...>;
     _hash_transition cond{
         .from  = archetype->hash(),
@@ -646,8 +648,8 @@ auto world_base<Alloc>::_dst_transition_add(
     }
 
     constexpr auto arr = make_hash_array<tlist>();
-    size_t size        = archetype->hash_list().size() + arr.size();
-    _vector_t<uint32_t> hash_list(archetypes_.get_allocator());
+    std::size_t size   = archetype->hash_list().size() + arr.size();
+    _vector_t<std::uint32_t> hash_list(archetypes_.get_allocator());
     hash_list.reserve(size);
     std::ranges::set_union(
         archetype->hash_list(), arr, std::back_inserter(hash_list));
@@ -662,7 +664,7 @@ auto world_base<Alloc>::_dst_transition_add(
 template <unfancy_allocator Alloc>
 template <component... Components>
 auto world_base<Alloc>::_dst_transition_remove(
-    archetype* archetype, uint64_t delta) -> _transition_target& {
+    archetype* archetype, std::uint64_t delta) -> _transition_target& {
     using tlist = type_list<std::remove_cvref_t<Components>...>;
     _hash_transition cond{
         .from  = archetype->hash(),
@@ -675,7 +677,7 @@ auto world_base<Alloc>::_dst_transition_remove(
     }
 
     constexpr auto arr = make_hash_array<tlist>();
-    _vector_t<uint32_t> hash_list(archetypes_.get_allocator());
+    _vector_t<std::uint32_t> hash_list(archetypes_.get_allocator());
     hash_list.reserve(archetype->hash_list().size());
     std::ranges::set_difference(
         archetype->hash_list(), arr, std::back_inserter(hash_list));
@@ -692,7 +694,7 @@ template <component... Components>
 constexpr void world_base<Alloc>::add_components(entity_t entity) {
     using namespace neutron;
     using tlist             = type_list<std::remove_cvref_t<Components>...>;
-    constexpr uint64_t hash = make_array_hash<tlist>();
+    constexpr std::uint64_t hash = make_array_hash<tlist>();
 
     const auto index           = _get_index(entity);
     auto& slot                 = _entity_slot(index);
@@ -734,7 +736,7 @@ template <unfancy_allocator Alloc>
 template <component... Components>
 constexpr void world_base<Alloc>::add_components(
     entity_t entity, Components&&... components) {
-    constexpr uint64_t hash = neutron::make_array_hash<
+    constexpr std::uint64_t hash = neutron::make_array_hash<
         neutron::type_list<std::remove_cvref_t<Components>...>>();
     const auto index      = _get_index(entity);
     auto& slot            = _entity_slot(index);
@@ -776,7 +778,7 @@ template <component... Components>
 constexpr void world_base<Alloc>::remove_components(entity_t entity) {
     using namespace neutron;
     using tlist             = type_list<std::remove_cvref_t<Components>...>;
-    constexpr uint64_t hash = make_array_hash<tlist>();
+    constexpr std::uint64_t hash = make_array_hash<tlist>();
 
     const auto index           = _get_index(entity);
     auto& slot                 = _entity_slot(index);
@@ -879,7 +881,7 @@ void world_base<Alloc>::clear() {
 
 } // namespace _world_base
 
-template <unfancy_allocator Alloc = std::allocator<std::byte>>
+ATOM_EXPORT template <unfancy_allocator Alloc = std::allocator<std::byte>>
 class world_base : public _world_base::world_base<Alloc> {
 public:
     using _world_base::world_base<Alloc>::world_base;
@@ -891,11 +893,12 @@ namespace std {
 
 template <>
 struct hash<neutron::_world_base::_hash_transition> {
-    size_t operator()(const neutron::_world_base::_hash_transition& transition)
-        const noexcept {
-        return hash<uint64_t>{}(transition.from) ^
-               (hash<uint64_t>{}(transition.delta) << 1) ^
-               (hash<uint8_t>{}(static_cast<uint8_t>(transition.op)) << 2);
+    std::size_t operator()(const neutron::_world_base::_hash_transition&
+                               transition) const noexcept {
+        return hash<std::uint64_t>{}(transition.from) ^
+               (hash<std::uint64_t>{}(transition.delta) << 1) ^
+               (hash<std::uint8_t>{}(static_cast<std::uint8_t>(transition.op))
+                << 2);
     }
 };
 

@@ -1,28 +1,34 @@
 // IWYU pragma: private, include <neutron/string.hpp>
 #pragma once
-#include <algorithm>
-#include <cstddef>
-#include <cstring>
-#include <format>
-#include <initializer_list>
-#include <ios>
-#include <istream>
-#include <iterator>
-#include <locale>
-#include <memory>
-#include <ostream>
-#include <stdexcept>
-#include <string>
-#include <string_view>
+#ifndef ATOM_BUILDING_MODULE
+    #include <algorithm>
+    #include <cstddef>
+    #include <cstring>
+    #include <format>
+    #include <initializer_list>
+    #include <ios>
+    #include <istream>
+    #include <iterator>
+    #include <locale>
+    #include <memory>
+    #include <ostream>
+    #include <stdexcept>
+    #include <string>
+    #include <string_view>
+#endif
 #include "neutron/detail/iterator/iter_wrapper.hpp"
 #include "neutron/detail/memory/inplace.hpp"
 #include "neutron/detail/memory/raw_memory.hpp"
 #include "neutron/detail/string/string_view_like.hpp"
 #include "neutron/detail/utility/macros.hpp"
 
-#include <version>
+#ifndef ATOM_BUILDING_MODULE
+    #include <version>
+#endif
 #if __cpp_lib_containers_ranges >= 202202L
-    #include <ranges>
+    #ifndef ATOM_BUILDING_MODULE
+        #include <ranges>
+    #endif
     #include "neutron/detail/ranges/concepts.hpp"
 #endif
 
@@ -30,28 +36,29 @@ namespace std {}
 
 namespace neutron {
 
-template <
+ATOM_EXPORT template <
     std::size_t Capacity, typename CharT,
     typename Traits = std::char_traits<CharT>,
     typename Alloc  = std::allocator<CharT>>
 class basic_short_string;
 
-template <std::size_t Capacity>
+ATOM_EXPORT template <std::size_t Capacity>
 using short_string = basic_short_string<Capacity, char>;
 
-template <std::size_t Capacity>
+ATOM_EXPORT template <std::size_t Capacity>
 using short_wstring = basic_short_string<Capacity, wchar_t>;
 
-template <std::size_t Capacity>
+ATOM_EXPORT template <std::size_t Capacity>
 using short_u8string = basic_short_string<Capacity, char8_t>;
 
-template <std::size_t Capacity>
+ATOM_EXPORT template <std::size_t Capacity>
 using short_u16string = basic_short_string<Capacity, char16_t>;
 
-template <std::size_t Capacity>
+ATOM_EXPORT template <std::size_t Capacity>
 using short_u32string = basic_short_string<Capacity, char32_t>;
 
-template <std::size_t Capacity, typename CharT, typename Traits, typename Alloc>
+ATOM_EXPORT template <
+    std::size_t Capacity, typename CharT, typename Traits, typename Alloc>
 class basic_short_string : Alloc, inplace_storage<CharT, Capacity, true> {
     using _storage_t = inplace_storage<CharT, Capacity, true>;
 
@@ -382,7 +389,8 @@ basic_short_string(const char32_t (&)[Size])
 
 // NOLINTEND(modernize-avoid-c-arrays)
 
-template <std::size_t Capacity, typename CharT, typename Traits, typename Alloc>
+ATOM_EXPORT template <
+    std::size_t Capacity, typename CharT, typename Traits, typename Alloc>
 ::std::basic_ostream<CharT, Traits>& operator<<(
     ::std::basic_ostream<CharT, Traits>& os,
     const basic_short_string<Capacity, CharT, Traits, Alloc>& ss) {
@@ -399,7 +407,8 @@ template <std::size_t Capacity, typename CharT, typename Traits, typename Alloc>
  * was extracted. If an exception is thrown during extraction, `badbit` is set
  * and the exception is rethrown when `badbit` is in `is.exceptions()`.
  */
-template <std::size_t Capacity, typename CharT, typename Traits, typename Alloc>
+ATOM_EXPORT template <
+    std::size_t Capacity, typename CharT, typename Traits, typename Alloc>
 ::std::basic_istream<CharT, Traits>& operator>>(
     ::std::basic_istream<CharT, Traits>& is,
     basic_short_string<Capacity, CharT, Traits, Alloc>& ss) {
@@ -465,7 +474,7 @@ struct hash<::neutron::basic_short_string<Capacity, CharT, Traits, Alloc>> {
     }
 };
 
-template <size_t Capacity, typename CharT, typename Traits, typename Alloc>
+template <std::size_t Capacity, typename CharT, typename Traits, typename Alloc>
 struct formatter<
     ::neutron::basic_short_string<Capacity, CharT, Traits, Alloc>, CharT> {
     using short_string_t =

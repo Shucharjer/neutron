@@ -1,6 +1,9 @@
 #pragma once
-#include <cstddef>
-#include <new>
+#ifndef ATOM_BUILDING_MODULE
+    #include <cstddef>
+    #include <new>
+#endif
+#include "neutron/detail/utility/macros.hpp"
 
 namespace neutron {
 
@@ -10,7 +13,8 @@ namespace neutron {
     #pragma GCC diagnostic ignored "-Winterference-size"
 #endif
 
-constexpr std::size_t hdi_size = std::hardware_destructive_interference_size;
+ATOM_EXPORT inline constexpr std::size_t hdi_size =
+    std::hardware_destructive_interference_size;
 
 #ifdef __clang__
 #elif defined(__GNUC__)

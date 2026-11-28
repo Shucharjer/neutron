@@ -1,12 +1,14 @@
 // IWYU pragma: private, include <neutron/utility.hpp>
 #pragma once
-#include <compare>
-#include <concepts>
-#include <cstddef>
-#include <functional>
-#include <tuple>
-#include <type_traits>
-#include <utility>
+#ifndef ATOM_BUILDING_MODULE
+    #include <compare>
+    #include <concepts>
+    #include <cstddef>
+    #include <functional>
+    #include <tuple>
+    #include <type_traits>
+    #include <utility>
+#endif
 #include "neutron/detail/concepts/pair.hpp"
 #include "neutron/detail/utility/compressed_element.hpp"
 #include "neutron/detail/utility/macros.hpp"
@@ -128,7 +130,7 @@ struct piecewise_tag {};
  * @tparam First Type of the first element.
  * @tparam Second Type of the second element.
  */
-template <typename First, typename Second>
+ATOM_EXPORT template <typename First, typename Second>
 class ATOM_EMPTY_BASES compressed_pair :
     private _compressed_element<First, 0>,
     private _compressed_element<Second, 1> {
@@ -139,7 +141,7 @@ class ATOM_EMPTY_BASES compressed_pair :
     static constexpr bool _is_self =
         std::is_same_v<std::remove_cvref_t<Pair>, compressed_pair>;
 
-    template <size_t Index, typename Self>
+    template <std::size_t Index, typename Self>
     static constexpr decltype(auto) _get(Self&& self) noexcept {
         if constexpr (Index == 0) {
             return std::forward<Self>(self).first();
@@ -148,7 +150,9 @@ class ATOM_EMPTY_BASES compressed_pair :
         }
     }
 
-    template <typename Tuple1, typename Tuple2, size_t... Is1, size_t... Is2>
+    template <
+        typename Tuple1, typename Tuple2, std::size_t... Is1,
+        std::size_t... Is2>
     constexpr compressed_pair(
         _compressed_pair::piecewise_tag, Tuple1& tup1, Tuple2& tup2,
         std::index_sequence<Is1...>, std::index_sequence<Is2...>)
@@ -298,27 +302,31 @@ public:
      * @brief Gets an element, as `std::get` does for `std::pair`. Also used by
      * structured bindings.
      */
-    template <size_t Index>
+    template <std::size_t Index>
     requires(Index < 2)
-    ATOM_ATTRS(ATOM_NODISCARD) constexpr decltype(auto) get() & noexcept {
+    ATOM_ATTRS(ATOM_NODISCARD)
+    constexpr decltype(auto) get() & noexcept {
         return _get<Index>(*this);
     }
 
-    template <size_t Index>
+    template <std::size_t Index>
     requires(Index < 2)
-    ATOM_ATTRS(ATOM_NODISCARD) constexpr decltype(auto) get() const& noexcept {
+    ATOM_ATTRS(ATOM_NODISCARD)
+    constexpr decltype(auto) get() const& noexcept {
         return _get<Index>(*this);
     }
 
-    template <size_t Index>
+    template <std::size_t Index>
     requires(Index < 2)
-    ATOM_ATTRS(ATOM_NODISCARD) constexpr decltype(auto) get() && noexcept {
+    ATOM_ATTRS(ATOM_NODISCARD)
+    constexpr decltype(auto) get() && noexcept {
         return _get<Index>(std::move(*this));
     }
 
-    template <size_t Index>
+    template <std::size_t Index>
     requires(Index < 2)
-    ATOM_ATTRS(ATOM_NODISCARD) constexpr decltype(auto) get() const&& noexcept {
+    ATOM_ATTRS(ATOM_NODISCARD)
+    constexpr decltype(auto) get() const&& noexcept {
         return _get<Index>(std::move(*this));
     }
 
@@ -395,15 +403,13 @@ compressed_pair(First, Second) -> compressed_pair<First, Second>;
  * @brief Creates a `compressed_pair`, unwrapping `std::reference_wrapper` like
  * `std::make_pair`.
  */
-template <typename First, typename Second>
-ATOM_ATTRS(ATOM_NODISCARD) constexpr auto
-    make_compressed_pair(First&& first, Second&& second) noexcept(
-        std::is_nothrow_constructible_v<
-            std::unwrap_ref_decay_t<First>, First> &&
-        std::is_nothrow_constructible_v<
-            std::unwrap_ref_decay_t<Second>, Second>)
-        -> compressed_pair<
-            std::unwrap_ref_decay_t<First>, std::unwrap_ref_decay_t<Second>> {
+ATOM_EXPORT template <typename First, typename Second>
+ATOM_ATTRS(ATOM_NODISCARD)
+constexpr auto make_compressed_pair(First&& first, Second&& second) noexcept(
+    std::is_nothrow_constructible_v<std::unwrap_ref_decay_t<First>, First> &&
+    std::is_nothrow_constructible_v<std::unwrap_ref_decay_t<Second>, Second>)
+    -> compressed_pair<
+        std::unwrap_ref_decay_t<First>, std::unwrap_ref_decay_t<Second>> {
     return compressed_pair<
         std::unwrap_ref_decay_t<First>, std::unwrap_ref_decay_t<Second>>(
         std::forward<First>(first), std::forward<Second>(second));
@@ -415,9 +421,9 @@ namespace std {
 
 template <typename First, typename Second>
 struct tuple_size<neutron::compressed_pair<First, Second>> :
-    std::integral_constant<size_t, 2> {};
+    std::integral_constant<std::size_t, 2> {};
 
-template <size_t Index, typename First, typename Second>
+template <std::size_t Index, typename First, typename Second>
 struct tuple_element<Index, neutron::compressed_pair<First, Second>> {
     static_assert(Index < 2, "compressed_pair index out of range");
     using type = std::conditional_t<Index == 0, First, Second>;

@@ -1,20 +1,22 @@
 // IWYU pragma: private, include <neutron/ecs.hpp>
 #pragma once
-#include <cstdint>
-#include <format>
+#ifndef ATOM_BUILDING_MODULE
+    #include <cstdint>
+    #include <format>
+#endif
 #include "neutron/detail/utility/macros.hpp"
 
 namespace neutron {
 
-using entity_t     = uint64_t;
-using generation_t = uint32_t;
-using index_t      = uint32_t;
+ATOM_EXPORT using entity_t     = std::uint64_t;
+ATOM_EXPORT using generation_t = std::uint32_t;
+ATOM_EXPORT using index_t      = std::uint32_t;
 
 /**
  * @brief Future entity.
  * It mainly used in command_buffer.
  */
-class future_entity_t {
+ATOM_EXPORT class future_entity_t {
 public:
     constexpr explicit future_entity_t(index_t inframe_index) noexcept
         : identity_(inframe_index) {}

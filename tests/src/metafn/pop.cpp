@@ -1,5 +1,10 @@
-#include <concepts>
-#include <neutron/metafn.hpp>
+#ifdef ATOM_USES_MODULES
+import std;
+import neutron;
+#else
+    #include <concepts>
+    #include <neutron/metafn.hpp>
+#endif
 #include "require.hpp"
 
 using namespace neutron;

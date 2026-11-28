@@ -1,14 +1,19 @@
-#include <array>
-#include <cstddef>
-#include <stdexcept>
-#include <neutron/ecs.hpp>
-#include "neutron/detail/ecs/core/world_accessor.hpp"
+// With modules, an implementation unit of neutron that imports std, see
+// `internal_tests`.
+#ifndef ATOM_USES_MODULES
+    #include <array>
+    #include <cstddef>
+    #include <stdexcept>
+    #include <neutron/ecs.hpp>
+    #include "neutron/detail/ecs/core/world_accessor.hpp"
+#endif
 #include "require.hpp"
 
 using namespace neutron;
 
 auto entity_archetype(auto& world, entity_t entity) {
-    return world_accessor::entities(world)[static_cast<size_t>(entity)].second;
+    return world_accessor::entities(world)[static_cast<std::size_t>(entity)]
+        .second;
 }
 
 template <typename... Filters>
@@ -43,11 +48,11 @@ struct ThrowOnDefault {
 };
 
 void require_position_only(
-    auto& world, float x, float y, size_t expected_count = 1) {
+    auto& world, float x, float y, std::size_t expected_count = 1) {
     manual_querior<with<Position&>> querior{ world };
     query<with<Position&>> qry{ querior };
 
-    size_t count = 0;
+    std::size_t count = 0;
     for (auto [position] : qry.get()) {
         require(position.x == x);
         require(position.y == y);
@@ -58,11 +63,11 @@ void require_position_only(
 
 void require_position_velocity(
     auto& world, float px, float py, float vx, float vy,
-    size_t expected_count = 1) {
+    std::size_t expected_count = 1) {
     manual_querior<with<Position&, Velocity&>> querior{ world };
     query<with<Position&, Velocity&>> qry{ querior };
 
-    size_t count = 0;
+    std::size_t count = 0;
     for (auto [position, velocity] : qry.get()) {
         require(position.x == px);
         require(position.y == py);
@@ -74,7 +79,7 @@ void require_position_velocity(
 }
 
 void require_entity_has_no_archetype(auto& world, entity_t entity) {
-    const auto index = static_cast<size_t>(entity);
+    const auto index = static_cast<std::size_t>(entity);
     auto& entities   = world_accessor::entities(world);
     require(index < entities.size());
     require(entities[index].first == entity);
@@ -112,7 +117,7 @@ void test_remove_components_one_kind_at_a_time() {
 
     manual_querior<with<Velocity&>> querior{ world };
     query<with<Velocity&>> qry{ querior };
-    size_t count = 0;
+    std::size_t count = 0;
     for (auto [velocity] : qry.get()) {
         require(velocity.x == 3);
         require(velocity.y == 4);
@@ -230,7 +235,7 @@ void test_spawn_n_without_components() {
     require(entities.size() == 4);
 
     entity_t expected = 1;
-    size_t count      = 0;
+    std::size_t count = 0;
     for (entity_t entity : entities) {
         require(entity == expected++);
         require(world.is_alive(entity));
@@ -250,7 +255,7 @@ void test_spawn_n_with_default_components() {
     auto* const archetype = entity_archetype(world, *iter);
     require(archetype->template has<Position, Velocity, Tag>());
 
-    size_t count = 0;
+    std::size_t count = 0;
     for (entity_t entity : entities) {
         require(entity_archetype(world, entity) == archetype);
         require(world.is_alive(entity));
@@ -271,7 +276,7 @@ void test_spawn_n_with_component_values() {
     auto* const archetype = entity_archetype(world, *iter);
     require(archetype->template has<Position, Velocity, Tag>());
 
-    size_t count = 0;
+    std::size_t count = 0;
     for (entity_t entity : entities) {
         require(entity_archetype(world, entity) == archetype);
         require(world.is_alive(entity));
@@ -299,7 +304,7 @@ void test_spawn_n_rolls_back_archetype_slots_on_exception() {
     }
 
     auto& slots = world_accessor::entities(world);
-    for (size_t index = 1; index < slots.size(); ++index) {
+    for (std::size_t index = 1; index < slots.size(); ++index) {
         require(slots[index].second == nullptr);
     }
 }
@@ -369,19 +374,19 @@ void test_add_components_to_many_entities_keeps_their_values() {
     basic_world<world_descriptor_t<>> world;
     // More than an archetype's initial capacity, so the {Position, Velocity}
     // archetype created by the transition has to grow.
-    constexpr size_t count = 200;
+    constexpr std::size_t count = 200;
     std::array<entity_t, count> entities{};
-    for (size_t i = 0; i < count; ++i) {
+    for (std::size_t i = 0; i < count; ++i) {
         entities[i] = world.spawn(Position{ float(i), 0 });
     }
 
-    for (size_t i = 0; i < count; ++i) {
+    for (std::size_t i = 0; i < count; ++i) {
         world.add_components(entities[i], Velocity{ float(2 * i), 0 });
     }
 
     manual_querior<with<Position&, Velocity&>> querior{ world };
     query<with<Position&, Velocity&>> qry{ querior };
-    size_t matched = 0;
+    std::size_t matched = 0;
     for (auto [position, velocity] : qry.get()) {
         matched += velocity.x == 2 * position.x ? 1 : 0;
     }
@@ -403,7 +408,7 @@ void test_without_filter_excludes_archetypes() {
     require(sum == 4);
 }
 
-int main() {
+extern "C++" int main() {
     test_add_components_to_many_entities_keeps_their_values();
     test_without_filter_excludes_archetypes();
     test_add_components_with_values();

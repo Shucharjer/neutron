@@ -1,6 +1,11 @@
-#include <memory>
-#include <string>
-#include <neutron/concepts.hpp>
+#ifdef ATOM_USES_MODULES
+import std;
+import neutron;
+#else
+    #include <memory>
+    #include <string>
+    #include <neutron/concepts.hpp>
+#endif
 #include "require.hpp"
 
 using namespace neutron;

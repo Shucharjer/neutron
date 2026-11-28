@@ -1,12 +1,17 @@
-#include <array>
-#include <cstddef>
-#include <deque>
-#include <forward_list>
-#include <iterator>
-#include <list>
-#include <sstream>
-#include <vector>
-#include <neutron/iterator.hpp>
+#ifdef ATOM_USES_MODULES
+import std;
+import neutron;
+#else
+    #include <array>
+    #include <cstddef>
+    #include <deque>
+    #include <forward_list>
+    #include <iterator>
+    #include <list>
+    #include <sstream>
+    #include <vector>
+    #include <neutron/iterator.hpp>
+#endif
 #include "require.hpp"
 
 using namespace neutron;

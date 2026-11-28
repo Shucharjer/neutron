@@ -48,6 +48,49 @@ Neutron exposes the `neutron` interface target and the `atom::neutron` alias.
 Because the library is header-only, linking mainly propagates include
 directories and required compile options.
 
+### C++20 Modules
+
+Configure with `-DNEUTRON_BUILD_MODULE=ON` and link `neutron_module` (alias
+`atom::neutron_module`). Everything is then a module, from C++20 on: the
+standard library (`std`, built from the sources the standard library ships),
+the execution backend (`stdexec` or `beman.execution`) and `neutron`. It needs
+a Ninja generator and GCC 15+ or Clang 18.1.2+ with libc++/libstdc++.
+
+Linking `neutron_module` defines `ATOM_USES_MODULES`, which turns every public
+header of neutron into its macros plus `import std; import neutron;`, so the
+same source works in both modes:
+
+```cpp
+#include <neutron/small_vector.hpp> // first: also imports std and neutron
+
+int main() {
+    neutron::small_vector<int, 4> numbers{ 1, 2, 3 };
+}
+```
+
+- Only the public API is exported: names under `_name`, `internal::` and other
+  implementation namespaces stay internal to the module.
+- Modules cannot export macros. The headers still provide them, e.g. `ATOM_*`
+  and `REFL_MEMBERS`; `<neutron/macros.hpp>` provides only the macros.
+- Include the headers of neutron before `import std;`: GCC rejects the
+  macro-only standard headers they include after it.
+- The `std::execution` backend is not supported by the module yet.
+
+#### Writing headers
+
+- A declaration of the public API is marked with `ATOM_EXPORT`; a namespace
+  holding a using-directive that importers need is exported as a whole.
+- Includes of standard, system and third-party headers are wrapped in
+  `#ifndef ATOM_BUILDING_MODULE`: the module gets them from `import std;` or
+  from the global module fragment of `modules/neutron.cppm`.
+- New platform or third-party headers are added to that global module fragment.
+- With the module, the tests write `import std; import neutron;` themselves
+  and include no header of neutron but the macro-only
+  `neutron/detail/utility/macros.hpp`, before the imports. A test of
+  internals, which the module does not export, is listed in `internal_tests`
+  of `CMakeLists.txt` and declares `extern "C++" int main()`: it is compiled as
+  an implementation unit of `neutron`, which imports std.
+
 ## ECS Quick Start
 
 The ECS API lives in [`<neutron/ecs.hpp>`](include/neutron/ecs.hpp). Components

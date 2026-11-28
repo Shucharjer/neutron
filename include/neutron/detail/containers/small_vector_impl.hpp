@@ -1,16 +1,18 @@
 // IWYU pragma: private, include <neutron/small_vector.hpp>
 #pragma once
-#include <algorithm>
-#include <cassert>
-#include <concepts>
-#include <cstddef>
-#include <initializer_list>
-#include <iterator>
-#include <limits>
-#include <memory>
-#include <stdexcept>
-#include <type_traits>
-#include <utility>
+#ifndef ATOM_BUILDING_MODULE
+    #include <algorithm>
+    #include <cassert>
+    #include <concepts>
+    #include <cstddef>
+    #include <initializer_list>
+    #include <iterator>
+    #include <limits>
+    #include <memory>
+    #include <stdexcept>
+    #include <type_traits>
+    #include <utility>
+#endif
 #include "neutron/detail/concepts/allocator.hpp"
 #include "neutron/detail/concepts/nothrow_conditional_movable.hpp"
 #include "neutron/detail/iterator/iter_wrapper.hpp"
@@ -20,12 +22,12 @@
 
 namespace neutron {
 
-template <
-    typename Ty, size_t Count = 4,
+ATOM_EXPORT template <
+    typename Ty, std::size_t Count = 4,
     std_simple_allocator Alloc = std::allocator<Ty>>
 class small_vector;
 
-template <typename Ty, size_t Count, std_simple_allocator Alloc>
+template <typename Ty, std::size_t Count, std_simple_allocator Alloc>
 requires std::same_as<
     typename std::allocator_traits<Alloc>::value_type*,
     typename std::allocator_traits<Alloc>::pointer>
@@ -40,7 +42,7 @@ public:
     using value_type      = Ty;
     using allocator_type  = _allocator_t<Ty>;
     using alloc_traits    = std::allocator_traits<Alloc>;
-    using size_type       = size_t;
+    using size_type       = std::size_t;
     using difference_type = std::ptrdiff_t;
     using reference       = value_type&;
     using const_reference = const value_type&;
@@ -369,7 +371,7 @@ public:
     }
     ATOM_ATTRS(ATOM_NODISCARD) size_type max_size() const noexcept {
         return (std::min)((std::numeric_limits<size_type>::max)(),
-                          static_cast<size_t>(-1) / sizeof(Ty));
+                          static_cast<std::size_t>(-1) / sizeof(Ty));
     }
     ATOM_ATTRS(ATOM_NODISCARD) bool empty() const noexcept {
         return size_ == 0;
@@ -561,7 +563,7 @@ private:
         return data_ == reinterpret_cast<const Ty*>(std::addressof(storage_));
     }
 
-    ATOM_ATTRS(ATOM_ALWAYS_INLINE) void _reset_data_ptr() noexcept {
+    ATOM_ATTRS(ATOM_ALWAYS_INLINE) inline void _reset_data_ptr() noexcept {
         data_ = reinterpret_cast<pointer>(storage_);
     }
 
@@ -759,8 +761,8 @@ private:
     ATOM_NO_UNIQUE_ADDR allocator_type alloc_;
     alignas(alignof(Ty)) std::byte storage_[sizeof(Ty) * Count]{}; // NOLINT
     Ty* data_ = reinterpret_cast<Ty*>(storage_);
-    size_t size_{};
-    size_t capacity_{ Count };
+    std::size_t size_{};
+    std::size_t capacity_{ Count };
 };
 
 // Note: no bool specialization. We intentionally use the generic template for

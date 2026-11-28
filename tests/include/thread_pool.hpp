@@ -4,19 +4,22 @@
     #error
 #endif
 
-#include <condition_variable>
-#include <cstddef>
-#include <exception>
-#include <mutex>
-#include <queue>
-#include <stdexcept>
-#include <thread>
-#include <type_traits>
-#include <utility>
-#include <vector>
+// With modules, the includer imports std and neutron.
+#ifndef ATOM_USES_MODULES
+    #include <condition_variable>
+    #include <cstddef>
+    #include <exception>
+    #include <mutex>
+    #include <queue>
+    #include <stdexcept>
+    #include <thread>
+    #include <type_traits>
+    #include <utility>
+    #include <vector>
+    #include "neutron/execution.hpp"
+    #include "neutron/stop_token.hpp"
+#endif
 #include "neutron/detail/utility/macros.hpp"
-#include "neutron/execution.hpp"
-#include "neutron/stop_token.hpp"
 
 namespace thread_pool_for_test {
 
@@ -156,16 +159,17 @@ class thread_pool {
 public:
     _scheduler get_scheduler() { return _scheduler{ this }; }
 
-    ATOM_ATTRS(ATOM_NODISCARD) size_t available_parallelism() const noexcept {
+    ATOM_ATTRS(ATOM_NODISCARD)
+    std::size_t available_parallelism() const noexcept {
         return threads_.size();
     }
 
-    explicit thread_pool(size_t n = std::thread::hardware_concurrency()) {
+    explicit thread_pool(std::size_t n = std::thread::hardware_concurrency()) {
         if (n == 0) [[unlikely]] {
             n = 1;
         }
 
-        for (size_t i = 0; i < n; ++i) {
+        for (std::size_t i = 0; i < n; ++i) {
             threads_.emplace_back([this] {
                 while (true) {
                     _task_base* task = nullptr;

@@ -1,10 +1,15 @@
-#include <array>
-#include <cstddef>
-#include <cstdint>
-#include <memory>
-#include <new>
-#include <type_traits>
-#include <neutron/memory.hpp>
+#include "neutron/detail/utility/macros.hpp"
+// With modules, an implementation unit of neutron that imports std, see
+// `internal_tests`.
+#ifndef ATOM_USES_MODULES
+    #include <array>
+    #include <cstddef>
+    #include <cstdint>
+    #include <memory>
+    #include <new>
+    #include <type_traits>
+    #include <neutron/memory.hpp>
+#endif
 #include "require.hpp"
 
 using namespace neutron;
@@ -163,7 +168,7 @@ void test_init_uninitialized_links_raw_memory() {
 
 } // namespace
 
-int main() {
+extern "C++" int main() {
     test_free_list<8, 8, 4>();
     test_free_list<24, 8, 7>();
     test_free_list<1, 32, 3>();

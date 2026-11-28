@@ -1,13 +1,17 @@
-#include <array>
-#include <atomic>
-#include <concepts>
-#include <cstddef>
-#include <iterator>
-#include <string>
-#include <thread>
-#include <utility>
-#include <vector>
-#include <neutron/detail/lockfree/inplace_mpsc_queue.hpp>
+// With modules, an implementation unit of neutron that imports std, see
+// `internal_tests`.
+#ifndef ATOM_USES_MODULES
+    #include <array>
+    #include <atomic>
+    #include <concepts>
+    #include <cstddef>
+    #include <iterator>
+    #include <string>
+    #include <thread>
+    #include <utility>
+    #include <vector>
+    #include <neutron/detail/lockfree/inplace_mpsc_queue.hpp>
+#endif
 #include "require.hpp"
 
 namespace {
@@ -101,7 +105,7 @@ void test_multiple_producers_publish_each_value_once() {
 
 } // namespace
 
-int main() {
+extern "C++" int main() {
     test_single_element_can_be_popped();
     test_multiple_producers_publish_each_value_once();
     return neutron_test::result();

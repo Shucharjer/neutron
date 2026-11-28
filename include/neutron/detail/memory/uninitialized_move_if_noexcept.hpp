@@ -1,11 +1,13 @@
 // IWYU pragma: private, include <neutron/memory.hpp>
 #pragma once
-#include <cstring>
-#include <exception> // IWYU pragma: keep
-#include <iterator>
-#include <memory>
-#include <type_traits>
-#include <neutron/concepts.hpp>
+#ifndef ATOM_BUILDING_MODULE
+    #include <cstring>
+    #include <exception> // IWYU pragma: keep
+    #include <iterator>
+    #include <memory>
+    #include <type_traits>
+#endif
+#include "neutron/concepts.hpp"
 #include "neutron/detail/concepts/trivially_relocatible.hpp"
 #include "neutron/detail/utility/macros.hpp"
 
@@ -17,7 +19,8 @@ template <typename Ty>
 constexpr bool _moves_if_noexcept = std::is_nothrow_move_constructible_v<Ty> ||
                                     !std::is_copy_constructible_v<Ty>;
 
-template <std::input_iterator InputIt, std::forward_iterator NothrowForwardIter>
+ATOM_EXPORT template <
+    std::input_iterator InputIt, std::forward_iterator NothrowForwardIter>
 ATOM_CONSTEXPR_SINCE_CXX26 auto uninitialized_move_if_noexcept(
     InputIt first, InputIt last,
     NothrowForwardIter
@@ -51,7 +54,7 @@ ATOM_CONSTEXPR_SINCE_CXX26 auto uninitialized_move_if_noexcept(
     }
 }
 
-template <
+ATOM_EXPORT template <
     std::input_iterator InputIt, typename Size,
     std::forward_iterator NothrowForwardIt>
 ATOM_CONSTEXPR_SINCE_CXX26 auto uninitialized_move_if_noexcept_n(
@@ -82,7 +85,7 @@ ATOM_CONSTEXPR_SINCE_CXX26 auto uninitialized_move_if_noexcept_n(
     }
 }
 
-template <
+ATOM_EXPORT template <
     typename Exec, std::input_iterator InputIt,
     std::forward_iterator NothrowForwardIt>
 ATOM_CONSTEXPR_SINCE_CXX26 auto uninitialized_move_if_noexcept(
@@ -97,7 +100,7 @@ ATOM_CONSTEXPR_SINCE_CXX26 auto uninitialized_move_if_noexcept(
     }
 }
 
-template <
+ATOM_EXPORT template <
     typename Exec, std::input_iterator InputIt, typename Size,
     std::forward_iterator NothrowForwardIt>
 ATOM_CONSTEXPR_SINCE_CXX26 auto uninitialized_move_if_noexcept_n(

@@ -1,9 +1,13 @@
-#include <cstddef>
-#include <memory>
-#include <tuple>
-#include <type_traits>
-#include <utility>
-#include <neutron/utility.hpp>
+// With modules, an implementation unit of neutron that imports std, see
+// `internal_tests`.
+#ifndef ATOM_USES_MODULES
+    #include <cstddef>
+    #include <memory>
+    #include <tuple>
+    #include <type_traits>
+    #include <utility>
+    #include <neutron/utility.hpp>
+#endif
 #include "require.hpp"
 
 using namespace neutron;
@@ -139,7 +143,7 @@ void test_std_get_moves_out_of_rvalue_tuple() {
 
 } // namespace
 
-int main() {
+extern "C++" int main() {
     test_member_get_is_called();
     test_nothrow_member_get_is_called();
     test_adl_get_is_called();

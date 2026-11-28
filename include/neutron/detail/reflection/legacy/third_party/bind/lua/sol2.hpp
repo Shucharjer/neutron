@@ -1,8 +1,10 @@
 #pragma once
 
 #if __has_include(<lua.hpp>) && __has_include(<sol/sol.hpp>)
-    #include <type_traits>
-    #include <sol/sol.hpp>
+    #ifndef ATOM_BUILDING_MODULE
+        #include <type_traits>
+        #include <sol/sol.hpp>
+    #endif
 
 namespace neutron::internal {
 template <::neutron::concepts::reflectible Ty>
@@ -33,14 +35,14 @@ inline sol::usertype<Ty> bind_to_lua(sol::state& lua) noexcept {
     if constexpr (::neutron::concepts::reflectible<Ty>) {
         if constexpr (::neutron::concepts::aggregate<Ty>) {
             const auto& fields = reflected.fields();
-            [&]<size_t... Is>(std::index_sequence<Is...>) {
+            [&]<std::size_t... Is>(std::index_sequence<Is...>) {
                 ((usertype[std::get<Is>(fields).name()] =
                       std::get<Is>(fields).pointer()),
                  ...);
             }(std::make_index_sequence<std::tuple_size_v<decltype(fields)>>());
         } else if constexpr (::neutron::concepts::has_field_traits<Ty>) {
             constexpr auto& fields = reflected.fields();
-            [&]<size_t... Is>(std::index_sequence<Is...>) {
+            [&]<std::size_t... Is>(std::index_sequence<Is...>) {
                 ((usertype[std::get<Is>(fields).name()] =
                       std::get<Is>(fields).pointer()),
                  ...);
@@ -55,7 +57,7 @@ inline sol::usertype<Ty> bind_to_lua(sol::state& lua) noexcept {
 
     if constexpr (::neutron::concepts::has_function_traits<Ty>) {
         const auto& funcs = reflected.functions();
-        [&]<size_t... Is>(std::index_sequence<Is...>) {
+        [&]<std::size_t... Is>(std::index_sequence<Is...>) {
             ((usertype[std::get<Is>(funcs).name()] =
                   std::get<Is>(funcs).pointer()),
              ...);

@@ -1,6 +1,7 @@
 // IWYU pragma: private, include <neutron/ranges.hpp>
 #pragma once
 #include "neutron/detail/ranges/adaptor_closure.hpp"
+#include "neutron/detail/utility/macros.hpp"
 
 namespace neutron {
 /**
@@ -10,7 +11,7 @@ namespace neutron {
  * @tparam Fn Function called in operator()
  * @tparam Args Arguments that
  */
-template <typename Fn, typename... Args>
+ATOM_EXPORT template <typename Fn, typename... Args>
 class closure : public range_adaptor_closure<closure<Fn, Args...>> {
     using index_sequence = std::index_sequence_for<Args...>;
     using self_type      = closure;
@@ -54,7 +55,7 @@ public:
     }
 
 private:
-    template <typename SelfTy, typename Ty, size_t... Is>
+    template <typename SelfTy, typename Ty, std::size_t... Is>
     constexpr static decltype(auto)
         _call(SelfTy&& self, Ty&& arg, std::index_sequence<Is...>) noexcept(
             noexcept(Fn{}(
@@ -78,7 +79,7 @@ private:
  * @param args Arguments.
  * @return closure<Fn, std::decay_t<Args>...> Closure.
  */
-template <typename Fn, typename... Args>
+ATOM_EXPORT template <typename Fn, typename... Args>
 constexpr auto make_closure(Args&&... args)
     -> closure<Fn, std::decay_t<Args>...> {
     return closure<Fn, std::decay_t<Args>...>(std::forward<Args>(args)...);

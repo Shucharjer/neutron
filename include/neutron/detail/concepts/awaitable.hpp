@@ -1,18 +1,21 @@
 #pragma once
-#include <concepts>
-#include <coroutine>
-#include <utility>
+#ifndef ATOM_BUILDING_MODULE
+    #include <concepts>
+    #include <coroutine>
+    #include <utility>
+#endif
 #include "neutron/detail/concepts/one_of.hpp"
 #include "neutron/detail/metafn/specific.hpp"
+#include "neutron/detail/utility/macros.hpp"
 
 namespace neutron {
 
-template <typename Ty>
+ATOM_EXPORT template <typename Ty>
 concept await_suspend_result =
     one_of<Ty, void, bool> ||
     is_specific_type_list_v<std::coroutine_handle, Ty>;
 
-template <typename Awaiter, typename Promise>
+ATOM_EXPORT template <typename Awaiter, typename Promise>
 concept awaiter =
     requires(Awaiter& awaiter, std::coroutine_handle<Promise> handle) {
         { awaiter.await_ready() } -> std::convertible_to<bool>;
@@ -64,7 +67,7 @@ requires requires {
 
 } // namespace _awaitable
 
-template <typename Awaitable, typename Promise>
+ATOM_EXPORT template <typename Awaitable, typename Promise>
 concept awaitable = requires(Awaitable&& awaitable, Promise* promise) {
     {
         _awaitable::_get_awaiter(std::forward<Awaitable>(awaitable), promise)

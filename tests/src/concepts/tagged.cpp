@@ -1,6 +1,11 @@
-#include <tuple>
-#include <neutron/concepts.hpp>
-#include <neutron/metafn.hpp>
+#ifdef ATOM_USES_MODULES
+import std;
+import neutron;
+#else
+    #include <tuple>
+    #include <neutron/concepts.hpp>
+    #include <neutron/metafn.hpp>
+#endif
 #include "require.hpp"
 
 using namespace neutron;

@@ -1,22 +1,26 @@
 #pragma once
 // IWYU pragma: begin_exports
 
-#include "neutron/detail/concepts/allocator.hpp"
-#include "neutron/detail/concepts/awaitable.hpp"
-#include "neutron/detail/concepts/excluding.hpp"
-#include "neutron/detail/concepts/fixed_array.hpp"
-#include "neutron/detail/concepts/instance_of.hpp"
-#include "neutron/detail/concepts/map_like.hpp"
-#include "neutron/detail/concepts/movable_value.hpp"
-#include "neutron/detail/concepts/nonempty.hpp"
-#include "neutron/detail/concepts/nothrow_conditional_movable.hpp"
-#include "neutron/detail/concepts/one_of.hpp"
-#include "neutron/detail/concepts/pair.hpp"
-#include "neutron/detail/concepts/same.hpp"
-#include "neutron/detail/concepts/tag_invoke.hpp"
-#include "neutron/detail/concepts/tagged.hpp"
-#include "neutron/detail/concepts/trivially_relocatible.hpp"
-#include "neutron/detail/concepts/tuple_like.hpp"
-#include "neutron/detail/concepts/value.hpp"
+#if defined(ATOM_USES_MODULES) && !defined(ATOM_BUILDING_MODULE)
+    #include "neutron/macros.hpp"
+#else
+    #include "neutron/detail/concepts/allocator.hpp"
+    #include "neutron/detail/concepts/awaitable.hpp"
+    #include "neutron/detail/concepts/excluding.hpp"
+    #include "neutron/detail/concepts/fixed_array.hpp"
+    #include "neutron/detail/concepts/instance_of.hpp"
+    #include "neutron/detail/concepts/map_like.hpp"
+    #include "neutron/detail/concepts/movable_value.hpp"
+    #include "neutron/detail/concepts/nonempty.hpp"
+    #include "neutron/detail/concepts/nothrow_conditional_movable.hpp"
+    #include "neutron/detail/concepts/one_of.hpp"
+    #include "neutron/detail/concepts/pair.hpp"
+    #include "neutron/detail/concepts/same.hpp"
+    #include "neutron/detail/concepts/tag_invoke.hpp"
+    #include "neutron/detail/concepts/tagged.hpp"
+    #include "neutron/detail/concepts/trivially_relocatible.hpp"
+    #include "neutron/detail/concepts/tuple_like.hpp"
+    #include "neutron/detail/concepts/value.hpp"
+#endif
 
 // IWYU pragma: end_exports

@@ -1,33 +1,35 @@
 // IWYU pragma: private, include <neutron/reflection.hpp>
 #pragma once
-#include <algorithm>
-#include <array>
-#include <cstddef>
-#include <cstring>
-#include <ranges>
-#include <tuple>
-#include <type_traits>
-#include <neutron/detail/concepts/one_of.hpp>
+#ifndef ATOM_BUILDING_MODULE
+    #include <algorithm>
+    #include <array>
+    #include <cstddef>
+    #include <cstring>
+    #include <ranges>
+    #include <tuple>
+    #include <type_traits>
+#endif
 #include "neutron/detail/concepts/fixed_array.hpp"
+#include "neutron/detail/concepts/one_of.hpp"
 #include "neutron/detail/reflection/refl.hpp"
 #include "neutron/detail/tuple/shared_tuple.hpp"
 #include "neutron/detail/utility/macros.hpp"
 
 namespace neutron {
 
-template <typename Format, typename T>
+ATOM_EXPORT template <typename Format, typename T>
 struct serialize_t;
 
-template <typename Format, typename T>
+ATOM_EXPORT template <typename Format, typename T>
 struct deserialize_t;
 
-template <typename Format, typename T>
+ATOM_EXPORT template <typename Format, typename T>
 constexpr auto serialize(Format& format, const T& data) noexcept(
     noexcept(serialize_t<Format, T>()(format, data))) {
     return serialize_t<Format, T>()(format, data);
 }
 
-template <typename Format, typename T>
+ATOM_EXPORT template <typename Format, typename T>
 constexpr auto deserialize(Format& format, T& data) noexcept(
     noexcept(deserialize_t<Format, T>()(format, data))) {
     return deserialize_t<Format, T>()(format, data);
@@ -46,37 +48,37 @@ private:
     std::size_t length_;
 };
 
-template <std::size_t Size>
+ATOM_EXPORT template <std::size_t Size>
 _bitbuf_impl<Size> bitbuf(char (&)[Size]) {
     return _bitbuf_impl<Size>{};
 }
 
-template <std::size_t Size>
+ATOM_EXPORT template <std::size_t Size>
 _bitbuf_impl<Size> bitbuf(unsigned char (&)[Size]) {
     return _bitbuf_impl<Size>{};
 }
 
-template <std::size_t Size>
+ATOM_EXPORT template <std::size_t Size>
 _bitbuf_impl<Size> bitbuf(std::byte (&)[Size]) {
     return _bitbuf_impl<Size>{};
 }
 
-template <std::size_t Size>
+ATOM_EXPORT template <std::size_t Size>
 _bitbuf_impl<Size> bitbuf(std::array<char, Size>&) {
     return _bitbuf_impl<Size>{};
 }
 
-template <std::size_t Size>
+ATOM_EXPORT template <std::size_t Size>
 _bitbuf_impl<Size> bitbuf(std::array<unsigned char, Size>&) {
     return _bitbuf_impl<Size>{};
 }
 
-template <std::size_t Size>
+ATOM_EXPORT template <std::size_t Size>
 _bitbuf_impl<Size> bitbuf(std::array<std::byte, Size>&) {
     return _bitbuf_impl<Size>{};
 }
 
-class bitstream {
+ATOM_EXPORT class bitstream {
     friend struct _bitviewer;
 
 public:

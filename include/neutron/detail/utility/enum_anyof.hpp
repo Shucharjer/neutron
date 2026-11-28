@@ -1,10 +1,13 @@
 #pragma once
-#include <type_traits>
-#include <utility> // IWYU pragma: keep, for initializer_list
+#ifndef ATOM_BUILDING_MODULE
+    #include <type_traits>
+    #include <utility> // IWYU pragma: keep, for initializer_list
+#endif
+#include "neutron/detail/utility/macros.hpp"
 
 namespace neutron {
 
-template <typename Enum>
+ATOM_EXPORT template <typename Enum>
 constexpr bool enum_anyof(Enum val, std::initializer_list<Enum> list) noexcept {
     using underlying_t = std::underlying_type_t<Enum>;
     underlying_t vals  = 0;

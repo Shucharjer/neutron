@@ -1,6 +1,9 @@
 // IWYU pragma: private, include <neutron/concepts.hpp>
 #pragma once
-#include <type_traits>
+#ifndef ATOM_BUILDING_MODULE
+    #include <type_traits>
+#endif
+#include "neutron/detail/utility/macros.hpp"
 
 namespace neutron {
 
@@ -10,7 +13,7 @@ struct _is_instance_of_impl : std::false_type {};
 template <template <typename...> typename Template, typename... Args>
 struct _is_instance_of_impl<Template<Args...>, Template> : std::true_type {};
 
-template <typename T, template <typename...> typename... Templates>
+ATOM_EXPORT template <typename T, template <typename...> typename... Templates>
 concept instance_of = (_is_instance_of_impl<T, Templates>::value || ...);
 
 } // namespace neutron

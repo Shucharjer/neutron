@@ -1,12 +1,15 @@
 #pragma once
-#include <type_traits>
-#include <neutron/concepts.hpp>
-#include <neutron/metafn.hpp>
+#ifndef ATOM_BUILDING_MODULE
+    #include <type_traits>
+#endif
+#include "neutron/concepts.hpp"
 #include "neutron/detail/ecs/compile-time/descriptor.hpp"
 #include "neutron/detail/ecs/compile-time/queries.hpp"
+#include "neutron/metafn.hpp"
 
 #include "neutron/detail/ecs/params/local.hpp"
 #include "neutron/detail/ecs/params/res.hpp"
+#include "neutron/detail/utility/macros.hpp"
 
 namespace neutron {
 
@@ -108,11 +111,13 @@ struct _collect_with_sys {
 } // namespace _collect_params
 /*! @endcond */
 
-template <descriptor Desc, template <typename...> typename Tmp, bool HiFreq>
+ATOM_EXPORT template <
+    descriptor Desc, template <typename...> typename Tmp, bool HiFreq>
 using collect_params_of =
     typename _collect_params::_collect<Desc, Tmp, HiFreq>::type;
 
-template <descriptor Desc, template <typename...> typename Tmp, bool HiFreq>
+ATOM_EXPORT template <
+    descriptor Desc, template <typename...> typename Tmp, bool HiFreq>
 using collect_params_with_sys_of =
     typename _collect_params::_collect_with_sys<Desc, Tmp, HiFreq>::type;
 

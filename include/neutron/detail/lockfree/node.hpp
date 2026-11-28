@@ -1,9 +1,11 @@
 #pragma once
-#include <atomic>
-#include <memory>
-#include <new>
-#include <type_traits>
-#include <utility>
+#ifndef ATOM_BUILDING_MODULE
+    #include <atomic>
+    #include <memory>
+    #include <new>
+    #include <type_traits>
+    #include <utility>
+#endif
 #include "neutron/detail/utility/macros.hpp"
 
 namespace neutron::internal {

@@ -1,9 +1,14 @@
-#include <array>
-#include <cstddef>
-#include <numeric>
-#include <string_view>
-#include <type_traits>
-#include <neutron/utility.hpp>
+#ifdef ATOM_USES_MODULES
+import std;
+import neutron;
+#else
+    #include <array>
+    #include <cstddef>
+    #include <numeric>
+    #include <string_view>
+    #include <type_traits>
+    #include <neutron/utility.hpp>
+#endif
 #include "require.hpp"
 
 namespace {

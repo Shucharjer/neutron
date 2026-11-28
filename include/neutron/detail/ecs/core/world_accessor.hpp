@@ -5,7 +5,7 @@
 
 namespace neutron {
 
-struct world_accessor {
+ATOM_EXPORT struct world_accessor {
     template <internal::world World>
     ATOM_ATTRS(ATOM_NODISCARD) static decltype(auto) base(World& world) noexcept {
         return world._base();

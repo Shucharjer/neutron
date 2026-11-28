@@ -54,16 +54,18 @@
 // }
 
 #pragma once
-#include <concepts>
-#include <type_traits>
-#include <utility>
+#ifndef ATOM_BUILDING_MODULE
+    #include <concepts>
+    #include <type_traits>
+    #include <utility>
+#endif
 #include "neutron/detail/type_traits/same_cvref.hpp"
 #include "neutron/detail/utility/compressed_pair.hpp"
 #include "neutron/detail/utility/macros.hpp"
 
 namespace neutron {
 
-template <typename Derived>
+ATOM_EXPORT template <typename Derived>
 struct adaptor_closure {
     constexpr adaptor_closure() noexcept = default;
 };

@@ -1,10 +1,11 @@
 #pragma once
-#include <neutron/detail/ecs/compile-time/descriptor.hpp>
+#include "neutron/detail/ecs/compile-time/descriptor.hpp"
 #include "neutron/detail/ecs/compile-time/queries.hpp"
+#include "neutron/detail/utility/macros.hpp"
 
 namespace neutron {
 
-template <descriptor Descriptor>
+ATOM_EXPORT template <descriptor Descriptor>
 struct descriptor_validator;
 
 template <typename... Args>

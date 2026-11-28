@@ -1,6 +1,14 @@
 #pragma once
-#include <type_traits>
-#include "neutron/detail/metafn/definition.hpp"
+
+#if defined(ATOM_USES_MODULES) && !defined(ATOM_BUILDING_MODULE)
+    #include "neutron/macros.hpp"
+#else
+
+    #ifndef ATOM_BUILDING_MODULE
+        #include <type_traits>
+    #endif
+    #include "neutron/detail/metafn/definition.hpp"
+    #include "neutron/detail/utility/macros.hpp"
 
 namespace neutron {
 
@@ -70,9 +78,11 @@ struct _expression_traits {
  * it could be used to checking when you are trying writing a template. Inspired
  * by `is_constexpr` in microsoft porxy.
  */
-template <auto Expr>
+ATOM_EXPORT template <auto Expr>
 consteval bool is_constexpr() {
     return internal::_expression_traits<Expr>::is_constexpr;
 }
 
 } // namespace neutron
+
+#endif

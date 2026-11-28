@@ -1,5 +1,6 @@
 // IWYU pragma: private, include <neutron/concepts.hpp>
 #pragma once
+#include "neutron/detail/utility/macros.hpp"
 
 #ifndef __has_feature
     #define __has_feature(x) 0
@@ -22,10 +23,12 @@ using trivially_relocatible =
 
     #if ATOM_HAS_REFLECTION
 
-        #include <algorithm>
-        #include <meta>
-        #include <ranges>
-        #include <vector>
+        #ifndef ATOM_BUILDING_MODULE
+            #include <algorithm>
+            #include <meta>
+            #include <ranges>
+            #include <vector>
+        #endif
 
 namespace neutron {
 
@@ -150,7 +153,7 @@ consteval bool _is_trivially_relocatible(std::meta::info type) {
 
 } // namespace _trivially_relocatible
 
-template <typename Ty>
+ATOM_EXPORT template <typename Ty>
 concept trivially_relocatible =
     _trivially_relocatible::_is_trivially_relocatible(^^Ty);
 
@@ -160,9 +163,8 @@ concept trivially_relocatible =
 
 namespace neutron {
 
-template <typename Ty>
+ATOM_EXPORT template <typename Ty>
 concept trivially_relocatible = __builtin_is_cpp_trivially_relocatible(Ty);
-
 }
 
     #elif !defined(__clang__) && __has_builtin(__is_trivially_relocatible)
@@ -173,18 +175,20 @@ namespace neutron {
 /// it does not implement the semantics of any current or future trivial
 /// relocation proposal and it can lead to incorrect optimizations on some
 /// platforms (Windows) and supported compilers (AppleClang).
-template <typename Ty>
+ATOM_EXPORT template <typename Ty>
 concept trivially_relocatible = __is_trivially_relocatible(Ty);
 
 } // namespace neutron
 
     #else
 
-        #include <type_traits>
+        #ifndef ATOM_BUILDING_MODULE
+            #include <type_traits>
+        #endif
 
 namespace neutron {
 
-template <typename Ty>
+ATOM_EXPORT template <typename Ty>
 concept trivially_relocatible = std::is_trivially_copyable_v<Ty>;
 
 } // namespace neutron

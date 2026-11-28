@@ -1,12 +1,14 @@
 #pragma once
 
 #if __has_include(<nlohmann/json.hpp>)
-    #include <nlohmann/json.hpp>
+    #ifndef ATOM_BUILDING_MODULE
+        #include <nlohmann/json.hpp>
+    #endif
 
 template <::neutron::_reflection::reflectible Ty>
 inline void to_json(nlohmann::json& json, const Ty& obj) {
     constexpr auto names = neutron::member_names_of<Ty>();
-    [&]<size_t... Is>(std::index_sequence<Is...>) {
+    [&]<std::size_t... Is>(std::index_sequence<Is...>) {
         ((json[names[Is]] = ::neutron::get<Is>(obj)), ...);
     }(std::make_index_sequence<neutron::member_count_v<Ty>>());
 }
@@ -14,7 +16,7 @@ inline void to_json(nlohmann::json& json, const Ty& obj) {
 template <::neutron::_reflection::reflectible Ty>
 inline void from_json(const nlohmann::json& json, Ty& obj) {
     constexpr auto names = neutron::member_names_of<Ty>();
-    [&]<size_t... Is>(std::index_sequence<Is...>) {
+    [&]<std::size_t... Is>(std::index_sequence<Is...>) {
         ((json.at(names[Is]).get_to(::neutron::get<Is>(obj))), ...);
     }(std::make_index_sequence<neutron::member_count_v<Ty>>());
 }

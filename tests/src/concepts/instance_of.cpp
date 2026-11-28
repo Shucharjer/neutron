@@ -1,10 +1,15 @@
-#include <map>
-#include <memory>
-#include <optional>
-#include <tuple>
-#include <utility>
-#include <vector>
-#include <neutron/concepts.hpp>
+#ifdef ATOM_USES_MODULES
+import std;
+import neutron;
+#else
+    #include <map>
+    #include <memory>
+    #include <optional>
+    #include <tuple>
+    #include <utility>
+    #include <vector>
+    #include <neutron/concepts.hpp>
+#endif
 #include "require.hpp"
 
 using namespace neutron;

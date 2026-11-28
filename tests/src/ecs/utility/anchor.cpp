@@ -1,10 +1,14 @@
-#include <cstddef>
-#include <memory>
-#include <ranges>
-#include <span>
-#include <type_traits>
-#include <utility>
-#include <neutron/detail/ecs/utility/anchor.hpp>
+// With modules, an implementation unit of neutron that imports std, see
+// `internal_tests`.
+#ifndef ATOM_USES_MODULES
+    #include <cstddef>
+    #include <memory>
+    #include <ranges>
+    #include <span>
+    #include <type_traits>
+    #include <utility>
+    #include <neutron/detail/ecs/utility/anchor.hpp>
+#endif
 #include "require.hpp"
 
 using namespace neutron;
@@ -120,7 +124,7 @@ void test_push_back_grows_geometrically() {
 
 } // namespace
 
-int main() {
+extern "C++" int main() {
     test_reserve_preserves_elements();
     test_data_reference_follows_reallocation();
     test_span_writes_through_to_storage();

@@ -1,15 +1,18 @@
 // IWYU pragma: private, include <neutron/ecs.hpp>
 #pragma once
-#include <cstddef>
-#include <tuple>
-#include <type_traits>
+#ifndef ATOM_BUILDING_MODULE
+    #include <cstddef>
+    #include <tuple>
+    #include <type_traits>
+#endif
 #include "neutron/detail/ecs/concepts/resource.hpp"
 #include "neutron/detail/ecs/core/world_accessor.hpp"
 #include "neutron/detail/tuple/rmcvref_first.hpp"
+#include "neutron/detail/utility/macros.hpp"
 
 namespace neutron {
 
-template <resource_like... Rsc>
+ATOM_EXPORT template <resource_like... Rsc>
 struct res : public std::tuple<Rsc&...> {
     template <internal::world World>
     res(World& world)
@@ -30,9 +33,9 @@ struct _is_res<res<Resources...>> : std::true_type {};
 
 template <typename... Resources>
 struct std::tuple_size<neutron::res<Resources...>> :
-    std::integral_constant<size_t, sizeof...(Resources)> {};
+    std::integral_constant<std::size_t, sizeof...(Resources)> {};
 
-template <size_t Index, neutron::resource_like... Resources>
+template <std::size_t Index, neutron::resource_like... Resources>
 struct std::tuple_element<Index, neutron::res<Resources...>> {
     using type = std::tuple_element_t<Index, std::tuple<Resources&...>>;
 };

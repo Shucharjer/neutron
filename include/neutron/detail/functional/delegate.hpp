@@ -1,15 +1,17 @@
 // IWYU pragma: private, include <neutron/functional.hpp>
 #pragma once
-#include <concepts>
-#include <cstdint>
-#include <functional>
-#include <memory>
-#include <type_traits>
-#include <utility>
-#include <neutron/memory.hpp>
+#ifndef ATOM_BUILDING_MODULE
+    #include <concepts>
+    #include <cstdint>
+    #include <functional>
+    #include <memory>
+    #include <type_traits>
+    #include <utility>
+#endif
 #include "neutron/detail/reflection/refl.hpp"
 #include "neutron/detail/utility/macros.hpp"
 #include "neutron/detail/utility/spreader.hpp"
+#include "neutron/memory.hpp"
 #include "neutron/type_traits.hpp"
 
 namespace neutron {
@@ -23,7 +25,7 @@ namespace neutron {
  * @tparam Ret Return type of the function.
  * @tparam Args Arguments of the function.
  */
-template <typename>
+ATOM_EXPORT template <typename>
 class delegate;
 
 template <typename Ret, typename... Args>

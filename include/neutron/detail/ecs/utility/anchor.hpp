@@ -1,9 +1,11 @@
 // IWYU pragma: private, include <neutron/ecs.hpp>
 #pragma once
-#include <algorithm>
-#include <memory>
-#include <type_traits>
-#include <utility>
+#ifndef ATOM_BUILDING_MODULE
+    #include <algorithm>
+    #include <memory>
+    #include <type_traits>
+    #include <utility>
+#endif
 #include "neutron/detail/concepts/allocator.hpp"
 #include "neutron/detail/iterator/iter_wrapper.hpp"
 #include "neutron/detail/utility/macros.hpp"
@@ -34,7 +36,8 @@ namespace neutron {
  * @note It is the internal implementation of `archetype` entity storage, so
  * some interface for a standard container would not be provided.
  */
-template <typename Ty, std_simple_allocator Alloc = std::allocator<Ty>>
+ATOM_EXPORT template <
+    typename Ty, std_simple_allocator Alloc = std::allocator<Ty>>
 class anchor {
 public:
     using value_type       = Ty;

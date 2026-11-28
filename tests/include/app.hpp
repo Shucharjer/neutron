@@ -2,12 +2,15 @@
 #ifdef ATOM_EXECUTION
     #undef ATOM_EXECUTION
 #endif
-#include <cstddef>
-#include <memory_resource>
-#include <tuple>
-#include <neutron/ecs.hpp>
-#include <neutron/execution.hpp>
-#include <neutron/metafn.hpp>
+// With modules, the includer imports std and neutron.
+#ifndef ATOM_USES_MODULES
+    #include <cstddef>
+    #include <memory_resource>
+    #include <tuple>
+    #include <neutron/ecs.hpp>
+    #include <neutron/execution.hpp>
+    #include <neutron/metafn.hpp>
+#endif
 #include "thread_pool.hpp"
 
 using commands = neutron::basic_commands<std::pmr::polymorphic_allocator<>>;

@@ -1,12 +1,15 @@
 #pragma once
 
-#include <concepts>
-#include <exception>
-#include <system_error>
-#include <type_traits>
+#ifndef ATOM_BUILDING_MODULE
+    #include <concepts>
+    #include <exception>
+    #include <system_error>
+    #include <type_traits>
+#endif
+#include "neutron/detail/utility/macros.hpp"
 namespace neutron {
 
-template <typename Error>
+ATOM_EXPORT template <typename Error>
 constexpr decltype(auto) as_except_ptr(Error&& error) noexcept {
     if constexpr (std::same_as<std::exception_ptr, std::decay_t<Error>>) {
         return std::forward<Error>(error);

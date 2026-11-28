@@ -3,8 +3,10 @@
 
 #if ATOM_HAS_REFLECTION
 
-    #include <cstddef>
-    #include <meta>
+    #ifndef ATOM_BUILDING_MODULE
+        #include <cstddef>
+        #include <meta>
+    #endif
 namespace neutron {
 
 template <std::meta::info Info, std::size_t I>
@@ -15,7 +17,7 @@ consteval auto _member_type_of_impl() {
     return static_cast<[:type_of(mbrinfo):]*>(nullptr);
 }
 
-template <std::size_t I, typename T>
+ATOM_EXPORT template <std::size_t I, typename T>
 using member_type_of_t =
     std::remove_pointer_t<decltype(_member_type_of_impl<^^T, I>())>;
 

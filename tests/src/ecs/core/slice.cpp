@@ -1,8 +1,12 @@
-#include "neutron/detail/ecs/core/slice.hpp"
-#include <span>
-#include <string>
-#include <neutron/ecs.hpp>
-#include <neutron/utility.hpp>
+// With modules, an implementation unit of neutron that imports std, see
+// `internal_tests`.
+#ifndef ATOM_USES_MODULES
+    #include "neutron/detail/ecs/core/slice.hpp"
+    #include <span>
+    #include <string>
+    #include <neutron/ecs.hpp>
+    #include <neutron/utility.hpp>
+#endif
 #include "require.hpp"
 
 using namespace neutron;
@@ -52,7 +56,7 @@ struct Index {
 bool slice_rows_match_entities(const slice<Index, std::string>& slice) {
     const auto* const indices = static_cast<Index*>(*slice.buffers()[0]);
     const auto* const names   = static_cast<std::string*>(*slice.buffers()[1]);
-    for (size_t row = 0; row < slice.size(); ++row) {
+    for (std::size_t row = 0; row < slice.size(); ++row) {
         const auto entity = slice.entities()[row];
         if (indices[row].value != entity ||
             names[row] != std::to_string(entity)) {
@@ -92,7 +96,7 @@ void test_slice_taken_early_follows_later_changes() {
 
 } // namespace
 
-int main() {
+extern "C++" int main() {
     test_slice_views_trivial_components();
     test_slice_views_heap_owning_components();
     test_slice_taken_early_follows_later_changes();

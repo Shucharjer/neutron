@@ -1,16 +1,19 @@
 // IWYU pragma: private, include <neutron/ecs.hpp>
 #pragma once
-#include <concepts>
-#include <cstddef>
-#include <utility>
+#ifndef ATOM_BUILDING_MODULE
+    #include <concepts>
+    #include <cstddef>
+    #include <utility>
+#endif
 #include "neutron/detail/ecs/compile-time/descriptor.hpp"
 #include "neutron/detail/metafn/element.hpp"
+#include "neutron/detail/utility/macros.hpp"
 
 namespace neutron {
 
 namespace queries {
 
-template <stage Stage>
+ATOM_EXPORT template <stage Stage>
 struct get_systems_t {
     template <typename... Args>
     consteval auto operator()(world_descriptor_t<Args...>) const noexcept {
@@ -37,10 +40,10 @@ struct get_systems_t {
     }
 };
 
-template <stage Stage>
+ATOM_EXPORT template <stage Stage>
 constexpr get_systems_t<Stage> get_systems;
 
-inline constexpr struct get_forward_tick_rate_t {
+ATOM_EXPORT inline constexpr struct get_forward_tick_rate_t {
     template <typename... Args>
     consteval double operator()(world_descriptor_t<Args...>) const noexcept {
         using desc_t = world_descriptor_t<Args...>;
@@ -52,7 +55,7 @@ inline constexpr struct get_forward_tick_rate_t {
     }
 } get_forward_tick_rate;
 
-inline constexpr struct get_execution_policy_t {
+ATOM_EXPORT inline constexpr struct get_execution_policy_t {
     struct policy {
         bool is_individual = false;
         std::size_t id     = 0;
@@ -85,15 +88,17 @@ struct _get_enabled_feature_t {
     }
 };
 
-inline constexpr _get_enabled_feature_t<_enable_events_t> get_enabled_events;
-inline constexpr _get_enabled_feature_t<_enable_render_t> get_enabled_render;
+ATOM_EXPORT inline constexpr _get_enabled_feature_t<_enable_events_t>
+    get_enabled_events;
+ATOM_EXPORT inline constexpr _get_enabled_feature_t<_enable_render_t>
+    get_enabled_render;
 
 } // namespace queries
 
-using queries::get_systems;
-using queries::get_forward_tick_rate;
-using queries::get_execution_policy;
-using queries::get_enabled_events;
-using queries::get_enabled_render;
+ATOM_EXPORT using queries::get_systems;
+ATOM_EXPORT using queries::get_forward_tick_rate;
+ATOM_EXPORT using queries::get_execution_policy;
+ATOM_EXPORT using queries::get_enabled_events;
+ATOM_EXPORT using queries::get_enabled_render;
 
 } // namespace neutron

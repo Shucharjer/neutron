@@ -5,6 +5,7 @@
 #include "neutron/detail/reflection/legacy/member_count.hpp"
 #include "neutron/detail/reflection/legacy/member_names.hpp"
 #include "neutron/detail/string/tstring.hpp"
+#include "neutron/detail/utility/macros.hpp"
 
 namespace neutron::_refl_legacy {
 
@@ -30,7 +31,7 @@ template <tstring Name, reflectible Ty>
  */
 template <reflectible Ty>
 [[nodiscard]] constexpr auto existance_of(std::string_view name) noexcept
-    -> size_t {
+    -> std::size_t {
     constexpr auto count = member_count_of<Ty>();
     auto names           = member_names_of<Ty>();
     for (auto i = 0; i < count; ++i) {
@@ -46,7 +47,7 @@ template <reflectible Ty>
  *
  */
 template <tstring Name, reflectible Ty>
-[[nodiscard]] consteval auto index_of() noexcept -> size_t {
+[[nodiscard]] consteval auto index_of() noexcept -> std::size_t {
     constexpr auto count = member_count_of<Ty>();
     constexpr auto names = member_names_of<Ty>();
     for (auto i = 0; i < count; ++i) {
@@ -63,7 +64,7 @@ template <tstring Name, reflectible Ty>
  */
 template <reflectible Ty>
 [[nodiscard]] constexpr auto index_of(std::string_view name) noexcept
-    -> size_t {
+    -> std::size_t {
     constexpr auto count = member_count_of<Ty>();
     auto names           = member_names_of<Ty>();
     for (auto i = 0; i < count; ++i) {
@@ -74,13 +75,13 @@ template <reflectible Ty>
     return static_cast<std::size_t>(-1);
 }
 
-template <size_t Index, reflectible Ty>
+template <std::size_t Index, reflectible Ty>
 [[nodiscard]] consteval bool valid_index() noexcept {
     return Index < member_count_of<Ty>();
 }
 
 template <reflectible Ty>
-[[nodiscard]] constexpr bool valid_index(const size_t index) noexcept {
+[[nodiscard]] constexpr bool valid_index(const std::size_t index) noexcept {
     return index < member_count_of<Ty>();
 }
 
@@ -88,7 +89,7 @@ template <reflectible Ty>
  * @brief Get the name of a member.
  *
  */
-template <size_t Index, reflectible Ty>
+ATOM_EXPORT template <std::size_t Index, reflectible Ty>
 [[nodiscard]] consteval auto name_of() noexcept {
     constexpr auto count = member_count_of<Ty>();
     static_assert(Index < count, "Index out of range");
@@ -100,13 +101,13 @@ template <size_t Index, reflectible Ty>
  * @brief Get the name of a member.
  *
  */
-template <reflectible Ty>
-[[nodiscard]] constexpr auto name_of(size_t index) noexcept {
+ATOM_EXPORT template <reflectible Ty>
+[[nodiscard]] constexpr auto name_of(std::size_t index) noexcept {
     constexpr auto names = member_names_of<Ty>();
     return names[index];
 }
 
-template <tstring Name, typename Ty>
+ATOM_EXPORT template <tstring Name, typename Ty>
 constexpr auto& get_by_name(Ty& obj) noexcept {
     constexpr auto index = index_of<Name, Ty>();
     static_assert(index < _refl_legacy::member_count_of<Ty>());

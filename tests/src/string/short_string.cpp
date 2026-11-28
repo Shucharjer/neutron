@@ -1,14 +1,20 @@
-#include <array>
-#include <cstddef>
-#include <format>
-#include <ios>
-#include <iostream>
-#include <memory>
-#include <sstream>
-#include <stdexcept>
-#include <string>
-#include <string_view>
-#include <neutron/string.hpp>
+#include "neutron/detail/utility/macros.hpp"
+#ifdef ATOM_USES_MODULES
+import std;
+import neutron;
+#else
+    #include <array>
+    #include <cstddef>
+    #include <format>
+    #include <ios>
+    #include <iostream>
+    #include <memory>
+    #include <sstream>
+    #include <stdexcept>
+    #include <string>
+    #include <string_view>
+    #include <neutron/string.hpp>
+#endif
 #include "require.hpp"
 
 using namespace neutron;

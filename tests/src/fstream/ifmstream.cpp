@@ -1,13 +1,18 @@
-#include <cstddef>
-#include <filesystem>
-#include <fstream>
-#include <ios>
-#include <istream>
-#include <sstream>
-#include <string>
-#include <type_traits>
-#include <utility>
-#include <neutron/fstream.hpp>
+#include "neutron/detail/utility/macros.hpp"
+// With modules, an implementation unit of neutron that imports std, see
+// `internal_tests`.
+#ifndef ATOM_USES_MODULES
+    #include <cstddef>
+    #include <filesystem>
+    #include <fstream>
+    #include <ios>
+    #include <istream>
+    #include <sstream>
+    #include <string>
+    #include <type_traits>
+    #include <utility>
+    #include <neutron/fstream.hpp>
+#endif
 #include "require.hpp"
 #include "temp_file.hpp"
 
@@ -267,7 +272,7 @@ void test_swap_exchanges_files() {
 
 } // namespace
 
-int main() {
+extern "C++" int main() {
     test_getline_crosses_windows();
     test_formatted_input_parses_numbers();
     test_get_and_peek();

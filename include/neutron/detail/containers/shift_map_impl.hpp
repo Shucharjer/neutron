@@ -1,17 +1,19 @@
 // IWYU pragma: private, include <neutron/shift_map.hpp>
 #pragma once
-#include <array>
-#include <concepts>
-#include <cstddef>
-#include <initializer_list>
-#include <limits>
-#include <memory>
-#include <memory_resource> // IWYU pragma: keep
-#include <stdexcept>
-#include <tuple>
-#include <type_traits>
-#include <utility>
-#include <vector>
+#ifndef ATOM_BUILDING_MODULE
+    #include <array>
+    #include <concepts>
+    #include <cstddef>
+    #include <initializer_list>
+    #include <limits>
+    #include <memory>
+    #include <memory_resource> // IWYU pragma: keep
+    #include <stdexcept>
+    #include <tuple>
+    #include <type_traits>
+    #include <utility>
+    #include <vector>
+#endif
 #include "neutron/detail/concepts/allocator.hpp"
 #include "neutron/detail/concepts/pair.hpp"
 #include "neutron/detail/utility/macros.hpp"
@@ -22,14 +24,16 @@
 #include "neutron/detail/utility/packed_uint.hpp"
 
 #if ATOM_HAS_CXX23
-    #include <ranges>
+    #ifndef ATOM_BUILDING_MODULE
+        #include <ranges>
+    #endif
     #include "neutron/detail/concepts/map_like.hpp"
 #endif
 
 namespace neutron {
 
-template <typename Ty>
-constexpr size_t half_bits = sizeof(Ty) * 4UL;
+ATOM_EXPORT template <typename Ty>
+constexpr std::size_t half_bits = sizeof(Ty) * 4UL;
 
 /**
  * @brief Sparse-dense associative container for shifted integral keys.
@@ -49,9 +53,9 @@ constexpr size_t half_bits = sizeof(Ty) * 4UL;
  * @tparam Shift Number of high bits ignored by the sparse index.
  * @tparam Alloc Allocator used for internal storage.
  */
-template <
-    std::unsigned_integral Kty, typename Ty, size_t PageSize = 32UL,
-    size_t Shift               = half_bits<Ty>,
+ATOM_EXPORT template <
+    std::unsigned_integral Kty, typename Ty, std::size_t PageSize = 32UL,
+    std::size_t Shift          = half_bits<Ty>,
     std_simple_allocator Alloc = std::allocator<std::pair<Kty, Ty>>>
 requires _single_bit<PageSize>
 class shift_map {
@@ -61,7 +65,7 @@ public:
         Shift != 0 && Shift != (sizeof(Kty) * 8UL),
         "in this case, you may have other solution");
 
-    constexpr static size_t total_bits = sizeof(Kty) * 8UL;
+    constexpr static std::size_t total_bits = sizeof(Kty) * 8UL;
 
     template <typename T>
     using _allocator_t = rebind_alloc_t<Alloc, T>;
@@ -467,7 +471,7 @@ public:
      * @brief Get the number of stored elements.
      * @return Current element count.
      */
-    ATOM_ATTRS(ATOM_NODISCARD) constexpr size_t size() const noexcept {
+    ATOM_ATTRS(ATOM_NODISCARD) constexpr std::size_t size() const noexcept {
         return dense_.size();
     }
 
@@ -476,7 +480,7 @@ public:
      * @return Number of elements that can be stored without reallocating the
      * dense array.
      */
-    ATOM_ATTRS(ATOM_NODISCARD) constexpr size_t capacity() const noexcept {
+    ATOM_ATTRS(ATOM_NODISCARD) constexpr std::size_t capacity() const noexcept {
         return dense_.capacity();
     }
 
@@ -589,8 +593,8 @@ private:
         }
     }
 
-    constexpr void _set_sparse(size_t begin) {
-        for (size_t i = begin; i < dense_.size(); ++i) {
+    constexpr void _set_sparse(std::size_t begin) {
+        for (std::size_t i = begin; i < dense_.size(); ++i) {
             const auto kept   = _kept(dense_[i].first);
             const auto page   = _page_of(kept);
             const auto offset = _offset_of(kept);
@@ -600,8 +604,8 @@ private:
         }
     }
 
-    constexpr void _set_sparse_unique(size_t begin) {
-        for (size_t i = begin; i < dense_.size(); ++i) {
+    constexpr void _set_sparse_unique(std::size_t begin) {
+        for (std::size_t i = begin; i < dense_.size(); ++i) {
             const auto kept   = _kept(dense_[i].first);
             const auto page   = _page_of(kept);
             const auto offset = _offset_of(kept);
@@ -623,9 +627,9 @@ namespace pmr {
  * @tparam PageSize Number of sparse entries per page.
  * @tparam Shift Number of high bits ignored by the sparse index.
  */
-template <
-    std::unsigned_integral Kty, typename Ty, size_t PageSize = 32,
-    size_t Shift = sizeof(Kty) * 4UL>
+ATOM_EXPORT template <
+    std::unsigned_integral Kty, typename Ty, std::size_t PageSize = 32,
+    std::size_t Shift = sizeof(Kty) * 4UL>
 using shift_map =
     shift_map<Kty, Ty, PageSize, Shift, std::pmr::polymorphic_allocator<>>;
 
@@ -637,8 +641,8 @@ using shift_map =
 namespace std {
 
 template <
-    unsigned_integral Kty, typename Ty, typename Alloc, size_t PageSize,
-    size_t Shift>
+    unsigned_integral Kty, typename Ty, typename Alloc, std::size_t PageSize,
+    std::size_t Shift>
 struct uses_allocator<
     neutron::shift_map<Kty, Ty, PageSize, Shift, Alloc>, Alloc> :
     std::true_type {};

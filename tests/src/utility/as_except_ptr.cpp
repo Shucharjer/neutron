@@ -1,13 +1,19 @@
 #include <cerrno>
-#include <cstddef>
-#include <exception>
-#include <optional>
-#include <stdexcept>
-#include <string>
-#include <system_error>
-#include <type_traits>
-#include <utility>
-#include <neutron/utility.hpp>
+#include "neutron/detail/utility/macros.hpp"
+#ifdef ATOM_USES_MODULES
+import std;
+import neutron;
+#else
+    #include <cstddef>
+    #include <exception>
+    #include <optional>
+    #include <stdexcept>
+    #include <string>
+    #include <system_error>
+    #include <type_traits>
+    #include <utility>
+    #include <neutron/utility.hpp>
+#endif
 #include "require.hpp"
 
 using namespace neutron;

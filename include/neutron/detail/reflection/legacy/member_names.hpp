@@ -1,8 +1,11 @@
 // IWYU pragma: private, include <neutron/reflection.hpp>
 #pragma once
-#include <array>
-#include <string_view>
+#ifndef ATOM_BUILDING_MODULE
+    #include <array>
+    #include <string_view>
+#endif
 #include "neutron/detail/reflection/legacy/tuple_view.hpp"
+#include "neutron/detail/utility/macros.hpp"
 
 namespace neutron::_refl_legacy {
 
@@ -37,7 +40,7 @@ template <typename Ty>
 wrapper(Ty) -> wrapper<Ty>;
 
 template <typename Ty>
-constexpr static auto wrap(const Ty& arg) noexcept {
+constexpr auto wrap(const Ty& arg) noexcept {
     return wrapper{ arg };
 }
 
@@ -45,19 +48,19 @@ constexpr static auto wrap(const Ty& arg) noexcept {
  * @brief Get members' name of a type.
  *
  */
-template <reflectible Ty>
+ATOM_EXPORT template <reflectible Ty>
 constexpr std::array<std::string_view, member_count_of<Ty>()>
     member_names_of() noexcept {
-    constexpr size_t count = member_count_of<Ty>();
+    constexpr std::size_t count = member_count_of<Ty>();
     std::array<std::string_view, count> array;
     if constexpr (default_reflectible_aggregate<Ty>) {
-        [&]<size_t... Is>(std::index_sequence<Is...>) {
+        [&]<std::size_t... Is>(std::index_sequence<Is...>) {
             constexpr auto tuple = struct_to_tuple_view<Ty>();
             ((array[Is] = member_name_of<wrap(std::get<Is>(tuple))>()), ...);
         }(std::make_index_sequence<count>());
     } else { // has_field_traits
         constexpr auto tuple = Ty::field_traits();
-        [&]<size_t... Is>(std::index_sequence<Is...>) {
+        [&]<std::size_t... Is>(std::index_sequence<Is...>) {
             ((array[Is] = std::get<Is>(tuple).name()), ...);
         }(std::make_index_sequence<count>());
     }

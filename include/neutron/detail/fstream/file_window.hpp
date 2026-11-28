@@ -1,13 +1,15 @@
 // IWYU pragma: private, include <neutron/fstream.hpp>
 #pragma once
-#include <cstddef>
-#include <iterator>
-#include <limits>
-#include <span>
-#include <stdexcept>
-#include <system_error>
-#include <type_traits>
-#include <utility>
+#ifndef ATOM_BUILDING_MODULE
+    #include <cstddef>
+    #include <iterator>
+    #include <limits>
+    #include <span>
+    #include <stdexcept>
+    #include <system_error>
+    #include <type_traits>
+    #include <utility>
+#endif
 #include "neutron/detail/fstream/file_mapping.hpp"
 #include "neutron/detail/fstream/is_string.hpp"
 #include "neutron/detail/utility/macros.hpp"
@@ -27,7 +29,7 @@ namespace neutron {
  *
  * @tparam ReadOnly Whether the content is mapped read-only.
  */
-template <bool ReadOnly>
+ATOM_EXPORT template <bool ReadOnly>
 class file_window {
 public:
     using element_type =

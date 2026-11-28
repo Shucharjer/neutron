@@ -1,8 +1,11 @@
 // IWYU pragma: private, include <neutron/utility.hpp>
 #pragma once
-#include <concepts>
-#include <type_traits>
-#include <utility>
+#ifndef ATOM_BUILDING_MODULE
+    #include <concepts>
+    #include <type_traits>
+    #include <utility>
+#endif
+#include "neutron/detail/utility/macros.hpp"
 
 namespace neutron {
 
@@ -15,7 +18,7 @@ namespace neutron {
  * higher performance.
  * @tparam Ty A type has const identifier logically.
  */
-template <typename Ty>
+ATOM_EXPORT template <typename Ty>
 class const_identity {
     static_assert(!std::is_const_v<Ty>);
 

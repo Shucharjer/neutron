@@ -1,8 +1,12 @@
-#include <memory>
-#include <string>
-#include <type_traits>
-#include <utility>
-#include <neutron/utility.hpp>
+// With modules, an implementation unit of neutron that imports std, see
+// `internal_tests`.
+#ifndef ATOM_USES_MODULES
+    #include <memory>
+    #include <string>
+    #include <type_traits>
+    #include <utility>
+    #include <neutron/utility.hpp>
+#endif
 #include "require.hpp"
 
 using namespace neutron;
@@ -106,7 +110,7 @@ void test_reference_element_writes_through() {
 
 } // namespace
 
-int main() {
+extern "C++" int main() {
     test_rvalue_value_moves_out_the_string();
     test_reference_element_writes_through();
     return neutron_test::result();

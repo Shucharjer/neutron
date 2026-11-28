@@ -1,18 +1,20 @@
 #pragma once
-#include <concepts>
-#include <cstddef>
-#include <memory>
-#include <optional>
-#include <type_traits>
-#include <neutron/memory.hpp>
+#ifndef ATOM_BUILDING_MODULE
+    #include <concepts>
+    #include <cstddef>
+    #include <memory>
+    #include <optional>
+    #include <type_traits>
+#endif
 #include "neutron/detail/lockfree/intrusive_mpsc_queue.hpp"
 #include "neutron/detail/lockfree/node.hpp"
 #include "neutron/detail/memory/rebind_alloc.hpp"
 #include "neutron/detail/utility/macros.hpp"
+#include "neutron/memory.hpp"
 
 namespace neutron {
 
-template <typename T, typename Alloc = std::allocator<T>>
+ATOM_EXPORT template <typename T, typename Alloc = std::allocator<T>>
 class mpsc_queue :
     private intrusive_mpsc_queue<&internal::_lockfree_node<T>::next> {
     using _node              = internal::_lockfree_node<T>;

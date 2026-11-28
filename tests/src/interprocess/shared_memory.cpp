@@ -1,12 +1,18 @@
-#include <chrono>
-#include <cstddef>
-#include <cstdint>
-#include <cstring>
-#include <stdexcept>
-#include <string>
-#include <system_error>
-#include <utility>
-#include <neutron/interprocess.hpp>
+#include "neutron/detail/utility/macros.hpp"
+#ifdef ATOM_USES_MODULES
+import std;
+import neutron;
+#else
+    #include <chrono>
+    #include <cstddef>
+    #include <cstdint>
+    #include <cstring>
+    #include <stdexcept>
+    #include <string>
+    #include <system_error>
+    #include <utility>
+    #include <neutron/interprocess.hpp>
+#endif
 #include "require.hpp"
 
 using namespace neutron;

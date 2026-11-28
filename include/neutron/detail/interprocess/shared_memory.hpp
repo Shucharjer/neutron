@@ -1,14 +1,16 @@
 // IWYU pragma: private, include <neutron/interprocess.hpp>
 #pragma once
 
-#include <cerrno>
-#include <cstddef>
-#include <span>
-#include <stdexcept>
-#include <string>
-#include <string_view>
-#include <type_traits>
-#include <utility>
+#ifndef ATOM_BUILDING_MODULE
+    #include <cerrno>
+    #include <cstddef>
+    #include <span>
+    #include <stdexcept>
+    #include <string>
+    #include <string_view>
+    #include <type_traits>
+    #include <utility>
+#endif
 #include "neutron/detail/utility/completion_guard.hpp"
 #include "neutron/detail/utility/macros.hpp"
 #include "neutron/detail/utility/system_error.hpp"
@@ -17,21 +19,25 @@
     #ifndef NOMINMAX
         #define NOMINMAX
     #endif
-    #include <windows.h>
+    #ifndef ATOM_BUILDING_MODULE
+        #include <windows.h>
+    #endif
 #elif defined(__unix__) || defined(__APPLE__)
-    #include <fcntl.h>
-    #include <sys/mman.h>
-    #include <sys/stat.h>
-    #include <unistd.h>
+    #ifndef ATOM_BUILDING_MODULE
+        #include <fcntl.h>
+        #include <sys/mman.h>
+        #include <sys/stat.h>
+        #include <unistd.h>
+    #endif
 #else
     #error "shared_memory is not supported on this platform"
 #endif
 
 namespace neutron {
 
-inline constexpr struct read_only_t {
+ATOM_EXPORT inline constexpr struct read_only_t {
 } read_only;
-inline constexpr struct read_write_t {
+ATOM_EXPORT inline constexpr struct read_write_t {
 } read_write;
 
 /**
@@ -45,7 +51,7 @@ inline constexpr struct read_write_t {
  * On Windows the region is destroyed once its last handle is closed, so
  * `keep` has no effect there.
  */
-class shared_memory {
+ATOM_EXPORT class shared_memory {
 public:
     using size_type = std::size_t;
 

@@ -1,12 +1,14 @@
 // IWYU pragma: private, include <neutron/ecs.hpp>
 #pragma once
-#include <memory>
-#include <mutex>
-#include <shared_mutex>
-#include <stdexcept>
-#include <tuple>
-#include <type_traits>
-#include <utility>
+#ifndef ATOM_BUILDING_MODULE
+    #include <memory>
+    #include <mutex>
+    #include <shared_mutex>
+    #include <stdexcept>
+    #include <tuple>
+    #include <type_traits>
+    #include <utility>
+#endif
 #include "neutron/detail/ecs/fwd.hpp"
 #include "neutron/detail/utility/macros.hpp"
 
@@ -20,7 +22,7 @@ struct _glob_storage {
     }
 };
 
-template <typename... Methods>
+ATOM_EXPORT template <typename... Methods>
 class global : public std::tuple<Methods&...> {
 public:
     global() : std::tuple<Methods&...>(_glob_storage<Methods>::instance()...) {}
@@ -40,9 +42,9 @@ struct _is_global<global<Args...>> : std::true_type {};
 
 template <typename... Args>
 struct std::tuple_size<::neutron::global<Args...>> :
-    integral_constant<size_t, sizeof...(Args)> {};
+    integral_constant<std::size_t, sizeof...(Args)> {};
 
-template <size_t Index, typename... Args>
+template <std::size_t Index, typename... Args>
 struct std::tuple_element<Index, neutron::global<Args...>> {
     using type = tuple_element_t<Index, tuple<Args&...>>;
 };

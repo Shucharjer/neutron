@@ -1,8 +1,12 @@
-#include <array>
-#include <concepts>
-#include <cstdint>
-#include <limits>
-#include <neutron/reflection.hpp>
+// With modules, an implementation unit of neutron that imports std, see
+// `internal_tests`.
+#ifndef ATOM_USES_MODULES
+    #include <array>
+    #include <concepts>
+    #include <cstdint>
+    #include <limits>
+    #include <neutron/reflection.hpp>
+#endif
 #include "require.hpp"
 
 using namespace neutron;
@@ -34,7 +38,7 @@ void test_hash_widens_to_long_hash_losslessly() {
 
 } // namespace
 
-int main() {
+extern "C++" int main() {
     test_hash_widens_to_long_hash_losslessly();
     return neutron_test::result();
 }

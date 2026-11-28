@@ -1,6 +1,9 @@
 // IWYU pragma: private, include <neutron/metafn.hpp>
 #pragma once
-#include <type_traits>
+#ifndef ATOM_BUILDING_MODULE
+    #include <type_traits>
+#endif
+#include "neutron/detail/utility/macros.hpp"
 
 namespace neutron {
 
@@ -28,7 +31,7 @@ namespace neutron {
 /// @note Only direct occurrences of `Old` are replaced; nested types (e.g.,
 /// inside
 ///       `std::vector<Old>`) are not affected.
-template <typename Template, typename Old, typename New>
+ATOM_EXPORT template <typename Template, typename Old, typename New>
 struct type_list_substitute;
 template <
     template <typename...> typename Template, typename... Tys, typename Old,
@@ -50,7 +53,7 @@ struct type_list_substitute<Template<Tys...>, Old, New> {
     };
     using type = typename substitute<Template<>, Tys...>::type;
 };
-template <typename Template, typename Old, typename New>
+ATOM_EXPORT template <typename Template, typename Old, typename New>
 using type_list_substitute_t =
     typename type_list_substitute<Template, Old, New>::type;
 

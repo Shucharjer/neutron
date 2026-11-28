@@ -1,8 +1,10 @@
 // private, include <neutron/ecs.hpp>
 #pragma once
-#include <array>
-#include <type_traits>
-#include <neutron/concepts.hpp>
+#ifndef ATOM_BUILDING_MODULE
+    #include <array>
+    #include <type_traits>
+#endif
+#include "neutron/concepts.hpp"
 #include "neutron/detail/ecs/core/archetype.hpp"
 #include "neutron/detail/ecs/fwd.hpp"
 #include "neutron/detail/utility/macros.hpp"
@@ -21,7 +23,7 @@ namespace neutron {
  * Moving or destroying the archetype invalidates the slice. A world never
  * moves its archetypes.
  */
-template <component... Components>
+ATOM_EXPORT template <component... Components>
 class slice {
 
     static_assert(!(std::is_empty_v<Components> || ...));
@@ -33,13 +35,13 @@ class slice {
 public:
     using value_type      = std::tuple<Components...>;
     using reference       = value_type;
-    using size_type       = size_t;
-    using difference_type = ptrdiff_t;
+    using size_type       = std::size_t;
+    using difference_type = std::ptrdiff_t;
 
     template <typename Alloc>
     slice(archetype<Alloc>& archetype) noexcept
         : size_(&archetype.size()), entities_(&archetype._entities()),
-          bufs_([&archetype]<size_t... Is>(std::index_sequence<Is...>) {
+          bufs_([&archetype]<std::size_t... Is>(std::index_sequence<Is...>) {
               const auto buffers =
                   archetype.template view_buffers<Components...>();
               return std::array<void* const*, sizeof...(Components)>{
@@ -59,14 +61,15 @@ public:
     }
 
 private:
-    const size_t* size_;
+    const std::size_t* size_;
     const entity_t* const* entities_;
     /// Column slots of the archetype; they follow its relocations.
     std::array<void* const*, sizeof...(Components)> bufs_;
 };
 
-template <component... Components, std_simple_allocator Alloc>
-ATOM_ATTRS(ATOM_NODISCARD) auto slice_of(archetype<Alloc>& archetype) noexcept {
+ATOM_EXPORT template <component... Components, std_simple_allocator Alloc>
+ATOM_ATTRS(ATOM_NODISCARD)
+auto slice_of(archetype<Alloc>& archetype) noexcept {
     using component_list = type_list<std::remove_cvref_t<Components>...>;
     return type_list_rebind_t<slice, component_list>{ archetype };
 }

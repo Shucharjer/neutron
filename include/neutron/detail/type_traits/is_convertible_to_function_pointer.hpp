@@ -1,10 +1,13 @@
 #pragma once
-#include <concepts>
-#include <type_traits>
+#ifndef ATOM_BUILDING_MODULE
+    #include <concepts>
+    #include <type_traits>
+#endif
+#include "neutron/detail/utility/macros.hpp"
 
 namespace neutron {
 
-template <typename>
+ATOM_EXPORT template <typename>
 struct is_convertible_to_function_pointer {
     static constexpr bool value = false;
 };
@@ -47,7 +50,7 @@ struct is_convertible_to_function_pointer<Ty> {
         _is_class_convertible_to_function_pointer<Ty>::value;
 };
 
-template <typename Ty>
+ATOM_EXPORT template <typename Ty>
 constexpr bool is_convertible_to_function_pointer_v =
     is_convertible_to_function_pointer<Ty>::value;
 

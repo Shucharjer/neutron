@@ -1,13 +1,15 @@
 // IWYU pragma: private, include <neutron/utility.hpp>
 #pragma once
-#include <type_traits>
-#include <utility>
+#ifndef ATOM_BUILDING_MODULE
+    #include <type_traits>
+    #include <utility>
+#endif
 #include "neutron/detail/concepts/excluding.hpp"
 #include "neutron/detail/utility/macros.hpp"
 
 namespace neutron {
 
-struct null_gurad {
+ATOM_EXPORT struct null_gurad {
     constexpr null_gurad() noexcept = default;
 
     template <excluding<null_gurad> Ignored>
@@ -16,7 +18,7 @@ struct null_gurad {
     ATOM_ATTRS(ATOM_ALWAYS_INLINE) constexpr void dismiss() noexcept {}
 };
 
-template <typename Rollback>
+ATOM_EXPORT template <typename Rollback>
 class completion_guard {
     template <typename Roll>
     constexpr completion_guard(Roll&& rollback) noexcept
@@ -54,7 +56,7 @@ private:
     Rollback rollback_;
 };
 
-template <typename Roll>
+ATOM_EXPORT template <typename Roll>
 ATOM_ATTRS(ATOM_NODISCARD)
 constexpr auto make_completion_guard(Roll&& rollback) noexcept
     -> completion_guard<std::remove_cvref_t<Roll>> {
@@ -64,14 +66,14 @@ constexpr auto make_completion_guard(Roll&& rollback) noexcept
 
 #if ATOM_ENABLE_EXCEPTIONS
 
-template <typename Roll>
+ATOM_EXPORT template <typename Roll>
 ATOM_ATTRS(ATOM_NODISCARD)
 constexpr auto make_exception_guard(Roll&& rollback) noexcept
     -> completion_guard<std::remove_cvref_t<Roll>> {
     return make_completion_guard(std::forward<Roll>(rollback));
 }
 
-template <bool Noexcept, typename Roll>
+ATOM_EXPORT template <bool Noexcept, typename Roll>
 ATOM_ATTRS(ATOM_NODISCARD)
 constexpr auto make_exception_guard(Roll&& rollback) noexcept
     -> std::conditional_t<

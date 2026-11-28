@@ -1,6 +1,8 @@
 // IWYU pragma: private, include <neutron/reflection.hpp>
 #pragma once
-#include <memory>
+#ifndef ATOM_BUILDING_MODULE
+    #include <memory>
+#endif
 #include "neutron/detail/reflection/legacy/concepts.hpp"
 #include "neutron/detail/reflection/legacy/member_count.hpp"
 
@@ -12,7 +14,7 @@ struct outline {
 };
 
 template <typename Ty>
-constexpr static const std::remove_cvref_t<Ty>& get_object_outline() noexcept {
+constexpr const std::remove_cvref_t<Ty>& get_object_outline() noexcept {
     return outline<Ty>::value;
 }
 
@@ -772,17 +774,17 @@ TUPLE_VIEW_HELPER(
     _118, _119, _120, _121, _122, _123, _124, _125, _126, _127)
 
 template <typename Ty>
-constexpr static auto struct_to_tuple_view() noexcept {
+constexpr auto struct_to_tuple_view() noexcept {
     return tuple_view_helper<std::remove_cvref_t<Ty>>::tuple_view();
 }
 
 template <typename Ty>
-constexpr static auto object_to_tuple_view(const Ty& obj) noexcept {
+constexpr auto object_to_tuple_view(const Ty& obj) noexcept {
     return tuple_view_helper<std::remove_cvref_t<Ty>>::tuple_view(obj);
 }
 
 template <typename Ty>
-constexpr static auto object_to_tuple_view(Ty& obj) noexcept {
+constexpr auto object_to_tuple_view(Ty& obj) noexcept {
     return tuple_view_helper<std::remove_cvref_t<Ty>>::tuple_view(obj);
 }
 

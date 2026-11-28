@@ -1,6 +1,10 @@
-#include <neutron/detail/ecs/params/construct/local.hpp>
-#include <neutron/ecs.hpp>
-#include <neutron/print.hpp>
+// With modules, an implementation unit of neutron that imports std, see
+// `internal_tests`.
+#ifndef ATOM_USES_MODULES
+    #include <neutron/detail/ecs/params/construct/local.hpp>
+    #include <neutron/ecs.hpp>
+    #include <neutron/print.hpp>
+#endif
 #include "require.hpp"
 
 using namespace neutron;
@@ -34,7 +38,7 @@ void test_local_is_value_initialized_and_persists() {
 
 } // namespace
 
-int main() {
+extern "C++" int main() {
     test_local_is_value_initialized_and_persists();
     return neutron_test::result();
 }

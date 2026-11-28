@@ -1,10 +1,14 @@
-#include <atomic>
-#include <cstddef>
-#include <cstdint>
-#include <memory>
-#include <string>
-#include <type_traits>
-#include <neutron/lockfree.hpp>
+// With modules, an implementation unit of neutron that imports std, see
+// `internal_tests`.
+#ifndef ATOM_USES_MODULES
+    #include <atomic>
+    #include <cstddef>
+    #include <cstdint>
+    #include <memory>
+    #include <string>
+    #include <type_traits>
+    #include <neutron/lockfree.hpp>
+#endif
 #include "require.hpp"
 
 using namespace neutron;
@@ -113,7 +117,7 @@ void test_nodes_link_through_next() {
 
 } // namespace
 
-int main() {
+extern "C++" int main() {
     test_construct_and_destroy_string();
     test_storage_is_reusable();
     test_over_aligned_payload();

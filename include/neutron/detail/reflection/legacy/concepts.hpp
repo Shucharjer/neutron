@@ -1,6 +1,9 @@
 // IWYU pragma: private, include <neutron/reflection.hpp>
 #pragma once
-#include <type_traits>
+#ifndef ATOM_BUILDING_MODULE
+    #include <type_traits>
+#endif
+#include "neutron/detail/utility/macros.hpp"
 
 namespace neutron {
 
@@ -21,12 +24,12 @@ concept has_function_traits =
 template <typename Ty>
 concept default_reflectible_aggregate = aggregate<Ty> && !has_field_traits<Ty>;
 
-template <typename Ty>
+ATOM_EXPORT template <typename Ty>
 concept reflectible = aggregate<Ty> || has_field_traits<Ty>;
 
 } // namespace _refl_legacy
 /*! @endcond */
 
-using _refl_legacy::reflectible;
+ATOM_EXPORT using _refl_legacy::reflectible;
 
 } // namespace neutron

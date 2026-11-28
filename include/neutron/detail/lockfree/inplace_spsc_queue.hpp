@@ -1,13 +1,15 @@
 // IWYU pragma: private, include <neutron/lockfree.hpp>
 #pragma once
-#include <atomic>
-#include <bit>
-#include <concepts>
-#include <cstddef>
-#include <memory>
-#include <thread>
-#include <type_traits>
-#include <utility>
+#ifndef ATOM_BUILDING_MODULE
+    #include <atomic>
+    #include <bit>
+    #include <concepts>
+    #include <cstddef>
+    #include <memory>
+    #include <thread>
+    #include <type_traits>
+    #include <utility>
+#endif
 #include "neutron/detail/lockfree/hardware_destructive_interference_size.hpp"
 #include "neutron/detail/memory/inplace.hpp"
 #include "neutron/detail/parallel/cpu_relax.hpp"
@@ -15,7 +17,7 @@
 
 namespace neutron {
 
-template <typename T, std::size_t Size>
+ATOM_EXPORT template <typename T, std::size_t Size>
 requires(std::has_single_bit(Size) && std::is_nothrow_destructible_v<T>)
 class inplace_spsc_queue;
 
@@ -55,7 +57,7 @@ class _inplace_spsc_queue_base {
  * @tparam T The type of the stored values.
  * @tparam Size The capacity, which must be a power of two.
  */
-template <typename T, std::size_t Size>
+ATOM_EXPORT template <typename T, std::size_t Size>
 requires(std::has_single_bit(Size) && std::is_nothrow_destructible_v<T>)
 class inplace_spsc_queue :
     private _inplace_spsc_queue_base,

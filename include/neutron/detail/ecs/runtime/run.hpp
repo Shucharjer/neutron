@@ -1,12 +1,15 @@
 // IWYU pragma: private, include <neutron/ecs.hpp>
 #pragma once
-#include <tuple>
-#include <type_traits>
-#include <utility>
+#ifndef ATOM_BUILDING_MODULE
+    #include <tuple>
+    #include <type_traits>
+    #include <utility>
+#endif
+#include "neutron/detail/utility/macros.hpp"
 
 namespace neutron {
 
-template <typename Tuple, auto... Worlds>
+ATOM_EXPORT template <typename Tuple, auto... Worlds>
 class run_worlds_fn;
 
 template <>
@@ -150,13 +153,13 @@ public:
     }
 };
 
-template <typename App, typename Tup, auto... Worlds>
+ATOM_EXPORT template <typename App, typename Tup, auto... Worlds>
 constexpr decltype(auto)
     operator|(App&& app, const run_worlds_fn<Tup, Worlds...>& fn) {
     return fn(std::forward<App>(app));
 }
 
-template <typename App, typename Tup, auto... Worlds>
+ATOM_EXPORT template <typename App, typename Tup, auto... Worlds>
 constexpr decltype(auto)
     operator|(App&& app, run_worlds_fn<Tup, Worlds...>&& fn) {
     return std::move(fn)(std::forward<App>(app));
@@ -173,7 +176,7 @@ struct _run_worlds_wrapper {
     }
 };
 
-template <auto... Worlds>
+ATOM_EXPORT template <auto... Worlds>
 constexpr inline _run_worlds_wrapper<Worlds...> run_worlds;
 
 } // namespace neutron

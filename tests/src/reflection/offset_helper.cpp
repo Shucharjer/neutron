@@ -1,6 +1,10 @@
-#include <cstddef>
-#include <cstdint>
-#include <neutron/detail/reflection/offset_helper.hpp>
+// With modules, an implementation unit of neutron that imports std, see
+// `internal_tests`.
+#ifndef ATOM_USES_MODULES
+    #include <cstddef>
+    #include <cstdint>
+    #include <neutron/detail/reflection/offset_helper.hpp>
+#endif
 #include "require.hpp"
 
 using neutron::_refl::_offset_mapping;
@@ -24,7 +28,7 @@ void test_every_offset_maps_to_member_at_that_offset() {
 
 } // namespace
 
-int main() {
+extern "C++" int main() {
     test_every_offset_maps_to_member_at_that_offset();
     return neutron_test::result();
 }

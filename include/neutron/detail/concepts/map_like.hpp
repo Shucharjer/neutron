@@ -1,8 +1,11 @@
 // IWYU pragma: private, include <neutron/concepts.hpp>
 #pragma once
-#include <ranges>
-#include <type_traits>
-#include "./pair.hpp"
+#ifndef ATOM_BUILDING_MODULE
+    #include <ranges>
+    #include <type_traits>
+#endif
+#include "neutron/detail/concepts/pair.hpp"
+#include "neutron/detail/utility/macros.hpp"
 
 namespace neutron {
 
@@ -25,7 +28,7 @@ concept map_view =
 
 /*! @endcond */
 
-template <typename Rng>
+ATOM_EXPORT template <typename Rng>
 concept map_like = _map_like::map<Rng> || _map_like::map_view<Rng>;
 
 } // namespace neutron

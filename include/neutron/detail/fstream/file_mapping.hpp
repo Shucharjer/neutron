@@ -1,13 +1,15 @@
 // IWYU pragma: private, include <neutron/fstream.hpp>
 #pragma once
-#include <bit>
-#include <cerrno>
-#include <cstddef>
-#include <cstdint>
-#include <cstdlib>
-#include <limits>
-#include <system_error>
-#include <utility>
+#ifndef ATOM_BUILDING_MODULE
+    #include <bit>
+    #include <cerrno>
+    #include <cstddef>
+    #include <cstdint>
+    #include <cstdlib>
+    #include <limits>
+    #include <system_error>
+    #include <utility>
+#endif
 #include "neutron/detail/utility/macros.hpp"
 #include "neutron/detail/utility/system_error.hpp"
 
@@ -15,13 +17,17 @@
     #ifndef NOMINMAX
         #define NOMINMAX
     #endif
-    #include <windows.h>
+    #ifndef ATOM_BUILDING_MODULE
+        #include <windows.h>
+    #endif
 #elif defined(__unix__) || defined(__APPLE__)
-    #include <fcntl.h>
-    #include <sys/mman.h>
-    #include <sys/stat.h>
-    #include <sys/types.h>
-    #include <unistd.h>
+    #ifndef ATOM_BUILDING_MODULE
+        #include <fcntl.h>
+        #include <sys/mman.h>
+        #include <sys/stat.h>
+        #include <sys/types.h>
+        #include <unistd.h>
+    #endif
 #else
     #error "file mapping is not supported on this platform"
 #endif
@@ -31,7 +37,7 @@ namespace neutron {
 /**
  * @brief How a writable file mapping or stream opens its file.
  */
-enum class file_creation : unsigned char {
+ATOM_EXPORT enum class file_creation : unsigned char {
     open_existing,  ///< The file must already exist.
     open_or_create, ///< Create the file if it does not exist.
     truncate,       ///< Create the file, or truncate an existing one to zero.

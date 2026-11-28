@@ -1,8 +1,10 @@
 // IWYU pragma: private, include <neutron/reflection.hpp>
 #pragma once
-#include <array>
-#include <concepts>
-#include <ranges>
+#ifndef ATOM_BUILDING_MODULE
+    #include <array>
+    #include <concepts>
+    #include <ranges>
+#endif
 #include "neutron/detail/utility/macros.hpp"
 #include "neutron/detail/metafn/convert.hpp"
 #include "neutron/detail/metafn/element.hpp"
@@ -24,18 +26,18 @@ namespace neutron {
  * @tparam Ty The original data type.
  * @tparam Hash The compile-time hash value assiciated with the type.
  */
-template <typename Ty, auto Hash>
+ATOM_EXPORT template <typename Ty, auto Hash>
 struct hash_pair {
     using type                  = Ty;
     static constexpr auto value = Hash;
 };
 
-template <typename LHashPair, typename RHashPair>
+ATOM_EXPORT template <typename LHashPair, typename RHashPair>
 struct hash_less {
     constexpr static bool value = LHashPair::value < RHashPair::value;
 };
 
-template <typename LHashPair, typename RHashPair>
+ATOM_EXPORT template <typename LHashPair, typename RHashPair>
 struct hash_greater {
     constexpr static bool value = LHashPair::value > RHashPair::value;
 };
@@ -53,7 +55,7 @@ struct hash_greater {
  *
  * @note Requires `TypeList` to satisfy `unique_type_list_t`.
  */
-template <
+ATOM_EXPORT template <
     typename TypeList, auto Hasher = internal::hash,
     template <typename, typename> typename Compare = hash_less>
 requires std::same_as<unique_type_list_t<TypeList>, TypeList>
@@ -68,7 +70,7 @@ struct hash_list<Template<Tys...>, Hasher, Compare> {
 };
 
 /// @brief Alias template for `hash_list::type`
-template <
+ATOM_EXPORT template <
     typename TypeList, auto Hasher = internal::hash,
     template <typename, typename> typename Compare = hash_less>
 using hash_list_t = typename hash_list<TypeList, Hasher, Compare>::type;
@@ -83,7 +85,7 @@ using hash_list_t = typename hash_list<TypeList, Hasher, Compare>::type;
  * @tparam Hasher The hashing function to use.
  * @tparam Compare The sorting comparison policy.
  */
-template <
+ATOM_EXPORT template <
     typename TypeList, auto Hasher = internal::hash,
     template <typename, typename> typename Compare = hash_less>
 struct hash_value {
@@ -98,7 +100,7 @@ struct hash_value {
 };
 
 /// @brief Alias template for `hash_value::type`
-template <
+ATOM_EXPORT template <
     typename TypeList, auto Hasher = internal::hash,
     template <typename, typename> typename Compare = hash_less>
 using hash_value_t = typename hash_value<TypeList, Hasher, Compare>::type;
@@ -113,7 +115,7 @@ using hash_value_t = typename hash_value<TypeList, Hasher, Compare>::type;
  * @tparam Hasher The hashing function to use.
  * @tparam Compare The sorting comparison policy.
  */
-template <
+ATOM_EXPORT template <
     typename TypeList, auto Hasher = internal::hash,
     template <typename, typename> typename Compare = hash_less>
 struct hash_sequence {
@@ -121,7 +123,7 @@ struct hash_sequence {
 
     template <typename Ty>
     static constexpr std::size_t find() noexcept {
-        return []<size_t... Is>(std::index_sequence<Is...>) {
+        return []<std::size_t... Is>(std::index_sequence<Is...>) {
             std::size_t index = 0;
             (...,
              (index = std::is_same_v<Ty, type_list_element_t<Is, hash_list>>
@@ -140,7 +142,7 @@ struct hash_sequence {
 };
 
 /// @brief Alias template for `hash_sequence::type`
-template <
+ATOM_EXPORT template <
     typename TypeList, auto Hasher = internal::hash,
     template <typename, typename> typename Compare = hash_less>
 using hash_sequence_t = typename hash_sequence<TypeList, Hasher, Compare>::type;
@@ -153,10 +155,11 @@ using hash_sequence_t = typename hash_sequence<TypeList, Hasher, Compare>::type;
  * @tparam Compare The sorting policy.
  * @return A `std::array` (or similar) containing the sorted hash values.
  */
-template <
+ATOM_EXPORT template <
     typename TypeList, auto Hasher = internal::hash,
     template <typename, typename> typename Compare = hash_less>
-ATOM_ATTRS(ATOM_NODISCARD) consteval auto make_hash_array() noexcept {
+ATOM_ATTRS(ATOM_NODISCARD)
+consteval auto make_hash_array() noexcept {
     return make_array<hash_value_t<TypeList>>();
 }
 
@@ -171,10 +174,11 @@ ATOM_ATTRS(ATOM_NODISCARD) consteval auto make_hash_array() noexcept {
  * @tparam Compare The sorting policy.
  * @return The combined hash value of the sorted type list.
  */
-template <
+ATOM_EXPORT template <
     typename TypeList, auto Hasher = internal::hash,
     template <typename, typename> typename Compare = hash_less>
-ATOM_ATTRS(ATOM_NODISCARD) consteval long_hash_t make_array_hash() noexcept {
+ATOM_ATTRS(ATOM_NODISCARD)
+consteval long_hash_t make_array_hash() noexcept {
     auto array = make_hash_array<TypeList, Hasher, Compare>();
     return internal::hash_combine(array);
 }
@@ -186,8 +190,9 @@ ATOM_ATTRS(ATOM_NODISCARD) consteval long_hash_t make_array_hash() noexcept {
  * @param range A range of values to combine.
  * @return The combined hash value.
  */
-template <std::ranges::range Range>
-ATOM_ATTRS(ATOM_NODISCARD) constexpr long_hash_t hash_combine(Range&& range) noexcept {
+ATOM_EXPORT template <std::ranges::range Range>
+ATOM_ATTRS(ATOM_NODISCARD)
+constexpr long_hash_t hash_combine(Range&& range) noexcept {
     return internal::hash_combine(std::forward<Range>(range));
 }
 
@@ -200,9 +205,9 @@ ATOM_ATTRS(ATOM_NODISCARD) constexpr long_hash_t hash_combine(Range&& range) noe
  * @param range A range of values to combine.
  * @return The combined hash value computed at compile time.
  */
-template <std::ranges::range Range>
-ATOM_ATTRS(ATOM_NODISCARD) consteval long_hash_t
-    hash_combine(immediately_t, const Range& range) noexcept {
+ATOM_EXPORT template <std::ranges::range Range>
+ATOM_ATTRS(ATOM_NODISCARD)
+consteval long_hash_t hash_combine(immediately_t, const Range& range) noexcept {
     return internal::hash_combine(range);
 }
 

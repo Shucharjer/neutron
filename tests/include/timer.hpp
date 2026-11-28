@@ -1,8 +1,11 @@
 #pragma once
-#include <chrono>
-#include <cstddef>
-#include <neutron/print.hpp>
-#include <neutron/tstring.hpp>
+// With modules, the includer imports std and neutron.
+#ifndef ATOM_USES_MODULES
+    #include <chrono>
+    #include <cstddef>
+    #include <neutron/print.hpp>
+    #include <neutron/tstring.hpp>
+#endif
 
 template <typename Duration = std::chrono::milliseconds>
 class scope_timer {
@@ -34,7 +37,7 @@ auto set_timer() {
 template <typename Duration = std::chrono::milliseconds>
 class scope_msg_timer {
 public:
-    template <size_t Size>
+    template <std::size_t Size>
     scope_msg_timer(const char (&msg)[Size]) noexcept // NOLINT
         : msg_(msg), start_(std::chrono::high_resolution_clock::now()) {}
 
@@ -55,7 +58,7 @@ private:
     std::chrono::high_resolution_clock::time_point start_;
 };
 
-template <typename Duration = std::chrono::milliseconds, size_t Size>
+template <typename Duration = std::chrono::milliseconds, std::size_t Size>
 auto set_timer(const char (&msg)[Size]) { // NOLINT
     return scope_msg_timer<Duration>(msg);
 }

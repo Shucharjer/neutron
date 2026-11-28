@@ -1,17 +1,22 @@
-#include <algorithm>
-#include <cstddef>
-#include <deque>
-#include <iterator>
-#include <list>
-#include <map>
-#include <memory>
-#include <ranges>
-#include <set>
-#include <string>
-#include <type_traits>
-#include <utility>
-#include <vector>
-#include <neutron/iterator.hpp>
+#ifdef ATOM_USES_MODULES
+import std;
+import neutron;
+#else
+    #include <algorithm>
+    #include <cstddef>
+    #include <deque>
+    #include <iterator>
+    #include <list>
+    #include <map>
+    #include <memory>
+    #include <ranges>
+    #include <set>
+    #include <string>
+    #include <type_traits>
+    #include <utility>
+    #include <vector>
+    #include <neutron/iterator.hpp>
+#endif
 #include "require.hpp"
 
 using namespace neutron;

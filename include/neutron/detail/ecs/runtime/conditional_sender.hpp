@@ -1,6 +1,8 @@
 #pragma once
-#include <type_traits>
-#include <utility>
+#ifndef ATOM_BUILDING_MODULE
+    #include <type_traits>
+    #include <utility>
+#endif
 #include "neutron/detail/execution/core.hpp"
 #include "neutron/detail/utility/macros.hpp"
 

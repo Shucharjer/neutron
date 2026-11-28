@@ -1,25 +1,30 @@
 // IWYU pragma: private, include <neutron/ranges.hpp>
 #pragma once
-#include <ranges>
-#include <type_traits>
+#include "neutron/detail/utility/macros.hpp"
+#ifndef ATOM_BUILDING_MODULE
+    #include <ranges>
+    #include <type_traits>
+#endif
 
 #if __cplusplus > 202002L
 
 namespace neutron {
 
-template <typename Derived>
+ATOM_EXPORT template <typename Derived>
 using range_adaptor_closure = std::ranges::range_adaptor_closure<Derived>;
 
 } // namespace neutron
 
 #else
 
-    #include <utility>
+    #ifndef ATOM_BUILDING_MODULE
+        #include <utility>
+    #endif
     #include "neutron/detail/utility/pipeline.hpp"
 
 namespace neutron {
 
-template <typename Derived>
+ATOM_EXPORT template <typename Derived>
 struct range_adaptor_closure : adaptor_closure<Derived> {};
 
 /**
@@ -52,25 +57,27 @@ concept _range_adaptor_closure_for =
     std::ranges::range<Rng> && _range_adaptor_closure<Closure> &&
     std::ranges::range<std::invoke_result_t<Closure, Rng>>;
 
-template <std::ranges::range Rng, _range_adaptor_closure_for<Rng> Closure>
+ATOM_EXPORT template <
+    std::ranges::range Rng, _range_adaptor_closure_for<Rng> Closure>
 constexpr decltype(auto) operator|(Rng&& range, Closure&& closure) noexcept(
     noexcept(std::forward<Closure>(closure)(std::forward<Rng>(range)))) {
     return std::forward<Closure>(closure)(std::forward<Rng>(range));
 }
 
-template <_range_adaptor_closure Closure1, _range_adaptor_closure Closure2>
+ATOM_EXPORT template <
+    _range_adaptor_closure Closure1, _range_adaptor_closure Closure2>
 constexpr decltype(auto) operator|(Closure1&& closure1, Closure2&& closure2) {
     return neutron::_range_closure_compose(
         std::forward<Closure1>(closure1), std::forward<Closure2>(closure2));
 }
 
-template <typename WildClosure, _range_adaptor_closure Closure>
+ATOM_EXPORT template <typename WildClosure, _range_adaptor_closure Closure>
 constexpr decltype(auto) operator|(WildClosure&& wild, Closure&& closure) {
     return neutron::_range_closure_compose<WildClosure, Closure>(
         std::forward<WildClosure>(wild), std::forward<Closure>(closure));
 }
 
-template <_range_adaptor_closure Closure, typename WildClosure>
+ATOM_EXPORT template <_range_adaptor_closure Closure, typename WildClosure>
 constexpr decltype(auto) operator|(Closure&& closure, WildClosure&& wild) {
     return neutron::_range_closure_compose<
         std::remove_cvref_t<Closure>, WildClosure>(

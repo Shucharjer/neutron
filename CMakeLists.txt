@@ -21,6 +21,7 @@ option(NEUTRON_INSTALL "Install neutron" ON)
 option(NEUTRON_BUILD_DOCS "Build documentation for neutron" OFF)
 option(NEUTRON_USES_STDEXEC "uses stdexec as execution control library implementation, which supports c++20" OFF)
 option(NEUTRON_USES_BEMAN_EXECUTION "uses beman::execution as execution control library implementation, which needs a compiler that supports at least c++23" OFF)
+option(NEUTRON_BUILD_MODULE "Build neutron, std and the execution backend as C++20 named modules; the tests then import them" OFF)
 option(BUILD_NEUTRON_TESTING "Build test for neutron" OFF)
 option(BUILD_NEUTRON_BENCHMARK "Build benchmark for neutron" OFF)
 option(BUILD_NEUTRON_EXAMPLES "Build examples for neutron" OFF)
@@ -113,7 +114,7 @@ endif()
 include(export_inc)
 set(NEUTRON_INC_DIR ${CMAKE_CURRENT_SOURCE_DIR}/include/neutron)
 function(export_as_inc folder)
-  export_inc(${NEUTRON_INC_DIR}/detail/${folder} ${NEUTRON_INC_DIR}/${folder}.hpp hpp)
+  export_inc(${NEUTRON_INC_DIR}/detail/${folder} ${NEUTRON_INC_DIR}/${folder}.hpp hpp PUBLIC)
 endfunction()
 export_as_inc(algorithm)
 export_as_inc(concepts)
@@ -165,6 +166,25 @@ if(NEUTRON_BUILD_DOCS)
     VERBATIM)
 endif()
 
+if(NEUTRON_BUILD_MODULE)
+  if(NOT CMAKE_GENERATOR MATCHES "Ninja")
+    message(FATAL_ERROR
+      "NEUTRON_BUILD_MODULE requires a Ninja generator, but the generator is "
+      "'${CMAKE_GENERATOR}'.")
+  endif()
+  if((CMAKE_CXX_COMPILER_ID STREQUAL "GNU" AND
+      CMAKE_CXX_COMPILER_VERSION VERSION_LESS 15) OR
+     (CMAKE_CXX_COMPILER_ID STREQUAL "Clang" AND
+      CMAKE_CXX_COMPILER_VERSION VERSION_LESS 18.1.2))
+    message(FATAL_ERROR
+      "NEUTRON_BUILD_MODULE requires GCC 15+ or Clang 18.1.2+, which ship the "
+      "`std` module, but the compiler is "
+      "'${CMAKE_CXX_COMPILER_ID} ${CMAKE_CXX_COMPILER_VERSION}'.")
+  endif()
+  include(neutron_module)
+  neutron_add_std_module(neutron_std_module)
+endif()
+
 if(NEUTRON_USES_STDEXEC)
   set(STDEXEC_BUILD_EXAMPLES OFF)
   include(FetchContent)
@@ -176,6 +196,24 @@ if(NEUTRON_USES_STDEXEC)
   )
   FetchContent_MakeAvailable(stdexec)
   target_link_libraries(neutron INTERFACE STDEXEC::stdexec)
+  if(NEUTRON_BUILD_MODULE)
+    # stdexec's own module option requires C++23, so its module interface is
+    # built here on top of neutron's `std` module instead.
+    add_library(neutron_stdexec_module STATIC)
+    target_sources(
+      neutron_stdexec_module
+      PUBLIC FILE_SET CXX_MODULES
+             BASE_DIRS ${stdexec_SOURCE_DIR}/modules
+             FILES ${stdexec_SOURCE_DIR}/modules/stdexec.cppm)
+    # Also turns the stdexec headers of the consumers into `import stdexec;`.
+    target_compile_definitions(neutron_stdexec_module
+                               PUBLIC STDEXEC_BUILD_MODULES)
+    target_link_libraries(neutron_stdexec_module PUBLIC STDEXEC::stdexec
+                                                        neutron_std_module)
+    set_target_properties(neutron_stdexec_module
+                          PROPERTIES CXX_SCAN_FOR_MODULES ON)
+    set(NEUTRON_EXECUTION_MODULE neutron_stdexec_module)
+  endif()
 elseif(NEUTRON_USES_BEMAN_EXECUTION)
   if(CMAKE_CXX_STANDARD LESS 23)
     message(FATAL_ERROR
@@ -183,10 +221,15 @@ elseif(NEUTRON_USES_BEMAN_EXECUTION)
       "CMAKE_CXX_STANDARD is '${CMAKE_CXX_STANDARD}'. ")
   endif()
   include(FetchContent)
-  # neutron only consumes beman's header-only target, so do not build its
-  # C++ modules: they are unnecessary here and currently fail to compile
-  # against libc++ (the headers rely on transitive <concepts> declarations).
-  set(BEMAN_USE_MODULES OFF CACHE BOOL "Build beman.execution C++ modules" FORCE)
+  if(NEUTRON_BUILD_MODULE)
+    # Build beman's modules with `import std;`, but skip its detection of
+    # CMake's `import std` support: neutron provides the `std` module itself.
+    set(BEMAN_USE_MODULES ON)
+    set(BEMAN_USE_STD_MODULE OFF)
+    set(BEMAN_HAS_IMPORT_STD ON)
+  else()
+    set(BEMAN_USE_MODULES OFF)
+  endif()
   FetchContent_Declare(
     beman_execution
     GIT_REPOSITORY https://github.com/bemanproject/execution.git
@@ -195,6 +238,43 @@ elseif(NEUTRON_USES_BEMAN_EXECUTION)
   )
   FetchContent_MakeAvailable(beman_execution)
   target_link_libraries(neutron INTERFACE beman::execution_headers)
+  if(NEUTRON_BUILD_MODULE)
+    # beman hides its symbols, unlike the headers that neutron otherwise uses,
+    # which makes GCC warn about neutron types holding beman ones.
+    set_target_properties(
+      beman.execution
+      PROPERTIES CXX_MODULE_STD OFF
+                 CXX_VISIBILITY_PRESET default
+                 VISIBILITY_INLINES_HIDDEN OFF)
+    # Build tree only, beman installs its targets.
+    target_link_libraries(beman.execution
+                          PUBLIC $<BUILD_INTERFACE:neutron_std_module>)
+    set(NEUTRON_EXECUTION_MODULE beman.execution)
+  endif()
+endif()
+
+if(NEUTRON_BUILD_MODULE)
+  # Every public header, included by the module interface unit.
+  set(NEUTRON_MODULE_INC_DIR ${CMAKE_CURRENT_BINARY_DIR}/neutron_module)
+  export_inc(${NEUTRON_INC_DIR} ${NEUTRON_MODULE_INC_DIR}/neutron_all.hpp hpp
+             EXCLUDE ${NEUTRON_INC_DIR}/macros.hpp)
+
+  add_library(neutron_module STATIC)
+  add_library(atom::neutron_module ALIAS neutron_module)
+  target_include_directories(neutron_module PRIVATE ${NEUTRON_MODULE_INC_DIR})
+  target_sources(
+    neutron_module
+    PUBLIC FILE_SET CXX_MODULES
+           BASE_DIRS ${CMAKE_CURRENT_SOURCE_DIR}/modules
+           FILES ${CMAKE_CURRENT_SOURCE_DIR}/modules/neutron.cppm)
+  target_link_libraries(neutron_module PUBLIC neutron neutron_std_module
+                                              ${NEUTRON_EXECUTION_MODULE})
+  # The headers of neutron become `import neutron;` in the consumers.
+  target_compile_definitions(neutron_module PUBLIC ATOM_USES_MODULES=1)
+  set_target_properties(
+    neutron_module
+    PROPERTIES EXPORT_NAME "neutron_module"
+               CXX_SCAN_FOR_MODULES ON)
 endif()
 
 include(exec)
@@ -204,7 +284,48 @@ if(BUILD_NEUTRON_TESTING)
   option(ATOM_TEST_SEE_ALL_TEMPLATE_BACKTRACE OFF)
   set(tests_dir ${CMAKE_CURRENT_SOURCE_DIR}/tests)
   set(tests_output_dir ${CMAKE_CURRENT_BINARY_DIR}/tests)
-  exec_standard_dir(${tests_dir} "tests." ${tests_output_dir} true neutron)
+  if(NEUTRON_BUILD_MODULE)
+    # The tests import neutron and std. These ones check internals, which the
+    # module does not export, so they are implementation units of neutron.
+    set(internal_tests
+        constexpr.cpp
+        ecs/compile-time/desc_validator.cpp
+        ecs/compile-time/query_cache.cpp
+        ecs/core/slice.cpp
+        ecs/core/world_base.cpp
+        ecs/params/construct/local.cpp
+        ecs/runtime/run_env.cpp
+        ecs/runtime/runtime.cpp
+        ecs/utility/anchor.cpp
+        fstream/file_map.cpp
+        fstream/file_window.cpp
+        fstream/fmbuf.cpp
+        fstream/fmstream.cpp
+        fstream/ifmstream.cpp
+        fstream/ofmstream.cpp
+        iterator/iter_wrapper.cpp
+        lockfree/inplace_mpsc_queue.cpp
+        lockfree/inplace_spsc_queue.cpp
+        lockfree/intrusive_mpsc_queue.cpp
+        lockfree/node.cpp
+        mask.cpp
+        memory/freeable_bytes.cpp
+        memory/object_pool.cpp
+        ranges/adaptor_closure.cpp
+        ranges/concepts.cpp
+        reflection/hash.cpp
+        reflection/hash_fn.cpp
+        reflection/hash_t.cpp
+        reflection/offset_helper.cpp
+        utility/compressed_element.cpp
+        utility/get.cpp
+        utility/pipeline.cpp)
+    exec_standard_dir_module(${tests_dir} "tests." ${tests_output_dir} true
+                             LIBS neutron_module
+                             UNIT_SOURCES ${internal_tests})
+  else()
+    exec_standard_dir(${tests_dir} "tests." ${tests_output_dir} true neutron)
+  endif()
   if(ATOM_TEST_SEE_ALL_TEMPLATE_BACKTRACE)
     exec_dir_options(${tests_dir} "tests." -ftemplate-backtrace-limit=0)
   endif()

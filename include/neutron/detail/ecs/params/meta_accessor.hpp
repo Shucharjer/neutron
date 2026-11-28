@@ -2,15 +2,17 @@
 #pragma once
 #include "neutron/detail/ecs/fwd.hpp"
 
-#include <algorithm>
-#include <array>
-#include <cstddef>
-#include <cstdint>
-#include <iterator>
-#include <memory>
-#include <string_view>
-#include <type_traits>
-#include <utility>
+#ifndef ATOM_BUILDING_MODULE
+    #include <algorithm>
+    #include <array>
+    #include <cstddef>
+    #include <cstdint>
+    #include <iterator>
+    #include <memory>
+    #include <string_view>
+    #include <type_traits>
+    #include <utility>
+#endif
 #include "neutron/detail/ecs/params/commands.hpp" // IWYU pragma: keep
 #include "neutron/detail/utility/macros.hpp"
 #include "neutron/detail/metafn/rebind.hpp"
@@ -18,12 +20,14 @@
 
 namespace neutron {
 
-class typeinfo {
-    constexpr typeinfo(uint32_t hash, std::string_view name) noexcept
+ATOM_EXPORT class typeinfo {
+    constexpr typeinfo(std::uint32_t hash, std::string_view name) noexcept
         : hash_(hash), name_(name) {}
 
 public:
-    ATOM_ATTRS(ATOM_NODISCARD) constexpr uint32_t hash() const noexcept { return hash_; }
+    ATOM_ATTRS(ATOM_NODISCARD) constexpr std::uint32_t hash() const noexcept {
+        return hash_;
+    }
 
     ATOM_ATTRS(ATOM_NODISCARD) constexpr std::string_view name() const noexcept {
         return name_;
@@ -34,7 +38,7 @@ public:
         return typeinfo{ hash_of<Ty>(), name_of<Ty>() };
     }
 
-    constexpr bool operator==(uint32_t hash) const noexcept {
+    constexpr bool operator==(std::uint32_t hash) const noexcept {
         return hash_ == hash;
     }
 
@@ -43,11 +47,11 @@ public:
     }
 
 private:
-    uint32_t hash_;
+    std::uint32_t hash_;
     std::string_view name_;
 };
 
-template <typename Alloc = std::allocator<std::byte>>
+ATOM_EXPORT template <typename Alloc = std::allocator<std::byte>>
 class basic_meta_accessor {
     using _iter_t = const typeinfo*;
 
@@ -58,7 +62,7 @@ public:
     using _fn_t        = Ret (*)(Args...);
     using _begin_fn    = _sfn_t<_iter_t>;
     using _end_fn      = _sfn_t<_iter_t>;
-    using _findhash_fn = _sfn_t<_iter_t, uint32_t>;
+    using _findhash_fn = _sfn_t<_iter_t, std::uint32_t>;
     using _findname_fn = _sfn_t<_iter_t, std::string_view>;
     using _add_fn      = _fn_t<bool, basic_commands<Alloc>, entity_t, _iter_t>;
     using _rm_fn       = _fn_t<bool, basic_commands<Alloc>, entity_t, _iter_t>;
@@ -74,7 +78,7 @@ public:
 
     ATOM_ATTRS(ATOM_NODISCARD) _iter_t end() const noexcept { return end_(); }
 
-    ATOM_ATTRS(ATOM_NODISCARD) _iter_t find(uint32_t hash) const noexcept {
+    ATOM_ATTRS(ATOM_NODISCARD) _iter_t find(std::uint32_t hash) const noexcept {
         return findhash_(hash);
     }
 
@@ -118,7 +122,8 @@ public:
         return info.data() + info.size();
     }
 
-    ATOM_ATTRS(ATOM_NODISCARD) static const typeinfo* findhash(uint32_t hash) noexcept {
+    ATOM_ATTRS(ATOM_NODISCARD)
+    static const typeinfo* findhash(std::uint32_t hash) noexcept {
         return std::find(begin(), end(), hash);
     }
 
@@ -129,25 +134,27 @@ public:
 
     static bool add_component(
         basic_commands<Alloc> cmds, entity_t entity, const typeinfo* iter) {
-        size_t index = std::distance(begin(), iter);
-        return [cmds, entity, index]<size_t... Is>(std::index_sequence<Is...>) {
+        std::size_t index = std::distance(begin(), iter);
+        return [cmds, entity,
+                index]<std::size_t... Is>(std::index_sequence<Is...>) {
             return (_add_component<Is>(cmds, entity, index) || ...);
         }(std::index_sequence_for<Components...>());
     }
 
     static bool remove_component(
         basic_commands<Alloc> cmds, entity_t entity, const typeinfo* iter) {
-        size_t index = std::distance(begin(), iter);
-        return [cmds, entity, index]<size_t... Is>(std::index_sequence<Is...>) {
+        std::size_t index = std::distance(begin(), iter);
+        return [cmds, entity,
+                index]<std::size_t... Is>(std::index_sequence<Is...>) {
             return (_remove_component<Is>(cmds, entity, index) || ...);
         }(std::index_sequence_for<Components...>());
     }
 
 private:
-    template <size_t Index>
+    template <std::size_t Index>
     static bool _add_component(
         // NOLINTNEXTLINE
-        basic_commands<Alloc> cmds, entity_t entity, size_t index) {
+        basic_commands<Alloc> cmds, entity_t entity, std::size_t index) {
         using type = type_list_element_t<Index, _accessor<Components...>>;
         if (index == Index) {
             cmds.template add_components<type>(entity);
@@ -156,10 +163,10 @@ private:
         return false;
     }
 
-    template <size_t Index>
+    template <std::size_t Index>
     static bool _remove_component(
         // NOLINTNEXTLINE
-        basic_commands<Alloc> cmds, entity_t entity, size_t index) {
+        basic_commands<Alloc> cmds, entity_t entity, std::size_t index) {
         using type = type_list_element_t<Index, _accessor<Components...>>;
         if (index == Index) {
             cmds.template remove_components<type>(entity);
@@ -188,6 +195,7 @@ private:
 //     }
 // };
 
-using meta_accessor = basic_meta_accessor<std::allocator<std::byte>>;
+ATOM_EXPORT using meta_accessor =
+    basic_meta_accessor<std::allocator<std::byte>>;
 
 } // namespace neutron

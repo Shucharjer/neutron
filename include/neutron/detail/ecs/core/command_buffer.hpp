@@ -2,15 +2,18 @@
 #pragma once
 #include "neutron/detail/ecs/fwd.hpp"
 
-#include <bit>
-#include <concepts>
-#include <cstddef>
-#include <memory>
-#include <new>
-#include <type_traits>
-#include <vector>
+#ifndef ATOM_BUILDING_MODULE
+    #include <bit>
+    #include <concepts>
+    #include <cstddef>
+    #include <memory>
+    #include <new>
+    #include <type_traits>
+    #include <vector>
+#endif
 #include "neutron/detail/concepts/allocator.hpp"
 #include "neutron/detail/ecs/core/world_base.hpp"
+#include "neutron/detail/utility/macros.hpp"
 
 #ifdef __clang__
 #elif defined(__GNUC__)
@@ -286,7 +289,7 @@ private:
 
 } // namespace _command
 
-template <unfancy_allocator Alloc = std::allocator<std::byte>>
+ATOM_EXPORT template <unfancy_allocator Alloc = std::allocator<std::byte>>
 class alignas(std::hardware_destructive_interference_size) command_buffer {
     template <typename Ty>
     using _allocator_t = neutron::rebind_alloc_t<Alloc, Ty>;
@@ -298,7 +301,7 @@ class alignas(std::hardware_destructive_interference_size) command_buffer {
 
     using _command_base = _command::_command_base<Alloc>;
 
-    static constexpr size_t block_size  = 1024U << 4UL; // 16kB
+    static constexpr std::size_t block_size = 1024U << 4UL; // 16kB
     static constexpr auto default_align = static_cast<std::align_val_t>(16);
 
     struct _ptr_deletor {
@@ -462,11 +465,11 @@ public:
     }
 
 private:
-    template <size_t Align>
+    template <std::size_t Align>
     std::byte* _next_aligned(std::byte* ptr) noexcept {
         constexpr auto magic = Align - 1;
         return std::bit_cast<std::byte*>(
-            (std::bit_cast<uintptr_t>(ptr) + magic) & ~magic);
+            (std::bit_cast<std::uintptr_t>(ptr) + magic) & ~magic);
     }
 
     /**
@@ -521,9 +524,9 @@ private:
     /// index in one frame.
     index_t inframe_index_{};
     /// current writing command buffer.
-    size_t current_{};
+    std::size_t current_{};
     /// offset in current writing command buffer.
-    size_t offset_{};
+    std::size_t offset_{};
     /// commands pointer
     _vector_t<_command_base*> commands_;
     /// buffers store commands

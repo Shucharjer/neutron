@@ -1,8 +1,11 @@
 // IWYU pragma: private, include <neutron/metafn.hpp>
 #pragma once
-#include <type_traits>
+#ifndef ATOM_BUILDING_MODULE
+    #include <type_traits>
+#endif
 #include "neutron/detail/metafn/empty.hpp"
 #include "neutron/detail/metafn/has.hpp"
+#include "neutron/detail/utility/macros.hpp"
 
 namespace neutron {
 
@@ -11,7 +14,7 @@ namespace neutron {
  * @brief Filter the types in the list to only those for which the predicate is
  * true.
  */
-template <template <typename> typename Predicate, typename Template>
+ATOM_EXPORT template <template <typename> typename Predicate, typename Template>
 struct type_list_filt;
 template <
     template <typename> typename Predicate,
@@ -32,12 +35,12 @@ struct type_list_filt<Predicate, Template<Tys...>> {
     };
     using type = typename filt<Template<>, Tys...>::type;
 };
-template <template <typename> typename Predicate, typename Template>
+ATOM_EXPORT template <template <typename> typename Predicate, typename Template>
 using type_list_filter_t = typename type_list_filt<Predicate, Template>::type;
 
 // value_list_filt
 
-template <template <auto> typename Predicate, typename ValList>
+ATOM_EXPORT template <template <auto> typename Predicate, typename ValList>
 struct value_list_filt;
 template <
     template <auto> typename Predicate, template <auto...> typename Template,
@@ -58,10 +61,10 @@ struct value_list_filt<Predicate, Template<Tys...>> {
     };
     using type = typename filt<Template<>, Tys...>::type;
 };
-template <template <auto> typename Predicate, typename ValList>
+ATOM_EXPORT template <template <auto> typename Predicate, typename ValList>
 using value_list_filt_t = typename value_list_filt<Predicate, ValList>::type;
 
-template <
+ATOM_EXPORT template <
     template <typename> typename Predicate, typename TypeList,
     typename TyIfEmpty>
 struct type_list_filt_nempty {
@@ -74,23 +77,23 @@ struct type_list_filt_nempty {
         }
     }())>;
 };
-template <
+ATOM_EXPORT template <
     template <typename> typename Predicate, typename TypeList,
     typename TyIfEmpty>
 using type_list_filt_nempty_t =
     type_list_filt_nempty<Predicate, TypeList, TyIfEmpty>::type;
 
-template <typename Tag, typename TypeList>
+ATOM_EXPORT template <typename Tag, typename TypeList>
 struct type_list_filt_tagged {
     template <typename T>
     using predicate_type = tagged_list_has_tag<T, Tag>;
     using type           = type_list_filter_t<predicate_type, TypeList>;
 };
-template <typename Tag, typename TypeList>
+ATOM_EXPORT template <typename Tag, typename TypeList>
 using type_list_filt_tagged_t =
     typename type_list_filt_tagged<Tag, TypeList>::type;
 
-template <typename Tag, typename TypeList, typename TyIfEmpty>
+ATOM_EXPORT template <typename Tag, typename TypeList, typename TyIfEmpty>
 struct type_list_filt_tagged_nempty {
     using type = type_list_filt_tagged_t<Tag, TypeList>;
 };
@@ -99,7 +102,7 @@ requires std::negation_v<type_list_has_tag<TypeList, Tag>>
 struct type_list_filt_tagged_nempty<Tag, TypeList, TyIfEmpty> {
     using type = TyIfEmpty;
 };
-template <typename Tag, typename TypeList, typename TyIfEmpty>
+ATOM_EXPORT template <typename Tag, typename TypeList, typename TyIfEmpty>
 using type_list_filt_tagged_nempty_t =
     typename type_list_filt_tagged_nempty<Tag, TypeList, TyIfEmpty>::type;
 

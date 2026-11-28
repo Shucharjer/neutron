@@ -1,11 +1,14 @@
 // IWYU pragma: private, include <neutron/parallel.hpp>
 #pragma once
-#include <atomic>
+#ifndef ATOM_BUILDING_MODULE
+    #include <atomic>
+#endif
 #include "neutron/detail/parallel/cpu_relax.hpp"
+#include "neutron/detail/utility/macros.hpp"
 
 namespace neutron {
 
-class spinlock {
+ATOM_EXPORT class spinlock {
 public:
     spinlock()                           = default;
     spinlock(const spinlock&)            = delete;

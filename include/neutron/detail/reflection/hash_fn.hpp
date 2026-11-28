@@ -1,7 +1,9 @@
 // IWYU pragma: private
 #pragma once
-#include <cstdint>
-#include <string_view>
+#ifndef ATOM_BUILDING_MODULE
+    #include <cstdint>
+    #include <string_view>
+#endif
 #include "neutron/detail/reflection/hash_t.hpp"
 #include "neutron/detail/utility/macros.hpp"
 
@@ -10,12 +12,12 @@ namespace neutron::internal {
 
 constexpr hash_t hash(std::string_view string) noexcept {
     // fnv1a
-    constexpr uint32_t magic = 0x811c9dc5;
-    constexpr uint32_t prime = 0x01000193;
+    constexpr std::uint32_t magic = 0x811c9dc5;
+    constexpr std::uint32_t prime = 0x01000193;
 
-    uint32_t value = magic;
+    std::uint32_t value = magic;
     for (char ch : string) {
-        value = value ^ static_cast<uint8_t>(ch);
+        value = value ^ static_cast<std::uint8_t>(ch);
         value *= prime;
     }
 
@@ -23,7 +25,7 @@ constexpr hash_t hash(std::string_view string) noexcept {
 }
 
 template <std::ranges::range Rng>
-requires std::same_as<std::ranges::range_value_t<Rng>, uint32_t>
+requires std::same_as<std::ranges::range_value_t<Rng>, std::uint32_t>
 ATOM_ATTRS(ATOM_NODEBUG, ATOM_ALWAYS_INLINE)
 constexpr long_hash_t hash_combine(const Rng& range) noexcept {
     constexpr long_hash_t magic = 0xcbf29ce484222325;

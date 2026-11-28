@@ -1,11 +1,14 @@
 #pragma once
-#include <atomic>
-#include <cstddef>
+#ifndef ATOM_BUILDING_MODULE
+    #include <atomic>
+    #include <cstddef>
+#endif
 #include "neutron/detail/parallel/cpu_relax.hpp"
+#include "neutron/detail/utility/macros.hpp"
 
 namespace neutron {
 
-template <std::size_t SpinCount = 8192>
+ATOM_EXPORT template <std::size_t SpinCount = 8192>
 class spin_mutex {
 public:
     spin_mutex() noexcept                    = default;
